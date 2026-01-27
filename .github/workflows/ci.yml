@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   lint:
     runs-on: macos-14
@@ -98,3 +102,31 @@ jobs:
       with:
         file: ./coverage.lcov
         fail_ci_if_error: false
+
+  # Notify on failure - creates/updates GitHub issue
+  notify-failure:
+    name: Notify Build Failure
+    runs-on: macos-14
+    needs: [lint, build, test]
+    if: failure() && github.event.pull_request == null
+    steps:
+    - name: Create or update failure issue
+      uses: jayqi/failed-build-issue-action@v1
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        title-template: "CI Build Failure: {{workflow}} on {{refname}}"
+        body-template: |
+          ## Build Failure Detected
+
+          **Workflow:** {{workflow}} #{{runNumber}}
+          **Branch:** [{{refname}}](https://github.com/{{repo.owner}}/{{repo.repo}}/tree/{{refname}})
+          **Commit:** [{{sha}}](https://github.com/{{repo.owner}}/{{repo.repo}}/commit/{{sha}})
+          **Run:** [View workflow run](https://github.com/{{repo.owner}}/{{repo.repo}}/actions/runs/{{runId}})
+
+          ### Failed Jobs
+          One or more jobs failed in this workflow run. Check the workflow run link above for details.
+
+          ### Next Steps
+          1. Review the failed job logs
+          2. Fix the issue and push a new commit
+          3. Close this issue once the build passes
