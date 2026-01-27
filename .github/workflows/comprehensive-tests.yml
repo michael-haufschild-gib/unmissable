@@ -286,15 +286,37 @@ jobs:
           # Check for common security issues
           echo "🔒 Running security checks..."
 
-          # Check for hardcoded secrets
-          if grep -r "password\|secret\|key" Sources/ --include="*.swift" | grep -v "// Test"; then
-            echo "❌ Potential hardcoded secrets found"
+          # Check for hardcoded secrets - look for actual secret patterns, not keywords
+          # Patterns: API keys, passwords in strings, bearer tokens, private keys
+          SECRETS_FOUND=0
+          
+          # Look for hardcoded API keys (sk-, pk-, api_, etc.)
+          if grep -rE '= "(sk-|pk-|api_key_|bearer )[^"]+' Sources/ --include="*.swift" 2>/dev/null; then
+            echo "❌ Potential hardcoded API key found"
+            SECRETS_FOUND=1
+          fi
+          
+          # Look for password assignments (password = "something")
+          if grep -rE 'password\s*[:=]\s*"[^"]+"' Sources/ --include="*.swift" 2>/dev/null | grep -v 'example\|placeholder\|test'; then
+            echo "❌ Potential hardcoded password found"
+            SECRETS_FOUND=1
+          fi
+          
+          # Look for private key content
+          if grep -rE 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY' Sources/ --include="*.swift" 2>/dev/null; then
+            echo "❌ Potential private key found in source"
+            SECRETS_FOUND=1
+          fi
+          
+          if [ $SECRETS_FOUND -eq 1 ]; then
             exit 1
           fi
+          
+          echo "✅ No hardcoded secrets detected"
 
           # Check for unsafe functions
           if grep -r "unsafeBitCast\|unsafeUnwrap" Sources/ --include="*.swift"; then
-            echo "⚠️ Unsafe functions detected"
+            echo "⚠️ Unsafe functions detected (review recommended)"
           fi
 
           echo "✅ Security scan completed"
