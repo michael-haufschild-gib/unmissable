@@ -210,12 +210,12 @@ final class OverlayTimerFixValidationTests: XCTestCase {
         // Test handling of extreme time values
 
         // Very far future event (1 day from now)
-        let farFutureEvent = TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(86400))
+        let farFutureEvent = TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(86_400))
         overlayManager.showOverlay(for: farFutureEvent)
 
         let farCountdown = overlayManager.timeUntilMeeting
-        XCTAssertGreaterThan(farCountdown, 86300, "Should handle far future events")
-        XCTAssertLessThan(farCountdown, 86500, "Should handle far future events")
+        XCTAssertGreaterThan(farCountdown, 86_300, "Should handle far future events")
+        XCTAssertLessThan(farCountdown, 86_500, "Should handle far future events")
 
         // Very recent past event (1 second ago)
         let recentPastEvent = TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(-1))
