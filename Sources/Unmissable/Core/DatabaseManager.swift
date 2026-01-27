@@ -221,9 +221,11 @@ final class DatabaseManager: ObservableObject {
       debugLogger.info("   - Attendees being saved: \(firstEvent.attendees.count) attendees")
     }
 
-    try await dbQueue.write { db in
-      for event in events {
-        try event.save(db)
+    try await withTimeout(defaultTimeout) {
+      try await dbQueue.write { db in
+        for event in events {
+          try event.save(db)
+        }
       }
     }
 
@@ -235,15 +237,17 @@ final class DatabaseManager: ObservableObject {
       throw DatabaseError.notInitialized
     }
 
-    try await dbQueue.write { db in
-      // Delete existing events for this calendar
-      try Event
-        .filter(Event.Columns.calendarId == calendarId)
-        .deleteAll(db)
+    try await withTimeout(defaultTimeout) {
+      try await dbQueue.write { db in
+        // Delete existing events for this calendar
+        try Event
+          .filter(Event.Columns.calendarId == calendarId)
+          .deleteAll(db)
 
-      // Insert new events
-      for event in events {
-        try event.save(db)
+        // Insert new events
+        for event in events {
+          try event.save(db)
+        }
       }
     }
 
@@ -255,12 +259,14 @@ final class DatabaseManager: ObservableObject {
       throw DatabaseError.notInitialized
     }
 
-    return try await dbQueue.read { db in
-      try Event
-        .filter(Event.Columns.startDate >= startDate)
-        .filter(Event.Columns.startDate <= endDate)
-        .order(Event.Columns.startDate)
-        .fetchAll(db)
+    return try await withTimeout(defaultTimeout) {
+      try await dbQueue.read { db in
+        try Event
+          .filter(Event.Columns.startDate >= startDate)
+          .filter(Event.Columns.startDate <= endDate)
+          .order(Event.Columns.startDate)
+          .fetchAll(db)
+      }
     }
   }
 
@@ -270,12 +276,14 @@ final class DatabaseManager: ObservableObject {
     }
 
     let now = Date()
-    let events = try await dbQueue.read { db in
-      try Event
-        .filter(Event.Columns.startDate > now)
-        .order(Event.Columns.startDate)
-        .limit(limit)
-        .fetchAll(db)
+    let events = try await withTimeout(defaultTimeout) {
+      try await dbQueue.read { db in
+        try Event
+          .filter(Event.Columns.startDate > now)
+          .order(Event.Columns.startDate)
+          .limit(limit)
+          .fetchAll(db)
+      }
     }
 
     // Log first fetched event to verify data retrieval
@@ -298,12 +306,14 @@ final class DatabaseManager: ObservableObject {
     }
 
     let now = Date()
-    let events = try await dbQueue.read { db in
-      try Event
-        .filter(Event.Columns.startDate <= now && Event.Columns.endDate > now)
-        .order(Event.Columns.startDate.desc)  // Most recently started first
-        .limit(limit)
-        .fetchAll(db)
+    let events = try await withTimeout(defaultTimeout) {
+      try await dbQueue.read { db in
+        try Event
+          .filter(Event.Columns.startDate <= now && Event.Columns.endDate > now)
+          .order(Event.Columns.startDate.desc)  // Most recently started first
+          .limit(limit)
+          .fetchAll(db)
+      }
     }
 
     debugLogger.info("📤 FETCHED \(events.count) STARTED MEETINGS FROM DATABASE")
@@ -322,10 +332,12 @@ final class DatabaseManager: ObservableObject {
       throw DatabaseError.notInitialized
     }
 
-    _ = try await dbQueue.write { db in
-      try Event
-        .filter(Event.Columns.calendarId == calendarId)
-        .deleteAll(db)
+    _ = try await withTimeout(defaultTimeout) {
+      try await dbQueue.write { db in
+        try Event
+          .filter(Event.Columns.calendarId == calendarId)
+          .deleteAll(db)
+      }
     }
 
     logger.info("Deleted events for calendar: \(calendarId)")
@@ -336,10 +348,12 @@ final class DatabaseManager: ObservableObject {
       throw DatabaseError.notInitialized
     }
 
-    let deletedCount = try await dbQueue.write { db in
-      try Event
-        .filter(Event.Columns.endDate < date)
-        .deleteAll(db)
+    let deletedCount = try await withTimeout(defaultTimeout) {
+      try await dbQueue.write { db in
+        try Event
+          .filter(Event.Columns.endDate < date)
+          .deleteAll(db)
+      }
     }
 
     logger.info("Deleted \(deletedCount) old events")
@@ -418,21 +432,23 @@ final class DatabaseManager: ObservableObject {
       throw DatabaseError.notInitialized
     }
 
-    return try await dbQueue.read { db in
-      let eventIds =
-        try String
-        .fetchAll(
-          db,
-          sql: """
-            SELECT id FROM events_fts
-            WHERE events_fts MATCH ?
-            ORDER BY rank
-            """, arguments: [query])
+    return try await withTimeout(defaultTimeout) {
+      try await dbQueue.read { db in
+        let eventIds =
+          try String
+          .fetchAll(
+            db,
+            sql: """
+              SELECT id FROM events_fts
+              WHERE events_fts MATCH ?
+              ORDER BY rank
+              """, arguments: [query])
 
-      return
-        try Event
-        .filter(eventIds.contains(Event.Columns.id))
-        .fetchAll(db)
+        return
+          try Event
+          .filter(eventIds.contains(Event.Columns.id))
+          .fetchAll(db)
+      }
     }
   }
 
@@ -443,9 +459,11 @@ final class DatabaseManager: ObservableObject {
       throw DatabaseError.notInitialized
     }
 
-    try await dbQueue.write { db in
-      for calendar in calendars {
-        try calendar.save(db)
+    try await withTimeout(defaultTimeout) {
+      try await dbQueue.write { db in
+        for calendar in calendars {
+          try calendar.save(db)
+        }
       }
     }
 
@@ -457,10 +475,12 @@ final class DatabaseManager: ObservableObject {
       throw DatabaseError.notInitialized
     }
 
-    return try await dbQueue.read { db in
-      try CalendarInfo
-        .order(CalendarInfo.Columns.isPrimary.desc, CalendarInfo.Columns.name)
-        .fetchAll(db)
+    return try await withTimeout(defaultTimeout) {
+      try await dbQueue.read { db in
+        try CalendarInfo
+          .order(CalendarInfo.Columns.isPrimary.desc, CalendarInfo.Columns.name)
+          .fetchAll(db)
+      }
     }
   }
 
@@ -469,13 +489,41 @@ final class DatabaseManager: ObservableObject {
       throw DatabaseError.notInitialized
     }
 
-    try await dbQueue.write { db in
-      try db.execute(
-        sql: """
-          UPDATE calendars
-          SET lastSyncAt = ?, updatedAt = ?
-          WHERE id = ?
-          """, arguments: [Date(), Date(), calendarId])
+    try await withTimeout(defaultTimeout) {
+      try await dbQueue.write { db in
+        try db.execute(
+          sql: """
+            UPDATE calendars
+            SET lastSyncAt = ?, updatedAt = ?
+            WHERE id = ?
+            """, arguments: [Date(), Date(), calendarId])
+      }
+    }
+  }
+
+  // MARK: - Timeout Wrapper
+
+  /// Default timeout for database operations (30 seconds)
+  private let defaultTimeout: TimeInterval = 30.0
+
+  /// Executes an async operation with a timeout to prevent indefinite hangs
+  private func withTimeout<T: Sendable>(
+    _ seconds: TimeInterval,
+    _ operation: @escaping @Sendable () async throws -> T
+  ) async throws -> T {
+    try await withThrowingTaskGroup(of: T.self) { group in
+      group.addTask {
+        try await operation()
+      }
+      group.addTask {
+        try await Task.sleep(for: .seconds(seconds))
+        throw DatabaseError.timeout
+      }
+      guard let result = try await group.next() else {
+        throw DatabaseError.timeout
+      }
+      group.cancelAll()
+      return result
     }
   }
 
@@ -488,11 +536,13 @@ final class DatabaseManager: ObservableObject {
     let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
     try await deleteOldEvents(before: thirtyDaysAgo)
 
-    // Vacuum database
+    // Vacuum database (use longer timeout as VACUUM can take time on large DBs)
     guard let dbQueue = dbQueue else { return }
 
-    try await dbQueue.write { db in
-      try db.execute(sql: "VACUUM")
+    try await withTimeout(60.0) {
+      try await dbQueue.write { db in
+        try db.execute(sql: "VACUUM")
+      }
     }
 
     logger.info("Database maintenance completed")
@@ -521,6 +571,7 @@ final class DatabaseManager: ObservableObject {
 enum DatabaseError: LocalizedError {
   case notInitialized
   case migrationFailed(String)
+  case timeout
 
   var errorDescription: String? {
     switch self {
@@ -528,6 +579,8 @@ enum DatabaseError: LocalizedError {
       return "Database not initialized"
     case .migrationFailed(let message):
       return "Database migration failed: \(message)"
+    case .timeout:
+      return "Database operation timed out"
     }
   }
 }

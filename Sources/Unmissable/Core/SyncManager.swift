@@ -51,11 +51,13 @@ final class SyncManager: ObservableObject {
   }
 
   deinit {
-    networkMonitor?.cancel()
+    // Cancel async tasks first (they may reference the monitor)
     networkMonitorTask?.cancel()
+    pendingNetworkUpdate?.cancel()
     syncTask?.cancel()
     retryTask?.cancel()
-    pendingNetworkUpdate?.cancel()
+    // Then cancel the monitor itself
+    networkMonitor?.cancel()
   }
 
   private var syncInterval: TimeInterval {

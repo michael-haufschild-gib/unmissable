@@ -94,8 +94,9 @@ final class AppState: ObservableObject {
     // Update menu bar preview when started events change (for proper next meeting calculation)
     calendarService.$startedEvents
       .sink { [weak self] _ in
+        guard let self else { return }
         // Refresh with all upcoming events to recalculate next meeting
-        self?.menuBarPreviewManager.updateEvents(self?.upcomingEvents ?? [])
+        self.menuBarPreviewManager.updateEvents(self.upcomingEvents)
       }
       .store(in: &cancellables)
 

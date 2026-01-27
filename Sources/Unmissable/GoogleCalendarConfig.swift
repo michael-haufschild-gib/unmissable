@@ -77,8 +77,9 @@ struct GoogleCalendarConfig {
       return scheme
     }
 
-    // Safe default fallback
-    return "com.unmissable.app"
+    // Safe default fallback - use unique scheme with bundle identifier hash to prevent hijacking
+    let bundleHash = abs(Bundle.main.bundleIdentifier?.hashValue ?? 0)
+    return "com.unmissable.oauth.\(bundleHash)"
   }()
 
   static let redirectURI = "\(redirectScheme):/"
@@ -96,19 +97,33 @@ struct GoogleCalendarConfig {
     return environment == "development"
   }
 
+  // MARK: - Sandbox Detection
+
+  /// Whether the app is running in a sandboxed environment
+  private static let isSandboxed: Bool = {
+    let environment = ProcessInfo.processInfo.environment
+    // Sandboxed apps have APP_SANDBOX_CONTAINER_ID set
+    return environment["APP_SANDBOX_CONTAINER_ID"] != nil
+  }()
+
   // MARK: - Configuration Loading Helper
 
   /// Loads Config.plist from app bundle Resources or project root directory
   /// Handles both bundled app and development contexts
   private static func loadConfigFromProjectRoot() -> [String: Any]? {
-    // First, try to load from app bundle Resources (for bundled app)
+    // First, try to load from app bundle Resources (for bundled app / App Store)
     if let bundlePath = Bundle.main.path(forResource: "Config", ofType: "plist"),
       let plist = NSDictionary(contentsOfFile: bundlePath) as? [String: Any]
     {
       return plist
     }
 
-    // For VS Code + SPM development, try current working directory
+    // In sandbox mode, we can ONLY use bundle resources - don't try filesystem paths
+    if isSandboxed {
+      return nil
+    }
+
+    // For VS Code + SPM development (non-sandboxed), try current working directory
     let currentDir = FileManager.default.currentDirectoryPath
     let configPath = NSString(string: currentDir).appendingPathComponent("Config.plist")
 
@@ -118,7 +133,7 @@ struct GoogleCalendarConfig {
       return plist
     }
 
-    // Fallback paths for different build contexts
+    // Fallback paths for different build contexts (non-sandboxed only)
     let possiblePaths = [
       "Config.plist",  // Direct in working directory
       "../Config.plist",  // One level up
@@ -174,5 +189,10 @@ extension GoogleCalendarConfig {
     } else {
       return "Default/Fallback"
     }
+  }
+
+  /// Whether the app is running sandboxed (exposed for debugging)
+  static var isSandboxedEnvironment: Bool {
+    isSandboxed
   }
 }

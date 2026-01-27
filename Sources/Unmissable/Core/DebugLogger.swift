@@ -17,9 +17,11 @@ final class DebugLogger {
   func debug(_ message: String) {
     let prefixed = "[DEBUG] \(message)"
 
-    // 1. Print to stdout (visible in terminal)
-    print(prefixed)
-    fflush(stdout)
+    // 1. Print to stdout only in DEBUG builds (visible in terminal)
+    #if DEBUG
+      print(prefixed)
+      fflush(stdout)
+    #endif
 
     // 2. Write to file (persistent)
     logToFile(prefixed)
@@ -31,8 +33,10 @@ final class DebugLogger {
   func info(_ message: String) {
     let prefixed = "[INFO] \(message)"
 
-    print(prefixed)
-    fflush(stdout)
+    #if DEBUG
+      print(prefixed)
+      fflush(stdout)
+    #endif
     logToFile(prefixed)
     logger.info("\(message)")
   }
@@ -40,8 +44,10 @@ final class DebugLogger {
   func error(_ message: String) {
     let prefixed = "[ERROR] \(message)"
 
-    print(prefixed)
-    fflush(stdout)
+    #if DEBUG
+      print(prefixed)
+      fflush(stdout)
+    #endif
     logToFile(prefixed)
     logger.error("\(message)")
   }

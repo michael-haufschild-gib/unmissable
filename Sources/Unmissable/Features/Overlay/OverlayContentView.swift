@@ -11,6 +11,7 @@ struct OverlayContentView: View {
   @EnvironmentObject private var preferences: PreferencesManager
   @State private var timeUntilMeeting: TimeInterval = 0
   @State private var timerCancellable: AnyCancellable?
+  @State private var currentTimerInterval: TimeInterval = 1.0
 
   init(
     event: Event,
@@ -207,13 +208,7 @@ struct OverlayContentView: View {
     .onAppear {
       // Initialize timer on appear
       timeUntilMeeting = event.startDate.timeIntervalSinceNow
-
-      // Start timer with proper lifecycle management
-      timerCancellable = Timer.publish(every: 1, on: .main, in: .common)
-        .autoconnect()
-        .sink { _ in
-          timeUntilMeeting = event.startDate.timeIntervalSinceNow
-        }
+      startAdaptiveTimer()
     }
     .onDisappear {
       // Clean up timer
@@ -262,6 +257,38 @@ struct OverlayContentView: View {
     case .system:
       return Color(.controlTextColor)
     }
+  }
+
+  // MARK: - Timer Management
+
+  /// Calculates the optimal timer interval based on time until meeting
+  private func optimalTimerInterval() -> TimeInterval {
+    let absTime = abs(timeUntilMeeting)
+    if absTime < 60 {
+      return 1.0  // Every second when < 1 minute
+    } else if absTime < 300 {
+      return 5.0  // Every 5 seconds when < 5 minutes
+    } else {
+      return 30.0  // Every 30 seconds otherwise
+    }
+  }
+
+  /// Starts or restarts the timer with an adaptive interval
+  private func startAdaptiveTimer() {
+    timerCancellable?.cancel()
+    let interval = optimalTimerInterval()
+    currentTimerInterval = interval
+
+    timerCancellable = Timer.publish(every: interval, on: .main, in: .common)
+      .autoconnect()
+      .sink { [self] _ in
+        timeUntilMeeting = event.startDate.timeIntervalSinceNow
+        // Check if we need to switch to a different timer interval
+        let newInterval = optimalTimerInterval()
+        if newInterval != currentTimerInterval {
+          startAdaptiveTimer()
+        }
+      }
   }
 
   // MARK: - Private Methods

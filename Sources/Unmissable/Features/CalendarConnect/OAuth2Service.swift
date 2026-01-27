@@ -118,14 +118,28 @@ final class OAuth2Service: NSObject, ObservableObject {
       additionalParameters: nil
     )
 
-    // Perform authorization request
+    // Use a coordinator to ensure exactly-once continuation resumption
+    // This is the proper pattern for callback-based APIs with timeout in Swift concurrency
+    let coordinator = ContinuationCoordinator<Void>()
+
     try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+      // Store continuation in coordinator
+      coordinator.setContinuation(continuation)
+
+      // Start timeout task - ensures continuation is resumed even if callback never fires
+      coordinator.startTimeout(seconds: 300) { [weak self] in
+        self?.currentAuthorizationFlow?.cancel()
+        self?.currentAuthorizationFlow = nil
+        self?.logger.error("❌ OAuth flow timed out after 5 minutes")
+        self?.authorizationError = "Authorization timed out. Please try again."
+        return OAuth2Error.timeout
+      }
+
       // Enhanced logging for debugging
       logger.info("🌐 Creating authorization request...")
       logger.info("   Authorization URL: \(request.authorizationRequestURL())")
 
       // Use external user agent (browser) for authorization
-      // For menu bar apps, we need to ensure we have a proper presenting window
       let presentingWindow: NSWindow
       if let keyWindow = NSApplication.shared.keyWindow {
         presentingWindow = keyWindow
@@ -134,7 +148,6 @@ final class OAuth2Service: NSObject, ObservableObject {
         presentingWindow = mainWindow
         logger.info("🪟 Using main window for OAuth presentation")
       } else {
-        // Create a proper window for OAuth presentation
         presentingWindow = NSWindow(
           contentRect: NSRect(x: 100, y: 100, width: 400, height: 300),
           styleMask: [.titled, .closable],
@@ -147,7 +160,6 @@ final class OAuth2Service: NSObject, ObservableObject {
       }
 
       let userAgent = OIDExternalUserAgentMac(presenting: presentingWindow)
-
       logger.info("🔑 Presenting authorization in browser...")
 
       self.currentAuthorizationFlow = OIDAuthorizationService.present(
@@ -155,79 +167,127 @@ final class OAuth2Service: NSObject, ObservableObject {
         externalUserAgent: userAgent
       ) { [weak self] authorizationResponse, error in
         Task { @MainActor in
-          self?.currentAuthorizationFlow = nil
-
-          if let error = error {
-            self?.logger.error("❌ Authorization failed: \(error.localizedDescription)")
-            self?.logger.error("   Error domain: \((error as NSError).domain)")
-            self?.logger.error("   Error code: \((error as NSError).code)")
-            self?.authorizationError = "Authorization failed: \(error.localizedDescription)"
-            continuation.resume(throwing: OAuth2Error.authorizationFailed(error))
-          } else if let authResponse = authorizationResponse {
-            self?.logger.info("✅ Authorization successful, exchanging code for tokens")
-
-            // Exchange authorization code for tokens
-            OIDAuthorizationService.perform(
-              authResponse.tokenExchangeRequest()!
-            ) { tokenResponse, tokenError in
-              Task { @MainActor in
-                if let tokenError = tokenError {
-                  self?.logger.error("❌ Token exchange failed: \(tokenError.localizedDescription)")
-                  self?.authorizationError =
-                    "Token exchange failed: \(tokenError.localizedDescription)"
-                  continuation.resume(throwing: OAuth2Error.authorizationFailed(tokenError))
-                } else if let tokenResponse = tokenResponse {
-                  self?.logger.info("🎉 Token exchange successful!")
-                  // Create auth state with both responses
-                  let newAuthState = OIDAuthState(
-                    authorizationResponse: authResponse, tokenResponse: tokenResponse)
-                  // Set up delegate to save state on changes (e.g., token refresh)
-                  newAuthState.stateChangeDelegate = self
-                  self?.authState = newAuthState
-                  self?.saveAuthStateToKeychain()
-                  await self?.fetchUserEmail()
-                  self?.isAuthenticated = true
-                  continuation.resume()
-                } else {
-                  let error = OAuth2Error.authorizationFailed(
-                    NSError(
-                      domain: "OAuth2Service", code: -1,
-                      userInfo: [NSLocalizedDescriptionKey: "No token response received"]))
-                  continuation.resume(throwing: error)
-                }
-              }
-            }
-          } else {
-            self?.logger.error("❌ Unknown authorization error - no response received")
-            let error = OAuth2Error.authorizationFailed(
-              NSError(
-                domain: "OAuth2Service", code: -1,
-                userInfo: [
-                  NSLocalizedDescriptionKey:
-                    "Unknown authorization error - no response received. This may be due to corporate security policies or browser restrictions."
-                ]))
-            self?.authorizationError =
-              "Authorization failed - no response received. Please check if your browser is blocking redirects or if corporate policies are interfering."
-            continuation.resume(throwing: error)
-          }
+          guard let self = self else { return }
+          self.handleAuthorizationCallback(
+            authResponse: authorizationResponse,
+            error: error,
+            coordinator: coordinator
+          )
         }
       }
 
-      // Add a safety check - if the flow didn't start properly
+      // Safety check - if flow didn't start properly
       if self.currentAuthorizationFlow == nil {
         logger.error("❌ Failed to start authorization flow - currentAuthorizationFlow is nil")
-        let error = OAuth2Error.authorizationFailed(
+        authorizationError =
+          "Failed to start OAuth flow. Please ensure your default browser is available."
+        coordinator.resume(throwing: OAuth2Error.authorizationFailed(
           NSError(
             domain: "OAuth2Service", code: -2,
             userInfo: [
               NSLocalizedDescriptionKey:
-                "Failed to start authorization flow. This may be due to browser restrictions or corporate security policies."
-            ]))
-        authorizationError =
-          "Failed to start OAuth flow. Please ensure your default browser is available and not blocked by corporate policies."
-        continuation.resume(throwing: error)
+                "Failed to start authorization flow. Browser may be blocked."
+            ])))
       }
     }
+  }
+
+  /// Handles the OAuth authorization callback
+  private func handleAuthorizationCallback(
+    authResponse: OIDAuthorizationResponse?,
+    error: Error?,
+    coordinator: ContinuationCoordinator<Void>
+  ) {
+    // Check if already completed (e.g., by timeout)
+    guard !coordinator.isCompleted else {
+      logger.info("⏭️ Authorization callback ignored - already completed/timed out")
+      return
+    }
+
+    currentAuthorizationFlow = nil
+
+    if let error = error {
+      logger.error("❌ Authorization failed: \(error.localizedDescription)")
+      logger.error("   Error domain: \((error as NSError).domain)")
+      logger.error("   Error code: \((error as NSError).code)")
+      authorizationError = "Authorization failed: \(error.localizedDescription)"
+      coordinator.resume(throwing: OAuth2Error.authorizationFailed(error))
+      return
+    }
+
+    guard let authResponse = authResponse else {
+      logger.error("❌ Unknown authorization error - no response received")
+      authorizationError =
+        "Authorization failed - no response received. Check browser settings."
+      coordinator.resume(throwing: OAuth2Error.authorizationFailed(
+        NSError(
+          domain: "OAuth2Service", code: -1,
+          userInfo: [NSLocalizedDescriptionKey: "No authorization response received"])))
+      return
+    }
+
+    logger.info("✅ Authorization successful, exchanging code for tokens")
+
+    // Exchange authorization code for tokens
+    guard let tokenRequest = authResponse.tokenExchangeRequest() else {
+      authorizationError = "Failed to create token exchange request"
+      coordinator.resume(throwing: OAuth2Error.invalidTokenRequest)
+      return
+    }
+
+    OIDAuthorizationService.perform(tokenRequest) { [weak self] tokenResponse, tokenError in
+      Task { @MainActor in
+        guard let self = self else { return }
+        await self.handleTokenExchange(
+          authResponse: authResponse,
+          tokenResponse: tokenResponse,
+          tokenError: tokenError,
+          coordinator: coordinator
+        )
+      }
+    }
+  }
+
+  /// Handles the token exchange response
+  private func handleTokenExchange(
+    authResponse: OIDAuthorizationResponse,
+    tokenResponse: OIDTokenResponse?,
+    tokenError: Error?,
+    coordinator: ContinuationCoordinator<Void>
+  ) async {
+    // Check if already completed (e.g., by timeout during token exchange)
+    guard !coordinator.isCompleted else {
+      logger.info("⏭️ Token exchange callback ignored - already completed/timed out")
+      return
+    }
+
+    if let tokenError = tokenError {
+      logger.error("❌ Token exchange failed: \(tokenError.localizedDescription)")
+      authorizationError = "Token exchange failed: \(tokenError.localizedDescription)"
+      coordinator.resume(throwing: OAuth2Error.authorizationFailed(tokenError))
+      return
+    }
+
+    guard let tokenResponse = tokenResponse else {
+      coordinator.resume(throwing: OAuth2Error.authorizationFailed(
+        NSError(
+          domain: "OAuth2Service", code: -1,
+          userInfo: [NSLocalizedDescriptionKey: "No token response received"])))
+      return
+    }
+
+    logger.info("🎉 Token exchange successful!")
+
+    // Create auth state with both responses
+    let newAuthState = OIDAuthState(
+      authorizationResponse: authResponse, tokenResponse: tokenResponse)
+    newAuthState.stateChangeDelegate = self
+    self.authState = newAuthState
+    saveAuthStateToKeychain()
+    await fetchUserEmail()
+    isAuthenticated = true
+
+    coordinator.resume(returning: ())
   }
 
   func getValidAccessToken() async throws -> String {
@@ -429,6 +489,8 @@ enum OAuth2Error: LocalizedError {
   case tokenRefreshFailed(Error)
   case notAuthenticated
   case userInfoFetchFailed
+  case timeout
+  case invalidTokenRequest
 
   var errorDescription: String? {
     switch self {
@@ -442,6 +504,10 @@ enum OAuth2Error: LocalizedError {
       return "User not authenticated"
     case .userInfoFetchFailed:
       return "Failed to fetch user information"
+    case .timeout:
+      return "Authorization timed out. Please try again."
+    case .invalidTokenRequest:
+      return "Invalid token exchange request"
     }
   }
 }
@@ -454,6 +520,104 @@ extension OAuth2Service: OIDAuthStateChangeDelegate {
     Task { @MainActor in
       self.logger.info("🔄 OIDAuthState changed - saving updated state to keychain")
       self.saveAuthStateToKeychain()
+    }
+  }
+}
+
+// MARK: - Continuation Coordinator
+
+/// Coordinates a CheckedContinuation with timeout support, ensuring exactly-once resumption.
+///
+/// This is the proper pattern for wrapping callback-based APIs with timeout in Swift concurrency.
+/// It guarantees:
+/// 1. Exactly-once continuation resumption (prevents crashes from double-resume)
+/// 2. Timeout handling (prevents continuation leaks if callback never fires)
+/// 3. Thread safety via @MainActor isolation
+/// 4. Proper cleanup of timeout tasks
+///
+/// Usage:
+/// ```swift
+/// try await withCheckedThrowingContinuation { continuation in
+///     let coordinator = ContinuationCoordinator<Void>()
+///     coordinator.setContinuation(continuation)
+///     coordinator.startTimeout(seconds: 300) { return MyError.timeout }
+///
+///     someCallbackAPI { result in
+///         coordinator.resume(returning: result) // or resume(throwing:)
+///     }
+/// }
+/// ```
+@MainActor
+private final class ContinuationCoordinator<T: Sendable>: @unchecked Sendable {
+  private var continuation: CheckedContinuation<T, Error>?
+  private var timeoutTask: Task<Void, Never>?
+  private(set) var isCompleted = false
+
+  init() {}
+
+  /// Stores the continuation for later resumption.
+  /// Must be called exactly once before any resume calls.
+  func setContinuation(_ continuation: CheckedContinuation<T, Error>) {
+    precondition(self.continuation == nil, "Continuation already set")
+    self.continuation = continuation
+  }
+
+  /// Starts a timeout that will resume the continuation with an error if not completed in time.
+  ///
+  /// - Parameters:
+  ///   - seconds: Timeout duration in seconds
+  ///   - onTimeout: Closure called when timeout fires. Performs cleanup and returns the error to throw.
+  ///                This runs on MainActor, so it's safe to access MainActor-isolated state.
+  func startTimeout(seconds: Int, onTimeout: @escaping @MainActor () -> Error) {
+    timeoutTask = Task { @MainActor [weak self] in
+      do {
+        try await Task.sleep(for: .seconds(seconds))
+
+        // If we reach here and not completed, trigger timeout
+        guard let self = self, !self.isCompleted else { return }
+
+        // Call timeout handler to perform cleanup and get error
+        let error = onTimeout()
+        self.resumeInternal(with: .failure(error))
+      } catch {
+        // Task was cancelled - this is the normal path when auth completes before timeout
+      }
+    }
+  }
+
+  /// Resumes the continuation with a successful value.
+  /// Safe to call multiple times - only the first call has effect.
+  func resume(returning value: T) {
+    resumeInternal(with: .success(value))
+  }
+
+  /// Resumes the continuation with an error.
+  /// Safe to call multiple times - only the first call has effect.
+  func resume(throwing error: Error) {
+    resumeInternal(with: .failure(error))
+  }
+
+  /// Internal method that handles the actual resumption with exactly-once semantics.
+  private func resumeInternal(with result: Result<T, Error>) {
+    // Ensure exactly-once resumption
+    guard !isCompleted else { return }
+    isCompleted = true
+
+    // Cancel timeout task if still running
+    timeoutTask?.cancel()
+    timeoutTask = nil
+
+    // Resume the continuation
+    guard let continuation = self.continuation else {
+      preconditionFailure("Continuation not set before resume")
+    }
+    self.continuation = nil
+
+    switch result {
+    case .success(let value):
+      continuation.resume(returning: value)
+    case .failure(let error):
+      continuation.resume(throwing: error)
     }
   }
 }

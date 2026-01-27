@@ -1,10 +1,13 @@
 import Foundation
+import OSLog
 
 // MARK: - Test-Safe Implementations
 
 /// Test-safe overlay manager that doesn't create actual UI elements
 @MainActor
 final class TestSafeOverlayManager: OverlayManaging {
+  private let logger = Logger(subsystem: "com.unmissable.app", category: "TestSupport")
+
   @Published var activeEvent: Event?
   @Published var isOverlayVisible = false
 
@@ -21,13 +24,13 @@ final class TestSafeOverlayManager: OverlayManaging {
   }
 
   func showOverlay(for event: Event, minutesBeforeMeeting: Int = 5, fromSnooze: Bool = false) {
-    print("🎬 TEST-SAFE SHOW: Overlay for \(event.title), fromSnooze: \(fromSnooze)")
+    logger.debug("🎬 TEST-SAFE SHOW: Overlay for \(event.title), fromSnooze: \(fromSnooze)")
 
     if isTestEnvironment {
       // In test environment, just set state without creating UI
       activeEvent = event
       isOverlayVisible = true
-      print("✅ TEST-SAFE: Set overlay visible = true")
+      logger.debug("✅ TEST-SAFE: Set overlay visible = true")
     } else {
       // In production, would create actual UI (but this class is for testing)
       activeEvent = event
@@ -36,14 +39,14 @@ final class TestSafeOverlayManager: OverlayManaging {
   }
 
   func hideOverlay() {
-    print("🎬 TEST-SAFE HIDE: Overlay")
+    logger.debug("🎬 TEST-SAFE HIDE: Overlay")
     activeEvent = nil
     isOverlayVisible = false
   }
 
   func snoozeOverlay(for minutes: Int) {
     guard let event = activeEvent else { return }
-    print("⏰ TEST-SAFE SNOOZE: \(minutes) minutes for \(event.title)")
+    logger.debug("⏰ TEST-SAFE SNOOZE: \(minutes) minutes for \(event.title)")
     hideOverlay()
     eventScheduler?.scheduleSnooze(for: event, minutes: minutes)
   }
