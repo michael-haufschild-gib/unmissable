@@ -8,27 +8,6 @@ struct MeetingDetailsView: View {
 
   var body: some View {
     VStack(spacing: 0) {
-      // DEBUG: Log what event data the UI receives
-      let _ = {
-        print("🎭 UI: MeetingDetailsView displaying event: \(event.title)")
-        print(
-          "🎭 UI: Description in UI: \(event.description != nil ? "YES (\(event.description!.count) chars)" : "NO")"
-        )
-        print("🎭 UI: Attendees in UI: \(event.attendees.count) attendees")
-        fflush(stdout)
-
-        // Also write to file
-        let logContent = """
-          🎭 UI: MeetingDetailsView displaying event: \(event.title)
-          🎭 UI: Description in UI: \(event.description != nil ? "YES (\(event.description!.count) chars)" : "NO")
-          🎭 UI: Attendees in UI: \(event.attendees.count) attendees
-          """
-        if let data = logContent.data(using: .utf8) {
-          let url = URL(fileURLWithPath: "/tmp/unmissable_ui_debug.log")
-          try? data.write(to: url)
-        }
-      }()
-
       // Header with title and close button
       headerSection
 

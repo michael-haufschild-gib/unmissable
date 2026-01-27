@@ -120,62 +120,119 @@ class TestUtilities {
 
   // MARK: - Mock Services
 
-  /// Mock PreferencesManager for testing
+  /// Type alias for PreferencesManager used in tests
+  /// PreferencesManager is final, so we use the real class with test extensions
+  typealias MockPreferencesManager = PreferencesManager
+
+  /// Factory to create a PreferencesManager with test defaults
   @MainActor
-  class MockPreferencesManager: PreferencesManager {
-    // Override init to use memory-only storage
-    override init() {
-      super.init()
-      // Set test-specific defaults
-      overlayShowMinutesBefore = 2
-      playAlertSound = true
-      autoJoinEnabled = false
-      showOnAllDisplays = true
-      overrideFocusMode = true
-    }
+  static func createTestPreferencesManager() -> PreferencesManager {
+    let prefs = PreferencesManager()
+    // Set test-specific defaults
+    prefs.overlayShowMinutesBefore = 2
+    prefs.playAlertSound = true
+    prefs.autoJoinEnabled = false
+    prefs.showOnAllDisplays = true
+    prefs.overrideFocusMode = true
+    return prefs
+  }
+}
 
-    // Test accessors for easy modification
-    var testDefaultAlertMinutes: Int {
-      get { defaultAlertMinutes }
-      set { defaultAlertMinutes = newValue }
-    }
+// MARK: - Test Accessors for PreferencesManager
 
-    var testUseLengthBasedTiming: Bool {
-      get { useLengthBasedTiming }
-      set { useLengthBasedTiming = newValue }
-    }
+extension PreferencesManager {
+  /// Test accessors for easy modification in tests
+  var testDefaultAlertMinutes: Int {
+    get { defaultAlertMinutes }
+    set { defaultAlertMinutes = newValue }
+  }
 
-    var testOverlayShowMinutesBefore: Int {
-      get { overlayShowMinutesBefore }
-      set { overlayShowMinutesBefore = newValue }
-    }
+  var testUseLengthBasedTiming: Bool {
+    get { useLengthBasedTiming }
+    set { useLengthBasedTiming = newValue }
+  }
 
-    var testSoundEnabled: Bool {
-      get { soundEnabled }
-      set { playAlertSound = newValue }
-    }
+  var testOverlayShowMinutesBefore: Int {
+    get { overlayShowMinutesBefore }
+    set { overlayShowMinutesBefore = newValue }
+  }
 
-    var testAutoJoinEnabled: Bool {
-      get { autoJoinEnabled }
-      set { autoJoinEnabled = newValue }
-    }
+  var testSoundEnabled: Bool {
+    get { soundEnabled }
+    set { playAlertSound = newValue }
+  }
 
-    var testShowOnAllDisplays: Bool {
-      get { showOnAllDisplays }
-      set { showOnAllDisplays = newValue }
-    }
+  var testAutoJoinEnabled: Bool {
+    get { autoJoinEnabled }
+    set { autoJoinEnabled = newValue }
+  }
 
-    var testOverrideFocusMode: Bool {
-      get { overrideFocusMode }
-      set { overrideFocusMode = newValue }
+  var testShowOnAllDisplays: Bool {
+    get { showOnAllDisplays }
+    set { showOnAllDisplays = newValue }
+  }
+
+  var testOverrideFocusMode: Bool {
+    get { overrideFocusMode }
+    set { overrideFocusMode = newValue }
+  }
+}
+
+// MARK: - Test Extensions for EventScheduler
+
+extension EventScheduler {
+  /// Returns true if a snooze alert is currently scheduled
+  var snoozeScheduled: Bool {
+    scheduledAlerts.contains { alert in
+      if case .snooze = alert.alertType { return true }
+      return false
     }
   }
+
+  /// Returns the most recently scheduled snooze duration in minutes
+  var snoozeMinutes: Int? {
+    for alert in scheduledAlerts.reversed() {
+      if case .snooze(let until) = alert.alertType {
+        // Calculate minutes from now to snooze time
+        return Int(until.timeIntervalSinceNow / 60)
+      }
+    }
+    return nil
+  }
+
+  /// Returns the event associated with the most recent snooze
+  var snoozeEvent: Event? {
+    for alert in scheduledAlerts.reversed() {
+      if case .snooze = alert.alertType {
+        return alert.event
+      }
+    }
+    return nil
+  }
+
+  /// Returns the snooze trigger time
+  var snoozeTime: Date? {
+    for alert in scheduledAlerts.reversed() {
+      if case .snooze = alert.alertType {
+        return alert.triggerDate
+      }
+    }
+    return nil
+  }
+
+  /// Clears all scheduled alerts (for testing)
+  func reset() {
+    scheduledAlerts.removeAll()
+  }
+}
+
+extension TestUtilities {
 
   // MARK: - Time Travel for Testing
 
   /// Utility for testing time-dependent behavior
-  class TimeTravel {
-    private static var offset: TimeInterval = 0
+  final class TimeTravel: Sendable {
+    nonisolated(unsafe) private static var offset: TimeInterval = 0
 
     static func travel(to date: Date) {
       offset = date.timeIntervalSinceNow
@@ -199,7 +256,7 @@ class TestUtilities {
   /// Wait for async operations with timeout
   static func waitForAsync(
     timeout: TimeInterval = 5.0,
-    condition: @escaping () async -> Bool
+    condition: @escaping @Sendable () async -> Bool
   ) async throws {
     let startTime = Date()
 
@@ -213,20 +270,8 @@ class TestUtilities {
     throw XCTestError(.timeoutWhileWaiting)
   }
 
-  /// Wait for published property changes
-  static func waitForPublished<T: Equatable>(
-    publisher: Published<T>.Publisher,
-    toEqual value: T,
-    timeout: TimeInterval = 5.0
-  ) async throws {
-    try await withTimeout(timeout) {
-      for await publishedValue in publisher.values {
-        if publishedValue == value {
-          return
-        }
-      }
-    }
-  }
+  // waitForPublished removed - use waitForAsync with a condition closure instead
+  // The Published.Publisher async sequence has Sendable issues in Swift 6
 
   // MARK: - Memory Testing
 
@@ -276,8 +321,8 @@ class TestUtilities {
   }
 
   /// Measure async execution time
-  static func measureTimeAsync<T>(
-    operation: () async throws -> T
+  static func measureTimeAsync<T: Sendable>(
+    operation: @Sendable () async throws -> T
   ) async rethrows -> (result: T, time: TimeInterval) {
     let startTime = CFAbsoluteTimeGetCurrent()
     let result = try await operation()
@@ -292,7 +337,7 @@ extension XCTestCase {
   /// Wait for expectation with async block
   func waitForAsync(
     timeout: TimeInterval = 5.0,
-    _ block: @escaping () async -> Void
+    _ block: @escaping @Sendable () async -> Void
   ) {
     let expectation = expectation(description: "Async operation")
 
@@ -320,9 +365,9 @@ extension XCTestCase {
 
 // MARK: - Timeout Utility
 
-private func withTimeout<T>(
+private func withTimeout<T: Sendable>(
   _ timeout: TimeInterval,
-  operation: @escaping () async throws -> T
+  operation: @escaping @Sendable () async throws -> T
 ) async throws -> T {
   try await withThrowingTaskGroup(of: T.self) { group in
     group.addTask {

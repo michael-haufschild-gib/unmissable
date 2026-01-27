@@ -108,7 +108,7 @@ class ComprehensiveOverlayTest: XCTestCase {
         startDate: triggerTime.addingTimeInterval(120)
       )
 
-      overlayManager.scheduleOverlay(for: testEvent, minutesBeforeMeeting: 2)
+      overlayManager.showOverlay(for: testEvent, minutesBeforeMeeting: 2, fromSnooze: false)
     }
 
     // Monitor for completion
@@ -149,7 +149,7 @@ class ComprehensiveOverlayTest: XCTestCase {
       startDate: Date().addingTimeInterval(180)
     )
 
-    overlayManager?.scheduleOverlay(for: testEvent, minutesBeforeMeeting: 2)
+    overlayManager?.showOverlay(for: testEvent, minutesBeforeMeeting: 2, fromSnooze: false)
 
     // Verify overlay was scheduled
     XCTAssertNotNil(overlayManager)
@@ -179,7 +179,7 @@ class ComprehensiveOverlayTest: XCTestCase {
       startDate: Date().addingTimeInterval(122)
     )
 
-    overlayManager.scheduleOverlay(for: testEvent, minutesBeforeMeeting: 2)
+    overlayManager.showOverlay(for: testEvent, minutesBeforeMeeting: 2, fromSnooze: false)
 
     // Wait for timer to fire
     try await Task.sleep(nanoseconds: 3_500_000_000)  // 3.5 seconds

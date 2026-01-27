@@ -5,7 +5,7 @@ import SwiftUI
 // MARK: - Custom Theme Manager (100% Custom Styling)
 
 @MainActor
-class ThemeManager: ObservableObject {
+final class ThemeManager: ObservableObject {
   static let shared = ThemeManager()
 
   @Published var currentTheme: AppTheme = .system

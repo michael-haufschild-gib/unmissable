@@ -3,7 +3,7 @@ import Foundation
 import OSLog
 
 @MainActor
-class CalendarService: ObservableObject {
+final class CalendarService: ObservableObject {
   private let logger = Logger(subsystem: "com.unmissable.app", category: "CalendarService")
 
   @Published var isConnected = false
@@ -21,7 +21,6 @@ class CalendarService: ObservableObject {
   private let timezoneManager: TimezoneManager
   private let preferencesManager: PreferencesManager
   private var cancellables = Set<AnyCancellable>()
-  private var uiRefreshTimer: Timer?
   private var uiRefreshTask: Task<Void, Never>?
 
   // Callback to notify when events need to be rescheduled after sync
@@ -91,6 +90,10 @@ class CalendarService: ObservableObject {
 
   func checkConnectionStatus() async {
     logger.info("Checking calendar connection status")
+
+    // Validate auth state on startup to catch expired/invalid tokens early
+    await oauth2Service.validateAuthState()
+
     if isConnected {
       await loadCachedData()
     }
@@ -129,17 +132,7 @@ class CalendarService: ObservableObject {
 
   func updateCalendarSelection(_ calendarId: String, isSelected: Bool) {
     if let index = calendars.firstIndex(where: { $0.id == calendarId }) {
-      calendars[index] = CalendarInfo(
-        id: calendars[index].id,
-        name: calendars[index].name,
-        description: calendars[index].description,
-        isSelected: isSelected,
-        isPrimary: calendars[index].isPrimary,
-        colorHex: calendars[index].colorHex,
-        lastSyncAt: calendars[index].lastSyncAt,
-        createdAt: calendars[index].createdAt,
-        updatedAt: Date()
-      )
+      calendars[index] = calendars[index].withSelection(isSelected)
 
       logger.info("Updated calendar \(calendarId) selection to \(isSelected)")
 
@@ -182,38 +175,8 @@ class CalendarService: ObservableObject {
       // Load started meetings from database
       let cachedStartedEvents = try await databaseManager.fetchStartedMeetings(limit: 20)
 
-      // DEBUG: Log what events we're loading for the UI
-      print(
-        "🔄 CalendarService: Loading \(cachedEvents.count) upcoming + \(cachedStartedEvents.count) started events for UI"
-      )
-      if let firstEvent = cachedEvents.first {
-        print("🔄 CalendarService: First cached event - \(firstEvent.title)")
-        print(
-          "🔄 CalendarService: Description in cached: \(firstEvent.description != nil ? "YES (\(firstEvent.description!.count) chars)" : "NO")"
-        )
-        print("🔄 CalendarService: Attendees in cached: \(firstEvent.attendees.count) attendees")
-      }
-      if let firstStartedEvent = cachedStartedEvents.first {
-        print("🔄 CalendarService: First started event - \(firstStartedEvent.title)")
-      }
-      fflush(stdout)
-
       events = cachedEvents.map { timezoneManager.localizedEvent($0) }
       startedEvents = cachedStartedEvents.map { timezoneManager.localizedEvent($0) }
-
-      // DEBUG: Log what events we're setting for the UI after mapping
-      if let firstUIEvent = events.first {
-        print("🔄 CalendarService: First UI event after timezone - \(firstUIEvent.title)")
-        print(
-          "🔄 CalendarService: Description in UI: \(firstUIEvent.description != nil ? "YES (\(firstUIEvent.description!.count) chars)" : "NO")"
-        )
-        print("🔄 CalendarService: Attendees in UI: \(firstUIEvent.attendees.count) attendees")
-      }
-      if let firstStartedUIEvent = startedEvents.first {
-        print(
-          "🔄 CalendarService: First started UI event after timezone - \(firstStartedUIEvent.title)")
-      }
-      fflush(stdout)
 
       logger.info(
         "Loaded \(self.calendars.count) calendars, \(self.events.count) upcoming events, and \(self.startedEvents.count) started meetings from cache"
@@ -280,8 +243,6 @@ class CalendarService: ObservableObject {
   private func stopUIRefreshTimer() {
     uiRefreshTask?.cancel()
     uiRefreshTask = nil
-    uiRefreshTimer?.invalidate()
-    uiRefreshTimer = nil
     logger.info("⏹️ UI refresh timer stopped")
   }
 

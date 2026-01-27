@@ -3,7 +3,7 @@ import OSLog
 
 /// Production-ready error handling and monitoring system
 @MainActor
-class ProductionMonitor: ObservableObject {
+final class ProductionMonitor: ObservableObject {
   private let logger = Logger(subsystem: "com.unmissable.app", category: "ProductionMonitor")
 
   @Published var systemHealth: SystemHealth = .healthy

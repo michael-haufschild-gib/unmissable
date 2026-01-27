@@ -2,12 +2,18 @@ import Foundation
 import GRDB
 import OSLog
 
-class DatabaseManager: ObservableObject {
+@MainActor
+final class DatabaseManager: ObservableObject {
   private let logger = Logger(subsystem: "com.unmissable.app", category: "DatabaseManager")
   private let debugLogger = DebugLogger(
     subsystem: "com.unmissable.app", category: "DatabaseManager")
   private var dbQueue: DatabaseQueue?
   private let currentSchemaVersion = 3
+
+  /// Indicates whether the database was successfully initialized
+  @Published private(set) var isInitialized: Bool = false
+  /// Contains error message if database initialization failed
+  @Published private(set) var initializationError: String?
 
   static let shared = DatabaseManager()
 
@@ -36,11 +42,15 @@ class DatabaseManager: ObservableObject {
         try setupSchema(db)
       }
 
+      isInitialized = true
+      initializationError = nil
       logger.info("Database initialized at: \(dbURL.path)")
 
     } catch {
       logger.error("Failed to setup database: \(error.localizedDescription)")
-      fatalError("Database setup failed: \(error)")
+      isInitialized = false
+      initializationError = "Database setup failed: \(error.localizedDescription)"
+      // Graceful degradation instead of crash - app can still run with limited functionality
     }
   }
 
@@ -220,6 +230,26 @@ class DatabaseManager: ObservableObject {
     logger.info("Saved \(events.count) events to database")
   }
 
+  func replaceEvents(for calendarId: String, with events: [Event]) async throws {
+    guard let dbQueue = dbQueue else {
+      throw DatabaseError.notInitialized
+    }
+
+    try await dbQueue.write { db in
+      // Delete existing events for this calendar
+      try Event
+        .filter(Event.Columns.calendarId == calendarId)
+        .deleteAll(db)
+
+      // Insert new events
+      for event in events {
+        try event.save(db)
+      }
+    }
+
+    logger.info("Atomically replaced events for calendar \(calendarId): \(events.count) events saved")
+  }
+
   func fetchEvents(from startDate: Date, to endDate: Date) async throws -> [Event] {
     guard let dbQueue = dbQueue else {
       throw DatabaseError.notInitialized
@@ -317,14 +347,21 @@ class DatabaseManager: ObservableObject {
 
   #if DEBUG
     /// Delete events matching a specific ID pattern (for testing only)
+    /// Pattern is safely escaped to prevent SQL injection
     func deleteTestEvents(withIdPattern pattern: String) async throws {
       guard let dbQueue = dbQueue else {
         throw DatabaseError.notInitialized
       }
 
+      // Escape special LIKE characters and use parameterized query
+      let escapedPattern = pattern
+        .replacingOccurrences(of: "%", with: "\\%")
+        .replacingOccurrences(of: "_", with: "\\_")
+      let likePattern = "%\(escapedPattern)%"
+
       let deletedCount = try await dbQueue.write { db in
         try Event
-          .filter(Event.Columns.id.like("%\(pattern)%"))
+          .filter(Event.Columns.id.like(likePattern, escape: "\\"))
           .deleteAll(db)
       }
 
@@ -332,14 +369,21 @@ class DatabaseManager: ObservableObject {
     }
 
     /// Delete test calendars matching a name pattern (for testing only)
+    /// Pattern is safely escaped to prevent SQL injection
     func deleteTestCalendars(withNamePattern pattern: String) async throws {
       guard let dbQueue = dbQueue else {
         throw DatabaseError.notInitialized
       }
 
+      // Escape special LIKE characters and use parameterized query
+      let escapedPattern = pattern
+        .replacingOccurrences(of: "%", with: "\\%")
+        .replacingOccurrences(of: "_", with: "\\_")
+      let likePattern = "%\(escapedPattern)%"
+
       let deletedCount = try await dbQueue.write { db in
         try CalendarInfo
-          .filter(CalendarInfo.Columns.name.like("%\(pattern)%"))
+          .filter(CalendarInfo.Columns.name.like(likePattern, escape: "\\"))
           .deleteAll(db)
       }
 
@@ -347,14 +391,21 @@ class DatabaseManager: ObservableObject {
     }
 
     /// Delete events matching a specific title pattern (for testing only)
+    /// Pattern is safely escaped to prevent SQL injection
     func deleteTestEventsByTitle(withPattern pattern: String) async throws {
       guard let dbQueue = dbQueue else {
         throw DatabaseError.notInitialized
       }
 
+      // Escape special LIKE characters and use parameterized query
+      let escapedPattern = pattern
+        .replacingOccurrences(of: "%", with: "\\%")
+        .replacingOccurrences(of: "_", with: "\\_")
+      let likePattern = "%\(escapedPattern)%"
+
       let deletedCount = try await dbQueue.write { db in
         try Event
-          .filter(Event.Columns.title.like("%\(pattern)%"))
+          .filter(Event.Columns.title.like(likePattern, escape: "\\"))
           .deleteAll(db)
       }
 

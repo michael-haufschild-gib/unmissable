@@ -42,8 +42,13 @@ struct MenuBarView: View {
   }
 
   private func getNextMondayIfNeeded(from tomorrow: Date, calendar: Calendar) -> Date? {
-    // If tomorrow is Saturday (weekday 7), also include Monday
-    if calendar.component(.weekday, from: tomorrow) == 7 {
+    // If tomorrow is Saturday, also include Monday
+    // Using isDateInWeekend for clarity, then checking it's the first weekend day (Saturday)
+    if calendar.isDateInWeekend(tomorrow),
+      let nextDay = calendar.date(byAdding: .day, value: 1, to: tomorrow),
+      calendar.isDateInWeekend(nextDay)
+    {
+      // Tomorrow is Saturday (both tomorrow and the day after are weekend days)
       return calendar.date(byAdding: .day, value: 2, to: tomorrow)
     }
     return nil
@@ -71,9 +76,7 @@ struct MenuBarView: View {
 
     // Get Monday events if tomorrow is Saturday
     var mondayEvents: [Event] = []
-    if calendar.component(.weekday, from: tomorrow) == 7,
-      let monday = calendar.date(byAdding: .day, value: 2, to: tomorrow)
-    {
+    if let monday = getNextMondayIfNeeded(from: tomorrow, calendar: calendar) {
       mondayEvents = events.filter { calendar.isDate($0.startDate, inSameDayAs: monday) }
     }
 

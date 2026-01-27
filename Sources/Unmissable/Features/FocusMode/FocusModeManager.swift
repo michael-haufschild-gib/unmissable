@@ -3,13 +3,14 @@ import Foundation
 import OSLog
 
 @MainActor
-class FocusModeManager: ObservableObject {
+final class FocusModeManager: ObservableObject {
   private let logger = Logger(subsystem: "com.unmissable.app", category: "FocusModeManager")
 
   @Published var isDoNotDisturbEnabled: Bool = false
 
   private let preferencesManager: PreferencesManager
-  private var notificationObserver: NSObjectProtocol?
+  private nonisolated(unsafe) var notificationObserver: NSObjectProtocol?
+  private nonisolated(unsafe) var focusModeObserver: NSObjectProtocol?
 
   init(preferencesManager: PreferencesManager) {
     self.preferencesManager = preferencesManager
@@ -21,12 +22,15 @@ class FocusModeManager: ObservableObject {
     if let observer = notificationObserver {
       NotificationCenter.default.removeObserver(observer)
     }
+    if let observer = focusModeObserver {
+      NotificationCenter.default.removeObserver(observer)
+    }
   }
 
   private func setupNotifications() {
     // Monitor for Do Not Disturb state changes
     notificationObserver = NotificationCenter.default.addObserver(
-      forName: .init("com.apple.notificationcenterui.dndprefs_changed"),
+      forName: .dndPrefsChanged,
       object: nil,
       queue: .main
     ) { [weak self] _ in
@@ -37,8 +41,8 @@ class FocusModeManager: ObservableObject {
 
     // Also monitor for Focus mode changes (macOS 12+)
     if #available(macOS 12.0, *) {
-      NotificationCenter.default.addObserver(
-        forName: .init("com.apple.focus.state_changed"),
+      focusModeObserver = NotificationCenter.default.addObserver(
+        forName: .focusStateChanged,
         object: nil,
         queue: .main
       ) { [weak self] _ in
@@ -52,12 +56,29 @@ class FocusModeManager: ObservableObject {
   private func checkDoNotDisturbStatus() {
     // Move blocking process execution to background queue to prevent UI freeze
     Task.detached { [weak self] in
-      // Check Do Not Disturb status using private API
+      // Get home directory path safely using FileManager
+      let homeDirectory = FileManager.default.homeDirectoryForCurrentUser
+      let prefsPath = homeDirectory
+        .appendingPathComponent("Library")
+        .appendingPathComponent("Preferences")
+        .appendingPathComponent("com.apple.ncprefs.plist")
+        .path
+
+      // Validate the path exists and is within expected directory
+      guard prefsPath.hasPrefix(homeDirectory.path),
+            FileManager.default.fileExists(atPath: prefsPath) else {
+        await MainActor.run { [weak self] in
+          self?.logger.warning("DND preferences file not found at expected path")
+        }
+        return
+      }
+
+      // Check Do Not Disturb status using plutil
       let task = Process()
-      task.launchPath = "/usr/bin/plutil"
+      task.executableURL = URL(fileURLWithPath: "/usr/bin/plutil")
       task.arguments = [
         "-extract", "dnd_prefs.dnd_manually_enabled", "raw",
-        NSHomeDirectory() + "/Library/Preferences/com.apple.ncprefs.plist",
+        prefsPath,
       ]
 
       let pipe = Pipe()
@@ -66,9 +87,23 @@ class FocusModeManager: ObservableObject {
 
       do {
         try task.run()
-        task.waitUntilExit()
 
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        // Use a timeout to prevent indefinite blocking if plutil hangs
+        let timeoutTask = Task {
+          try await Task.sleep(for: .seconds(3))
+          if task.isRunning {
+            task.terminate()
+          }
+        }
+
+        task.waitUntilExit()
+        timeoutTask.cancel()
+
+        // Limit output size to prevent memory issues (DND status is just "0", "1", "true", or "false")
+        let maxOutputSize = 100
+        let fileHandle = pipe.fileHandleForReading
+        let data = fileHandle.readData(ofLength: maxOutputSize)
+
         if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(
           in: .whitespacesAndNewlines)
         {

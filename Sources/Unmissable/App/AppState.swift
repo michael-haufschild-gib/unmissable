@@ -4,7 +4,7 @@ import Foundation
 import OSLog
 
 @MainActor
-class AppState: ObservableObject {
+final class AppState: ObservableObject {
   private let logger = Logger(subsystem: "com.unmissable.app", category: "AppState")
 
   // Published properties for UI binding

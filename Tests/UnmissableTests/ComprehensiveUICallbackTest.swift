@@ -44,30 +44,30 @@ class ComprehensiveUICallbackTest: XCTestCase {
     var deadlockDetected = false
 
     // This recreates the exact callback pattern from OverlayManager.createOverlayWindow
-    let dismissCallback = { [weak overlayManager] in
-      Task.detached { @MainActor [weak overlayManager] in
-        self.logger.info("📱 CALLBACK: Starting dismiss callback")
+    let dismissCallback = { [weak overlayManager, logger] in
+      Task { @MainActor in
+        logger.info("📱 CALLBACK: Starting dismiss callback")
         overlayManager?.hideOverlay()
-        self.logger.info("📱 CALLBACK: Dismiss callback completed")
+        logger.info("📱 CALLBACK: Dismiss callback completed")
       }
     }
 
-    let snoozeCallback = { [weak overlayManager] (minutes: Int) in
-      Task.detached { @MainActor [weak overlayManager] in
-        self.logger.info("⏰ CALLBACK: Starting snooze callback for \(minutes) minutes")
+    let snoozeCallback = { [weak overlayManager, logger] (minutes: Int) in
+      Task { @MainActor in
+        logger.info("⏰ CALLBACK: Starting snooze callback for \(minutes) minutes")
         overlayManager?.snoozeOverlay(for: minutes)
-        self.logger.info("⏰ CALLBACK: Snooze callback completed")
+        logger.info("⏰ CALLBACK: Snooze callback completed")
       }
     }
 
-    let joinCallback = { [weak overlayManager] in
-      Task.detached { @MainActor [weak overlayManager] in
-        self.logger.info("🚀 CALLBACK: Starting join callback")
+    let joinCallback = { [weak overlayManager, logger] in
+      Task { @MainActor in
+        logger.info("🚀 CALLBACK: Starting join callback")
         if let url = testEvent.primaryLink {
           NSWorkspace.shared.open(url)
         }
         overlayManager?.hideOverlay()
-        self.logger.info("🚀 CALLBACK: Join callback completed")
+        logger.info("🚀 CALLBACK: Join callback completed")
       }
     }
 

@@ -4,7 +4,7 @@ import Network
 import OSLog
 
 @MainActor
-class SyncManager: ObservableObject {
+final class SyncManager: ObservableObject {
   private let logger = Logger(subsystem: "com.unmissable.app", category: "SyncManager")
   private let debugLogger = DebugLogger(subsystem: "com.unmissable.app", category: "SyncManager")
 
@@ -17,10 +17,9 @@ class SyncManager: ObservableObject {
   private let apiService: GoogleCalendarAPIService
   private let databaseManager: DatabaseManager
   private let preferencesManager: PreferencesManager
-  private var syncTimer: Timer?
   private var syncTask: Task<Void, Never>?
   private var networkMonitor: NWPathMonitor?
-  private let networkQueue = DispatchQueue(label: "NetworkMonitor")
+  private var networkMonitorTask: Task<Void, Never>?
   private var cancellables = Set<AnyCancellable>()
 
   // Sync completion callback
@@ -30,8 +29,15 @@ class SyncManager: ObservableObject {
   // Retry configuration
   private let maxRetries = 5
   private let baseRetryDelay: TimeInterval = 5.0  // Start with 5 seconds
-  private var retryTimer: Timer?
   private var retryTask: Task<Void, Never>?
+
+  // Rate limiting configuration
+  private var lastManualSyncTime: Date?
+  private let minSyncCooldown: TimeInterval = 10.0  // Minimum 10 seconds between manual syncs
+
+  // Network monitor debouncing
+  private var pendingNetworkUpdate: Task<Void, Never>?
+  private let networkDebounceDelay: TimeInterval = 0.5  // 500ms debounce
 
   init(
     apiService: GoogleCalendarAPIService, databaseManager: DatabaseManager,
@@ -46,8 +52,10 @@ class SyncManager: ObservableObject {
 
   deinit {
     networkMonitor?.cancel()
-    syncTimer?.invalidate()
-    retryTimer?.invalidate()
+    networkMonitorTask?.cancel()
+    syncTask?.cancel()
+    retryTask?.cancel()
+    pendingNetworkUpdate?.cancel()
   }
 
   private var syncInterval: TimeInterval {
@@ -60,7 +68,7 @@ class SyncManager: ObservableObject {
       .sink { [weak self] _ in
         Task { @MainActor in
           // Restart periodic sync with new interval
-          if self?.syncTimer != nil {
+          if self?.syncTask != nil {
             self?.stopPeriodicSync()
             self?.startPeriodicSync()
           }
@@ -70,29 +78,63 @@ class SyncManager: ObservableObject {
   }
 
   private func setupNetworkMonitoring() {
-    networkMonitor = NWPathMonitor()
+    let monitor = NWPathMonitor()
+    networkMonitor = monitor
 
-    networkMonitor?.pathUpdateHandler = { [weak self] path in
-      Task { @MainActor in
-        let wasOnline = self?.isOnline ?? true
-        self?.isOnline = path.status == .satisfied
-
-        if !wasOnline && self?.isOnline == true {
-          self?.logger.info("Network connection restored, attempting sync")
-          await self?.performSync()
-        } else if self?.isOnline == false {
-          self?.logger.warning("Network connection lost")
-          self?.syncStatus = .offline
-        }
+    // Create async stream for network path updates
+    let pathStream = AsyncStream<NWPath> { continuation in
+      monitor.pathUpdateHandler = { path in
+        continuation.yield(path)
+      }
+      continuation.onTermination = { _ in
+        monitor.cancel()
       }
     }
 
-    networkMonitor?.start(queue: networkQueue)
+    // Start monitor on a background queue (required by NWPathMonitor)
+    monitor.start(queue: DispatchQueue(label: "com.unmissable.network", qos: .utility))
+
+    // Process path updates asynchronously
+    networkMonitorTask = Task { @MainActor [weak self] in
+      for await path in pathStream {
+        guard !Task.isCancelled else { break }
+        await self?.handleNetworkPathUpdate(path)
+      }
+    }
+  }
+
+  private func handleNetworkPathUpdate(_ path: NWPath) async {
+    // Debounce rapid network status changes
+    pendingNetworkUpdate?.cancel()
+
+    pendingNetworkUpdate = Task { @MainActor [weak self] in
+      guard let self else { return }
+      do {
+        try await Task.sleep(for: .milliseconds(Int(networkDebounceDelay * 1000)))
+      } catch is CancellationError {
+        return  // Debounced - a newer update superseded this one
+      } catch {
+        return
+      }
+
+      guard !Task.isCancelled else { return }
+
+      let wasOnline = isOnline
+      isOnline = path.status == .satisfied
+
+      if !wasOnline && isOnline {
+        logger.info("Network connection restored, attempting sync")
+        await performSync()
+      } else if !isOnline {
+        logger.warning("Network connection lost")
+        syncStatus = .offline
+      }
+    }
   }
 
   func startPeriodicSync() {
-    guard syncTimer == nil else {
-      logger.info("🔄 Periodic sync already running - timer exists")
+    guard syncTask == nil else {
+      logger.info("🔄 Periodic sync already running - task exists")
       return
     }
 
@@ -128,8 +170,6 @@ class SyncManager: ObservableObject {
   func stopPeriodicSync() {
     syncTask?.cancel()
     syncTask = nil
-    syncTimer?.invalidate()
-    syncTimer = nil
     nextSyncTime = nil
     logger.info("Stopped periodic sync")
   }
@@ -182,13 +222,6 @@ class SyncManager: ObservableObject {
         "📅 Syncing events from \(startOfDay) to \(endDate) (from start of today + \(self.eventLookAheadDays) days ahead)"
       )
 
-      // CRITICAL: Clear existing events for selected calendars to remove stale data
-      logger.info("🗑️ Clearing existing events for \(selectedCalendarIds.count) calendars...")
-      for calendarId in selectedCalendarIds {
-        try await databaseManager.deleteEventsForCalendar(calendarId)
-        logger.info("🗑️ Cleared existing events for calendar: \(calendarId)")
-      }
-
       // Fetch events from API
       try await apiService.fetchEvents(
         for: selectedCalendarIds,
@@ -198,48 +231,23 @@ class SyncManager: ObservableObject {
 
       let fetchedEvents = apiService.events
       debugLogger.info("🔄 SYNC: Got \(fetchedEvents.count) events from API")
-
-      if let firstEvent = fetchedEvents.first {
-        debugLogger.info("🔄 SYNC: First event - \(firstEvent.title)")
-        debugLogger.info(
-          "🔄 SYNC: Description in sync: \(firstEvent.description != nil ? "YES" : "NO")")
-        debugLogger.info("🔄 SYNC: Attendees in sync: \(firstEvent.attendees.count) attendees")
-      }
-
       logger.info("📥 API returned \(fetchedEvents.count) events")
 
-      // Log details about fetched events for debugging
-      for event in fetchedEvents.prefix(5) {  // Log first 5 events
-        logger.info("📅 Event: '\(event.title)' at \(event.startDate)")
+      // Group events by calendar ID for atomic updates
+      let eventsByCalendar = Dictionary(grouping: fetchedEvents) { $0.calendarId }
+
+      // Save events to database using atomic transactions per calendar
+      logger.info("💾 Saving events to database (transactional per calendar)...")
+
+      for calendarId in selectedCalendarIds {
+        let calendarEvents = eventsByCalendar[calendarId] ?? []
+        try await databaseManager.replaceEvents(for: calendarId, with: calendarEvents)
+        try await databaseManager.updateCalendarSyncTime(calendarId)
       }
-
-      // Save events to database
-      logger.info("💾 Saving \(fetchedEvents.count) events to database...")
-
-      // Log sample event details for debugging
-      for (index, event) in fetchedEvents.prefix(3).enumerated() {
-        logger.info("📝 Event \(index + 1): '\(event.title)' at \(event.startDate)")
-        logger.info(
-          "   - Description: \(event.description?.isEmpty == false ? "present (\(event.description!.count) chars)" : "none")"
-        )
-        logger.info("   - Attendees: \(event.attendees.count) attendees")
-        if !event.attendees.isEmpty {
-          logger.info(
-            "   - First attendee: \(event.attendees.first?.displayName ?? event.attendees.first?.email ?? "unknown")"
-          )
-        }
-      }
-
-      try await databaseManager.saveEvents(fetchedEvents)
 
       // Verify events were saved by checking database
       let savedCount = try await databaseManager.fetchEvents(from: startOfDay, to: endDate).count
       logger.info("✅ Database now contains \(savedCount) events in sync window")
-
-      // Update calendar sync times
-      for calendarId in selectedCalendarIds {
-        try await databaseManager.updateCalendarSyncTime(calendarId)
-      }
 
       syncStatus = .idle
       updateSyncTimes()
@@ -290,7 +298,6 @@ class SyncManager: ObservableObject {
     )
     syncStatus = .error("Retrying in \(Int(retryDelay))s...")
 
-    retryTimer?.invalidate()
     retryTask?.cancel()
     retryTask = Task { @MainActor in
       do {
@@ -298,8 +305,11 @@ class SyncManager: ObservableObject {
         if !Task.isCancelled {
           await performSync()
         }
+      } catch is CancellationError {
+        // Expected cancellation, do nothing
+        logger.debug("Retry task cancelled")
       } catch {
-        // Task was cancelled
+        logger.error("Unexpected retry task error: \(error.localizedDescription)")
       }
     }
   }
@@ -315,8 +325,6 @@ class SyncManager: ObservableObject {
     retryCount = 0
     retryTask?.cancel()
     retryTask = nil
-    retryTimer?.invalidate()
-    retryTimer = nil
   }
 
   func syncCalendarList() async throws {
@@ -348,7 +356,7 @@ class SyncManager: ObservableObject {
   }
 
   private func updateNextSyncTime() {
-    if syncTimer != nil {
+    if syncTask != nil {
       nextSyncTime = Date().addingTimeInterval(syncInterval)
     } else {
       nextSyncTime = nil
@@ -358,7 +366,18 @@ class SyncManager: ObservableObject {
   // MARK: - Manual Operations
 
   func forceSyncNow() async {
+    // Rate limit manual sync requests to prevent API abuse
+    if let lastSync = lastManualSyncTime {
+      let timeSinceLastSync = Date().timeIntervalSince(lastSync)
+      if timeSinceLastSync < minSyncCooldown {
+        let remainingCooldown = Int(minSyncCooldown - timeSinceLastSync)
+        logger.info("Manual sync rate limited - please wait \(remainingCooldown) seconds")
+        return
+      }
+    }
+
     logger.info("Force sync requested")
+    lastManualSyncTime = Date()
     await performSync()
   }
 

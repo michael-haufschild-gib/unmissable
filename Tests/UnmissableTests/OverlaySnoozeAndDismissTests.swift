@@ -8,18 +8,18 @@ import XCTest
 final class OverlaySnoozeAndDismissTests: XCTestCase {
 
   var overlayManager: OverlayManager!
-  var mockPreferences: TestUtilities.MockPreferencesManager!
-  var mockFocusMode: MockFocusModeManagerSnooze!
-  var mockEventScheduler: MockEventSchedulerSnooze!
+  var mockPreferences: PreferencesManager!
+  var focusModeManager: FocusModeManager!
+  var eventScheduler: EventScheduler!
   var cancellables: Set<AnyCancellable>!
 
   override func setUp() async throws {
-    mockPreferences = TestUtilities.MockPreferencesManager()
-    mockFocusMode = MockFocusModeManagerSnooze(preferencesManager: mockPreferences)
+    mockPreferences = TestUtilities.createTestPreferencesManager()
+    focusModeManager = FocusModeManager(preferencesManager: mockPreferences)
     overlayManager = OverlayManager(
-      preferencesManager: mockPreferences, focusModeManager: mockFocusMode)
-    mockEventScheduler = MockEventSchedulerSnooze(preferencesManager: mockPreferences)
-    overlayManager.setEventScheduler(mockEventScheduler)
+      preferencesManager: mockPreferences, focusModeManager: focusModeManager, isTestMode: true)
+    eventScheduler = EventScheduler(preferencesManager: mockPreferences)
+    overlayManager.setEventScheduler(eventScheduler)
     cancellables = Set<AnyCancellable>()
 
     try await super.setUp()
@@ -30,8 +30,8 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
     cancellables.removeAll()
 
     overlayManager = nil
-    mockEventScheduler = nil
-    mockFocusMode = nil
+    eventScheduler = nil
+    focusModeManager = nil
     mockPreferences = nil
 
     try await super.tearDown()
@@ -68,15 +68,15 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
     overlayManager.snoozeOverlay(for: snoozeMinutes)
 
     // Verify snooze was scheduled correctly
-    XCTAssertTrue(mockEventScheduler.snoozeScheduled, "Snooze should be scheduled")
+    XCTAssertTrue(eventScheduler.snoozeScheduled, "Snooze should be scheduled")
     XCTAssertEqual(
-      mockEventScheduler.snoozeMinutes, snoozeMinutes, "Should schedule correct snooze duration")
+      eventScheduler.snoozeMinutes, snoozeMinutes, "Should schedule correct snooze duration")
     XCTAssertEqual(
-      mockEventScheduler.snoozeEvent?.id, event.id, "Should schedule snooze for correct event")
+      eventScheduler.snoozeEvent?.id, event.id, "Should schedule snooze for correct event")
 
     // Verify timing is approximately correct (within 5 seconds tolerance)
     let expectedSnoozeTime = Date().addingTimeInterval(TimeInterval(snoozeMinutes * 60))
-    let actualSnoozeTime = mockEventScheduler.snoozeTime!
+    let actualSnoozeTime = eventScheduler.snoozeTime!
     let timeDifference = abs(expectedSnoozeTime.timeIntervalSince(actualSnoozeTime))
 
     XCTAssertLessThan(timeDifference, 5.0, "Snooze time should be approximately correct")
@@ -87,7 +87,7 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
     let testDurations = [1, 5, 10, 15]
 
     for duration in testDurations {
-      mockEventScheduler.reset()
+      eventScheduler.reset()
 
       let event = TestUtilities.createTestEvent(title: "Test Meeting \(duration)")
       overlayManager.showOverlay(for: event)
@@ -95,9 +95,9 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
       overlayManager.snoozeOverlay(for: duration)
 
       XCTAssertTrue(
-        mockEventScheduler.snoozeScheduled, "Snooze should be scheduled for \(duration) minutes")
+        eventScheduler.snoozeScheduled, "Snooze should be scheduled for \(duration) minutes")
       XCTAssertEqual(
-        mockEventScheduler.snoozeMinutes, duration,
+        eventScheduler.snoozeMinutes, duration,
         "Should schedule correct duration: \(duration) minutes")
       XCTAssertFalse(
         overlayManager.isOverlayVisible, "Overlay should be hidden after \(duration)-minute snooze")
@@ -169,8 +169,8 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
     overlayManager.showOverlay(for: event)
     overlayManager.hideOverlay()
 
-    XCTAssertFalse(mockEventScheduler.snoozeScheduled, "Dismiss should not schedule snooze")
-    XCTAssertNil(mockEventScheduler.snoozeEvent, "No snooze event should be set")
+    XCTAssertFalse(eventScheduler.snoozeScheduled, "Dismiss should not schedule snooze")
+    XCTAssertNil(eventScheduler.snoozeEvent, "No snooze event should be set")
   }
 
   // MARK: - Rapid Interaction Tests
@@ -180,7 +180,7 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
     let event = TestUtilities.createTestEvent()
 
     for i in 0..<5 {
-      mockEventScheduler.reset()
+      eventScheduler.reset()
 
       overlayManager.showOverlay(for: event)
       XCTAssertTrue(overlayManager.isOverlayVisible, "Overlay should show for iteration \(i)")
@@ -188,11 +188,11 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
       if i % 2 == 0 {
         // Even iterations: snooze
         overlayManager.snoozeOverlay(for: 1)
-        XCTAssertTrue(mockEventScheduler.snoozeScheduled, "Snooze should work on iteration \(i)")
+        XCTAssertTrue(eventScheduler.snoozeScheduled, "Snooze should work on iteration \(i)")
       } else {
         // Odd iterations: dismiss
         overlayManager.hideOverlay()
-        XCTAssertFalse(mockEventScheduler.snoozeScheduled, "Dismiss should work on iteration \(i)")
+        XCTAssertFalse(eventScheduler.snoozeScheduled, "Dismiss should work on iteration \(i)")
       }
 
       XCTAssertFalse(
@@ -209,7 +209,7 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
 
     XCTAssertFalse(overlayManager.isOverlayVisible, "Overlay should still not be visible")
     XCTAssertFalse(
-      mockEventScheduler.snoozeScheduled, "No snooze should be scheduled when no overlay is active")
+      eventScheduler.snoozeScheduled, "No snooze should be scheduled when no overlay is active")
   }
 
   // MARK: - Error Handling Tests
@@ -226,12 +226,12 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
       overlayManager.isOverlayVisible, "Overlay should be hidden even with 0-minute snooze")
 
     // Test very large duration
-    mockEventScheduler.reset()
+    eventScheduler.reset()
     overlayManager.showOverlay(for: event)
     overlayManager.snoozeOverlay(for: 1440)  // 24 hours
 
-    XCTAssertTrue(mockEventScheduler.snoozeScheduled, "Large snooze duration should still work")
-    XCTAssertEqual(mockEventScheduler.snoozeMinutes, 1440, "Should handle large durations")
+    XCTAssertTrue(eventScheduler.snoozeScheduled, "Large snooze duration should still work")
+    XCTAssertEqual(eventScheduler.snoozeMinutes, 1440, "Should handle large durations")
   }
 
   // MARK: - State Consistency Tests
@@ -289,41 +289,5 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
 
     XCTAssertEqual(
       countdownAfterWait, countdownAfterSecondWait, "Timer should not be running after dismiss")
-  }
-}
-
-// MARK: - Mock Objects
-
-class MockFocusModeManagerSnooze: FocusModeManager {
-  var mockIsDoNotDisturbEnabled = false
-
-  override var isDoNotDisturbEnabled: Bool {
-    get { mockIsDoNotDisturbEnabled }
-    set { mockIsDoNotDisturbEnabled = newValue }
-  }
-}
-
-class MockEventSchedulerSnooze: EventScheduler {
-  var snoozeScheduled = false
-  var snoozeMinutes = 0
-  var snoozeEvent: Event?
-  var snoozeTime: Date?
-
-  override init(preferencesManager: PreferencesManager) {
-    super.init(preferencesManager: preferencesManager)
-  }
-
-  override func scheduleSnooze(for event: Event, minutes: Int) {
-    snoozeScheduled = true
-    snoozeMinutes = minutes
-    snoozeEvent = event
-    snoozeTime = Date().addingTimeInterval(TimeInterval(minutes * 60))
-  }
-
-  func reset() {
-    snoozeScheduled = false
-    snoozeMinutes = 0
-    snoozeEvent = nil
-    snoozeTime = nil
   }
 }

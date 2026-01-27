@@ -5,19 +5,22 @@ import OSLog
 import SwiftUI
 
 @MainActor
-class OverlayManager: ObservableObject, OverlayManaging {
+final class OverlayManager: ObservableObject, OverlayManaging {
   private let logger = Logger(subsystem: "com.unmissable.app", category: "OverlayManager")
 
   @Published var activeEvent: Event?
   @Published var isOverlayVisible = false
-  @Published var timeUntilMeeting: TimeInterval = 0
+  /// Error message if snooze fails due to scheduler unavailability
+  @Published var snoozeError: String?
+
+  /// Computed time until meeting starts (negative if meeting has started)
+  /// Note: This is a computed property - the View manages its own timer for UI updates
+  var timeUntilMeeting: TimeInterval {
+    activeEvent?.startDate.timeIntervalSinceNow ?? 0
+  }
 
   private var overlayWindows: [NSWindow] = []
-  private var countdownTimer: Timer?
-  private var countdownTask: Task<Void, Never>?
   private var snoozeTask: Task<Void, Never>?
-  private var scheduleTask: Task<Void, Never>?
-  private var scheduledTimers: [Timer] = []  // Track all scheduled timers for cleanup
   private let preferencesManager: PreferencesManager
   private let soundManager: SoundManager
   private let focusModeManager: FocusModeManager
@@ -29,6 +32,7 @@ class OverlayManager: ObservableObject, OverlayManaging {
   private let isTestMode: Bool
 
   // Reference to EventScheduler for proper snooze scheduling
+  // Note: Weak reference requires validation before use
   private weak var eventScheduler: EventScheduler?
 
   init(
@@ -60,17 +64,7 @@ class OverlayManager: ObservableObject, OverlayManaging {
     let startTime = Date()
     logger.info("🎬 SHOW OVERLAY: Starting for event: \(event.title), fromSnooze: \(fromSnooze)")
 
-    // CRITICAL FIX: Ensure we're on main thread and prevent re-entrance
-    guard Thread.isMainThread else {
-      logger.error("❌ THREADING ERROR: showOverlay called off main thread")
-      Task { @MainActor in
-        self.showOverlay(
-          for: event, minutesBeforeMeeting: minutesBeforeMeeting, fromSnooze: fromSnooze)
-      }
-      return
-    }
-
-    // CRITICAL FIX: Prevent overlapping overlay operations
+    // Prevent overlapping overlay operations
     if isOverlayVisible && activeEvent?.id == event.id {
       logger.info("⚠️ SKIP: Overlay already visible for this event")
       return
@@ -82,21 +76,19 @@ class OverlayManager: ObservableObject, OverlayManaging {
       return
     }
 
-    // CRITICAL FIX: Clean up any existing overlay first (atomic operation)
+    // Clean up any existing overlay first (atomic operation)
     hideOverlay()
 
-    // SNOOZE FIX: Track if this overlay is from a snooze alert
+    // Track if this overlay is from a snooze alert
     isSnoozedAlert = fromSnooze
 
-    // CRITICAL FIX: Set state atomically to prevent race conditions
+    // Set state atomically to prevent race conditions
     activeEvent = event
     isOverlayVisible = true
-
-    // CRITICAL FIX: Initialize timeUntilMeeting immediately, not just in timer
-    timeUntilMeeting = event.startDate.timeIntervalSinceNow
+    snoozeError = nil  // Clear any previous snooze error
 
     logger.info(
-      "✅ OVERLAY STATE: Set isOverlayVisible = true for \(event.title), timeUntilMeeting = \(self.timeUntilMeeting), isSnoozed = \(self.isSnoozedAlert)"
+      "✅ OVERLAY STATE: Set isOverlayVisible = true for \(event.title), isSnoozed = \(self.isSnoozedAlert)"
     )
 
     // Play alert sound if enabled and allowed by focus mode
@@ -104,9 +96,8 @@ class OverlayManager: ObservableObject, OverlayManaging {
       soundManager.playAlertSound()
     }
 
-    // CRITICAL FIX: Create windows synchronously on main thread
+    // Create windows synchronously (View manages its own countdown timer)
     createOverlayWindows(for: event)
-    startCountdownTimer(for: event)
 
     // Log successful overlay creation
     let responseTime = Date().timeIntervalSince(startTime)
@@ -118,34 +109,25 @@ class OverlayManager: ObservableObject, OverlayManaging {
   func hideOverlay() {
     logger.info("🛑 HIDE OVERLAY: Starting cleanup")
 
-    // CRITICAL FIX: Ensure we're on main thread
-    guard Thread.isMainThread else {
-      logger.error("❌ THREADING ERROR: hideOverlay called off main thread")
-      Task { @MainActor in
-        self.hideOverlay()
-      }
-      return
-    }
-
-    // CRITICAL FIX: Stop timer FIRST and clear state immediately
-    stopCountdownTimer()
-    invalidateAllScheduledTimers()  // NEW: Clean up all scheduled timers
+    // Clean up scheduled timers and stop sound
+    invalidateAllScheduledTimers()
     soundManager.stopSound()
 
-    // CRITICAL FIX: Clear state immediately to prevent any race conditions
+    // Clear state immediately to prevent any race conditions
     activeEvent = nil
     isOverlayVisible = false
-    timeUntilMeeting = 0
-    isSnoozedAlert = false  // SNOOZE FIX: Reset snooze flag
+    isSnoozedAlert = false  // Reset snooze flag
+    snoozeError = nil
 
-    // CRITICAL FIX: Close windows on background queue to avoid Window Server deadlock
+    // Close windows on background queue to avoid Window Server deadlock
+    // This is the one place where we intentionally detach, as Window Server operations can be slow
     let windowsToClose = overlayWindows
     overlayWindows.removeAll()
 
     if !windowsToClose.isEmpty {
       logger.info("🪟 Hiding \(windowsToClose.count) overlay windows...")
 
-      // CRITICAL FIX: Use orderOut instead of close to avoid Window Server deadlock
+      // Use orderOut instead of close to avoid Window Server deadlock
       // orderOut removes window from screen without complex cleanup that can deadlock
       for window in windowsToClose {
         window.orderOut(nil)
@@ -156,18 +138,24 @@ class OverlayManager: ObservableObject, OverlayManaging {
   }
 
   func snoozeOverlay(for minutes: Int) {
-    guard let event = activeEvent else { return }
+    guard let event = activeEvent else {
+      logger.warning("⚠️ SNOOZE: No active event to snooze")
+      return
+    }
 
     logger.info("Snoozing overlay for \(minutes) minutes")
+
+    // Capture event before hiding overlay (which clears activeEvent)
+    let eventToSnooze = event
     hideOverlay()
 
     // Use EventScheduler for proper snooze scheduling
     if let scheduler = eventScheduler {
-      scheduler.scheduleSnooze(for: event, minutes: minutes)
+      scheduler.scheduleSnooze(for: eventToSnooze, minutes: minutes)
       logger.info("✅ Snooze scheduled through EventScheduler")
     } else {
       // Fallback to Task-based method if EventScheduler not available
-      logger.warning("⚠️ EventScheduler not available, using fallback Task")
+      logger.warning("⚠️ EventScheduler not available, using fallback Task-based snooze")
 
       snoozeTask = Task { @MainActor in
         do {
@@ -177,66 +165,20 @@ class OverlayManager: ObservableObject, OverlayManaging {
 
           if !Task.isCancelled {
             logger.info("⏰ SNOOZE: Delay complete, showing overlay")
-            showOverlay(for: event, minutesBeforeMeeting: 2, fromSnooze: true)
+            showOverlay(for: eventToSnooze, minutesBeforeMeeting: 2, fromSnooze: true)
           }
-        } catch {
+        } catch is CancellationError {
           logger.info("⏰ SNOOZE: Task cancelled")
-        }
-      }
-    }
-  }
-
-  func scheduleOverlay(for event: Event, minutesBeforeMeeting: Int = 5) {
-    logger.info(
-      "⏰ SCHEDULE OVERLAY: Event '\(event.title)' for \(minutesBeforeMeeting) minutes before")
-
-    let showTime = event.startDate.addingTimeInterval(-TimeInterval(minutesBeforeMeeting * 60))
-    let timeUntilShow = showTime.timeIntervalSinceNow
-
-    logger.info(
-      "🎯 SCHEDULE: Event '\(event.title)' should trigger in \(timeUntilShow)s (showTime: \(showTime), current: \(Date()))"
-    )
-
-    // If the scheduled show time is now or has just passed, show immediately instead of skipping
-    if timeUntilShow <= 0.5 {
-      logger.info(
-        "⚡️ IMMEDIATE SHOW: timeUntilShow=\(timeUntilShow), showing overlay now for \(event.title)")
-      showOverlay(for: event, minutesBeforeMeeting: minutesBeforeMeeting, fromSnooze: false)
-      return
-    }
-
-    if timeUntilShow > 0 {
-      logger.info("✅ SCHEDULING: Task-based overlay for \(event.title) in \(timeUntilShow) seconds")
-
-      // Cancel any existing schedule task before creating new one
-      scheduleTask?.cancel()
-
-      // CRITICAL FIX: Use Task-based scheduling to ensure proper thread safety
-      scheduleTask = Task { @MainActor in
-        do {
-          logger.info("⏰ SCHEDULE: Starting \(timeUntilShow)s delay for \(event.title)")
-          try await Task.sleep(for: .seconds(timeUntilShow))
-
-          if !Task.isCancelled {
-            logger.info("🔥 TASK FIRED: Attempting to show overlay for \(event.title)")
-            logger.info("📱 MAIN QUEUE: Calling showOverlay for \(event.title)")
-            showOverlay(
-              for: event, minutesBeforeMeeting: minutesBeforeMeeting, fromSnooze: false)
-          } else {
-            logger.info("⏰ SCHEDULE: Task was cancelled for \(event.title)")
-          }
         } catch {
-          logger.info("⏰ SCHEDULE: Task cancelled/interrupted for \(event.title)")
+          logger.error("⏰ SNOOZE: Unexpected error: \(error.localizedDescription)")
         }
       }
-
-      logger.info("📝 TASK SCHEDULED: Schedule task created for \(event.title)")
     }
   }
 
   private func createOverlayWindows(for event: Event) {
     if isTestMode {
-      print("🧪 TEST MODE: Skipping actual window creation for \(event.title)")
+      logger.debug("🧪 TEST MODE: Skipping actual window creation for \(event.title)")
       return
     }
 
@@ -251,6 +193,10 @@ class OverlayManager: ObservableObject, OverlayManaging {
       overlayWindows.append(window)
       window.makeKeyAndOrderFront(nil)
     }
+
+    // Force app activation to ensure windows receive input immediately
+    // Since this is an LSUIElement (menu bar) app, windows don't steal focus automatically
+    NSApplication.shared.activate(ignoringOtherApps: true)
   }
 
   private func createOverlayWindow(for screen: NSScreen, event: Event) -> NSWindow {
@@ -268,33 +214,26 @@ class OverlayManager: ObservableObject, OverlayManaging {
     window.ignoresMouseEvents = false
     window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-    // CRITICAL FIX: Use async dispatch with delay to break out of current execution context
+    // Button callbacks run on MainActor since OverlayManager is @MainActor
     let overlayContent = OverlayContentView(
       event: event,
       onDismiss: { [weak self] in
-        // CRITICAL FIX: Use background queue to break out of main thread deadlock
-        Task.detached(priority: .userInitiated) {
-          // Then dispatch back to main for UI operations
-          await MainActor.run {
+        // Simple Task to break out of button action context, already on MainActor
+        Task { @MainActor in
+          self?.hideOverlay()
+        }
+      },
+      onJoin: { [weak self] in
+        Task { @MainActor in
+          if let url = event.primaryLink {
+            NSWorkspace.shared.open(url)
             self?.hideOverlay()
           }
         }
       },
-      onJoin: { [weak self] in
-        Task.detached(priority: .userInitiated) {
-          await MainActor.run {
-            if let url = event.primaryLink {
-              NSWorkspace.shared.open(url)
-              self?.hideOverlay()
-            }
-          }
-        }
-      },
       onSnooze: { [weak self] minutes in
-        Task.detached(priority: .userInitiated) {
-          await MainActor.run {
-            self?.snoozeOverlay(for: minutes)
-          }
+        Task { @MainActor in
+          self?.snoozeOverlay(for: minutes)
         }
       },
       isFromSnooze: isSnoozedAlert
@@ -308,88 +247,16 @@ class OverlayManager: ObservableObject, OverlayManaging {
     return window
   }
 
-  // MARK: - Countdown Timer
-
-  private func startCountdownTimer(for event: Event) {
-    logger.debug("⏰ COUNTDOWN: Starting Task-based countdown timer for \(event.title)")
-    stopCountdownTimer()
-
-    countdownTask = Task { @MainActor in
-      while !Task.isCancelled && isOverlayVisible && activeEvent?.id == event.id {
-        do {
-          logger.debug("⏰ COUNTDOWN: Task iteration for \(event.title)")
-          updateCountdown(for: event)
-          try await Task.sleep(for: .seconds(1))
-        } catch {
-          // Task was cancelled
-          logger.info("⏰ COUNTDOWN: Task cancelled for \(event.title)")
-          break
-        }
-      }
-      logger.info("⏰ COUNTDOWN: Task completed for \(event.title)")
-    }
-  }
-
-  private func stopCountdownTimer() {
-    // Cancel Task-based countdown
-    if let task = countdownTask {
-      task.cancel()
-      countdownTask = nil
-      logger.debug("⏹️ TASK: Countdown task cancelled and deallocated")
-    }
-
-    // Also clean up any legacy Timer (for transition period)
-    if let timer = countdownTimer {
-      timer.invalidate()
-      countdownTimer = nil
-      logger.debug("⏹️ TIMER: Legacy countdown timer stopped and deallocated")
-    }
-  }
+  // MARK: - Timer Cleanup
 
   private func invalidateAllScheduledTimers() {
-    logger.info("🧹 CLEANUP: Invalidating \(self.scheduledTimers.count) scheduled timers")
-    for timer in scheduledTimers {
-      timer.invalidate()
-    }
-    scheduledTimers.removeAll()
+    logger.info("🧹 CLEANUP: Stopping all scheduled tasks")
 
     // Cancel snooze task
     if let snoozeTask = snoozeTask {
       snoozeTask.cancel()
       self.snoozeTask = nil
       logger.debug("🧹 CLEANUP: Cancelled snooze task")
-    }
-
-    // Cancel schedule task
-    if let scheduleTask = scheduleTask {
-      scheduleTask.cancel()
-      self.scheduleTask = nil
-      logger.debug("🧹 CLEANUP: Cancelled schedule task")
-    }
-  }
-
-  private func updateCountdown(for event: Event) {
-    // CRITICAL FIX: Guard against invalid state
-    guard isOverlayVisible, let activeEvent = activeEvent, activeEvent.id == event.id else {
-      logger.warning("⚠️ UPDATE COUNTDOWN: Overlay not visible or event mismatch, stopping timer")
-      stopCountdownTimer()
-      return
-    }
-
-    timeUntilMeeting = event.startDate.timeIntervalSinceNow
-
-    // SNOOZE FIX: Different auto-hide behavior for snoozed vs regular alerts
-    let autoHideThreshold: TimeInterval = isSnoozedAlert ? -1800 : -300  // 30 minutes for snoozed, 5 minutes for regular
-
-    if timeUntilMeeting < autoHideThreshold {
-      let thresholdMinutes = Int(-autoHideThreshold / 60)
-      logger.info(
-        "⏰ AUTO-HIDE: Meeting \(event.title) started >\(thresholdMinutes) minutes ago, hiding overlay (snoozed: \(self.isSnoozedAlert))"
-      )
-      // CRITICAL FIX: Use async dispatch to prevent timer re-entrance issues
-      Task { @MainActor in
-        self.hideOverlay()
-      }
     }
   }
 }

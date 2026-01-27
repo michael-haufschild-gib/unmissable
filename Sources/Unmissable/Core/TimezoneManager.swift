@@ -1,7 +1,7 @@
 import Foundation
 import OSLog
 
-class TimezoneManager {
+final class TimezoneManager: Sendable {
   private let logger = Logger(subsystem: "com.unmissable.app", category: "TimezoneManager")
 
   static let shared = TimezoneManager()

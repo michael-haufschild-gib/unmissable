@@ -57,34 +57,34 @@ class ScheduleTimerMigrationTests: XCTestCase {
       var overlayAppeared = false
       let observer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) {
         [weak overlayManager] timer in
-        Task { @MainActor in
-          if let overlayManager, overlayManager.isOverlayVisible && !overlayAppeared {
-            overlayAppeared = true
-            timer.invalidate()
+        guard let overlayManager, !overlayAppeared else { return }
+        // Check overlay visibility directly in timer callback
+        if overlayManager.isOverlayVisible {
+          overlayAppeared = true
+          timer.invalidate()
 
-            let actualTriggerTime = Date()
-            let expectedTriggerTime = scheduleStartTime.addingTimeInterval(TimeInterval(delay))
+          let actualTriggerTime = Date()
+          let expectedTriggerTime = scheduleStartTime.addingTimeInterval(TimeInterval(delay))
 
-            TimerMigrationTestHelpers.logTimingMetrics(
-              operation: "Schedule \(delay)s",
-              expected: expectedTriggerTime,
-              actual: actualTriggerTime,
-              tolerance: TimerMigrationTestHelpers.ScheduleTimer.tolerance
-            )
+          TimerMigrationTestHelpers.logTimingMetrics(
+            operation: "Schedule \(delay)s",
+            expected: expectedTriggerTime,
+            actual: actualTriggerTime,
+            tolerance: TimerMigrationTestHelpers.ScheduleTimer.tolerance
+          )
 
-            TimerMigrationTestHelpers.validateTimerAccuracy(
-              expected: expectedTriggerTime,
-              actual: actualTriggerTime,
-              tolerance: TimerMigrationTestHelpers.ScheduleTimer.tolerance
-            )
+          TimerMigrationTestHelpers.validateTimerAccuracy(
+            expected: expectedTriggerTime,
+            actual: actualTriggerTime,
+            tolerance: TimerMigrationTestHelpers.ScheduleTimer.tolerance
+          )
 
-            expectation.fulfill()
-          }
+          expectation.fulfill()
         }
       }
 
       // Schedule the overlay to appear in `delay` seconds
-      overlayManager.scheduleOverlay(for: adjustedEvent, minutesBeforeMeeting: 2)
+      overlayManager.showOverlay(for: adjustedEvent, minutesBeforeMeeting: 2, fromSnooze: false)
 
       TimerMigrationTestHelpers.waitForTimerExpectations(
         [expectation],
@@ -152,7 +152,7 @@ class ScheduleTimerMigrationTests: XCTestCase {
 
     // Schedule all overlays
     for event in events {
-      overlayManager.scheduleOverlay(for: event, minutesBeforeMeeting: 2)
+      overlayManager.showOverlay(for: event, minutesBeforeMeeting: 2, fromSnooze: false)
     }
 
     TimerMigrationTestHelpers.waitForTimerExpectations(
@@ -196,7 +196,7 @@ class ScheduleTimerMigrationTests: XCTestCase {
     )
 
     // Schedule first overlay
-    overlayManager.scheduleOverlay(for: adjustedEvent1, minutesBeforeMeeting: 2)
+    overlayManager.showOverlay(for: adjustedEvent1, minutesBeforeMeeting: 2, fromSnooze: false)
 
     // Wait 1 second to ensure timer is active
     try await Task.sleep(for: .seconds(1))
@@ -217,7 +217,7 @@ class ScheduleTimerMigrationTests: XCTestCase {
       timezone: event2.timezone
     )
 
-    overlayManager.scheduleOverlay(for: adjustedEvent2, minutesBeforeMeeting: 2)
+    overlayManager.showOverlay(for: adjustedEvent2, minutesBeforeMeeting: 2, fromSnooze: false)
 
     // Wait longer than the first event would have triggered
     try await Task.sleep(for: .seconds(7))
@@ -254,7 +254,7 @@ class ScheduleTimerMigrationTests: XCTestCase {
 
     // Schedule all events
     for event in events {
-      overlayManager.scheduleOverlay(for: event, minutesBeforeMeeting: 1)
+      overlayManager.showOverlay(for: event, minutesBeforeMeeting: 1, fromSnooze: false)
     }
 
     let afterSchedulingMemory = getMemoryUsage()
@@ -295,7 +295,7 @@ class ScheduleTimerMigrationTests: XCTestCase {
     )
 
     // Attempt to schedule past event
-    overlayManager.scheduleOverlay(for: pastEvent, minutesBeforeMeeting: 5)
+    overlayManager.showOverlay(for: pastEvent, minutesBeforeMeeting: 5, fromSnooze: false)
 
     // Wait to see if any overlay appears (it shouldn't)
     try await Task.sleep(for: .seconds(2))
@@ -329,24 +329,25 @@ class ScheduleTimerMigrationTests: XCTestCase {
 
     let scheduleTime = Date()
 
+    var hasTriggered = false
     let observer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) {
       [weak overlayManager] timer in
-      Task { @MainActor in
-        if let overlayManager, overlayManager.isOverlayVisible {
-          timer.invalidate()
-          let actualTime = Date()
-          let expectedTime = scheduleTime.addingTimeInterval(5)
-          TimerMigrationTestHelpers.validateTimerAccuracy(
-            expected: expectedTime,
-            actual: actualTime,
-            tolerance: 2.0
-          )
-          expectation.fulfill()
-        }
+      guard let overlayManager, !hasTriggered else { return }
+      if overlayManager.isOverlayVisible {
+        hasTriggered = true
+        timer.invalidate()
+        let actualTime = Date()
+        let expectedTime = scheduleTime.addingTimeInterval(5)
+        TimerMigrationTestHelpers.validateTimerAccuracy(
+          expected: expectedTime,
+          actual: actualTime,
+          tolerance: 2.0
+        )
+        expectation.fulfill()
       }
     }
 
-    overlayManager.scheduleOverlay(for: event, minutesBeforeMeeting: 2)
+    overlayManager.showOverlay(for: event, minutesBeforeMeeting: 2, fromSnooze: false)
 
     TimerMigrationTestHelpers.waitForTimerExpectations([expectation], timeout: 10.0)
 

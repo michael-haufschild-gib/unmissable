@@ -4,7 +4,7 @@ import Magnet
 import OSLog
 
 @MainActor
-class ShortcutsManager: ObservableObject {
+final class ShortcutsManager: ObservableObject {
   private let logger = Logger(subsystem: "com.unmissable.app", category: "ShortcutsManager")
 
   @Published var dismissShortcut: HotKey?

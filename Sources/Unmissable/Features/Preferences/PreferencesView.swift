@@ -541,9 +541,6 @@ struct AppearancePreferencesView: View {
                 options: AppTheme.allCases.map { ($0, $0.displayName) }
               )
               .frame(width: 160)
-              .onChange(of: preferences.appearanceTheme) { _, newTheme in
-                print("🎨 UI: Theme changed to \(newTheme)")
-              }
             }
           }
           .padding(design.spacing.lg)

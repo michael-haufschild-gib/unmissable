@@ -148,8 +148,9 @@ final class DatabaseManagerComprehensiveTests: DatabaseTestCase {
       )
     }
 
-    let (_, saveTime) = try await TestUtilities.measureTimeAsync {
-      try await self.databaseManager.saveEvents(events)
+    let dbManager = databaseManager!
+    let (_, saveTime) = try await TestUtilities.measureTimeAsync { @MainActor @Sendable in
+      try await dbManager.saveEvents(events)
     }
 
     XCTAssertLessThan(saveTime, 2.0, "Saving 100 events should take less than 2 seconds")
@@ -178,8 +179,9 @@ final class DatabaseManagerComprehensiveTests: DatabaseTestCase {
 
     try await databaseManager.saveEvents(events)
 
-    let (fetchedEvents, fetchTime) = try await TestUtilities.measureTimeAsync {
-      try await self.databaseManager.fetchUpcomingEvents(limit: 20)
+    let dbManager = databaseManager!
+    let (fetchedEvents, fetchTime) = try await TestUtilities.measureTimeAsync { @MainActor @Sendable in
+      try await dbManager.fetchUpcomingEvents(limit: 20)
     }
 
     XCTAssertLessThan(fetchTime, 1.0, "Fetching upcoming events should take less than 1 second")

@@ -8,15 +8,15 @@ import XCTest
 final class OverlayTimerFixValidationTests: XCTestCase {
 
   var overlayManager: OverlayManager!
-  var mockPreferences: TestUtilities.MockPreferencesManager!
-  var mockFocusMode: MockFocusModeManagerFix!
+  var mockPreferences: PreferencesManager!
+  var focusModeManager: FocusModeManager!
   var cancellables: Set<AnyCancellable>!
 
   override func setUp() async throws {
-    mockPreferences = TestUtilities.MockPreferencesManager()
-    mockFocusMode = MockFocusModeManagerFix(preferencesManager: mockPreferences)
+    mockPreferences = TestUtilities.createTestPreferencesManager()
+    focusModeManager = FocusModeManager(preferencesManager: mockPreferences)
     overlayManager = OverlayManager(
-      preferencesManager: mockPreferences, focusModeManager: mockFocusMode)
+      preferencesManager: mockPreferences, focusModeManager: focusModeManager)
     cancellables = Set<AnyCancellable>()
 
     try await super.setUp()
@@ -27,7 +27,7 @@ final class OverlayTimerFixValidationTests: XCTestCase {
     cancellables.removeAll()
 
     overlayManager = nil
-    mockFocusMode = nil
+    focusModeManager = nil
     mockPreferences = nil
 
     try await super.tearDown()
@@ -250,13 +250,3 @@ final class OverlayTimerFixValidationTests: XCTestCase {
   }
 }
 
-// MARK: - Mock Objects
-
-class MockFocusModeManagerFix: FocusModeManager {
-  var mockIsDoNotDisturbEnabled = false
-
-  override var isDoNotDisturbEnabled: Bool {
-    get { mockIsDoNotDisturbEnabled }
-    set { mockIsDoNotDisturbEnabled = newValue }
-  }
-}

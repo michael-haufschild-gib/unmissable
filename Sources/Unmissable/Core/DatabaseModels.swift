@@ -1,5 +1,8 @@
 import Foundation
 import GRDB
+import OSLog
+
+private let logger = Logger(subsystem: "com.unmissable.app", category: "DatabaseModels")
 
 extension Event: FetchableRecord, PersistableRecord {
   static let databaseTableName = "events"
@@ -36,20 +39,26 @@ extension Event: FetchableRecord, PersistableRecord {
 
     // Decode attendees from JSON string
     let attendeesData = row[Columns.attendees] as? String ?? "[]"
-    if let data = attendeesData.data(using: .utf8),
-      let decodedAttendees = try? JSONDecoder().decode([Attendee].self, from: data)
-    {
-      attendees = decodedAttendees
+    if let data = attendeesData.data(using: .utf8) {
+      do {
+        attendees = try JSONDecoder().decode([Attendee].self, from: data)
+      } catch {
+        logger.error("Failed to decode attendees for event: \(error.localizedDescription)")
+        attendees = []
+      }
     } else {
       attendees = []
     }
 
     // Decode attachments from JSON string
     let attachmentsData = row[Columns.attachments] as? String ?? "[]"
-    if let data = attachmentsData.data(using: .utf8),
-      let decodedAttachments = try? JSONDecoder().decode([EventAttachment].self, from: data)
-    {
-      attachments = decodedAttachments
+    if let data = attachmentsData.data(using: .utf8) {
+      do {
+        attachments = try JSONDecoder().decode([EventAttachment].self, from: data)
+      } catch {
+        logger.error("Failed to decode attachments for event: \(error.localizedDescription)")
+        attachments = []
+      }
     } else {
       attachments = []
     }
@@ -60,10 +69,14 @@ extension Event: FetchableRecord, PersistableRecord {
 
     // Decode URLs from JSON string
     let linksData = row[Columns.links] as? String ?? "[]"
-    if let data = linksData.data(using: .utf8),
-      let urlStrings = try? JSONDecoder().decode([String].self, from: data)
-    {
-      links = urlStrings.compactMap { URL(string: $0) }
+    if let data = linksData.data(using: .utf8) {
+      do {
+        let urlStrings = try JSONDecoder().decode([String].self, from: data)
+        links = urlStrings.compactMap { URL(string: $0) }
+      } catch {
+        logger.error("Failed to decode links for event: \(error.localizedDescription)")
+        links = []
+      }
     } else {
       links = []
     }
@@ -91,20 +104,20 @@ extension Event: FetchableRecord, PersistableRecord {
     container[Columns.location] = location
 
     // Encode attendees as JSON string
-    if let data = try? JSONEncoder().encode(attendees),
-      let jsonString = String(data: data, encoding: .utf8)
-    {
-      container[Columns.attendees] = jsonString
-    } else {
+    do {
+      let data = try JSONEncoder().encode(attendees)
+      container[Columns.attendees] = String(data: data, encoding: .utf8) ?? "[]"
+    } catch {
+      logger.error("Failed to encode attendees for event \(self.id): \(error.localizedDescription)")
       container[Columns.attendees] = "[]"
     }
 
     // Encode attachments as JSON string
-    if let data = try? JSONEncoder().encode(attachments),
-      let jsonString = String(data: data, encoding: .utf8)
-    {
-      container[Columns.attachments] = jsonString
-    } else {
+    do {
+      let data = try JSONEncoder().encode(attachments)
+      container[Columns.attachments] = String(data: data, encoding: .utf8) ?? "[]"
+    } catch {
+      logger.error("Failed to encode attachments for event \(self.id): \(error.localizedDescription)")
       container[Columns.attachments] = "[]"
     }
 
@@ -114,11 +127,11 @@ extension Event: FetchableRecord, PersistableRecord {
 
     // Encode URLs as JSON string
     let urlStrings = links.map { $0.absoluteString }
-    if let data = try? JSONEncoder().encode(urlStrings),
-      let jsonString = String(data: data, encoding: .utf8)
-    {
-      container[Columns.links] = jsonString
-    } else {
+    do {
+      let data = try JSONEncoder().encode(urlStrings)
+      container[Columns.links] = String(data: data, encoding: .utf8) ?? "[]"
+    } catch {
+      logger.error("Failed to encode links for event \(self.id): \(error.localizedDescription)")
       container[Columns.links] = "[]"
     }
 

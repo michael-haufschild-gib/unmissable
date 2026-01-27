@@ -1,6 +1,6 @@
 import Foundation
 
-enum Provider: String, Codable, CaseIterable {
+enum Provider: String, Codable, CaseIterable, Sendable {
   case meet = "meet"
   case zoom = "zoom"
   case teams = "teams"

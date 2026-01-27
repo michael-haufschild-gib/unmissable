@@ -8,13 +8,13 @@ import XCTest
 @MainActor
 final class OverlayTimerLogicTests: XCTestCase {
 
-  var mockPreferences: TestUtilities.MockPreferencesManager!
-  var mockFocusMode: MockFocusModeManagerLogic!
+  var mockPreferences: PreferencesManager!
+  var focusModeManager: FocusModeManager!
   var cancellables: Set<AnyCancellable>!
 
   override func setUp() async throws {
-    mockPreferences = TestUtilities.MockPreferencesManager()
-    mockFocusMode = MockFocusModeManagerLogic(preferencesManager: mockPreferences)
+    mockPreferences = TestUtilities.createTestPreferencesManager()
+    focusModeManager = FocusModeManager(preferencesManager: mockPreferences)
     cancellables = Set<AnyCancellable>()
 
     try await super.setUp()
@@ -22,7 +22,7 @@ final class OverlayTimerLogicTests: XCTestCase {
 
   override func tearDown() async throws {
     cancellables.removeAll()
-    mockFocusMode = nil
+    focusModeManager = nil
     mockPreferences = nil
 
     try await super.tearDown()
@@ -241,13 +241,3 @@ final class OverlayTimerLogicTests: XCTestCase {
   }
 }
 
-// MARK: - Mock Objects
-
-class MockFocusModeManagerLogic: FocusModeManager {
-  var mockIsDoNotDisturbEnabled = false
-
-  override var isDoNotDisturbEnabled: Bool {
-    get { mockIsDoNotDisturbEnabled }
-    set { mockIsDoNotDisturbEnabled = newValue }
-  }
-}

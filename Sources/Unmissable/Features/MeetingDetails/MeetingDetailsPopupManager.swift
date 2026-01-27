@@ -3,7 +3,7 @@ import OSLog
 import SwiftUI
 
 @MainActor
-class MeetingDetailsPopupManager: ObservableObject {
+final class MeetingDetailsPopupManager: ObservableObject {
   private let logger = Logger(
     subsystem: "com.unmissable.app", category: "MeetingDetailsPopupManager")
 
@@ -104,21 +104,21 @@ class MeetingDetailsPopupManager: ObservableObject {
 
     // Set up window delegate for cleanup
     let delegate = PopupWindowDelegate { [weak self] in
-      Task.detached(priority: .userInitiated) {
-        await MainActor.run {
-          self?.hidePopup()
-        }
+      Task { @MainActor in
+        self?.hidePopup()
       }
     }
     window.delegate = delegate
 
     // Store delegate to prevent deallocation
-    objc_setAssociatedObject(
-      window,
-      AssociatedKeys.windowDelegate,
-      delegate,
-      .OBJC_ASSOCIATION_RETAIN_NONATOMIC
-    )
+    withUnsafePointer(to: &AssociatedKeys.windowDelegate) { pointer in
+      objc_setAssociatedObject(
+        window,
+        pointer,
+        delegate,
+        .OBJC_ASSOCIATION_RETAIN_NONATOMIC
+      )
+    }
 
     return window
   }
@@ -178,6 +178,6 @@ private class PopupWindowDelegate: NSObject, NSWindowDelegate {
 
 // MARK: - Associated Object Keys
 
-private struct AssociatedKeys {
-  static let windowDelegate = UnsafeRawPointer(bitPattern: "windowDelegate".hashValue)!
+private enum AssociatedKeys {
+  nonisolated(unsafe) static var windowDelegate: UInt8 = 0
 }

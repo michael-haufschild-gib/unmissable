@@ -42,20 +42,19 @@ final class SnoozeTimerMigrationTests: XCTestCase {
 
     let observer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) {
       [weak overlayManager] timer in
-      Task { @MainActor in
-        if let overlayManager, overlayManager.isOverlayVisible && !overlayReappeared {
-          overlayReappeared = true
-          timer.invalidate()
+      guard let overlayManager, !overlayReappeared else { return }
+      if overlayManager.isOverlayVisible {
+        overlayReappeared = true
+        timer.invalidate()
 
-          let actual = Date()
-          let expected = snoozeStart.addingTimeInterval(TimeInterval(duration * 60))
-          TimerMigrationTestHelpers.validateTimerAccuracy(
-            expected: expected,
-            actual: actual,
-            tolerance: TimerMigrationTestHelpers.SnoozeTimer.tolerance
-          )
-          expectation.fulfill()
-        }
+        let actual = Date()
+        let expected = snoozeStart.addingTimeInterval(TimeInterval(duration * 60))
+        TimerMigrationTestHelpers.validateTimerAccuracy(
+          expected: expected,
+          actual: actual,
+          tolerance: TimerMigrationTestHelpers.SnoozeTimer.tolerance
+        )
+        expectation.fulfill()
       }
     }
 
@@ -130,22 +129,23 @@ final class SnoozeTimerMigrationTests: XCTestCase {
 
     let snoozeStart = Date()
 
+    var hasTriggered = false
     let observer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) {
       [weak overlayManager] timer in
-      Task { @MainActor in
-        if let overlayManager, overlayManager.isOverlayVisible {
-          timer.invalidate()
+      guard let overlayManager, !hasTriggered else { return }
+      if overlayManager.isOverlayVisible {
+        hasTriggered = true
+        timer.invalidate()
 
-          let actual = Date()
-          let expected = snoozeStart.addingTimeInterval(60)
-          TimerMigrationTestHelpers.validateTimerAccuracy(
-            expected: expected,
-            actual: actual,
-            tolerance: TimerMigrationTestHelpers.SnoozeTimer.tolerance
-          )
+        let actual = Date()
+        let expected = snoozeStart.addingTimeInterval(60)
+        TimerMigrationTestHelpers.validateTimerAccuracy(
+          expected: expected,
+          actual: actual,
+          tolerance: TimerMigrationTestHelpers.SnoozeTimer.tolerance
+        )
 
-          expectation.fulfill()
-        }
+        expectation.fulfill()
       }
     }
 

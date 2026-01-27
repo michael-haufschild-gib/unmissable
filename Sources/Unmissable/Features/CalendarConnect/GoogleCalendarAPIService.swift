@@ -2,7 +2,7 @@ import Foundation
 import OSLog
 
 @MainActor
-class GoogleCalendarAPIService: ObservableObject {
+final class GoogleCalendarAPIService: ObservableObject {
   private let logger = Logger(subsystem: "com.unmissable.app", category: "GoogleCalendarAPIService")
   private let debugLogger = DebugLogger(
     subsystem: "com.unmissable.app", category: "GoogleCalendarAPIService")
@@ -12,6 +12,14 @@ class GoogleCalendarAPIService: ObservableObject {
   @Published var events: [Event] = []
   @Published var isLoading = false
   @Published var lastError: String?
+
+  // URLSession with timeout configuration to prevent indefinite hangs
+  private static let urlSession: URLSession = {
+    let config = URLSessionConfiguration.default
+    config.timeoutIntervalForRequest = 30  // 30 seconds per request
+    config.timeoutIntervalForResource = 60  // 60 seconds total
+    return URLSession(configuration: config)
+  }()
 
   init(oauth2Service: OAuth2Service) {
     self.oauth2Service = oauth2Service
@@ -36,11 +44,10 @@ class GoogleCalendarAPIService: ObservableObject {
       request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
       request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-      // Log first and last few characters of token for debugging
-      let tokenPreview = "\(accessToken.prefix(10))...\(accessToken.suffix(10))"
-      logger.info("Using access token: \(tokenPreview)")
+      // Log that we have a valid token (without exposing token content)
+      logger.info("Using valid access token for calendar request")
 
-      let (data, response) = try await URLSession.shared.data(for: request)
+      let (data, response) = try await Self.urlSession.data(for: request)
 
       guard let httpResponse = response as? HTTPURLResponse else {
         throw GoogleCalendarAPIError.invalidResponse
@@ -156,7 +163,7 @@ class GoogleCalendarAPIService: ObservableObject {
     request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
     request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-    let (data, response) = try await URLSession.shared.data(for: request)
+    let (data, response) = try await Self.urlSession.data(for: request)
 
     guard let httpResponse = response as? HTTPURLResponse else {
       throw GoogleCalendarAPIError.invalidResponse

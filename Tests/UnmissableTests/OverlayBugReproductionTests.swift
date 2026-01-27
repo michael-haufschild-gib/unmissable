@@ -8,15 +8,15 @@ import XCTest
 final class OverlayBugReproductionTests: XCTestCase {
 
   var overlayManager: OverlayManager!
-  var mockPreferences: TestUtilities.MockPreferencesManager!
-  var mockFocusMode: MockFocusModeManagerBug!
+  var mockPreferences: PreferencesManager!
+  var focusModeManager: FocusModeManager!
   var cancellables: Set<AnyCancellable>!
 
   override func setUp() async throws {
-    mockPreferences = TestUtilities.MockPreferencesManager()
-    mockFocusMode = MockFocusModeManagerBug(preferencesManager: mockPreferences)
+    mockPreferences = TestUtilities.createTestPreferencesManager()
+    focusModeManager = FocusModeManager(preferencesManager: mockPreferences)
     overlayManager = OverlayManager(
-      preferencesManager: mockPreferences, focusModeManager: mockFocusMode)
+      preferencesManager: mockPreferences, focusModeManager: focusModeManager)
     cancellables = Set<AnyCancellable>()
 
     try await super.setUp()
@@ -28,7 +28,7 @@ final class OverlayBugReproductionTests: XCTestCase {
 
     // Clean up
     overlayManager = nil
-    mockFocusMode = nil
+    focusModeManager = nil
     mockPreferences = nil
 
     try await super.tearDown()
@@ -40,15 +40,6 @@ final class OverlayBugReproductionTests: XCTestCase {
     // Test that OverlayManager's timer provides consistent data
     let futureTime = Date().addingTimeInterval(300)  // 5 minutes from now
     let event = TestUtilities.createTestEvent(startDate: futureTime)
-
-    var publishedValues: [TimeInterval] = []
-
-    // Subscribe to OverlayManager's published countdown
-    overlayManager.$timeUntilMeeting
-      .sink { value in
-        publishedValues.append(value)
-      }
-      .store(in: &cancellables)
 
     overlayManager.showOverlay(for: event)
 
@@ -75,9 +66,6 @@ final class OverlayBugReproductionTests: XCTestCase {
     XCTAssertLessThan(firstDecrease, 1.5, "Should decrease by ~1 second")
     XCTAssertGreaterThan(secondDecrease, 0.9, "Should decrease by ~1 second")
     XCTAssertLessThan(secondDecrease, 1.5, "Should decrease by ~1 second")
-
-    // Published values should track the changes
-    XCTAssertGreaterThan(publishedValues.count, 2, "Should have multiple published updates")
   }
 
   func testOverlayManagerEventDataAccuracy() async throws {
@@ -253,13 +241,3 @@ final class OverlayBugReproductionTests: XCTestCase {
   }
 }
 
-// MARK: - Mock Objects
-
-class MockFocusModeManagerBug: FocusModeManager {
-  var mockIsDoNotDisturbEnabled = false
-
-  override var isDoNotDisturbEnabled: Bool {
-    get { mockIsDoNotDisturbEnabled }
-    set { mockIsDoNotDisturbEnabled = newValue }
-  }
-}

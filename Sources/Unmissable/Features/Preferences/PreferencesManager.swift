@@ -4,12 +4,16 @@ import Foundation
 import SwiftUI
 
 @MainActor
-class PreferencesManager: ObservableObject {
+final class PreferencesManager: ObservableObject {
   private let userDefaults = UserDefaults.standard
 
-  // Alert timing
+  // Alert timing (validated to 0-60 minutes)
   @Published var defaultAlertMinutes: Int = 1 {
-    didSet { userDefaults.set(defaultAlertMinutes, forKey: "defaultAlertMinutes") }
+    didSet {
+      let validated = max(0, min(defaultAlertMinutes, 60))
+      if validated != defaultAlertMinutes { defaultAlertMinutes = validated; return }
+      userDefaults.set(validated, forKey: "defaultAlertMinutes")
+    }
   }
 
   @Published var useLengthBasedTiming: Bool = false {
@@ -17,20 +21,36 @@ class PreferencesManager: ObservableObject {
   }
 
   @Published var shortMeetingAlertMinutes: Int = 1 {
-    didSet { userDefaults.set(shortMeetingAlertMinutes, forKey: "shortMeetingAlertMinutes") }
+    didSet {
+      let validated = max(0, min(shortMeetingAlertMinutes, 60))
+      if validated != shortMeetingAlertMinutes { shortMeetingAlertMinutes = validated; return }
+      userDefaults.set(validated, forKey: "shortMeetingAlertMinutes")
+    }
   }
 
   @Published var mediumMeetingAlertMinutes: Int = 2 {
-    didSet { userDefaults.set(mediumMeetingAlertMinutes, forKey: "mediumMeetingAlertMinutes") }
+    didSet {
+      let validated = max(0, min(mediumMeetingAlertMinutes, 60))
+      if validated != mediumMeetingAlertMinutes { mediumMeetingAlertMinutes = validated; return }
+      userDefaults.set(validated, forKey: "mediumMeetingAlertMinutes")
+    }
   }
 
   @Published var longMeetingAlertMinutes: Int = 5 {
-    didSet { userDefaults.set(longMeetingAlertMinutes, forKey: "longMeetingAlertMinutes") }
+    didSet {
+      let validated = max(0, min(longMeetingAlertMinutes, 60))
+      if validated != longMeetingAlertMinutes { longMeetingAlertMinutes = validated; return }
+      userDefaults.set(validated, forKey: "longMeetingAlertMinutes")
+    }
   }
 
-  // Sync settings
+  // Sync settings (validated to 30-3600 seconds)
   @Published var syncIntervalSeconds: Int = 60 {
-    didSet { userDefaults.set(syncIntervalSeconds, forKey: "syncIntervalSeconds") }
+    didSet {
+      let validated = max(30, min(syncIntervalSeconds, 3600))
+      if validated != syncIntervalSeconds { syncIntervalSeconds = validated; return }
+      userDefaults.set(validated, forKey: "syncIntervalSeconds")
+    }
   }
 
   @Published var includeAllDayEvents: Bool = false {
@@ -47,11 +67,19 @@ class PreferencesManager: ObservableObject {
   }
 
   @Published var overlayOpacity: Double = 0.9 {
-    didSet { userDefaults.set(overlayOpacity, forKey: "overlayOpacity") }
+    didSet {
+      let validated = max(0.1, min(overlayOpacity, 1.0))
+      if validated != overlayOpacity { overlayOpacity = validated; return }
+      userDefaults.set(validated, forKey: "overlayOpacity")
+    }
   }
 
   @Published var overlayShowMinutesBefore: Int = 5 {
-    didSet { userDefaults.set(overlayShowMinutesBefore, forKey: "overlayShowMinutesBefore") }
+    didSet {
+      let validated = max(1, min(overlayShowMinutesBefore, 60))
+      if validated != overlayShowMinutesBefore { overlayShowMinutesBefore = validated; return }
+      userDefaults.set(validated, forKey: "overlayShowMinutesBefore")
+    }
   }
 
   @Published var fontSize: FontSize = .medium {
@@ -76,7 +104,11 @@ class PreferencesManager: ObservableObject {
   var soundMinutesBefore: Int { defaultAlertMinutes }
 
   @Published var alertVolume: Double = 0.7 {
-    didSet { userDefaults.set(alertVolume, forKey: "alertVolume") }
+    didSet {
+      let validated = max(0.0, min(alertVolume, 1.0))
+      if validated != alertVolume { alertVolume = validated; return }
+      userDefaults.set(validated, forKey: "alertVolume")
+    }
   }
 
   // Focus mode
@@ -123,12 +155,9 @@ class PreferencesManager: ObservableObject {
     if let themeRawValue = userDefaults.object(forKey: "appearanceTheme") as? String,
       let theme = AppTheme(rawValue: themeRawValue)
     {
-      print("🎨 PreferencesManager: Loading theme '\(themeRawValue)' -> \(theme)")
       appearanceTheme = theme
-      // Ensure ThemeManager is updated immediately
       ThemeManager.shared.setTheme(theme)
     } else {
-      print("🎨 PreferencesManager: No saved theme, using default")
       ThemeManager.shared.setTheme(.system)
     }
 
@@ -154,11 +183,7 @@ class PreferencesManager: ObservableObject {
     if let modeRawValue = userDefaults.object(forKey: "menuBarDisplayMode") as? String,
       let mode = MenuBarDisplayMode(rawValue: modeRawValue)
     {
-      print("🔧 PreferencesManager: Loading from UserDefaults: '\(modeRawValue)' -> \(mode)")
       menuBarDisplayMode = mode
-    } else {
-      print(
-        "🔧 PreferencesManager: No saved menuBarDisplayMode, using default: \(menuBarDisplayMode)")
     }
 
     showTodayOnlyInMenuBar = userDefaults.bool(forKey: "showTodayOnlyInMenuBar")

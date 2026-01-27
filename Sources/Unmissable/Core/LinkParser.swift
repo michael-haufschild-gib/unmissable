@@ -1,10 +1,21 @@
 import Foundation
 import OSLog
 
-class LinkParser {
+final class LinkParser: Sendable {
   private let logger = Logger(subsystem: "com.unmissable.app", category: "LinkParser")
 
   static let shared = LinkParser()
+
+  /// Trusted domains for meeting links - only these are considered valid meeting URLs
+  private static let trustedMeetingDomains = [
+    "meet.google.com",
+    "zoom.us",
+    "teams.microsoft.com",
+    "webex.com",
+    "gotomeeting.com",
+    "whereby.com",
+    "around.co",
+  ]
 
   private init() {}
 
@@ -54,5 +65,64 @@ class LinkParser {
     }
 
     return nil
+  }
+
+  // MARK: - URL Validation
+
+  /// Validates that a URL is from a trusted meeting domain
+  /// This helps prevent phishing attacks via lookalike domains
+  func isValidMeetingURL(_ url: URL) -> Bool {
+    guard url.scheme?.lowercased() == "https" else {
+      logger.debug("Rejected non-HTTPS URL: \(url.absoluteString)")
+      return false
+    }
+
+    guard let host = url.host?.lowercased() else {
+      logger.debug("Rejected URL with no host: \(url.absoluteString)")
+      return false
+    }
+
+    // Check if host matches or is subdomain of trusted domain
+    let isTrusted = Self.trustedMeetingDomains.contains { trustedDomain in
+      host == trustedDomain || host.hasSuffix(".\(trustedDomain)")
+    }
+
+    if !isTrusted {
+      logger.debug("Rejected untrusted domain: \(host)")
+    }
+
+    return isTrusted
+  }
+
+  // MARK: - Link Prioritization
+
+  func detectPrimaryLink(from links: [URL]) -> URL? {
+    // Filter to only validated meeting URLs
+    let validLinks = links.filter { isValidMeetingURL($0) }
+
+    // Prioritize Google Meet video links over other types (like dial-in numbers)
+    if let meetLink = validLinks.first(where: { url in
+      let urlString = url.absoluteString.lowercased()
+      return urlString.contains("meet.google.com")
+    }) {
+      return meetLink
+    }
+
+    // Fallback to other validated video meeting providers
+    if let videoLink = validLinks.first(where: { url in
+      let urlString = url.absoluteString.lowercased()
+      return urlString.contains("zoom.us") || urlString.contains("teams.microsoft.com")
+        || urlString.contains("webex.com")
+    }) {
+      return videoLink
+    }
+
+    // Fallback to any validated link
+    return validLinks.first
+  }
+
+  func isOnlineMeeting(links: [URL]) -> Bool {
+    // Only consider it an online meeting if there are validated meeting links
+    return links.contains { isValidMeetingURL($0) }
   }
 }

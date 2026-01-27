@@ -18,13 +18,13 @@ class SnoozeAfterMeetingStartTest: XCTestCase {
   func testSnoozeTimerExpiresAfterMeetingStarted() async throws {
     logger.info("🔄 SNOOZE EDGE CASE: Testing snooze timer expiring after meeting started")
 
-    // Create production components (NO TEST MODE)
+    // Create test components (TEST MODE to avoid blocking screen)
     let preferencesManager = PreferencesManager()
     let focusModeManager = FocusModeManager(preferencesManager: preferencesManager)
     let overlayManager = OverlayManager(
       preferencesManager: preferencesManager,
       focusModeManager: focusModeManager,
-      isTestMode: false  // PRODUCTION MODE for real testing
+      isTestMode: true  // Test mode to avoid blocking screen
     )
     let eventScheduler = EventScheduler(preferencesManager: preferencesManager)
 
@@ -110,7 +110,7 @@ class SnoozeAfterMeetingStartTest: XCTestCase {
     let overlayManager = OverlayManager(
       preferencesManager: preferencesManager,
       focusModeManager: focusModeManager,
-      isTestMode: false
+      isTestMode: true  // Test mode to avoid blocking screen
     )
 
     // Create test event that started 10 minutes ago
@@ -161,7 +161,7 @@ class SnoozeAfterMeetingStartTest: XCTestCase {
     let overlayManager = OverlayManager(
       preferencesManager: preferencesManager,
       focusModeManager: focusModeManager,
-      isTestMode: false
+      isTestMode: true  // Test mode to avoid blocking screen
     )
     let eventScheduler = EventScheduler(preferencesManager: preferencesManager)
     overlayManager.setEventScheduler(eventScheduler)

@@ -1,4 +1,4 @@
-// swift-tools-version: 5.10
+// swift-tools-version: 6.0
 import PackageDescription
 
 let package = Package(
@@ -14,19 +14,16 @@ let package = Package(
   ],
   dependencies: [
     // OAuth 2.0 for Google Calendar
-    .package(url: "https://github.com/openid/AppAuth-iOS.git", from: "1.7.5"),
+    .package(url: "https://github.com/openid/AppAuth-iOS.git", from: "2.0.0"),
     // SQLite database
-    .package(url: "https://github.com/groue/GRDB.swift.git", from: "6.29.2"),
+    .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.9.0"),
     // Keychain access
     .package(url: "https://github.com/kishikawakatsumi/KeychainAccess.git", from: "4.2.2"),
     // Global keyboard shortcuts
     .package(url: "https://github.com/Clipy/Magnet.git", from: "3.4.0"),
     // Snapshot testing
-    .package(url: "https://github.com/pointfreeco/swift-snapshot-testing.git", from: "1.17.7"),
-    // Code formatting
-    .package(url: "https://github.com/nicklockwood/SwiftFormat.git", from: "0.55.3"),
-    // Linting
-    .package(url: "https://github.com/realm/SwiftLint.git", from: "0.57.1"),
+    .package(url: "https://github.com/pointfreeco/swift-snapshot-testing.git", from: "1.18.3"),
+    // Note: SwiftFormat and SwiftLint installed via Homebrew (brew install swiftformat swiftlint)
   ],
   targets: [
     .executableTarget(
@@ -41,8 +38,8 @@ let package = Package(
       exclude: [
         "Config/Config.plist.example"
       ],
-      resources: [
-        .process("Resources")
+      swiftSettings: [
+        .enableExperimentalFeature("StrictConcurrency")
       ]
     ),
     .testTarget(

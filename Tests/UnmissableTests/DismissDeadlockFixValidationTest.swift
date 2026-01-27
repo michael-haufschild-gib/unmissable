@@ -13,13 +13,13 @@ class DismissDeadlockFixValidationTest: XCTestCase {
   func testDismissButtonWorksWithoutDeadlock() async throws {
     logger.info("✅ VALIDATION: Testing dismiss button fix")
 
-    // Create production-mode OverlayManager
+    // Create test-mode OverlayManager to avoid blocking screen
     let preferencesManager = PreferencesManager()
     let focusModeManager = FocusModeManager(preferencesManager: preferencesManager)
     let overlayManager = OverlayManager(
       preferencesManager: preferencesManager,
       focusModeManager: focusModeManager,
-      isTestMode: false  // Production mode
+      isTestMode: true  // Test mode to avoid blocking screen
     )
 
     let testEvent = TestUtilities.createTestEvent(
@@ -60,7 +60,7 @@ class DismissDeadlockFixValidationTest: XCTestCase {
     let overlayManager = OverlayManager(
       preferencesManager: preferencesManager,
       focusModeManager: focusModeManager,
-      isTestMode: false
+      isTestMode: true  // Test mode to avoid blocking screen
     )
 
     let testEvent = TestUtilities.createTestEvent(

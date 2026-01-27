@@ -15,8 +15,30 @@ struct GoogleCalendarConfig {
 
   // MARK: - Secure Configuration Loading
 
+  /// Error message if OAuth is not configured
+  static let configurationError: String? = {
+    if clientId.isEmpty {
+      return """
+        OAuth Client ID not configured.
+
+        Setup options:
+        1. Set GOOGLE_OAUTH_CLIENT_ID environment variable
+        2. Add GoogleOAuthClientID to Config.plist in project root
+
+        Get credentials at: https://console.developers.google.com/
+        """
+    }
+    return nil
+  }()
+
+  /// Whether OAuth is properly configured
+  static var isConfigured: Bool {
+    !clientId.isEmpty
+  }
+
   /// OAuth Client ID - loads from environment variable or Config.plist (in project root)
   /// This prevents committing sensitive credentials to git
+  /// Returns empty string if not configured (check isConfigured before use)
   static let clientId: String = {
     // Try environment variable first (for development/CI)
     if let envClientId = ProcessInfo.processInfo.environment["GOOGLE_OAUTH_CLIENT_ID"],
@@ -35,24 +57,8 @@ struct GoogleCalendarConfig {
       return clientId
     }
 
-    // Fallback error with helpful setup instructions for VS Code/SPM
-    fatalError(
-      """
-      ❌ OAUTH CLIENT ID NOT CONFIGURED
-
-      📋 SETUP FOR VS CODE/SWIFT PACKAGE MANAGER:
-
-      Option 1 - Environment Variable (Recommended for CI/deployment):
-      export GOOGLE_OAUTH_CLIENT_ID="your-client-id-here"
-
-      Option 2 - Config.plist in project root (Current setup):
-      ✅ Config.plist should be in: /Users/michaelhaufschild/Documents/code/unmissable/Config.plist
-      📝 Make sure GoogleOAuthClientID is set to your actual client ID (not placeholder)
-
-      🔗 GET CLIENT ID: https://console.developers.google.com/
-
-      🔒 SECURITY: Config.plist is excluded from git via .gitignore
-      """)
+    // Return empty string instead of crashing - allows app to start and show configuration UI
+    return ""
   }()
 
   static let redirectScheme: String = {
@@ -136,9 +142,13 @@ struct GoogleCalendarConfig {
 extension GoogleCalendarConfig {
   /// Validates that the OAuth configuration is properly set up
   static func validateConfiguration() -> Bool {
-    // Try to access clientId - this will trigger fatalError if misconfigured
-    let _ = clientId
-    let _ = redirectScheme
+    // Check if client ID is configured (no longer crashes)
+    guard !clientId.isEmpty else {
+      return false
+    }
+    guard !redirectScheme.isEmpty else {
+      return false
+    }
     return true
   }
 

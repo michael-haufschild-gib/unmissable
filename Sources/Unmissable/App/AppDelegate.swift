@@ -2,7 +2,8 @@ import Cocoa
 import OSLog
 import SwiftUI
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
   private let logger = Logger(subsystem: "com.unmissable.app", category: "AppDelegate")
 
   func applicationDidFinishLaunching(_ notification: Notification) {
@@ -59,7 +60,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     if url.scheme == "com.unmissable.app" {
       logger.info("✅ OAuth callback detected - posting notification")
       NotificationCenter.default.post(
-        name: Notification.Name("OAuthCallback"),
+        name: .oauthCallback,
         object: url
       )
     } else {
@@ -69,7 +70,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
   private func requestPermissions() {
     // Request accessibility permissions for global shortcuts
-    let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeRetainedValue() as String: true]
+    // Use the raw string constant to avoid concurrency issues with the global CFString
+    let options: NSDictionary = ["AXTrustedCheckOptionPrompt": true]
     let accessibilityEnabled = AXIsProcessTrustedWithOptions(options)
 
     if !accessibilityEnabled {

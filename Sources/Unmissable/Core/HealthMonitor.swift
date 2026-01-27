@@ -2,15 +2,15 @@ import Foundation
 import OSLog
 
 @MainActor
-class HealthMonitor: ObservableObject {
+final class HealthMonitor: ObservableObject {
   private let logger = Logger(subsystem: "com.unmissable.app", category: "HealthMonitor")
 
   @Published var healthStatus: HealthStatus = .healthy
   @Published var metrics: HealthMetrics = HealthMetrics()
 
-  private var healthCheckTimer: Timer?
   private var healthCheckTask: Task<Void, Never>?
   private let healthCheckInterval: TimeInterval = 60.0  // Check every minute
+  private let memoryWarningThresholdMB: Double = 200.0  // Warn if app uses more than 200 MB
 
   // Dependencies to monitor
   private weak var calendarService: CalendarService?
@@ -23,7 +23,6 @@ class HealthMonitor: ObservableObject {
 
   deinit {
     healthCheckTask?.cancel()
-    healthCheckTimer?.invalidate()
   }
 
   func setup(
@@ -55,8 +54,6 @@ class HealthMonitor: ObservableObject {
   private func stopHealthMonitoring() {
     healthCheckTask?.cancel()
     healthCheckTask = nil
-    healthCheckTimer?.invalidate()
-    healthCheckTimer = nil
   }
 
   private func performHealthCheck() async {
@@ -166,7 +163,8 @@ class HealthMonitor: ObservableObject {
 
     // Check memory usage
     let memoryUsage = getMemoryUsage()
-    if memoryUsage > 200 * 1024 * 1024 {  // 200 MB
+    let memoryThresholdBytes = Int(memoryWarningThresholdMB * 1024 * 1024)
+    if memoryUsage > memoryThresholdBytes {
       issues.append(
         HealthIssue(
           severity: .warning,

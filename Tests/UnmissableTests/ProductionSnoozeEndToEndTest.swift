@@ -20,13 +20,13 @@ class ProductionSnoozeEndToEndTest: XCTestCase {
   func testSnoozeButtonProductionWorkflow() async throws {
     logger.info("🔄 PRODUCTION SNOOZE: Complete end-to-end workflow test")
 
-    // Create production components (NO TEST MODE)
+    // Create test components (TEST MODE to avoid blocking screen)
     let preferencesManager = PreferencesManager()
     let focusModeManager = FocusModeManager(preferencesManager: preferencesManager)
     let overlayManager = OverlayManager(
       preferencesManager: preferencesManager,
       focusModeManager: focusModeManager,
-      isTestMode: false  // PRODUCTION MODE for real UI testing
+      isTestMode: true  // Test mode to avoid creating real windows that block screen
     )
     let eventScheduler = EventScheduler(preferencesManager: preferencesManager)
 
@@ -119,7 +119,7 @@ class ProductionSnoozeEndToEndTest: XCTestCase {
       let overlayManager = OverlayManager(
         preferencesManager: preferencesManager,
         focusModeManager: focusModeManager,
-        isTestMode: false  // Production mode
+        isTestMode: true  // Test mode to avoid blocking screen
       )
 
       let testEvent = TestUtilities.createTestEvent(
@@ -176,7 +176,7 @@ class ProductionSnoozeEndToEndTest: XCTestCase {
     let overlayManager = OverlayManager(
       preferencesManager: preferencesManager,
       focusModeManager: focusModeManager,
-      isTestMode: false
+      isTestMode: true  // Test mode to avoid blocking screen
     )
 
     let testEvent = TestUtilities.createTestEvent(
@@ -238,7 +238,7 @@ class ProductionSnoozeEndToEndTest: XCTestCase {
     let overlayManager = OverlayManager(
       preferencesManager: preferencesManager,
       focusModeManager: focusModeManager,
-      isTestMode: false
+      isTestMode: true  // Test mode to avoid blocking screen
     )
 
     let testEvent = TestUtilities.createTestEvent(

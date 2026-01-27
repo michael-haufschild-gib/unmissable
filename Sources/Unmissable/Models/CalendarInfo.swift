@@ -1,6 +1,6 @@
 import Foundation
 
-struct CalendarInfo: Identifiable, Codable {
+struct CalendarInfo: Identifiable, Codable, Sendable {
   let id: String
   let name: String
   let description: String?
@@ -31,5 +31,20 @@ struct CalendarInfo: Identifiable, Codable {
     self.lastSyncAt = lastSyncAt
     self.createdAt = createdAt
     self.updatedAt = updatedAt
+  }
+
+  /// Returns a copy with updated selection status and current timestamp
+  func withSelection(_ isSelected: Bool) -> CalendarInfo {
+    CalendarInfo(
+      id: id,
+      name: name,
+      description: description,
+      isSelected: isSelected,
+      isPrimary: isPrimary,
+      colorHex: colorHex,
+      lastSyncAt: lastSyncAt,
+      createdAt: createdAt,
+      updatedAt: Date()
+    )
   }
 }

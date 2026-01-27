@@ -2,7 +2,7 @@ import Foundation
 import OSLog
 
 // Enhanced logging utility for Unmissable app
-class DebugLogger {
+final class DebugLogger {
   private let logger: Logger
   private let logFile: String
 

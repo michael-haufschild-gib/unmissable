@@ -1,6 +1,6 @@
 import Foundation
 
-struct Event: Identifiable, Codable, Equatable {
+struct Event: Identifiable, Codable, Equatable, Sendable {
   let id: String
   let title: String
   let startDate: Date
@@ -65,30 +65,11 @@ struct Event: Identifiable, Codable, Equatable {
   }
 
   var primaryLink: URL? {
-    // Prioritize Google Meet video links over other types (like dial-in numbers)
-    if let meetLink = links.first(where: { url in
-      let urlString = url.absoluteString.lowercased()
-      return urlString.contains("meet.google.com") && urlString.hasPrefix("https://")
-    }) {
-      return meetLink
-    }
-
-    // Fallback to other video meeting providers
-    if let videoLink = links.first(where: { url in
-      let urlString = url.absoluteString.lowercased()
-      return urlString.contains("zoom.us") || urlString.contains("teams.microsoft.com")
-        || urlString.contains("webex.com")
-        || (urlString.hasPrefix("https://") && !urlString.hasPrefix("tel:"))
-    }) {
-      return videoLink
-    }
-
-    // Fallback to any link if no video meeting links found
-    return links.first
+    LinkParser.shared.detectPrimaryLink(from: links)
   }
 
   var isOnlineMeeting: Bool {
-    !links.isEmpty
+    LinkParser.shared.isOnlineMeeting(links: links)
   }
 
   var shouldShowJoinButton: Bool {
@@ -132,18 +113,12 @@ struct Event: Identifiable, Codable, Equatable {
     createdAt: Date = Date(),
     updatedAt: Date = Date()
   ) -> Event {
-    let parser = LinkParser.shared
-    var allText = title
+    // Combine all text fields that might contain meeting links
+    let allText = [title, description, location]
+      .compactMap { $0 }
+      .joined(separator: " ")
 
-    if let description = description {
-      allText += " \(description)"
-    }
-
-    if let location = location {
-      allText += " \(location)"
-    }
-
-    let googleMeetLinks = parser.extractGoogleMeetLinks(from: allText)
+    let googleMeetLinks = LinkParser.shared.extractGoogleMeetLinks(from: allText)
     let provider = googleMeetLinks.first.map { Provider.detect(from: $0) }
 
     return Event(

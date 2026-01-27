@@ -4,15 +4,14 @@ import Foundation
 import OSLog
 
 @MainActor
-class EventScheduler: ObservableObject {
+final class EventScheduler: ObservableObject {
   private let logger = Logger(subsystem: "com.unmissable.app", category: "EventScheduler")
 
   @Published var scheduledAlerts: [ScheduledAlert] = []
 
-  private var timer: Timer?
-  private var monitoringTask: Task<Void, Never>?
+  private nonisolated(unsafe) var monitoringTask: Task<Void, Never>?
   private let preferencesManager: PreferencesManager
-  private var cancellables = Set<AnyCancellable>()
+  private nonisolated(unsafe) var cancellables = Set<AnyCancellable>()
 
   // Store current events to allow rescheduling
   private var currentEvents: [Event] = []
@@ -25,14 +24,13 @@ class EventScheduler: ObservableObject {
 
   deinit {
     monitoringTask?.cancel()
-    timer?.invalidate()
     cancellables.removeAll()
   }
 
   private func setupPreferencesObserver() {
     // Watch for alert timing preference changes
     Publishers.CombineLatest4(
-      preferencesManager.$defaultAlertMinutes,
+      preferencesManager.$overlayShowMinutesBefore,
       preferencesManager.$useLengthBasedTiming,
       preferencesManager.$defaultAlertMinutes,
       preferencesManager.$shortMeetingAlertMinutes
@@ -73,9 +71,8 @@ class EventScheduler: ObservableObject {
     currentEvents = events
     currentOverlayManager = overlayManager
 
-    stopScheduling()
+    stopTimers()
     scheduleAlerts(for: events)
-    scheduleOverlays(for: events, overlayManager: overlayManager)
     startMonitoring(overlayManager: overlayManager)
 
     logger.info("✅ Event scheduling setup completed")
@@ -90,30 +87,27 @@ class EventScheduler: ObservableObject {
     logger.info(
       "Rescheduling alerts for \(self.currentEvents.count) events with updated preferences")
 
-    stopScheduling()
+    stopTimers()
     scheduleAlerts(for: currentEvents)
-    scheduleOverlays(for: currentEvents, overlayManager: overlayManager)
     startMonitoring(overlayManager: overlayManager)
   }
 
   func stopScheduling() {
     logger.info("🛑 STOP SCHEDULING: Starting cleanup")
-
-    // CRITICAL FIX: Ensure proper cleanup on main thread
-    monitoringTask?.cancel()
-    monitoringTask = nil
-    timer?.invalidate()
-    timer = nil
-    scheduledAlerts.removeAll()
-
-    // CRITICAL FIX: Clean up properly to prevent memory leaks
+    stopTimers()
+    
+    // Clean up properly to prevent memory leaks
     currentEvents.removeAll()
     currentOverlayManager = nil
 
-    // CRITICAL FIX: Remove all Combine subscriptions
-    cancellables.removeAll()
-
     logger.info("✅ STOP SCHEDULING: Cleanup completed")
+  }
+  
+  private func stopTimers() {
+    // Cancel the monitoring task
+    monitoringTask?.cancel()
+    monitoringTask = nil
+    scheduledAlerts.removeAll()
   }
 
   private func scheduleAlerts(for events: [Event]) {
@@ -130,13 +124,13 @@ class EventScheduler: ObservableObject {
     let currentTime = Date()
 
     for event in events {
-      // Skip past events (but snooze alerts will be preserved above)
-      if event.startDate < currentTime {
+      // Skip events that have already ended
+      if event.endDate < currentTime {
         continue
       }
 
       // Schedule overlay alerts based on preferences
-      let overlayTiming = preferencesManager.defaultAlertMinutes
+      let overlayTiming = preferencesManager.overlayShowMinutesBefore
       let overlayTime = event.startDate.addingTimeInterval(-TimeInterval(overlayTiming * 60))
 
       if overlayTime > currentTime {
@@ -146,6 +140,13 @@ class EventScheduler: ObservableObject {
           alertType: .reminder(minutesBefore: overlayTiming)
         )
         scheduledAlerts.append(overlayAlert)
+      } else if event.startDate > currentTime {
+        // Alert time has passed but meeting hasn't started (e.g. app started late)
+        // Show overlay immediately if we have a manager
+        if let manager = currentOverlayManager {
+          logger.info("⚠️ Missed alert time for \(event.title), triggering immediately")
+          manager.showOverlay(for: event, minutesBeforeMeeting: overlayTiming, fromSnooze: false)
+        }
       }
 
       // Schedule sound alerts if enabled (using event-specific timing)
@@ -175,42 +176,56 @@ class EventScheduler: ObservableObject {
     )
   }
 
-  private func scheduleOverlays(for events: [Event], overlayManager: OverlayManager) {
-    let currentTime = Date()
-    let overlayTiming = preferencesManager.defaultAlertMinutes
-
-    print(
-      "🎯 SCHEDULE OVERLAYS: Processing \(events.count) events with timing \(overlayTiming) minutes before"
-    )
-
-    for event in events {
-      // Only schedule overlays for future events
-      guard event.startDate > currentTime else {
-        print("⏭️ SKIP: Event \(event.title) starts in past (\(event.startDate) <= \(currentTime))")
-        continue
-      }
-
-      print("📅 SCHEDULING: Calling overlayManager.scheduleOverlay for \(event.title)")
-      overlayManager.scheduleOverlay(for: event, minutesBeforeMeeting: overlayTiming)
-    }
-
-    print("✅ SCHEDULED: Overlays for \(events.count) events")
-  }
-
   private func startMonitoring(overlayManager: OverlayManager) {
+    // Cancel existing task if any
+    monitoringTask?.cancel()
+    
     monitoringTask = Task { @MainActor in
+      logger.info("👀 MONITORING: Starting smart alert monitoring")
+      
       while !Task.isCancelled {
         do {
-          try await Task.sleep(for: .seconds(5))
-          if !Task.isCancelled {
-            await checkForTriggeredAlerts(overlayManager: overlayManager)
+          guard let nextAlert = scheduledAlerts.first else {
+            logger.info("💤 MONITORING: No alerts scheduled, waiting for updates...")
+            // Wait indefinitely until task is cancelled (which happens on reschedule)
+            try await Task.sleep(for: .seconds(3600)) 
+            continue
           }
+          
+          let now = Date()
+          let timeUntilTrigger = nextAlert.triggerDate.timeIntervalSince(now)
+          
+          if timeUntilTrigger > 0.1 {
+            logger.debug("⏳ MONITORING: Sleeping for \(String(format: "%.2f", timeUntilTrigger))s until next alert for '\(nextAlert.event.title)'")
+            // Sleep exactly until the next alert (plus a tiny buffer)
+            try await Task.sleep(for: .seconds(timeUntilTrigger))
+          }
+          
+          // Double check cancellation before processing
+          guard !Task.isCancelled else { break }
+          
+          // Process triggers
+          await checkForTriggeredAlerts(overlayManager: overlayManager)
+          
         } catch {
-          // Task was cancelled, exit the loop
-          break
+          // Task cancellation throws cancellation error
+          if Task.isCancelled {
+            logger.info("🛑 MONITORING: Task cancelled")
+            break
+          }
+          logger.error("❌ MONITORING: Error in loop: \(error.localizedDescription)")
+          // Prevent rapid error looping
+          try? await Task.sleep(for: .seconds(5))
         }
       }
     }
+  }
+
+  /// Restarts the monitoring task to pick up new alerts immediately
+  private func refreshMonitoring() {
+    guard let overlayManager = currentOverlayManager else { return }
+    logger.debug("🔄 MONITORING: Refreshing monitor task")
+    startMonitoring(overlayManager: overlayManager)
   }
 
   private func checkForTriggeredAlerts(overlayManager: OverlayManager) async {
@@ -320,5 +335,8 @@ class EventScheduler: ObservableObject {
         "⏰ Scheduled snooze for \(minutes) minutes for event '\(event.title)' (meeting starts later). Will trigger at \(formatter.string(from: snoozeDate))"
       )
     }
+    
+    // Restart monitoring to ensure we wake up for this snooze if it's next
+    refreshMonitoring()
   }
 }

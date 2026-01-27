@@ -5,12 +5,13 @@ import XCTest
 
 final class OverlayContentViewTests: XCTestCase {
 
+  @MainActor
   func testSnoozeCallbacksDoNotCauseDeadlock() {
     let expectation = XCTestExpectation(description: "Snooze callback completes without deadlock")
     expectation.expectedFulfillmentCount = 1
 
     let event = createTestEvent()
-    var snoozeMinutes: Int?
+    nonisolated(unsafe) var snoozeMinutes: Int?
 
     let view = OverlayContentView(
       event: event,
@@ -27,7 +28,7 @@ final class OverlayContentViewTests: XCTestCase {
     )
 
     // Simulate snooze action - this should not freeze the app
-    DispatchQueue.main.async {
+    Task { @MainActor in
       // In a real test we'd need to access the view's state
       // For now, just test that the callback can be called safely
       view.onSnooze(5)
@@ -37,11 +38,12 @@ final class OverlayContentViewTests: XCTestCase {
     XCTAssertEqual(snoozeMinutes, 5)
   }
 
+  @MainActor
   func testDismissCallbackDoesNotCauseDeadlock() {
     let expectation = XCTestExpectation(description: "Dismiss callback completes without deadlock")
 
     let event = createTestEvent()
-    var dismissCalled = false
+    nonisolated(unsafe) var dismissCalled = false
 
     let view = OverlayContentView(
       event: event,
@@ -58,7 +60,7 @@ final class OverlayContentViewTests: XCTestCase {
     )
 
     // Simulate dismiss action - this should not freeze the app
-    DispatchQueue.main.async {
+    Task { @MainActor in
       view.onDismiss()
     }
 
@@ -66,13 +68,14 @@ final class OverlayContentViewTests: XCTestCase {
     XCTAssertTrue(dismissCalled)
   }
 
+  @MainActor
   func testJoinMeetingCallbackDoesNotCauseDeadlock() {
     let expectation = XCTestExpectation(
       description: "Join meeting callback completes without deadlock")
 
     let testURL = URL(string: "https://meet.google.com/test")!
     let event = createTestEventWithURL(testURL)
-    var joinedURL: URL?
+    nonisolated(unsafe) var joinedURL: URL?
 
     let view = OverlayContentView(
       event: event,
@@ -89,7 +92,7 @@ final class OverlayContentViewTests: XCTestCase {
     )
 
     // Simulate join action - this should not freeze the app
-    DispatchQueue.main.async {
+    Task { @MainActor in
       view.onJoin()
     }
 

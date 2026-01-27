@@ -9,16 +9,16 @@ import XCTest
 final class OverlayAccuracyAndInteractionTests: XCTestCase {
 
   var overlayManager: OverlayManager!
-  var mockPreferences: TestUtilities.MockPreferencesManager!
-  var mockFocusMode: MockFocusModeManagerAcc!
+  var mockPreferences: PreferencesManager!
+  var focusModeManager: FocusModeManager!
   var cancellables: Set<AnyCancellable>!
 
   override func setUp() async throws {
-    mockPreferences = TestUtilities.MockPreferencesManager()
-    mockFocusMode = MockFocusModeManagerAcc(preferencesManager: mockPreferences)
+    mockPreferences = TestUtilities.createTestPreferencesManager()
+    focusModeManager = FocusModeManager(preferencesManager: mockPreferences)
     overlayManager = OverlayManager(
       preferencesManager: mockPreferences,
-      focusModeManager: mockFocusMode,
+      focusModeManager: focusModeManager,
       isTestMode: true  // CRITICAL FIX: Prevent UI creation in tests
     )
     cancellables = Set<AnyCancellable>()
@@ -34,7 +34,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
     try await Task.sleep(nanoseconds: 100_000_000)  // 0.1 seconds
 
     overlayManager = nil
-    mockFocusMode = nil
+    focusModeManager = nil
     mockPreferences = nil
 
     try await super.tearDown()
@@ -279,33 +279,28 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
   // MARK: - Integration Tests
 
   func testOverlayManagerTimerSynchronization() async throws {
-    // Test that OverlayManager's timer and published properties stay in sync
+    // Test that OverlayManager's computed timeUntilMeeting decreases over time
     let event = TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(240))  // 4 minutes
 
-    var publishedValues: [TimeInterval] = []
-
-    // Subscribe to published values
-    overlayManager.$timeUntilMeeting
-      .sink { value in
-        publishedValues.append(value)
-      }
-      .store(in: &cancellables)
+    var collectedValues: [TimeInterval] = []
 
     overlayManager.showOverlay(for: event)
 
-    // Wait and collect multiple published values
+    // Collect values at intervals
     for _ in 0..<3 {
+      collectedValues.append(overlayManager.timeUntilMeeting)
       try await Task.sleep(nanoseconds: 1_100_000_000)  // 1.1 seconds
     }
+    collectedValues.append(overlayManager.timeUntilMeeting)
 
-    // Verify published values are decreasing (timer working)
-    XCTAssertGreaterThan(publishedValues.count, 2, "Should have multiple published values")
+    // Verify collected values are decreasing (timer working)
+    XCTAssertGreaterThan(collectedValues.count, 2, "Should have multiple collected values")
 
-    if publishedValues.count >= 3 {
+    if collectedValues.count >= 3 {
       XCTAssertGreaterThan(
-        publishedValues[0], publishedValues[1], "Published values should decrease")
+        collectedValues[0], collectedValues[1], "Collected values should decrease")
       XCTAssertGreaterThan(
-        publishedValues[1], publishedValues[2], "Published values should decrease")
+        collectedValues[1], collectedValues[2], "Collected values should decrease")
     }
   }
 
@@ -361,16 +356,5 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
     try await Task.sleep(nanoseconds: 1_500_000_000)  // 1.5 seconds
 
     XCTAssertFalse(overlayManager.isOverlayVisible, "Overlay should auto-hide for old meetings")
-  }
-}
-
-// MARK: - Mock Objects
-
-class MockFocusModeManagerAcc: FocusModeManager {
-  var mockIsDoNotDisturbEnabled = false
-
-  override var isDoNotDisturbEnabled: Bool {
-    get { mockIsDoNotDisturbEnabled }
-    set { mockIsDoNotDisturbEnabled = newValue }
   }
 }

@@ -8,10 +8,10 @@ import XCTest
 final class OverlayManagerTimerFixTest: XCTestCase {
 
   var overlayManager: OverlayManager!
-  var mockPreferences: TestUtilities.MockPreferencesManager!
+  var mockPreferences: PreferencesManager!
 
   override func setUp() async throws {
-    mockPreferences = TestUtilities.MockPreferencesManager()
+    mockPreferences = TestUtilities.createTestPreferencesManager()
     // Create OverlayManager without focus mode to avoid dependencies
     overlayManager = OverlayManager(
       preferencesManager: mockPreferences,

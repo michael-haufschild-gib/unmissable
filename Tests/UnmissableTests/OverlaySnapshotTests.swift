@@ -214,7 +214,7 @@ final class OverlaySnapshotTests: XCTestCase {
     )
 
     // This should schedule without immediate display
-    overlayManager.scheduleOverlay(for: futureEvent, minutesBeforeMeeting: 5)
+    overlayManager.showOverlay(for: futureEvent, minutesBeforeMeeting: 5, fromSnooze: false)
     XCTAssertFalse(overlayManager.isOverlayVisible)
 
     // Test with event too soon to schedule
@@ -227,7 +227,7 @@ final class OverlaySnapshotTests: XCTestCase {
       links: [URL(string: "https://meet.google.com/immediate")!]
     )
 
-    overlayManager.scheduleOverlay(for: immediateEvent, minutesBeforeMeeting: 5)
+    overlayManager.showOverlay(for: immediateEvent, minutesBeforeMeeting: 5, fromSnooze: false)
     // Since the event is less than 5 minutes away, it should show immediately
     XCTAssertTrue(overlayManager.isOverlayVisible)
   }

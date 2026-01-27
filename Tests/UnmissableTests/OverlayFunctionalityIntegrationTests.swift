@@ -78,58 +78,77 @@ class OverlayFunctionalityIntegrationTests: XCTestCase {
     logger.info("⏰ CORE: Overlay timing and scheduling test")
 
     let preferencesManager = PreferencesManager()
+    // Use immediate timing for tests
+    preferencesManager.overlayShowMinutesBefore = 0
+    
     let focusModeManager = FocusModeManager(preferencesManager: preferencesManager)
     let overlayManager = OverlayManager(
       preferencesManager: preferencesManager,
       focusModeManager: focusModeManager,
       isTestMode: true
     )
+    let eventScheduler = EventScheduler(preferencesManager: preferencesManager)
+    overlayManager.setEventScheduler(eventScheduler)
 
-    // Test 1: Future event scheduling
+    // Test 1: Future event scheduling (1 hour from now)
     logger.info("📊 Test 1: Future event scheduling")
     let futureEvent = TestUtilities.createTestEvent(
       id: "future-timing-test",
       title: "Future Event",
-      startDate: Date().addingTimeInterval(3600)  // 1 hour from now
+      startDate: Date().addingTimeInterval(3600)
     )
 
-    overlayManager.scheduleOverlay(for: futureEvent, minutesBeforeMeeting: 5)
+    // Reset timing to 5 mins for this test
+    preferencesManager.overlayShowMinutesBefore = 5
+    
+    await eventScheduler.startScheduling(events: [futureEvent], overlayManager: overlayManager)
 
-    // Should not trigger immediately
-    try await Task.sleep(nanoseconds: 100_000_000)  // 0.1 seconds
+    // Should not trigger immediately (even with scheduler loop)
+    try await Task.sleep(nanoseconds: 200_000_000)
     XCTAssertFalse(overlayManager.isOverlayVisible, "Future event should not trigger immediately")
+    
+    eventScheduler.stopScheduling()
+    overlayManager.hideOverlay()
 
-    // Test 2: Immediate event scheduling (past event)
-    logger.info("📊 Test 2: Immediate event scheduling")
-    let pastEvent = TestUtilities.createTestEvent(
+    // Test 2: Immediate event scheduling (imminent event)
+    logger.info("📊 Test 2: Immediate event scheduling (imminent)")
+    let imminentEvent = TestUtilities.createTestEvent(
       id: "immediate-timing-test",
-      title: "Past Event",
-      startDate: Date().addingTimeInterval(-30)  // 30 seconds ago
+      title: "Imminent Event",
+      startDate: Date().addingTimeInterval(5),  // 5 seconds from now
+      endDate: Date().addingTimeInterval(3605)
     )
 
-    overlayManager.scheduleOverlay(for: pastEvent, minutesBeforeMeeting: 5)
+    await eventScheduler.startScheduling(events: [imminentEvent], overlayManager: overlayManager)
 
-    // Should trigger immediately
-    try await Task.sleep(nanoseconds: 100_000_000)  // 0.1 seconds
-
-    // The overlay visibility depends on auto-hide logic for past events
-    // Key test: no crash or deadlock occurred
+    // Should trigger immediately because overlay window (start-5min) has passed
+    // but meeting hasn't started yet (start > now)
+    try await Task.sleep(nanoseconds: 200_000_000)
+    
+    XCTAssertTrue(overlayManager.isOverlayVisible, "Imminent event should trigger immediately")
+    
+    eventScheduler.stopScheduling()
+    overlayManager.hideOverlay()
 
     // Test 3: Near-future event scheduling
     logger.info("📊 Test 3: Near-future event scheduling")
     let nearEvent = TestUtilities.createTestEvent(
       id: "near-timing-test",
       title: "Near Future Event",
-      startDate: Date().addingTimeInterval(120)  // 2 minutes from now
+      startDate: Date().addingTimeInterval(60)  // 1 minute from now
     )
+    
+    // Set preference to 2 minutes before
+    preferencesManager.overlayShowMinutesBefore = 2
 
-    overlayManager.scheduleOverlay(for: nearEvent, minutesBeforeMeeting: 5)
+    await eventScheduler.startScheduling(events: [nearEvent], overlayManager: overlayManager)
 
-    // Should trigger immediately (within 5 minutes)
-    try await Task.sleep(nanoseconds: 100_000_000)  // 0.1 seconds
-    XCTAssertTrue(overlayManager.isOverlayVisible, "Near-future event should trigger immediately")
+    // Since 1 min < 2 min, it should trigger immediately (missed/imminent)
+    try await Task.sleep(nanoseconds: 200_000_000)
+    XCTAssertTrue(overlayManager.isOverlayVisible, "Near-future event inside window should trigger immediately")
 
     overlayManager.hideOverlay()
+    eventScheduler.stopScheduling()
     logger.info("✅ Overlay timing and scheduling test passed")
   }
 
@@ -230,7 +249,7 @@ class OverlayFunctionalityIntegrationTests: XCTestCase {
 
     // Test 2: Manual overlay trigger through scheduler
     logger.info("📊 Test 2: Manual overlay trigger")
-    overlayManager.scheduleOverlay(for: events[0], minutesBeforeMeeting: 5)
+    overlayManager.showOverlay(for: events[0], minutesBeforeMeeting: 5, fromSnooze: false)
 
     try await Task.sleep(nanoseconds: 100_000_000)  // 0.1 seconds
     XCTAssertTrue(overlayManager.isOverlayVisible, "Scheduled overlay should be visible")

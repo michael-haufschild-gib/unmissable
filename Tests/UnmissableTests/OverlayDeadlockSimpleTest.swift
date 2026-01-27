@@ -77,7 +77,7 @@ class OverlayDeadlockSimpleTest: XCTestCase {
     let startTime = Date()
 
     // Use scheduleOverlay which is closer to real usage
-    overlayManager.scheduleOverlay(for: pastEvent, minutesBeforeMeeting: 5)
+    overlayManager.showOverlay(for: pastEvent, minutesBeforeMeeting: 5, fromSnooze: false)
 
     // Wait a moment for any async processing
     try await Task.sleep(nanoseconds: 500_000_000)  // 0.5 seconds

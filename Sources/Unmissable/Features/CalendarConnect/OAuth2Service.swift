@@ -5,7 +5,7 @@ import KeychainAccess
 import OSLog
 
 @MainActor
-class OAuth2Service: ObservableObject {
+final class OAuth2Service: NSObject, ObservableObject {
   private let logger = Logger(subsystem: "com.unmissable.app", category: "OAuth2Service")
   private let keychain = Keychain(service: "com.unmissable.app.oauth")
 
@@ -17,15 +17,25 @@ class OAuth2Service: ObservableObject {
   private let keychainAccessTokenKey = "google_access_token"
   private let keychainRefreshTokenKey = "google_refresh_token"
   private let keychainUserEmailKey = "google_user_email"
+  private let keychainAuthStateKey = "google_auth_state"  // Serialized OIDAuthState
 
-  init() {
+  // URLSession with timeout configuration to prevent indefinite hangs
+  private static let urlSession: URLSession = {
+    let config = URLSessionConfiguration.default
+    config.timeoutIntervalForRequest = 30  // 30 seconds per request
+    config.timeoutIntervalForResource = 60  // 60 seconds total
+    return URLSession(configuration: config)
+  }()
+
+  override init() {
+    super.init()
     loadAuthStateFromKeychain()
 
     // Listen for OAuth callback notifications
     NotificationCenter.default.addObserver(
       self,
       selector: #selector(handleOAuthCallback(_:)),
-      name: Notification.Name("OAuthCallback"),
+      name: .oauthCallback,
       object: nil
     )
   }
@@ -90,12 +100,20 @@ class OAuth2Service: ObservableObject {
       issuer: GoogleCalendarConfig.issuer
     )
 
+    // Validate redirect URL before creating request
+    guard let redirectURL = URL(string: GoogleCalendarConfig.redirectURI) else {
+      let error = "Invalid redirect URI: \(GoogleCalendarConfig.redirectURI)"
+      logger.error("❌ \(error)")
+      authorizationError = error
+      throw OAuth2Error.configurationError(error)
+    }
+
     // Create authorization request
     let request = OIDAuthorizationRequest(
       configuration: configuration,
       clientId: GoogleCalendarConfig.clientId,
       scopes: GoogleCalendarConfig.scopes,
-      redirectURL: URL(string: GoogleCalendarConfig.redirectURI)!,
+      redirectURL: redirectURL,
       responseType: OIDResponseTypeCode,
       additionalParameters: nil
     )
@@ -161,8 +179,11 @@ class OAuth2Service: ObservableObject {
                 } else if let tokenResponse = tokenResponse {
                   self?.logger.info("🎉 Token exchange successful!")
                   // Create auth state with both responses
-                  self?.authState = OIDAuthState(
+                  let newAuthState = OIDAuthState(
                     authorizationResponse: authResponse, tokenResponse: tokenResponse)
+                  // Set up delegate to save state on changes (e.g., token refresh)
+                  newAuthState.stateChangeDelegate = self
+                  self?.authState = newAuthState
                   self?.saveAuthStateToKeychain()
                   await self?.fetchUserEmail()
                   self?.isAuthenticated = true
@@ -211,22 +232,40 @@ class OAuth2Service: ObservableObject {
 
   func getValidAccessToken() async throws -> String {
     guard let authState = authState else {
+      logger.error("❌ getValidAccessToken called but authState is nil")
+      // Update authorizationError so user sees feedback
+      authorizationError = "Not authenticated. Please sign in again."
       throw OAuth2Error.notAuthenticated
     }
 
     return try await withCheckedThrowingContinuation {
       (continuation: CheckedContinuation<String, Error>) in
-      authState.performAction { accessToken, idToken, error in
-        if let error = error {
-          continuation.resume(throwing: OAuth2Error.tokenRefreshFailed(error))
-        } else if let accessToken = accessToken {
-          continuation.resume(returning: accessToken)
-        } else {
-          continuation.resume(
-            throwing: OAuth2Error.tokenRefreshFailed(
-              NSError(
-                domain: "OAuth2Service", code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "No access token available"])))
+      authState.performAction { [weak self] accessToken, idToken, error in
+        Task { @MainActor in
+          if let error = error {
+            self?.logger.error("❌ Token refresh failed: \(error.localizedDescription)")
+            // Check if this is an auth error that requires re-authentication
+            let nsError = error as NSError
+            if nsError.domain == OIDOAuthTokenErrorDomain {
+              self?.logger.error("🔐 OAuth token error - user needs to re-authenticate")
+              self?.authorizationError = "Session expired. Please sign in again."
+              self?.isAuthenticated = false
+              self?.authState = nil
+              self?.userEmail = nil
+              self?.clearKeychain()
+            }
+            continuation.resume(throwing: OAuth2Error.tokenRefreshFailed(error))
+          } else if let accessToken = accessToken {
+            // Note: No need to save here - OIDAuthStateChangeDelegate.didChange handles it
+            continuation.resume(returning: accessToken)
+          } else {
+            self?.authorizationError = "Unable to get access token. Please sign in again."
+            continuation.resume(
+              throwing: OAuth2Error.tokenRefreshFailed(
+                NSError(
+                  domain: "OAuth2Service", code: -1,
+                  userInfo: [NSLocalizedDescriptionKey: "No access token available"])))
+          }
         }
       }
     }
@@ -243,25 +282,69 @@ class OAuth2Service: ObservableObject {
     clearKeychain()
   }
 
+  /// Validates the stored auth state by attempting a lightweight API call.
+  /// Should be called on app launch to ensure tokens are still valid.
+  func validateAuthState() async {
+    guard isAuthenticated else {
+      logger.info("🔍 validateAuthState: Not authenticated, skipping validation")
+      return
+    }
+
+    guard authState != nil else {
+      logger.warning("⚠️ validateAuthState: isAuthenticated=true but authState is nil - clearing auth")
+      isAuthenticated = false
+      userEmail = nil
+      authorizationError = "Session expired. Please sign in again."
+      clearKeychain()
+      return
+    }
+
+    logger.info("🔍 Validating auth state on startup...")
+
+    do {
+      // Try to get a valid access token - this will trigger refresh if needed
+      let _ = try await getValidAccessToken()
+      logger.info("✅ Auth state validated successfully")
+      authorizationError = nil  // Clear any previous errors
+    } catch {
+      logger.error("❌ Auth validation failed: \(error.localizedDescription)")
+      // getValidAccessToken already updates authorizationError and clears state if needed
+    }
+  }
+
   // MARK: - Private Methods
 
   private func loadAuthStateFromKeychain() {
     do {
-      if let accessToken = try keychain.get(keychainAccessTokenKey),
-        let refreshToken = try keychain.get(keychainRefreshTokenKey)
-      {
+      // First, try to load the serialized OIDAuthState (preferred method)
+      if let authStateData = try keychain.getData(keychainAuthStateKey) {
+        if let restoredAuthState = try? NSKeyedUnarchiver.unarchivedObject(
+          ofClass: OIDAuthState.self, from: authStateData)
+        {
+          logger.info("✅ Successfully restored OIDAuthState from keychain")
+          self.authState = restoredAuthState
+          userEmail = try keychain.get(keychainUserEmailKey)
+          isAuthenticated = true
 
-        // Reconstruct auth state from stored tokens
-        // Note: This is a simplified approach. In production, you'd want to store the complete auth state
-        logger.info("Loading auth state from keychain")
-        userEmail = try keychain.get(keychainUserEmailKey)
+          // Set up state change handler to save updates
+          restoredAuthState.stateChangeDelegate = self
 
-        // For now, just check if we have tokens - proper token validation would be done in production
-        isAuthenticated = !accessToken.isEmpty && !refreshToken.isEmpty
-
-        if isAuthenticated {
-          logger.info("User already authenticated")
+          logger.info("User authenticated with restored auth state")
+          return
+        } else {
+          logger.warning("⚠️ Failed to deserialize stored auth state, will clear and require re-auth")
         }
+      }
+
+      // Fallback: Check for legacy token storage (migration path)
+      if let accessToken = try keychain.get(keychainAccessTokenKey),
+        let refreshToken = try keychain.get(keychainRefreshTokenKey),
+        !accessToken.isEmpty && !refreshToken.isEmpty
+      {
+        logger.warning("⚠️ Found legacy tokens without full auth state - user must re-authenticate")
+        // Clear legacy tokens since we can't use them without OIDAuthState
+        clearKeychain()
+        authorizationError = "Session expired. Please sign in again."
       }
     } catch {
       logger.error("Failed to load auth state from keychain: \(error.localizedDescription)")
@@ -269,37 +352,42 @@ class OAuth2Service: ObservableObject {
   }
 
   private func saveAuthStateToKeychain() {
-    guard let authState = authState,
-      let accessToken = authState.lastTokenResponse?.accessToken,
-      let refreshToken = authState.lastTokenResponse?.refreshToken
-    else {
-      logger.error("Cannot save auth state - missing tokens")
+    guard let authState = authState else {
+      logger.error("Cannot save auth state - authState is nil")
       return
     }
 
     do {
-      try keychain.set(accessToken, key: keychainAccessTokenKey)
-      try keychain.set(refreshToken, key: keychainRefreshTokenKey)
+      // Serialize the entire OIDAuthState for proper restoration
+      let authStateData = try NSKeyedArchiver.archivedData(
+        withRootObject: authState, requiringSecureCoding: true)
+      try keychain.set(authStateData, key: keychainAuthStateKey)
+
+      // Also store tokens separately for debugging/migration purposes
+      if let accessToken = authState.lastTokenResponse?.accessToken {
+        try keychain.set(accessToken, key: keychainAccessTokenKey)
+      }
+      if let refreshToken = authState.lastTokenResponse?.refreshToken {
+        try keychain.set(refreshToken, key: keychainRefreshTokenKey)
+      }
 
       if let userEmail = userEmail {
         try keychain.set(userEmail, key: keychainUserEmailKey)
       }
 
-      logger.info("Auth state saved to keychain")
+      logger.info("✅ Auth state serialized and saved to keychain")
     } catch {
       logger.error("Failed to save auth state to keychain: \(error.localizedDescription)")
     }
   }
 
   private func clearKeychain() {
-    do {
-      try keychain.remove(keychainAccessTokenKey)
-      try keychain.remove(keychainRefreshTokenKey)
-      try keychain.remove(keychainUserEmailKey)
-      logger.info("Keychain cleared")
-    } catch {
-      logger.error("Failed to clear keychain: \(error.localizedDescription)")
-    }
+    // Use try? for each to ensure all keys are attempted even if one fails
+    try? keychain.remove(keychainAuthStateKey)
+    try? keychain.remove(keychainAccessTokenKey)
+    try? keychain.remove(keychainRefreshTokenKey)
+    try? keychain.remove(keychainUserEmailKey)
+    logger.info("Keychain cleared")
   }
 
   private func fetchUserEmail() async {
@@ -318,7 +406,7 @@ class OAuth2Service: ObservableObject {
     var request = URLRequest(url: url)
     request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
 
-    let (data, response) = try await URLSession.shared.data(for: request)
+    let (data, response) = try await Self.urlSession.data(for: request)
 
     guard let httpResponse = response as? HTTPURLResponse,
       httpResponse.statusCode == 200
@@ -354,6 +442,18 @@ enum OAuth2Error: LocalizedError {
       return "User not authenticated"
     case .userInfoFetchFailed:
       return "Failed to fetch user information"
+    }
+  }
+}
+
+// MARK: - OIDAuthStateChangeDelegate
+
+extension OAuth2Service: OIDAuthStateChangeDelegate {
+  nonisolated func didChange(_ state: OIDAuthState) {
+    // OIDAuthState changed (e.g., tokens refreshed) - save to keychain
+    Task { @MainActor in
+      self.logger.info("🔄 OIDAuthState changed - saving updated state to keychain")
+      self.saveAuthStateToKeychain()
     }
   }
 }

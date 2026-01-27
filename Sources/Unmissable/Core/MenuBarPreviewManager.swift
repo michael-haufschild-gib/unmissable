@@ -3,7 +3,7 @@ import Foundation
 import OSLog
 
 @MainActor
-class MenuBarPreviewManager: ObservableObject {
+final class MenuBarPreviewManager: ObservableObject {
   private let logger = Logger(subsystem: "com.unmissable.app", category: "MenuBarPreviewManager")
 
   @Published var menuBarText: String? = nil
@@ -11,7 +11,6 @@ class MenuBarPreviewManager: ObservableObject {
 
   private let preferencesManager: PreferencesManager
   private var events: [Event] = []
-  private var timer: Timer?
   private var timerTask: Task<Void, Never>?
   private var cancellables = Set<AnyCancellable>()
 
@@ -113,8 +112,6 @@ class MenuBarPreviewManager: ObservableObject {
   private func stopTimer() {
     timerTask?.cancel()
     timerTask = nil
-    timer?.invalidate()
-    timer = nil
   }
 
   private func updateTimerDisplayIfNeeded() {
@@ -189,6 +186,5 @@ class MenuBarPreviewManager: ObservableObject {
 
   deinit {
     timerTask?.cancel()
-    timer?.invalidate()
   }
 }

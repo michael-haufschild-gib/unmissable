@@ -4,21 +4,17 @@ import OSLog
 /// Thread-safe overlay trigger that handles timing and scheduling without complex async chains
 /// Eliminates deadlocks by using simple, direct dispatch patterns
 @MainActor
-class OverlayTrigger: ObservableObject {
+final class OverlayTrigger: ObservableObject {
   private let logger = Logger(subsystem: "com.unmissable.app", category: "OverlayTrigger")
 
-  @Published var isActive = false
   @Published var scheduledCount = 0
 
-  private var scheduledTimers: [Timer] = []
-  private var scheduledTasks: [Task<Void, Never>] = []
+  /// Maps event IDs to their scheduled tasks for targeted cancellation
+  private var scheduledTasks: [String: Task<Void, Never>] = [:]
 
   deinit {
-    // Clean up timers and tasks synchronously in deinit
-    for timer in scheduledTimers {
-      timer.invalidate()
-    }
-    for task in scheduledTasks {
+    // Clean up all tasks synchronously in deinit
+    for (_, task) in scheduledTasks {
       task.cancel()
     }
   }
@@ -37,22 +33,34 @@ class OverlayTrigger: ObservableObject {
       return
     }
 
+    // Cancel any existing task for this event before scheduling new one
+    if let existingTask = scheduledTasks[event.id] {
+      existingTask.cancel()
+      logger.info("Cancelled existing overlay for '\(event.title)' before rescheduling")
+    }
+
     logger.info("Scheduling overlay for '\(event.title)' in \(timeInterval) seconds")
 
     // Use async task instead of timer for better modern Swift patterns
-    let task = Task { @MainActor in
+    let eventId = event.id
+    let task = Task { @MainActor [weak self] in
       do {
         try await Task.sleep(for: .seconds(timeInterval))
         if !Task.isCancelled {
           handler()
+          // Remove completed task from dictionary
+          self?.scheduledTasks.removeValue(forKey: eventId)
+          self?.scheduledCount = self?.scheduledTasks.count ?? 0
         }
+      } catch is CancellationError {
+        // Task was cancelled - expected
       } catch {
-        // Task was cancelled
+        self?.logger.error("Unexpected error in scheduled overlay: \(error.localizedDescription)")
       }
     }
 
-    scheduledTasks.append(task)
-    scheduledCount = scheduledTasks.count + scheduledTimers.count
+    scheduledTasks[event.id] = task
+    scheduledCount = scheduledTasks.count
 
     logger.info("Overlay scheduled. Total scheduled: \(self.scheduledCount)")
   }
@@ -63,50 +71,31 @@ class OverlayTrigger: ObservableObject {
     handler: @escaping () -> Void
   ) {
     logger.info("Triggering immediate overlay for: \(event.title)")
-    isActive = true
 
     // Execute handler directly - no async dispatch needed
     handler()
-
-    isActive = false
   }
 
   /// Cancel all scheduled overlays
   func cancelAllScheduled() {
-    logger.info(
-      "Cancelling \(self.scheduledTimers.count) scheduled overlays and \(self.scheduledTasks.count) tasks"
-    )
+    logger.info("Cancelling \(self.scheduledTasks.count) scheduled tasks")
 
-    for timer in scheduledTimers {
-      timer.invalidate()
-    }
-    for task in scheduledTasks {
+    for (_, task) in scheduledTasks {
       task.cancel()
     }
-    scheduledTimers.removeAll()
     scheduledTasks.removeAll()
     scheduledCount = 0
   }
 
-  /// Cancel overlays for a specific event
+  /// Cancel overlay for a specific event
   func cancelScheduled(for eventId: String) {
-    // Note: This would require storing event IDs with timers for full implementation
-    // For now, we'll implement simple cancellation
-    logger.info("Cancelling scheduled overlays for event: \(eventId)")
-
-    // In a full implementation, we'd store event IDs with timers
-    // For immediate fix, we'll provide the interface
-  }
-
-  private func removeTimer(_ timer: Timer) {
-    if let index = scheduledTimers.firstIndex(of: timer) {
-      scheduledTimers.remove(at: index)
-      scheduledCount = scheduledTimers.count + scheduledTasks.count
+    if let task = scheduledTasks[eventId] {
+      task.cancel()
+      scheduledTasks.removeValue(forKey: eventId)
+      scheduledCount = scheduledTasks.count
+      logger.info("Cancelled scheduled overlay for event: \(eventId)")
+    } else {
+      logger.debug("No scheduled overlay found for event: \(eventId)")
     }
-  }
-
-  private func removeTask(_ task: Task<Void, Never>) {
-    // Tasks will clean themselves up when completed or cancelled
-    // We'll update count during cancelAllScheduled
   }
 }

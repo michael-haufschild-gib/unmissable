@@ -10,7 +10,7 @@ This PRD has been updated to reflect the **actual implemented features** as docu
 ## Tech Stack (Current Implementation)
 
 - **Platform**: macOS 14+ (Sonoma or later)
-- **Language**: Swift 5.10+
+- **Language**: Swift 6.0 with StrictConcurrency (tests use Swift 5 mode)
 - **UI Framework**: SwiftUI for app UI; AppKit (NSWindow/NSWindowLevel) for full-screen overlays
 - **Build System**: Swift Package Manager (SPM)
 - **Storage**: SQLite via GRDB.swift for local event cache; UserDefaults for preferences

@@ -4,7 +4,7 @@
 
 - Platform: macOS 14+ SwiftUI menu bar app (SPM target `Unmissable`).
 - Purpose: Full-screen meeting overlays for upcoming/ongoing events with join, snooze, and dismiss.
-- Stack: Swift 5.10; SwiftUI + AppKit; GRDB (SQLite); AppAuth (OAuth2); KeychainAccess; Magnet (shortcuts).
+- Stack: Swift 6.0 with StrictConcurrency; SwiftUI + AppKit; GRDB (SQLite); AppAuth (OAuth2); KeychainAccess; Magnet (shortcuts).
 
 ## Architecture (components and responsibilities)
 

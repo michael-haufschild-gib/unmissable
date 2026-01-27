@@ -10,18 +10,18 @@ import XCTest
 final class OverlayCompleteIntegrationTests: XCTestCase {
 
   var overlayManager: OverlayManager!
-  var mockPreferences: TestUtilities.MockPreferencesManager!
-  var mockFocusMode: MockFocusModeManager!
-  var mockEventScheduler: MockEventScheduler!
+  var mockPreferences: PreferencesManager!
+  var focusModeManager: FocusModeManager!
+  var eventScheduler: EventScheduler!
   var cancellables: Set<AnyCancellable>!
 
   override func setUp() async throws {
-    mockPreferences = TestUtilities.MockPreferencesManager()
-    mockFocusMode = MockFocusModeManager(preferencesManager: mockPreferences)
+    mockPreferences = TestUtilities.createTestPreferencesManager()
+    focusModeManager = FocusModeManager(preferencesManager: mockPreferences)
     overlayManager = OverlayManager(
-      preferencesManager: mockPreferences, focusModeManager: mockFocusMode)
-    mockEventScheduler = MockEventScheduler(preferencesManager: mockPreferences)
-    overlayManager.setEventScheduler(mockEventScheduler)
+      preferencesManager: mockPreferences, focusModeManager: focusModeManager, isTestMode: true)
+    eventScheduler = EventScheduler(preferencesManager: mockPreferences)
+    overlayManager.setEventScheduler(eventScheduler)
     cancellables = Set<AnyCancellable>()
 
     try await super.setUp()
@@ -32,8 +32,8 @@ final class OverlayCompleteIntegrationTests: XCTestCase {
     cancellables.removeAll()
 
     overlayManager = nil
-    mockEventScheduler = nil
-    mockFocusMode = nil
+    eventScheduler = nil
+    focusModeManager = nil
     mockPreferences = nil
 
     try await super.tearDown()
@@ -68,9 +68,9 @@ final class OverlayCompleteIntegrationTests: XCTestCase {
 
     XCTAssertFalse(overlayManager.isOverlayVisible, "Step 2: Overlay should be hidden after snooze")
     XCTAssertNil(overlayManager.activeEvent, "Step 2: Active event should be cleared")
-    XCTAssertTrue(mockEventScheduler.snoozeScheduled, "Step 2: Snooze should be scheduled")
+    XCTAssertTrue(eventScheduler.snoozeScheduled, "Step 2: Snooze should be scheduled")
     XCTAssertEqual(
-      mockEventScheduler.snoozeMinutes, snoozeMinutes, "Step 2: Should snooze for correct duration")
+      eventScheduler.snoozeMinutes, snoozeMinutes, "Step 2: Should snooze for correct duration")
 
     // 3. Simulate snooze alert firing (2 minutes later)
     let _ = ScheduledAlert(
@@ -80,7 +80,7 @@ final class OverlayCompleteIntegrationTests: XCTestCase {
     )
 
     // Reset and show overlay again (as if snooze alert fired)
-    mockEventScheduler.reset()
+    eventScheduler.reset()
     overlayManager.showOverlay(for: event)
 
     XCTAssertTrue(
@@ -93,7 +93,7 @@ final class OverlayCompleteIntegrationTests: XCTestCase {
     XCTAssertFalse(
       overlayManager.isOverlayVisible, "Step 4: Overlay should be hidden after dismiss")
     XCTAssertNil(overlayManager.activeEvent, "Step 4: Active event should be cleared")
-    XCTAssertFalse(mockEventScheduler.snoozeScheduled, "Step 4: No new snooze should be scheduled")
+    XCTAssertFalse(eventScheduler.snoozeScheduled, "Step 4: No new snooze should be scheduled")
 
     print("✅ Complete snooze user journey works correctly")
   }
@@ -185,14 +185,14 @@ final class OverlayCompleteIntegrationTests: XCTestCase {
 
     // Rapid show/hide cycles
     for i in 0..<10 {
-      mockEventScheduler.reset()
+      eventScheduler.reset()
 
       overlayManager.showOverlay(for: event)
       XCTAssertTrue(overlayManager.isOverlayVisible, "Rapid cycle \(i): Should show")
 
       if i % 3 == 0 {
         overlayManager.snoozeOverlay(for: 1)
-        XCTAssertTrue(mockEventScheduler.snoozeScheduled, "Rapid cycle \(i): Should snooze")
+        XCTAssertTrue(eventScheduler.snoozeScheduled, "Rapid cycle \(i): Should snooze")
       } else {
         overlayManager.hideOverlay()
       }
@@ -213,15 +213,15 @@ final class OverlayCompleteIntegrationTests: XCTestCase {
     let snoozeDurations = [1, 5, 10, 15, 1]  // Different durations
 
     for (index, duration) in snoozeDurations.enumerated() {
-      mockEventScheduler.reset()
+      eventScheduler.reset()
 
       overlayManager.showOverlay(for: event)
       overlayManager.snoozeOverlay(for: duration)
 
       XCTAssertTrue(
-        mockEventScheduler.snoozeScheduled, "Snooze sequence \(index): Should schedule snooze")
+        eventScheduler.snoozeScheduled, "Snooze sequence \(index): Should schedule snooze")
       XCTAssertEqual(
-        mockEventScheduler.snoozeMinutes, duration,
+        eventScheduler.snoozeMinutes, duration,
         "Snooze sequence \(index): Should use correct duration")
       XCTAssertFalse(
         overlayManager.isOverlayVisible, "Snooze sequence \(index): Should hide overlay")
@@ -241,7 +241,7 @@ final class OverlayCompleteIntegrationTests: XCTestCase {
     XCTAssertTrue(overlayManager.isOverlayVisible, "Initial: Overlay should be visible")
 
     // Enable Do Not Disturb
-    mockFocusMode.isDoNotDisturbEnabled = true
+    focusModeManager.isDoNotDisturbEnabled = true
 
     // Overlay behavior might change but shouldn't crash
     // The system should handle this gracefully
@@ -250,7 +250,7 @@ final class OverlayCompleteIntegrationTests: XCTestCase {
     XCTAssertFalse(overlayManager.isOverlayVisible, "Focus mode change: Should still handle snooze")
 
     // Disable Do Not Disturb
-    mockFocusMode.isDoNotDisturbEnabled = false
+    focusModeManager.isDoNotDisturbEnabled = false
 
     print("✅ Focus mode changes handled correctly")
   }
@@ -272,7 +272,7 @@ final class OverlayCompleteIntegrationTests: XCTestCase {
 
     XCTAssertFalse(
       overlayManager.isOverlayVisible, "Preference changes: Should still handle snooze")
-    XCTAssertTrue(mockEventScheduler.snoozeScheduled, "Preference changes: Should schedule snooze")
+    XCTAssertTrue(eventScheduler.snoozeScheduled, "Preference changes: Should schedule snooze")
 
     print("✅ Preference changes during overlay handled correctly")
   }
@@ -380,7 +380,7 @@ final class OverlayCompleteIntegrationTests: XCTestCase {
 
     // All interactions should still work
     overlayManager.snoozeOverlay(for: 5)
-    XCTAssertTrue(mockEventScheduler.snoozeScheduled, "Accessibility: Snooze should work")
+    XCTAssertTrue(eventScheduler.snoozeScheduled, "Accessibility: Snooze should work")
 
     print("✅ Accessibility behavior tests passed")
   }
@@ -407,41 +407,5 @@ final class OverlayCompleteIntegrationTests: XCTestCase {
     print(
       "✅ Responsiveness tests passed - Show: \(showResponseTime*1000)ms, Snooze: \(snoozeResponseTime*1000)ms"
     )
-  }
-}
-
-// MARK: - Helper Classes
-
-class MockFocusModeManager: FocusModeManager {
-  var mockIsDoNotDisturbEnabled = false
-
-  override var isDoNotDisturbEnabled: Bool {
-    get { mockIsDoNotDisturbEnabled }
-    set { mockIsDoNotDisturbEnabled = newValue }
-  }
-}
-
-class MockEventScheduler: EventScheduler {
-  var snoozeScheduled = false
-  var snoozeMinutes = 0
-  var snoozeEvent: Event?
-  var snoozeTime: Date?
-
-  override init(preferencesManager: PreferencesManager) {
-    super.init(preferencesManager: preferencesManager)
-  }
-
-  override func scheduleSnooze(for event: Event, minutes: Int) {
-    snoozeScheduled = true
-    snoozeMinutes = minutes
-    snoozeEvent = event
-    snoozeTime = Date().addingTimeInterval(TimeInterval(minutes * 60))
-  }
-
-  func reset() {
-    snoozeScheduled = false
-    snoozeMinutes = 0
-    snoozeEvent = nil
-    snoozeTime = nil
   }
 }

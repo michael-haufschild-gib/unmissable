@@ -1,7 +1,9 @@
 import Foundation
 
-struct Attendee: Identifiable, Codable, Equatable {
-  let id: UUID
+struct Attendee: Identifiable, Codable, Equatable, Sendable {
+  /// Email is unique and stable, making it a reliable identifier across encode/decode cycles
+  var id: String { email }
+
   let name: String?
   let email: String
   let status: AttendeeStatus?
@@ -17,7 +19,6 @@ struct Attendee: Identifiable, Codable, Equatable {
     isOrganizer: Bool = false,
     isSelf: Bool
   ) {
-    self.id = UUID()
     self.name = name
     self.email = email
     self.status = status
@@ -31,7 +32,7 @@ struct Attendee: Identifiable, Codable, Equatable {
   }
 }
 
-enum AttendeeStatus: String, Codable, CaseIterable {
+enum AttendeeStatus: String, Codable, CaseIterable, Sendable {
   case needsAction = "needsAction"
   case declined = "declined"
   case tentative = "tentative"
