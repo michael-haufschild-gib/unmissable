@@ -49,6 +49,7 @@ Thumbs.db
 .idea/
 .chatmodes/
 .specstory/
+.claude/
 
 # Local environment files
 .env
