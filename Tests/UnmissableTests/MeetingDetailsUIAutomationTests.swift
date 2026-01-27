@@ -464,7 +464,7 @@ class MeetingDetailsUIAutomationTests: XCTestCase {
             // Malformed event data
             Event(
                 id: "", // Empty ID
-                title: String(repeating: "🎉", count: 10_000), // Very long title with emojis
+                title: String(repeating: "🎉", count: 10000), // Very long title with emojis
                 startDate: Date.distantPast,
                 endDate: Date.distantFuture,
                 organizer: "not-an-email", // Invalid email

@@ -46,7 +46,8 @@ struct MenuBarView: View {
         // Using isDateInWeekend for clarity, then checking it's the first weekend day (Saturday)
         if calendar.isDateInWeekend(tomorrow),
            let nextDay = calendar.date(byAdding: .day, value: 1, to: tomorrow),
-           calendar.isDateInWeekend(nextDay) {
+           calendar.isDateInWeekend(nextDay)
+        {
             // Tomorrow is Saturday (both tomorrow and the day after are weekend days)
             return calendar.date(byAdding: .day, value: 2, to: tomorrow)
         }

@@ -175,7 +175,8 @@ final class PreferencesManager: ObservableObject {
         includeAllDayEvents = userDefaults.bool(forKey: "includeAllDayEvents")
 
         if let themeRawValue = userDefaults.object(forKey: "appearanceTheme") as? String,
-           let theme = AppTheme(rawValue: themeRawValue) {
+           let theme = AppTheme(rawValue: themeRawValue)
+        {
             appearanceTheme = theme
             ThemeManager.shared.setTheme(theme)
         } else {
@@ -186,7 +187,8 @@ final class PreferencesManager: ObservableObject {
         overlayShowMinutesBefore = userDefaults.object(forKey: "overlayShowMinutesBefore") as? Int ?? 5
 
         if let fontSizeRawValue = userDefaults.object(forKey: "fontSize") as? String,
-           let fontSize = FontSize(rawValue: fontSizeRawValue) {
+           let fontSize = FontSize(rawValue: fontSizeRawValue)
+        {
             self.fontSize = fontSize
         }
 
@@ -201,7 +203,8 @@ final class PreferencesManager: ObservableObject {
         allowSnooze = userDefaults.object(forKey: "allowSnooze") as? Bool ?? true
 
         if let modeRawValue = userDefaults.object(forKey: "menuBarDisplayMode") as? String,
-           let mode = MenuBarDisplayMode(rawValue: modeRawValue) {
+           let mode = MenuBarDisplayMode(rawValue: modeRawValue)
+        {
             menuBarDisplayMode = mode
         }
 

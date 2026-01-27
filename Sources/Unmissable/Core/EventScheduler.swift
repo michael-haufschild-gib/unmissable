@@ -9,9 +9,9 @@ final class EventScheduler: ObservableObject {
 
     @Published var scheduledAlerts: [ScheduledAlert] = []
 
-    nonisolated(unsafe) private var monitoringTask: Task<Void, Never>?
+    private nonisolated(unsafe) var monitoringTask: Task<Void, Never>?
     private let preferencesManager: PreferencesManager
-    nonisolated(unsafe) private var cancellables = Set<AnyCancellable>()
+    private nonisolated(unsafe) var cancellables = Set<AnyCancellable>()
 
     // Store current events to allow rescheduling
     private var currentEvents: [Event] = []

@@ -15,15 +15,15 @@ typealias JoinCallback = (URL) -> Void
 typealias SnoozeCallback = (Int) -> Void
 
 let testDismiss: DismissCallback = {
-  print("   Dismiss callback executed safely")
+    print("   Dismiss callback executed safely")
 }
 
 let testJoin: JoinCallback = { url in
-  print("   Join callback executed safely with URL: \(url)")
+    print("   Join callback executed safely with URL: \(url)")
 }
 
 let testSnooze: SnoozeCallback = { minutes in
-  print("   Snooze callback executed safely with \(minutes) minutes")
+    print("   Snooze callback executed safely with \(minutes) minutes")
 }
 
 // Test 2: Verify callbacks don't cause infinite loops
@@ -37,15 +37,15 @@ testSnooze(5)
 print("✅ Test 3: Async callback safety")
 
 DispatchQueue.main.async {
-  testDismiss()
+    testDismiss()
 }
 
 DispatchQueue.main.async {
-  testJoin(URL(string: "https://example.com/async-test")!)
+    testJoin(URL(string: "https://example.com/async-test")!)
 }
 
 DispatchQueue.main.async {
-  testSnooze(10)
+    testSnooze(10)
 }
 
 // Sleep briefly to let async callbacks complete

@@ -141,7 +141,8 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         XCTAssertFalse(reminderAlerts.isEmpty, "Should have reminder alerts")
 
         if let firstAlert = reminderAlerts.first,
-           case let .reminder(minutes) = firstAlert.alertType {
+           case let .reminder(minutes) = firstAlert.alertType
+        {
             print("First alert reminder minutes = \(minutes)")
             XCTAssertEqual(minutes, 10, "EventScheduler should use the specified preference value")
         } else {

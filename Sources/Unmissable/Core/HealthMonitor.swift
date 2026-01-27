@@ -127,7 +127,8 @@ final class HealthMonitor: ObservableObject {
         }
 
         if let lastSync = syncManager.lastSyncTime,
-           Date().timeIntervalSince(lastSync) > 3600 { // More than 1 hour
+           Date().timeIntervalSince(lastSync) > 3600
+        { // More than 1 hour
             issues.append(
                 HealthIssue(
                     severity: .warning,
@@ -147,7 +148,8 @@ final class HealthMonitor: ObservableObject {
         // Check if overlay has been stuck visible for too long
         if overlayManager.isOverlayVisible,
            let activeEvent = overlayManager.activeEvent,
-           Date().timeIntervalSince(activeEvent.endDate) > 1800 { // 30 minutes past end
+           Date().timeIntervalSince(activeEvent.endDate) > 1800
+        { // 30 minutes past end
             issues.append(
                 HealthIssue(
                     severity: .error,

@@ -60,7 +60,8 @@ final class LinkParser: Sendable {
         // Google Meet format: https://meet.google.com/abc-defg-hij
         if let lastComponent = path.components(separatedBy: "/").last,
            !lastComponent.isEmpty,
-           lastComponent.contains("-") {
+           lastComponent.contains("-")
+        {
             return lastComponent
         }
 
