@@ -3,161 +3,161 @@ import Foundation
 /// Represents a file attachment associated with a calendar event
 /// Typically used for Google Drive files attached to Google Calendar events
 struct EventAttachment: Codable, Equatable, Identifiable, Sendable {
-  let id = UUID()
+    let id = UUID()
 
-  /// URL to the attachment file (e.g., Google Drive alternateLink)
-  let fileUrl: String
+    /// URL to the attachment file (e.g., Google Drive alternateLink)
+    let fileUrl: String
 
-  /// Display name/title of the file
-  let title: String
+    /// Display name/title of the file
+    let title: String
 
-  /// MIME type of the file (e.g., "application/pdf", "image/jpeg")
-  let mimeType: String
+    /// MIME type of the file (e.g., "application/pdf", "image/jpeg")
+    let mimeType: String
 
-  /// Optional URL to an icon representing the file type
-  let iconLink: String?
+    /// Optional URL to an icon representing the file type
+    let iconLink: String?
 
-  /// Optional file ID for direct API access (e.g., Google Drive file ID)
-  let fileId: String?
+    /// Optional file ID for direct API access (e.g., Google Drive file ID)
+    let fileId: String?
 
-  /// File size in bytes, if available
-  let fileSize: Int64?
+    /// File size in bytes, if available
+    let fileSize: Int64?
 
-  /// Last modified date, if available
-  let lastModified: Date?
+    /// Last modified date, if available
+    let lastModified: Date?
 
-  init(
-    fileUrl: String,
-    title: String,
-    mimeType: String,
-    iconLink: String? = nil,
-    fileId: String? = nil,
-    fileSize: Int64? = nil,
-    lastModified: Date? = nil
-  ) {
-    self.fileUrl = fileUrl
-    self.title = title
-    self.mimeType = mimeType
-    self.iconLink = iconLink
-    self.fileId = fileId
-    self.fileSize = fileSize
-    self.lastModified = lastModified
-  }
-
-  // MARK: - Computed Properties
-
-  /// Human-readable file size string
-  var fileSizeString: String? {
-    guard let fileSize = fileSize else { return nil }
-    return ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file)
-  }
-
-  /// File extension from the title or URL
-  var fileExtension: String? {
-    let titleExtension = (title as NSString).pathExtension
-    if !titleExtension.isEmpty {
-      return titleExtension.lowercased()
+    init(
+        fileUrl: String,
+        title: String,
+        mimeType: String,
+        iconLink: String? = nil,
+        fileId: String? = nil,
+        fileSize: Int64? = nil,
+        lastModified: Date? = nil
+    ) {
+        self.fileUrl = fileUrl
+        self.title = title
+        self.mimeType = mimeType
+        self.iconLink = iconLink
+        self.fileId = fileId
+        self.fileSize = fileSize
+        self.lastModified = lastModified
     }
 
-    let urlExtension = (fileUrl as NSString).pathExtension
-    if !urlExtension.isEmpty {
-      return urlExtension.lowercased()
+    // MARK: - Computed Properties
+
+    /// Human-readable file size string
+    var fileSizeString: String? {
+        guard let fileSize else { return nil }
+        return ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file)
     }
 
-    return nil
-  }
+    /// File extension from the title or URL
+    var fileExtension: String? {
+        let titleExtension = (title as NSString).pathExtension
+        if !titleExtension.isEmpty {
+            return titleExtension.lowercased()
+        }
 
-  /// Determines if this is a Google Drive file
-  var isGoogleDriveFile: Bool {
-    return fileUrl.contains("drive.google.com") || fileUrl.contains("docs.google.com")
-      || fileUrl.contains("sheets.google.com") || fileUrl.contains("slides.google.com")
-  }
+        let urlExtension = (fileUrl as NSString).pathExtension
+        if !urlExtension.isEmpty {
+            return urlExtension.lowercased()
+        }
 
-  /// Determines if this is an image file based on MIME type
-  var isImage: Bool {
-    return mimeType.hasPrefix("image/")
-  }
-
-  /// Determines if this is a document file
-  var isDocument: Bool {
-    return mimeType.hasPrefix("application/") || mimeType.hasPrefix("text/")
-      || mimeType == "application/vnd.google-apps.document"
-      || mimeType == "application/vnd.google-apps.spreadsheet"
-      || mimeType == "application/vnd.google-apps.presentation"
-  }
-
-  /// System icon name based on file type
-  var systemIconName: String {
-    if isImage {
-      return "photo"
-    } else if mimeType.hasPrefix("application/pdf") {
-      return "doc.richtext"
-    } else if mimeType.contains("spreadsheet") || mimeType.contains("excel") {
-      return "tablecells"
-    } else if mimeType.contains("presentation") || mimeType.contains("powerpoint") {
-      return "rectangle.on.rectangle"
-    } else if mimeType.contains("document") || mimeType.contains("word") {
-      return "doc.text"
-    } else if mimeType.hasPrefix("video/") {
-      return "video"
-    } else if mimeType.hasPrefix("audio/") {
-      return "music.note"
-    } else if mimeType.hasPrefix("text/") {
-      return "doc.plaintext"
-    } else {
-      return "doc"
+        return nil
     }
-  }
 
-  // MARK: - Codable Implementation
+    /// Determines if this is a Google Drive file
+    var isGoogleDriveFile: Bool {
+        fileUrl.contains("drive.google.com") || fileUrl.contains("docs.google.com")
+            || fileUrl.contains("sheets.google.com") || fileUrl.contains("slides.google.com")
+    }
 
-  private enum CodingKeys: String, CodingKey {
-    case fileUrl
-    case title
-    case mimeType
-    case iconLink
-    case fileId
-    case fileSize
-    case lastModified
-  }
+    /// Determines if this is an image file based on MIME type
+    var isImage: Bool {
+        mimeType.hasPrefix("image/")
+    }
 
-  // MARK: - Equatable Implementation
+    /// Determines if this is a document file
+    var isDocument: Bool {
+        mimeType.hasPrefix("application/") || mimeType.hasPrefix("text/")
+            || mimeType == "application/vnd.google-apps.document"
+            || mimeType == "application/vnd.google-apps.spreadsheet"
+            || mimeType == "application/vnd.google-apps.presentation"
+    }
 
-  static func == (lhs: EventAttachment, rhs: EventAttachment) -> Bool {
-    return lhs.fileUrl == rhs.fileUrl && lhs.title == rhs.title && lhs.mimeType == rhs.mimeType
-      && lhs.iconLink == rhs.iconLink && lhs.fileId == rhs.fileId
-  }
+    /// System icon name based on file type
+    var systemIconName: String {
+        if isImage {
+            "photo"
+        } else if mimeType.hasPrefix("application/pdf") {
+            "doc.richtext"
+        } else if mimeType.contains("spreadsheet") || mimeType.contains("excel") {
+            "tablecells"
+        } else if mimeType.contains("presentation") || mimeType.contains("powerpoint") {
+            "rectangle.on.rectangle"
+        } else if mimeType.contains("document") || mimeType.contains("word") {
+            "doc.text"
+        } else if mimeType.hasPrefix("video/") {
+            "video"
+        } else if mimeType.hasPrefix("audio/") {
+            "music.note"
+        } else if mimeType.hasPrefix("text/") {
+            "doc.plaintext"
+        } else {
+            "doc"
+        }
+    }
+
+    // MARK: - Codable Implementation
+
+    private enum CodingKeys: String, CodingKey {
+        case fileUrl
+        case title
+        case mimeType
+        case iconLink
+        case fileId
+        case fileSize
+        case lastModified
+    }
+
+    // MARK: - Equatable Implementation
+
+    static func == (lhs: EventAttachment, rhs: EventAttachment) -> Bool {
+        lhs.fileUrl == rhs.fileUrl && lhs.title == rhs.title && lhs.mimeType == rhs.mimeType
+            && lhs.iconLink == rhs.iconLink && lhs.fileId == rhs.fileId
+    }
 }
 
 // MARK: - Factory Methods
 
 extension EventAttachment {
-  /// Creates an EventAttachment from Google Calendar API response data
-  static func from(googleCalendarData: [String: Any]) -> EventAttachment? {
-    guard let fileUrl = googleCalendarData["fileUrl"] as? String,
-      let title = googleCalendarData["title"] as? String,
-      let mimeType = googleCalendarData["mimeType"] as? String
-    else {
-      return nil
+    /// Creates an EventAttachment from Google Calendar API response data
+    static func from(googleCalendarData: [String: Any]) -> EventAttachment? {
+        guard let fileUrl = googleCalendarData["fileUrl"] as? String,
+              let title = googleCalendarData["title"] as? String,
+              let mimeType = googleCalendarData["mimeType"] as? String
+        else {
+            return nil
+        }
+
+        let iconLink = googleCalendarData["iconLink"] as? String
+        let fileId = googleCalendarData["fileId"] as? String
+
+        return EventAttachment(
+            fileUrl: fileUrl,
+            title: title,
+            mimeType: mimeType,
+            iconLink: iconLink,
+            fileId: fileId
+        )
     }
-
-    let iconLink = googleCalendarData["iconLink"] as? String
-    let fileId = googleCalendarData["fileId"] as? String
-
-    return EventAttachment(
-      fileUrl: fileUrl,
-      title: title,
-      mimeType: mimeType,
-      iconLink: iconLink,
-      fileId: fileId
-    )
-  }
 }
 
 // MARK: - Debug Description
 
 extension EventAttachment: CustomStringConvertible {
-  var description: String {
-    return "EventAttachment(title: \(title), mimeType: \(mimeType), fileUrl: \(fileUrl))"
-  }
+    var description: String {
+        "EventAttachment(title: \(title), mimeType: \(mimeType), fileUrl: \(fileUrl))"
+    }
 }

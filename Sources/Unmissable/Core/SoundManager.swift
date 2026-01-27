@@ -1,54 +1,54 @@
-import AVFoundation
 import AppKit
+import AVFoundation
 import Foundation
 import OSLog
 
 @MainActor
 final class SoundManager: ObservableObject {
-  private let logger = Logger(subsystem: "com.unmissable.app", category: "SoundManager")
+    private let logger = Logger(subsystem: "com.unmissable.app", category: "SoundManager")
 
-  private var audioPlayer: AVAudioPlayer?
-  private let preferencesManager: PreferencesManager
+    private var audioPlayer: AVAudioPlayer?
+    private let preferencesManager: PreferencesManager
 
-  init(preferencesManager: PreferencesManager) {
-    self.preferencesManager = preferencesManager
-  }
-
-  func playAlertSound() {
-    guard preferencesManager.playAlertSound else {
-      logger.info("Alert sound disabled in preferences")
-      return
+    init(preferencesManager: PreferencesManager) {
+        self.preferencesManager = preferencesManager
     }
 
-    do {
-      // Use system alert sound for compatibility
-      guard let soundURL = Bundle.main.url(forResource: "alert", withExtension: "aiff") else {
-        // Fallback to system sound
-        playSystemAlertSound()
-        return
-      }
+    func playAlertSound() {
+        guard preferencesManager.playAlertSound else {
+            logger.info("Alert sound disabled in preferences")
+            return
+        }
 
-      audioPlayer = try AVAudioPlayer(contentsOf: soundURL)
-      audioPlayer?.volume = Float(self.preferencesManager.alertVolume)
-      audioPlayer?.play()
+        do {
+            // Use system alert sound for compatibility
+            guard let soundURL = Bundle.main.url(forResource: "alert", withExtension: "aiff") else {
+                // Fallback to system sound
+                playSystemAlertSound()
+                return
+            }
 
-      logger.info("Playing alert sound at volume \(self.preferencesManager.alertVolume)")
+            audioPlayer = try AVAudioPlayer(contentsOf: soundURL)
+            audioPlayer?.volume = Float(preferencesManager.alertVolume)
+            audioPlayer?.play()
 
-    } catch {
-      logger.error("Failed to play alert sound: \(error.localizedDescription)")
-      // Fallback to system sound
-      playSystemAlertSound()
+            logger.info("Playing alert sound at volume \(preferencesManager.alertVolume)")
+
+        } catch {
+            logger.error("Failed to play alert sound: \(error.localizedDescription)")
+            // Fallback to system sound
+            playSystemAlertSound()
+        }
     }
-  }
 
-  private func playSystemAlertSound() {
-    // Use NSSound for system alert sound as fallback
-    NSSound.beep()
-    logger.info("Playing system beep sound")
-  }
+    private func playSystemAlertSound() {
+        // Use NSSound for system alert sound as fallback
+        NSSound.beep()
+        logger.info("Playing system beep sound")
+    }
 
-  func stopSound() {
-    audioPlayer?.stop()
-    audioPlayer = nil
-  }
+    func stopSound() {
+        audioPlayer?.stop()
+        audioPlayer = nil
+    }
 }

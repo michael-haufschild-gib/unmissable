@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- App Sandbox - Required for App Store -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+
+	<!-- Network access - Required for Google Calendar API and OAuth -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+
+	<!-- Keychain access groups - Required for OAuth token storage -->
+	<key>com.apple.security.keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)com.unmissable.app.oauth</string>
+	</array>
+</dict>
+</plist>

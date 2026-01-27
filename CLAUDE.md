@@ -1,30 +1,3 @@
-=== CRITICAL INSTRUCTION BLOCK (CIB-001)===
-
-## MANDATORY TOOLS
-
-### For Complex Tasks (research, analysis, debugging)
-```
-USE: mcp__mcp_docker__sequentialthinking
-WHEN: Multi-step problems, research, complex reasoning
-WHY: Prevents cognitive overload, ensures systematic approach
-```
-
-### For Task Management
-```
-USE: TodoWrite
-WHEN: Any task with 3+ steps
-WHY: Tracks progress, maintains focus
-```
-
-### For Research and Validation of Solutions
-```
-USE: WebSearch
-WHEN: Any non-trivial debugging, planning, solution design task
-WHY: Offers quick access to best practices and solutions
-```
-
-=== END CIB-001 ===
-
 # Unmissable - Project Context
 
 ## Overview
@@ -32,7 +5,7 @@ WHY: Offers quick access to best practices and solutions
 
 ## Tech Stack
 - **Platform**: macOS 14.0+ (Sonoma)
-- **Language**: Swift 6.0 with StrictConcurrency enabled (tests use Swift 5 mode)
+- **Language**: Swift 6.0 with StrictConcurrency enabled
 - **UI Frameworks**: SwiftUI (App UI), AppKit (Overlay/Windows)
 - **Data Persistence**: SQLite (via GRDB.swift)
 - **Authentication**: OAuth 2.0 (via AppAuth-iOS)
