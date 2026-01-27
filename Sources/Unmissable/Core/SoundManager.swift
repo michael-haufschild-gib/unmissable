@@ -33,7 +33,6 @@ final class SoundManager: ObservableObject {
             audioPlayer?.play()
 
             logger.info("Playing alert sound at volume \(preferencesManager.alertVolume)")
-
         } catch {
             logger.error("Failed to play alert sound: \(error.localizedDescription)")
             // Fallback to system sound

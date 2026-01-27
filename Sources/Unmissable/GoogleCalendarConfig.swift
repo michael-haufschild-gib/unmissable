@@ -43,8 +43,7 @@ enum GoogleCalendarConfig {
         // Try environment variable first (for development/CI)
         if let envClientId = ProcessInfo.processInfo.environment["GOOGLE_OAUTH_CLIENT_ID"],
            !envClientId.isEmpty,
-           !envClientId.contains("YOUR_GOOGLE_OAUTH_CLIENT_ID")
-        {
+           !envClientId.contains("YOUR_GOOGLE_OAUTH_CLIENT_ID") {
             return envClientId
         }
 
@@ -52,8 +51,7 @@ enum GoogleCalendarConfig {
         if let configData = loadConfigFromProjectRoot(),
            let clientId = configData["GoogleOAuthClientID"] as? String,
            !clientId.isEmpty,
-           !clientId.contains("YOUR_GOOGLE_OAUTH_CLIENT_ID")
-        {
+           !clientId.contains("YOUR_GOOGLE_OAUTH_CLIENT_ID") {
             return clientId
         }
 
@@ -64,16 +62,14 @@ enum GoogleCalendarConfig {
     static let redirectScheme: String = {
         // Try environment variable first
         if let envScheme = ProcessInfo.processInfo.environment["GOOGLE_OAUTH_REDIRECT_SCHEME"],
-           !envScheme.isEmpty
-        {
+           !envScheme.isEmpty {
             return envScheme
         }
 
         // Try Config.plist in project root
         if let configData = loadConfigFromProjectRoot(),
            let scheme = configData["RedirectScheme"] as? String,
-           !scheme.isEmpty
-        {
+           !scheme.isEmpty {
             return scheme
         }
 
@@ -111,8 +107,7 @@ enum GoogleCalendarConfig {
     private static func loadConfigFromProjectRoot() -> [String: Any]? {
         // First, try to load from app bundle Resources (for bundled app / App Store)
         if let bundlePath = Bundle.main.path(forResource: "Config", ofType: "plist"),
-           let plist = NSDictionary(contentsOfFile: bundlePath) as? [String: Any]
-        {
+           let plist = NSDictionary(contentsOfFile: bundlePath) as? [String: Any] {
             return plist
         }
 
@@ -126,8 +121,7 @@ enum GoogleCalendarConfig {
         let configPath = NSString(string: currentDir).appendingPathComponent("Config.plist")
 
         if FileManager.default.fileExists(atPath: configPath),
-           let plist = NSDictionary(contentsOfFile: configPath) as? [String: Any]
-        {
+           let plist = NSDictionary(contentsOfFile: configPath) as? [String: Any] {
             return plist
         }
 
@@ -142,8 +136,7 @@ enum GoogleCalendarConfig {
         for relativePath in possiblePaths {
             let expandedPath = NSString(string: relativePath).expandingTildeInPath
             if FileManager.default.fileExists(atPath: expandedPath),
-               let plist = NSDictionary(contentsOfFile: expandedPath) as? [String: Any]
-            {
+               let plist = NSDictionary(contentsOfFile: expandedPath) as? [String: Any] {
                 return plist
             }
         }

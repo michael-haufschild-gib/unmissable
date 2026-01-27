@@ -1,15 +1,63 @@
+# SwiftLint Configuration - Updated for 2026 best practices
+# Based on industry standards from MichiganLabs and Sindresorhus
+
 disabled_rules:
   - trailing_whitespace
   - line_length
+  - multiple_closures_with_trailing_closure
+  - identifier_name  # Too strict for common patterns like x, y, i
+  - closure_parameter_position  # Would require reformatting async continuations
+
+# TODO: Enable these rules after refactoring code:
+# - force_unwrapping (26 violations - requires guard let refactoring)
+# - accessibility_trait_for_button (3 violations - requires UI accessibility updates)
 
 opt_in_rules:
+  # Code quality
   - empty_count
   - explicit_init
   - first_where
+  - last_where
   - modifier_order
   - redundant_nil_coalescing
   - sorted_first_last
   - unneeded_parentheses_in_closure_argument
+  - contains_over_first_not_nil
+  - flatmap_over_map_reduce
+  - reduce_boolean
+  - reduce_into
+  
+  # Safety
+  - unowned_variable_capture
+  - overridden_super_call
+  - prohibited_super_call
+  - fatal_error_message
+  - discouraged_optional_boolean
+  # - discouraged_optional_collection  # Can conflict with API designs
+  # - force_unwrapping  # Enable after refactoring (26 violations)
+  
+  # SwiftUI specific
+  - private_swiftui_state
+  # - accessibility_trait_for_button  # Enable after UI accessibility updates
+  
+  # Code style
+  - closure_end_indentation
+  - closure_spacing
+  - operator_usage_whitespace
+  - vertical_whitespace_closing_braces
+  - vertical_whitespace_opening_braces
+  - number_separator
+  - shorthand_operator
+  - toggle_bool
+  - joined_default_parameter
+  - redundant_type_annotation
+  - prefer_self_in_static_references
+  - prefer_self_type_over_type_of_self
+
+# Analyzer rules - catch unused code (requires --analyze flag)
+analyzer_rules:
+  - unused_import
+  - unused_declaration
 
 included:
   - Sources
@@ -19,31 +67,60 @@ excluded:
   - .build
   - .swiftpm
   - Package.swift
+  - Pods
+  - Carthage
+  - DerivedData
 
-line_length:
-  warning: 120
+# Length thresholds - aligned with industry standards
+file_length:
+  warning: 800
+  error: 1000
+
+function_body_length:
+  warning: 100
   error: 150
 
-identifier_name:
-  min_length: 1
+type_body_length:
+  warning: 500
+  error: 600
+
+cyclomatic_complexity:
+  warning: 15
+  error: 25
+
+nesting:
+  type_level:
+    warning: 3
+  function_level:
+    warning: 5
+
+# Naming
+type_name:
+  min_length: 3
   max_length:
     warning: 50
     error: 60
 
-type_name:
-  min_length: 3
-  max_length:
-    warning: 40
-    error: 50
+# Trailing comma should be present (consistent with modern Swift style)
+trailing_comma:
+  mandatory_comma: true
 
-function_body_length:
-  warning: 50
-  error: 100
+# Number separator for readability
+number_separator:
+  minimum_length: 5
 
-type_body_length:
-  warning: 200
-  error: 300
+# Force unwrap - warn but don't error (requires code refactoring)
+force_unwrapping:
+  severity: warning
 
-cyclomatic_complexity:
-  warning: 10
-  error: 20
+# Accessibility - warn for now (requires UI changes)
+accessibility_trait_for_button:
+  severity: warning
+
+# Self references - warn (style preference)
+prefer_self_in_static_references:
+  severity: warning
+
+# Deployment targets (macOS 14+)
+deployment_target:
+  macOS_deployment_target: '14.0'

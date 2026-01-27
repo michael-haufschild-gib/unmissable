@@ -46,7 +46,6 @@ final class DatabaseManager: ObservableObject {
             isInitialized = true
             initializationError = nil
             logger.info("Database initialized at: \(dbURL.path)")
-
         } catch {
             logger.error("Failed to setup database: \(error.localizedDescription)")
             isInitialized = false

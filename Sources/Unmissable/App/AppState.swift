@@ -20,7 +20,7 @@ final class AppState: ObservableObject {
     @Published var healthStatus: HealthStatus = .healthy
 
     // Menu bar preview properties (mirrored from MenuBarPreviewManager)
-    @Published var menuBarText: String? = nil
+    @Published var menuBarText: String?
     @Published var shouldShowIcon: Bool = true
 
     // Services

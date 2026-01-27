@@ -6,7 +6,7 @@ import OSLog
 final class MenuBarPreviewManager: ObservableObject {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "MenuBarPreviewManager")
 
-    @Published var menuBarText: String? = nil
+    @Published var menuBarText: String?
     @Published var shouldShowIcon: Bool = true
 
     private let preferencesManager: PreferencesManager
@@ -85,11 +85,9 @@ final class MenuBarPreviewManager: ObservableObject {
 
     private func getNextMeeting() -> Event? {
         let now = Date()
-        return
-            events
-                .filter { $0.startDate > now }
-                .sorted { $0.startDate < $1.startDate }
-                .first
+        return events
+            .filter { $0.startDate > now }
+            .min { $0.startDate < $1.startDate }
     }
 
     private func startTimer() {

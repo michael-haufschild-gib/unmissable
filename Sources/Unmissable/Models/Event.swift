@@ -112,7 +112,7 @@ struct Event: Identifiable, Codable, Equatable, Sendable {
         autoJoinEnabled: Bool = false,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
-    ) -> Event {
+    ) -> Self {
         // Combine all text fields that might contain meeting links
         let allText = [title, description, location]
             .compactMap { $0 }
@@ -121,7 +121,7 @@ struct Event: Identifiable, Codable, Equatable, Sendable {
         let googleMeetLinks = LinkParser.shared.extractGoogleMeetLinks(from: allText)
         let provider = googleMeetLinks.first.map { Provider.detect(from: $0) }
 
-        return Event(
+        return Self(
             id: id,
             title: title,
             startDate: startDate,

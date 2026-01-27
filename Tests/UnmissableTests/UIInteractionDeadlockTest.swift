@@ -51,7 +51,6 @@ class UIInteractionDeadlockTest: XCTestCase {
             overlayManager.hideOverlay()
             dismissCompleted = true
             logger.info("✅ DISMISS SUCCESS: hideOverlay() completed")
-
         } catch {
             logger.error("💥 DISMISS EXCEPTION: \(error)")
             testFailed = true
@@ -125,7 +124,6 @@ class UIInteractionDeadlockTest: XCTestCase {
             overlayManager.snoozeOverlay(for: 5)
             snoozeCompleted = true
             logger.info("✅ SNOOZE SUCCESS: snoozeOverlay() completed")
-
         } catch {
             logger.error("💥 SNOOZE EXCEPTION: \(error)")
             testFailed = true
@@ -199,7 +197,6 @@ class UIInteractionDeadlockTest: XCTestCase {
             overlayManager.hideOverlay() // This is what happens after successful join
             joinCompleted = true
             logger.info("✅ JOIN SUCCESS: join sequence completed")
-
         } catch {
             logger.error("💥 JOIN EXCEPTION: \(error)")
             testFailed = true

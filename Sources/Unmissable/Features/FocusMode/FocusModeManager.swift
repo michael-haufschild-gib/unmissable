@@ -9,8 +9,8 @@ final class FocusModeManager: ObservableObject {
     @Published var isDoNotDisturbEnabled: Bool = false
 
     private let preferencesManager: PreferencesManager
-    private nonisolated(unsafe) var notificationObserver: NSObjectProtocol?
-    private nonisolated(unsafe) var focusModeObserver: NSObjectProtocol?
+    nonisolated(unsafe) private var notificationObserver: NSObjectProtocol?
+    nonisolated(unsafe) private var focusModeObserver: NSObjectProtocol?
 
     init(preferencesManager: PreferencesManager) {
         self.preferencesManager = preferencesManager
@@ -45,16 +45,14 @@ final class FocusModeManager: ObservableObject {
             }
         }
 
-        // Also monitor for Focus mode changes (macOS 12+)
-        if #available(macOS 12.0, *) {
-            focusModeObserver = NotificationCenter.default.addObserver(
-                forName: .focusStateChanged,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                Task { @MainActor in
-                    self?.checkDoNotDisturbStatus()
-                }
+        // Also monitor for Focus mode changes
+        focusModeObserver = NotificationCenter.default.addObserver(
+            forName: .focusStateChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.checkDoNotDisturbStatus()
             }
         }
     }
@@ -80,7 +78,7 @@ final class FocusModeManager: ObservableObject {
     }
 
     /// Runs the plutil command to check DND status. Nonisolated to allow running on background thread.
-    private nonisolated static func runDNDCheck() async -> DNDCheckResult {
+    nonisolated private static func runDNDCheck() async -> DNDCheckResult {
         // Get home directory path safely using FileManager
         let homeDirectory = FileManager.default.homeDirectoryForCurrentUser
         let prefsPath = homeDirectory

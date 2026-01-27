@@ -82,7 +82,7 @@ class TestUtilities {
             id: "all-day-\(UUID())",
             title: "All Day Event",
             startDate: startOfDay,
-            endDate: startOfDay.addingTimeInterval(86400), // 24 hours
+            endDate: startOfDay.addingTimeInterval(86_400), // 24 hours
             organizer: nil,
             isAllDay: true,
             calendarId: "primary",
@@ -228,7 +228,7 @@ extension TestUtilities {
 
     /// Utility for testing time-dependent behavior
     final class TimeTravel: Sendable {
-        private nonisolated(unsafe) static var offset: TimeInterval = 0
+        nonisolated(unsafe) private static var offset: TimeInterval = 0
 
         static func travel(to date: Date) {
             offset = date.timeIntervalSinceNow

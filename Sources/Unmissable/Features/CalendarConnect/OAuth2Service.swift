@@ -306,8 +306,7 @@ final class OAuth2Service: NSObject, ObservableObject {
             throw OAuth2Error.notAuthenticated
         }
 
-        return try await withCheckedThrowingContinuation {
-            (continuation: CheckedContinuation<String, Error>) in
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
             authState.performAction { [weak self] accessToken, _, error in
                 Task { @MainActor in
                     if let error {
@@ -410,8 +409,7 @@ final class OAuth2Service: NSObject, ObservableObject {
             // Fallback: Check for legacy token storage (migration path)
             if let accessToken = try keychain.get(keychainAccessTokenKey),
                let refreshToken = try keychain.get(keychainRefreshTokenKey),
-               !accessToken.isEmpty, !refreshToken.isEmpty
-            {
+               !accessToken.isEmpty, !refreshToken.isEmpty {
                 logger.warning("⚠️ Found legacy tokens without full auth state - user must re-authenticate")
                 // Clear legacy tokens since we can't use them without OIDAuthState
                 clearKeychain()

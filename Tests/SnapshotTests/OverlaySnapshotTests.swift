@@ -5,16 +5,6 @@ import XCTest
 
 @MainActor
 final class OverlaySnapshotTests: XCTestCase {
-    override func setUp() {
-        super.setUp()
-        // Set a consistent test device for snapshots
-        // isRecording = true // Uncomment to record new snapshots
-    }
-
-    override func tearDown() {
-        super.tearDown()
-    }
-
     func testOverlayContentBeforeMeeting() {
         let preferencesManager = PreferencesManager()
         let event = createSampleEvent()

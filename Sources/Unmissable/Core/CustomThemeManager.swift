@@ -89,10 +89,10 @@ struct CustomDesign {
     let corners: CustomCorners
     let shadows: CustomShadows
 
-    static func design(for theme: EffectiveTheme) -> CustomDesign {
+    static func design(for theme: EffectiveTheme) -> Self {
         switch theme {
         case .light:
-            CustomDesign(
+            Self(
                 colors: .lightTheme,
                 fonts: .systemFonts,
                 spacing: .standard,
@@ -100,7 +100,7 @@ struct CustomDesign {
                 shadows: .subtle
             )
         case .dark:
-            CustomDesign(
+            Self(
                 colors: .darkTheme,
                 fonts: .systemFonts,
                 spacing: .standard,
@@ -147,7 +147,7 @@ struct CustomColors {
 
     // MARK: - Light Theme (Professional, Clean)
 
-    static let lightTheme = CustomColors(
+    static let lightTheme = Self(
         // Clean white backgrounds with subtle distinction
         background: Color.white,
         backgroundSecondary: Color(red: 0.98, green: 0.98, blue: 0.99),
@@ -182,7 +182,7 @@ struct CustomColors {
 
     // MARK: - Dark Theme (AI Wave Inspired)
 
-    static let darkTheme = CustomColors(
+    static let darkTheme = Self(
         // Rich, deep dark backgrounds inspired by AI Wave
         background: Color(red: 0.055, green: 0.047, blue: 0.082), // #0E0C15 AI Wave primary bg
         backgroundSecondary: Color(red: 0.129, green: 0.129, blue: 0.153), // #21242D AI Wave dark
@@ -235,7 +235,7 @@ struct CustomFonts {
     let mono: Font = .system(size: 13, weight: .medium, design: .monospaced)
     let monoLarge: Font = .system(size: 16, weight: .medium, design: .monospaced)
 
-    static let systemFonts = CustomFonts()
+    static let systemFonts = Self()
 }
 
 // MARK: - Custom Spacing
@@ -249,7 +249,7 @@ struct CustomSpacing {
     let xxl: CGFloat = 24
     let xxxl: CGFloat = 32
 
-    static let standard = CustomSpacing()
+    static let standard = Self()
 }
 
 // MARK: - Custom Corner Radius (AI Wave Inspired)
@@ -261,7 +261,7 @@ struct CustomCorners {
     let extraLarge: CGFloat = 16 // AI Wave big radius
     let circle: CGFloat = 999
 
-    static let modern = CustomCorners()
+    static let modern = Self()
 }
 
 // MARK: - Custom Shadows
@@ -271,13 +271,13 @@ struct CustomShadows {
     let radius: CGFloat
     let offset: CGSize
 
-    static let subtle = CustomShadows(
+    static let subtle = Self(
         color: Color.black.opacity(0.08),
         radius: 8,
         offset: CGSize(width: 0, height: 2)
     )
 
-    static let dark = CustomShadows(
+    static let dark = Self(
         color: Color.black.opacity(0.25),
         radius: 12,
         offset: CGSize(width: 0, height: 4)

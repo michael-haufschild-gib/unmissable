@@ -96,7 +96,6 @@ struct OverlayContentView: View {
                             .accessibilityLabel(
                                 "Meeting starts in \(formatTimeRemainingForAccessibility(timeUntilMeeting))"
                             )
-
                     } else if timeUntilMeeting > -300 {
                         Text("Meeting Started")
                             .font(.system(size: 36 * fontScale, weight: .bold))
@@ -109,7 +108,6 @@ struct OverlayContentView: View {
                             .accessibilityLabel(
                                 "Started \(Int(-timeUntilMeeting / 60)) minutes ago"
                             )
-
                     } else {
                         Text("Running for")
                             .font(.system(size: 24 * fontScale))

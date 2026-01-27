@@ -34,8 +34,8 @@ struct CalendarInfo: Identifiable, Codable, Sendable {
     }
 
     /// Returns a copy with updated selection status and current timestamp
-    func withSelection(_ isSelected: Bool) -> CalendarInfo {
-        CalendarInfo(
+    func withSelection(_ isSelected: Bool) -> Self {
+        Self(
             id: id,
             name: name,
             description: description,

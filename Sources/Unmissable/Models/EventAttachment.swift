@@ -123,7 +123,7 @@ struct EventAttachment: Codable, Equatable, Identifiable, Sendable {
 
     // MARK: - Equatable Implementation
 
-    static func == (lhs: EventAttachment, rhs: EventAttachment) -> Bool {
+    static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.fileUrl == rhs.fileUrl && lhs.title == rhs.title && lhs.mimeType == rhs.mimeType
             && lhs.iconLink == rhs.iconLink && lhs.fileId == rhs.fileId
     }

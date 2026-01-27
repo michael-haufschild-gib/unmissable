@@ -259,7 +259,6 @@ final class SyncManager: ObservableObject {
 
             // Notify completion callback
             await onSyncCompleted?()
-
         } catch {
             logger.error("Sync failed: \(error.localizedDescription)")
 

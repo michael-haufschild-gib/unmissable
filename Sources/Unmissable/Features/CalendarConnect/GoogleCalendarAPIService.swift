@@ -76,7 +76,6 @@ final class GoogleCalendarAPIService: ObservableObject {
             calendars = calendarList
 
             logger.info("Successfully fetched \(calendarList.count) calendars")
-
         } catch {
             logger.error("Failed to fetch calendars: \(error.localizedDescription)")
             lastError = error.localizedDescription
@@ -130,8 +129,7 @@ final class GoogleCalendarAPIService: ObservableObject {
     // MARK: - Private Methods
 
     private func fetchEventsForCalendar(calendarId: String, startDate: Date, endDate: Date)
-        async throws -> [Event]
-    {
+        async throws -> [Event] {
         let accessToken = try await oauth2Service.getValidAccessToken()
 
         let dateFormatter = ISO8601DateFormatter()
@@ -412,8 +410,7 @@ final class GoogleCalendarAPIService: ObservableObject {
 
         // Check location field
         if let location = item["location"] as? String,
-           let url = extractURL(from: location)
-        {
+           let url = extractURL(from: location) {
             links.append(url)
         }
 
@@ -425,12 +422,10 @@ final class GoogleCalendarAPIService: ObservableObject {
 
         // Check conferenceData (Google Meet)
         if let conferenceData = item["conferenceData"] as? [String: Any],
-           let entryPoints = conferenceData["entryPoints"] as? [[String: Any]]
-        {
+           let entryPoints = conferenceData["entryPoints"] as? [[String: Any]] {
             for entryPoint in entryPoints {
                 if let uri = entryPoint["uri"] as? String,
-                   let url = URL(string: uri)
-                {
+                   let url = URL(string: uri) {
                     links.append(url)
                 }
             }

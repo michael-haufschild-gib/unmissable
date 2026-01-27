@@ -374,7 +374,6 @@ struct CalendarPreferencesView: View {
                             .padding(design.spacing.lg)
                         }
                     }
-
                 } else {
                     // Disconnected state
                     CustomCard(style: .elevated) {

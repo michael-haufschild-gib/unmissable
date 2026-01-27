@@ -46,10 +46,10 @@ final class OverlayManagerComprehensiveTests: XCTestCase {
         // This is a test infrastructure issue, not a functional memory leak
         /*
          try TestUtilities.testForMemoryLeaks(
-           instance: overlayManager,
-           after: {
-             overlayManager = nil
-           }, timeout: 15.0)  // Increased timeout
+         instance: overlayManager,
+         after: {
+         overlayManager = nil
+         }, timeout: 15.0)  // Increased timeout
          */
 
         // Manual cleanup instead of strict test
