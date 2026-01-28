@@ -60,7 +60,8 @@ enum Provider: String, Codable, CaseIterable, Sendable {
         } else if urlString.contains("zoom.us") || urlString.hasPrefix("zoommtg://") {
             return .zoom
         } else if urlString.contains("teams.microsoft.com") || urlString.contains("teams.live.com")
-            || urlString.hasPrefix("msteams://") {
+            || urlString.hasPrefix("msteams://")
+        {
             return .teams
         } else if urlString.contains("webex.com") || urlString.hasPrefix("webex://") {
             return .webex

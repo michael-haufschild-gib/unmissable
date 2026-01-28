@@ -32,8 +32,8 @@ final class DatabaseManagerComprehensiveTests: DatabaseTestCase {
         try await databaseManager.saveEvents(events)
 
         let fetchedEvents = try await databaseManager.fetchEvents(
-            from: Date().addingTimeInterval(1_800), // 30 minutes from now
-            to: Date().addingTimeInterval(10_800) // 3 hours from now
+            from: Date().addingTimeInterval(1800), // 30 minutes from now
+            to: Date().addingTimeInterval(10800) // 3 hours from now
         )
 
         XCTAssertGreaterThanOrEqual(fetchedEvents.count, 2)
@@ -150,8 +150,8 @@ final class DatabaseManagerComprehensiveTests: DatabaseTestCase {
 
         // Verify they were saved - use broader date range
         let fetchedEvents = try await databaseManager.fetchEvents(
-            from: Date().addingTimeInterval(3_000), // Start a bit earlier
-            to: Date().addingTimeInterval(12_000) // End a bit later
+            from: Date().addingTimeInterval(3000), // Start a bit earlier
+            to: Date().addingTimeInterval(12000) // End a bit later
         )
 
         let testEvents = fetchedEvents.filter { $0.id.hasPrefix("perf-test") }
