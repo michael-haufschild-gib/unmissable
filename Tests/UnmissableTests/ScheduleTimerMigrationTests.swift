@@ -136,7 +136,8 @@ class ScheduleTimerMigrationTests: XCTestCase {
                 guard let overlayManager else { return }
                 if overlayManager.isOverlayVisible {
                     if let activeEvent = overlayManager.activeEvent,
-                       !triggeredEvents.contains(activeEvent.id) {
+                       !triggeredEvents.contains(activeEvent.id)
+                    {
                         triggeredEvents.insert(activeEvent.id)
                         actualTriggers.append(Date())
                         print("🔥 SCHEDULE TRIGGER: \(activeEvent.title) at \(Date())")
