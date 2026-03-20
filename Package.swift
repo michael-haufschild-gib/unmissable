@@ -77,6 +77,16 @@ let package = Package(
                 .plugin(name: "LintGatePlugin"),
             ]
         ),
+        .testTarget(
+            name: "E2ETests",
+            dependencies: [
+                "Unmissable",
+            ],
+            path: "Tests/E2ETests",
+            plugins: [
+                .plugin(name: "LintGatePlugin"),
+            ]
+        ),
         .plugin(
             name: "LintGatePlugin",
             capability: .buildTool(),
