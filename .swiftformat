@@ -1,4 +1,5 @@
---swiftversion 5.10
+--swiftversion 6.0
+--disable redundantSelf
 --indent 4
 --indentcase false
 --trimwhitespace always
@@ -13,3 +14,5 @@
 --funcattributes prev-line
 --typeattributes prev-line
 --varattributes prev-line
+--enable blankLineAfterSwitchCase
+--enable consistentSwitchCaseSpacing

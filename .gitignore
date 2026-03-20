@@ -58,3 +58,14 @@ Thumbs.db
 # Build artifacts
 *.app
 *.ipa
+resource_bundle_accessor*
+
+# Agent exploration logs
+ci-explore-log*.md
+task_state.md
+
+# Stale test reports (should be CI artifacts, not committed)
+test-reports/
+
+# Debug logs
+/tmp/unmissable_debug.log

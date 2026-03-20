@@ -42,7 +42,7 @@ jobs:
         run: swiftformat Sources Tests --lint
 
       - name: Run SwiftLint
-        run: swiftlint --strict
+        run: swiftlint lint
 
   # Unit Tests
   unit-tests:

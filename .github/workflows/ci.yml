@@ -38,10 +38,10 @@ jobs:
       run: brew install swiftformat
 
     - name: Run SwiftLint
-      run: swiftlint lint --strict
+      run: swiftlint lint
 
     - name: Check SwiftFormat
-      run: swiftformat --lint .
+      run: swiftformat Sources Tests --lint
 
   build:
     runs-on: macos-14

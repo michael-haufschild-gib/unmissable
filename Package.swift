@@ -48,7 +48,39 @@ let package = Package(
                 "Unmissable",
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
             ],
-            path: "Tests/UnmissableTests"
+            path: "Tests/UnmissableTests",
+            plugins: [
+                .plugin(name: "LintGatePlugin"),
+            ]
+        ),
+        .testTarget(
+            name: "IntegrationTests",
+            dependencies: [
+                "Unmissable",
+            ],
+            path: "Tests/IntegrationTests",
+            plugins: [
+                .plugin(name: "LintGatePlugin"),
+            ]
+        ),
+        .testTarget(
+            name: "SnapshotTests",
+            dependencies: [
+                "Unmissable",
+                .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
+            ],
+            path: "Tests/SnapshotTests",
+            exclude: [
+                "__Snapshots__",
+            ],
+            plugins: [
+                .plugin(name: "LintGatePlugin"),
+            ]
+        ),
+        .plugin(
+            name: "LintGatePlugin",
+            capability: .buildTool(),
+            path: "Plugins/LintGatePlugin"
         ),
     ]
 )
