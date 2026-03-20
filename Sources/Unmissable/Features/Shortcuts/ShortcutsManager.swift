@@ -10,9 +10,9 @@ final class ShortcutsManager: ObservableObject {
     @Published var dismissShortcut: HotKey?
     @Published var joinShortcut: HotKey?
 
-    private weak var overlayManager: OverlayManager?
+    private weak var overlayManager: (any OverlayManaging)?
 
-    func setup(overlayManager: OverlayManager) {
+    func setup(overlayManager: any OverlayManaging) {
         self.overlayManager = overlayManager
         setupDefaultShortcuts()
     }

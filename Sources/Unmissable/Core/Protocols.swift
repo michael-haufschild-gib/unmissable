@@ -16,10 +16,24 @@ protocol OverlayManaging: ObservableObject {
     func setEventScheduler(_ scheduler: EventScheduler)
 }
 
+// MARK: - OverlayManaging Convenience Overloads
+
+extension OverlayManaging {
+    /// Show overlay with default minutesBefore (5) and optional fromSnooze
+    func showOverlay(for event: Event, fromSnooze: Bool = false) {
+        showOverlay(for: event, minutesBeforeMeeting: 5, fromSnooze: fromSnooze)
+    }
+
+    /// Show overlay immediately (minutesBefore = 0), used in tests
+    func showOverlayImmediately(for event: Event, fromSnooze: Bool = false) {
+        showOverlay(for: event, minutesBeforeMeeting: 0, fromSnooze: fromSnooze)
+    }
+}
+
 /// Protocol for event scheduling functionality
 @MainActor
 protocol EventScheduling: ObservableObject {
-    func startScheduling(events: [Event], overlayManager: OverlayManager) async
+    func startScheduling(events: [Event], overlayManager: any OverlayManaging)
     func stopScheduling()
     func scheduleSnooze(for event: Event, minutes: Int)
 }
@@ -27,7 +41,6 @@ protocol EventScheduling: ObservableObject {
 /// Protocol for sound management
 protocol SoundManaging {
     func playAlertSound()
-    func playSnoozeSound()
 }
 
 /// Protocol for focus mode detection

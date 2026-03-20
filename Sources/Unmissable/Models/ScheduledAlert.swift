@@ -1,12 +1,12 @@
 import Foundation
 
-struct ScheduledAlert: Identifiable, Sendable {
+struct ScheduledAlert: Identifiable {
     let id = UUID()
     let event: Event
     let triggerDate: Date
     let alertType: AlertType
 
-    enum AlertType: Sendable {
+    enum AlertType {
         case reminder(minutesBefore: Int)
         case snooze(until: Date)
         case meetingStart

@@ -32,7 +32,7 @@ final class SoundManager: ObservableObject {
             audioPlayer?.volume = Float(preferencesManager.alertVolume)
             audioPlayer?.play()
 
-            logger.info("Playing alert sound at volume \(preferencesManager.alertVolume)")
+            logger.info("Playing alert sound at volume \(self.preferencesManager.alertVolume)")
         } catch {
             logger.error("Failed to play alert sound: \(error.localizedDescription)")
             // Fallback to system sound

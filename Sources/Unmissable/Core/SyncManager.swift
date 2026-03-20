@@ -100,12 +100,12 @@ final class SyncManager: ObservableObject {
         networkMonitorTask = Task { @MainActor [weak self] in
             for await path in pathStream {
                 guard !Task.isCancelled else { break }
-                await self?.handleNetworkPathUpdate(path)
+                self?.handleNetworkPathUpdate(path)
             }
         }
     }
 
-    private func handleNetworkPathUpdate(_ path: NWPath) async {
+    private func handleNetworkPathUpdate(_ path: NWPath) {
         // Debounce rapid network status changes
         pendingNetworkUpdate?.cancel()
 
@@ -136,14 +136,14 @@ final class SyncManager: ObservableObject {
 
     func startPeriodicSync() {
         guard syncTask == nil else {
-            logger.info("🔄 Periodic sync already running - task exists")
+            logger.info("Periodic sync already running - task exists")
             return
         }
 
         let intervalSeconds = syncInterval
         let prefsInterval = preferencesManager.syncIntervalSeconds
         logger.info(
-            "🚀 Starting periodic sync every \(intervalSeconds) seconds (from preferences: \(prefsInterval))"
+            "Starting periodic sync every \(intervalSeconds) seconds (from preferences: \(prefsInterval))"
         )
 
         // Schedule periodic sync
@@ -166,7 +166,7 @@ final class SyncManager: ObservableObject {
         }
 
         updateNextSyncTime()
-        logger.info("✅ Periodic sync timer created and scheduled successfully")
+        logger.info("Periodic sync timer created and scheduled successfully")
     }
 
     func stopPeriodicSync() {
@@ -177,7 +177,7 @@ final class SyncManager: ObservableObject {
     }
 
     func performSync() async {
-        logger.info("🚀 SYNC STARTED - Beginning manual sync process")
+        logger.info("SYNC STARTED - Beginning manual sync process")
 
         guard isOnline else {
             logger.info("Skipping sync - device is offline")
@@ -191,7 +191,7 @@ final class SyncManager: ObservableObject {
         }
 
         syncStatus = .syncing
-        logger.info("Starting calendar sync (attempt \(retryCount + 1))")
+        logger.info("Starting calendar sync (attempt \(self.retryCount + 1))")
 
         do {
             // Get calendars from database
@@ -218,28 +218,28 @@ final class SyncManager: ObservableObject {
             // Calculate sync window - include events from earlier today to catch running meetings
             let now = Date()
             let startOfDay = Calendar.current.startOfDay(for: now)
-            let endDate = Calendar.current.date(byAdding: .day, value: eventLookAheadDays, to: now) ?? now
+            let endDate = Calendar.current.date(byAdding: .day, value: self.eventLookAheadDays, to: now) ?? now
 
             logger.info(
-                "📅 Syncing events from \(startOfDay) to \(endDate) (from start of today + \(eventLookAheadDays) days ahead)"
+                "Syncing events from \(startOfDay) to \(endDate) (from start of today + \(self.eventLookAheadDays) days ahead)"
             )
 
             // Fetch events from API
-            try await apiService.fetchEvents(
+            await apiService.fetchEvents(
                 for: selectedCalendarIds,
                 from: startOfDay, // Start from beginning of today, not "now"
                 to: endDate
             )
 
             let fetchedEvents = apiService.events
-            debugLogger.info("🔄 SYNC: Got \(fetchedEvents.count) events from API")
-            logger.info("📥 API returned \(fetchedEvents.count) events")
+            debugLogger.info("SYNC: Got \(fetchedEvents.count) events from API")
+            logger.info("API returned \(fetchedEvents.count) events")
 
             // Group events by calendar ID for atomic updates
             let eventsByCalendar = Dictionary(grouping: fetchedEvents) { $0.calendarId }
 
             // Save events to database using atomic transactions per calendar
-            logger.info("💾 Saving events to database (transactional per calendar)...")
+            logger.info("Saving events to database (transactional per calendar)...")
 
             for calendarId in selectedCalendarIds {
                 let calendarEvents = eventsByCalendar[calendarId] ?? []
@@ -249,13 +249,13 @@ final class SyncManager: ObservableObject {
 
             // Verify events were saved by checking database
             let savedCount = try await databaseManager.fetchEvents(from: startOfDay, to: endDate).count
-            logger.info("✅ Database now contains \(savedCount) events in sync window")
+            logger.info("Database now contains \(savedCount) events in sync window")
 
             syncStatus = .idle
             updateSyncTimes()
             resetRetryCount()
 
-            logger.info("✅ Sync completed successfully. Synced \(fetchedEvents.count) events")
+            logger.info("Sync completed successfully. Synced \(fetchedEvents.count) events")
 
             // Notify completion callback
             await onSyncCompleted?()
@@ -264,7 +264,7 @@ final class SyncManager: ObservableObject {
 
             // Check if it's a network-related error
             if isNetworkError(error) {
-                await handleNetworkError(error)
+                handleNetworkError(error)
             } else {
                 syncStatus = .error(error.localizedDescription)
                 resetRetryCount()
@@ -283,7 +283,7 @@ final class SyncManager: ObservableObject {
             || nsError.code == NSURLErrorNetworkConnectionLost
     }
 
-    private func handleNetworkError(_ error: Error) async {
+    private func handleNetworkError(_: Error) {
         guard retryCount < maxRetries else {
             logger.error("Max retries reached, giving up")
             syncStatus = .error("Network error after \(maxRetries) attempts")
@@ -295,7 +295,7 @@ final class SyncManager: ObservableObject {
         let retryDelay = calculateRetryDelay()
 
         logger.info(
-            "Network error occurred, retrying in \(retryDelay) seconds (attempt \(retryCount)/\(maxRetries))"
+            "Network error occurred, retrying in \(retryDelay) seconds (attempt \(self.retryCount)/\(self.maxRetries))"
         )
         syncStatus = .error("Retrying in \(Int(retryDelay))s...")
 

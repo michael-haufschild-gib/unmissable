@@ -4,11 +4,11 @@ import OSLog
 
 @MainActor
 final class DatabaseManager: ObservableObject {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "DatabaseManager")
+    let logger = Logger(subsystem: "com.unmissable.app", category: "DatabaseManager")
     private let debugLogger = DebugLogger(
         subsystem: "com.unmissable.app", category: "DatabaseManager"
     )
-    private var dbQueue: DatabaseQueue?
+    var dbQueue: DatabaseQueue?
     private let currentSchemaVersion = 3
 
     /// Indicates whether the database was successfully initialized
@@ -18,25 +18,36 @@ final class DatabaseManager: ObservableObject {
 
     static let shared = DatabaseManager()
 
-    private init() {
-        setupDatabase()
-    }
-
-    private func setupDatabase() {
+    /// Production convenience initializer using Application Support directory.
+    init() {
+        let fileManager = FileManager.default
+        let dbURL: URL
         do {
-            let fileManager = FileManager.default
             let appSupportURL = try fileManager.url(
                 for: .applicationSupportDirectory,
                 in: .userDomainMask,
                 appropriateFor: nil,
                 create: true
             )
-
             let unmissableURL = appSupportURL.appendingPathComponent("Unmissable")
             try fileManager.createDirectory(at: unmissableURL, withIntermediateDirectories: true)
+            dbURL = unmissableURL.appendingPathComponent("unmissable.db")
+        } catch {
+            logger.error("Failed to resolve database path: \(error.localizedDescription)")
+            isInitialized = false
+            initializationError = "Database path resolution failed: \(error.localizedDescription)"
+            return
+        }
+        setupDatabase(at: dbURL)
+    }
 
-            let dbURL = unmissableURL.appendingPathComponent("unmissable.db")
+    /// Testable initializer with explicit database path.
+    init(databaseURL: URL) {
+        setupDatabase(at: databaseURL)
+    }
 
+    private func setupDatabase(at dbURL: URL) {
+        do {
             dbQueue = try DatabaseQueue(path: dbURL.path)
 
             try dbQueue?.write { db in
@@ -54,7 +65,7 @@ final class DatabaseManager: ObservableObject {
         }
     }
 
-    private func setupSchema(_ db: Database) throws {
+    func setupSchema(_ db: Database) throws {
         // Enable foreign keys
         try db.execute(sql: "PRAGMA foreign_keys = ON")
 
@@ -115,6 +126,7 @@ final class DatabaseManager: ObservableObject {
         case 1:
             // Initial version, no migration needed
             break
+
         case 2:
             // Add description, location, and attendees columns to events table
             try db.alter(table: Event.databaseTableName) { t in
@@ -123,12 +135,14 @@ final class DatabaseManager: ObservableObject {
                 t.add(column: "attendees", .text).notNull().defaults(to: "[]")
             }
             logger.info("Migrated to version 2: Added description, location, and attendees columns")
+
         case 3:
             // Add attachments column to events table for Google Drive file attachments
             try db.alter(table: Event.databaseTableName) { t in
                 t.add(column: "attachments", .text).notNull().defaults(to: "[]")
             }
             logger.info("Migrated to version 3: Added attachments column")
+
         default:
             throw DatabaseError.migrationFailed("Unknown migration version: \(version)")
         }
@@ -150,7 +164,6 @@ final class DatabaseManager: ObservableObject {
             t.column("calendarId", .text).notNull()
             t.column("timezone", .text).notNull()
             t.column("links", .text).notNull().defaults(to: "[]")
-            t.column("meetingLinks", .text).notNull().defaults(to: "[]")
             t.column("provider", .text)
             t.column("snoozeUntil", .datetime)
             t.column("autoJoinEnabled", .boolean).notNull().defaults(to: false)
@@ -214,11 +227,13 @@ final class DatabaseManager: ObservableObject {
 
         // Log first event being saved to verify data
         if let firstEvent = events.first {
-            debugLogger.info("💾 SAVING EVENT TO DATABASE:")
+            debugLogger.info("SAVING EVENT TO DATABASE:")
             debugLogger.info("   - Title: \(firstEvent.title)")
-            debugLogger.info(
-                "   - Description being saved: \(firstEvent.description != nil ? "YES (\(firstEvent.description!.count) chars)" : "NO")"
-            )
+            if let desc = firstEvent.description {
+                debugLogger.info("   - Description being saved: YES (\(desc.count) chars)")
+            } else {
+                debugLogger.info("   - Description being saved: NO")
+            }
             debugLogger.info("   - Location being saved: \(firstEvent.location != nil ? "YES" : "NO")")
             debugLogger.info("   - Attendees being saved: \(firstEvent.attendees.count) attendees")
         }
@@ -290,11 +305,13 @@ final class DatabaseManager: ObservableObject {
 
         // Log first fetched event to verify data retrieval
         if let firstEvent = events.first {
-            debugLogger.info("📤 FETCHED EVENT FROM DATABASE:")
+            debugLogger.info("FETCHED EVENT FROM DATABASE:")
             debugLogger.info("   - Title: \(firstEvent.title)")
-            debugLogger.info(
-                "   - Description fetched: \(firstEvent.description != nil ? "YES (\(firstEvent.description!.count) chars)" : "NO")"
-            )
+            if let desc = firstEvent.description {
+                debugLogger.info("   - Description fetched: YES (\(desc.count) chars)")
+            } else {
+                debugLogger.info("   - Description fetched: NO")
+            }
             debugLogger.info("   - Location fetched: \(firstEvent.location != nil ? "YES" : "NO")")
             debugLogger.info("   - Attendees fetched: \(firstEvent.attendees.count) attendees")
         }
@@ -318,7 +335,7 @@ final class DatabaseManager: ObservableObject {
             }
         }
 
-        debugLogger.info("📤 FETCHED \(events.count) STARTED MEETINGS FROM DATABASE")
+        debugLogger.info("FETCHED \(events.count) STARTED MEETINGS FROM DATABASE")
         if let firstEvent = events.first {
             debugLogger.info("   - First started meeting: \(firstEvent.title)")
             debugLogger.info(
@@ -359,100 +376,6 @@ final class DatabaseManager: ObservableObject {
         }
 
         logger.info("Deleted \(deletedCount) old events")
-    }
-
-    #if DEBUG
-        /// Delete events matching a specific ID pattern (for testing only)
-        /// Pattern is safely escaped to prevent SQL injection
-        func deleteTestEvents(withIdPattern pattern: String) async throws {
-            guard let dbQueue else {
-                throw DatabaseError.notInitialized
-            }
-
-            // Escape special LIKE characters and use parameterized query
-            let escapedPattern = pattern
-                .replacingOccurrences(of: "%", with: "\\%")
-                .replacingOccurrences(of: "_", with: "\\_")
-            let likePattern = "%\(escapedPattern)%"
-
-            let deletedCount = try await dbQueue.write { db in
-                try Event
-                    .filter(Event.Columns.id.like(likePattern, escape: "\\"))
-                    .deleteAll(db)
-            }
-
-            logger.info("Deleted \(deletedCount) test events with pattern: \(pattern)")
-        }
-
-        /// Delete test calendars matching a name pattern (for testing only)
-        /// Pattern is safely escaped to prevent SQL injection
-        func deleteTestCalendars(withNamePattern pattern: String) async throws {
-            guard let dbQueue else {
-                throw DatabaseError.notInitialized
-            }
-
-            // Escape special LIKE characters and use parameterized query
-            let escapedPattern = pattern
-                .replacingOccurrences(of: "%", with: "\\%")
-                .replacingOccurrences(of: "_", with: "\\_")
-            let likePattern = "%\(escapedPattern)%"
-
-            let deletedCount = try await dbQueue.write { db in
-                try CalendarInfo
-                    .filter(CalendarInfo.Columns.name.like(likePattern, escape: "\\"))
-                    .deleteAll(db)
-            }
-
-            logger.info("Deleted \(deletedCount) test calendars with pattern: \(pattern)")
-        }
-
-        /// Delete events matching a specific title pattern (for testing only)
-        /// Pattern is safely escaped to prevent SQL injection
-        func deleteTestEventsByTitle(withPattern pattern: String) async throws {
-            guard let dbQueue else {
-                throw DatabaseError.notInitialized
-            }
-
-            // Escape special LIKE characters and use parameterized query
-            let escapedPattern = pattern
-                .replacingOccurrences(of: "%", with: "\\%")
-                .replacingOccurrences(of: "_", with: "\\_")
-            let likePattern = "%\(escapedPattern)%"
-
-            let deletedCount = try await dbQueue.write { db in
-                try Event
-                    .filter(Event.Columns.title.like(likePattern, escape: "\\"))
-                    .deleteAll(db)
-            }
-
-            logger.info("Deleted \(deletedCount) test events with title pattern: \(pattern)")
-        }
-    #endif
-
-    func searchEvents(query: String) async throws -> [Event] {
-        guard let dbQueue else {
-            throw DatabaseError.notInitialized
-        }
-
-        return try await withTimeout(defaultTimeout) {
-            try await dbQueue.read { db in
-                let eventIds =
-                    try String
-                        .fetchAll(
-                            db,
-                            sql: """
-                            SELECT id FROM events_fts
-                            WHERE events_fts MATCH ?
-                            ORDER BY rank
-                            """, arguments: [query]
-                        )
-
-                return
-                    try Event
-                        .filter(eventIds.contains(Event.Columns.id))
-                        .fetchAll(db)
-            }
-        }
     }
 
     // MARK: - Calendar Operations
@@ -508,10 +431,10 @@ final class DatabaseManager: ObservableObject {
     // MARK: - Timeout Wrapper
 
     /// Default timeout for database operations (30 seconds)
-    private let defaultTimeout: TimeInterval = 30.0
+    let defaultTimeout: TimeInterval = 30.0
 
     /// Executes an async operation with a timeout to prevent indefinite hangs
-    private func withTimeout<T: Sendable>(
+    func withTimeout<T: Sendable>(
         _ seconds: TimeInterval,
         _ operation: @escaping @Sendable () async throws -> T
     ) async throws -> T {
@@ -528,63 +451,6 @@ final class DatabaseManager: ObservableObject {
             }
             group.cancelAll()
             return result
-        }
-    }
-
-    // MARK: - Database Maintenance
-
-    func performMaintenance() async throws {
-        logger.info("Starting database maintenance")
-
-        // Delete events older than 30 days
-        let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
-        try await deleteOldEvents(before: thirtyDaysAgo)
-
-        // Vacuum database (use longer timeout as VACUUM can take time on large DBs)
-        guard let dbQueue else { return }
-
-        try await withTimeout(60.0) {
-            try await dbQueue.write { db in
-                try db.execute(sql: "VACUUM")
-            }
-        }
-
-        logger.info("Database maintenance completed")
-    }
-
-    func resetDatabase() throws {
-        guard let dbQueue else {
-            throw DatabaseError.notInitialized
-        }
-
-        try dbQueue.write { db in
-            // Drop existing tables
-            try db.execute(sql: "DROP TABLE IF EXISTS events_fts")
-            try db.execute(sql: "DROP TABLE IF EXISTS events")
-            try db.execute(sql: "DROP TABLE IF EXISTS calendars")
-            try db.execute(sql: "DROP TABLE IF EXISTS schema_version")
-
-            // Recreate schema
-            try setupSchema(db)
-        }
-
-        logger.info("Database reset completed")
-    }
-}
-
-enum DatabaseError: LocalizedError {
-    case notInitialized
-    case migrationFailed(String)
-    case timeout
-
-    var errorDescription: String? {
-        switch self {
-        case .notInitialized:
-            "Database not initialized"
-        case let .migrationFailed(message):
-            "Database migration failed: \(message)"
-        case .timeout:
-            "Database operation timed out"
         }
     }
 }

@@ -24,13 +24,13 @@ final class TestSafeOverlayManager: OverlayManaging {
     }
 
     func showOverlay(for event: Event, minutesBeforeMeeting _: Int = 5, fromSnooze: Bool = false) {
-        logger.debug("🎬 TEST-SAFE SHOW: Overlay for \(event.title), fromSnooze: \(fromSnooze)")
+        logger.debug("TEST-SAFE SHOW: Overlay for \(event.title), fromSnooze: \(fromSnooze)")
 
         if isTestEnvironment {
             // In test environment, just set state without creating UI
             activeEvent = event
             isOverlayVisible = true
-            logger.debug("✅ TEST-SAFE: Set overlay visible = true")
+            logger.debug("TEST-SAFE: Set overlay visible = true")
         } else {
             // In production, would create actual UI (but this class is for testing)
             activeEvent = event
@@ -39,14 +39,14 @@ final class TestSafeOverlayManager: OverlayManaging {
     }
 
     func hideOverlay() {
-        logger.debug("🎬 TEST-SAFE HIDE: Overlay")
+        logger.debug("TEST-SAFE HIDE: Overlay")
         activeEvent = nil
         isOverlayVisible = false
     }
 
     func snoozeOverlay(for minutes: Int) {
         guard let event = activeEvent else { return }
-        logger.debug("⏰ TEST-SAFE SNOOZE: \(minutes) minutes for \(event.title)")
+        logger.debug("TEST-SAFE SNOOZE: \(minutes) minutes for \(event.title)")
         hideOverlay()
         eventScheduler?.scheduleSnooze(for: event, minutes: minutes)
     }

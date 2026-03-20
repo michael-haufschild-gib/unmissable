@@ -1,6 +1,6 @@
 import Foundation
 
-struct Event: Identifiable, Codable, Equatable, Sendable {
+struct Event: Identifiable, Codable, Equatable {
     let id: String
     let title: String
     let startDate: Date
@@ -115,7 +115,7 @@ struct Event: Identifiable, Codable, Equatable, Sendable {
     ) -> Self {
         // Combine all text fields that might contain meeting links
         let allText = [title, description, location]
-            .compactMap { $0 }
+            .compactMap(\.self)
             .joined(separator: " ")
 
         let googleMeetLinks = LinkParser.shared.extractGoogleMeetLinks(from: allText)

@@ -72,20 +72,20 @@ final class TimezoneManager: Sendable {
             formatter.dateStyle = .medium
             formatter.timeStyle = .none
             return formatter.string(from: event.startDate)
-        } else {
-            formatter.dateStyle = .none
-            formatter.timeStyle = .short
-
-            if includeTimezone {
-                formatter.timeZone = TimeZone(identifier: event.timezone)
-                let timeString = formatter.string(from: event.startDate)
-                let tzName = getTimezoneDisplayName(event.timezone)
-                return "\(timeString) \(tzName)"
-            } else {
-                formatter.timeZone = .current
-                return formatter.string(from: event.startDate)
-            }
         }
+
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+
+        guard includeTimezone else {
+            formatter.timeZone = .current
+            return formatter.string(from: event.startDate)
+        }
+
+        formatter.timeZone = TimeZone(identifier: event.timezone)
+        let timeString = formatter.string(from: event.startDate)
+        let tzName = getTimezoneDisplayName(event.timezone)
+        return "\(timeString) \(tzName)"
     }
 
     func formatRelativeTime(to date: Date) -> String {
@@ -98,15 +98,10 @@ final class TimezoneManager: Sendable {
         let hours = minutes / 60
         let days = hours / 24
 
-        if minutes < 1 {
-            return "Now"
-        } else if minutes < 60 {
-            return "\(minutes)m"
-        } else if hours < 24 {
-            return "\(hours)h"
-        } else {
-            return "\(days)d"
-        }
+        if minutes < 1 { return "Now" }
+        if minutes < 60 { return "\(minutes)m" }
+        if hours < 24 { return "\(hours)h" }
+        return "\(days)d"
     }
 
     // MARK: - System Timezone Changes

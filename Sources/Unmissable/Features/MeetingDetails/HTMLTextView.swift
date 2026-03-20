@@ -56,7 +56,7 @@ struct HTMLTextView: NSViewRepresentable {
         textView.textStorage?.setAttributedString(attributedString)
 
         logger.debug(
-            "📝 HTMLTextView: Created NSTextView with content length: \(attributedString.length)"
+            "HTMLTextView: Created NSTextView with content length: \(attributedString.length)"
         )
 
         return textView
@@ -66,7 +66,7 @@ struct HTMLTextView: NSViewRepresentable {
         let newAttributedText = createAttributedString(from: htmlContent)
 
         if !textView.attributedString().isEqual(to: newAttributedText) {
-            logger.debug("📝 HTMLTextView: Updating content (\(htmlContent?.count ?? 0) chars)")
+            logger.debug("HTMLTextView: Updating content (\(htmlContent?.count ?? 0) chars)")
             textView.textStorage?.setAttributedString(newAttributedText)
 
             // Force layout update
@@ -98,7 +98,7 @@ struct HTMLTextView: NSViewRepresentable {
             return NSAttributedString(string: placeholder, attributes: attributes)
         }
 
-        logger.debug("📝 HTMLTextView: Processing content (\(htmlContent.count) chars)")
+        logger.debug("HTMLTextView: Processing content (\(htmlContent.count) chars)")
 
         // Check if content is HTML or plain text
         let isHTML = htmlContent.contains("<") && htmlContent.contains(">")
@@ -116,7 +116,7 @@ struct HTMLTextView: NSViewRepresentable {
         let styledHTML = createStyledHTML(content: htmlContent)
 
         guard let data = styledHTML.data(using: .utf8) else {
-            logger.error("❌ HTMLTextView: Failed to convert HTML to data")
+            logger.error("HTMLTextView: Failed to convert HTML to data")
             return createPlainTextFallback(htmlContent)
         }
 
@@ -129,10 +129,10 @@ struct HTMLTextView: NSViewRepresentable {
             let attributedString = try NSAttributedString(
                 data: data, options: options, documentAttributes: nil
             )
-            logger.debug("✅ HTMLTextView: Successfully parsed HTML (\(attributedString.length) chars)")
+            logger.debug("HTMLTextView: Successfully parsed HTML (\(attributedString.length) chars)")
             return attributedString
         } catch {
-            logger.error("❌ HTMLTextView: Failed to parse HTML - \(error.localizedDescription)")
+            logger.error("HTMLTextView: Failed to parse HTML - \(error.localizedDescription)")
             return createPlainTextFallback(htmlContent)
         }
     }
@@ -211,7 +211,7 @@ struct HTMLTextView: NSViewRepresentable {
         func textView(_: NSTextView, clickedOnLink link: Any, at _: Int) -> Bool {
             guard let url = link as? URL else { return false }
 
-            logger.info("🔗 HTMLTextView: Link tapped - \(url.absoluteString)")
+            logger.info("HTMLTextView: Link tapped - \(url.absoluteString)")
 
             if let onLinkTap {
                 onLinkTap(url)

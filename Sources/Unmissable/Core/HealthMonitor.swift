@@ -15,7 +15,7 @@ final class HealthMonitor: ObservableObject {
     // Dependencies to monitor
     private weak var calendarService: CalendarService?
     private weak var syncManager: SyncManager?
-    private weak var overlayManager: OverlayManager?
+    private weak var overlayManager: (any OverlayManaging)?
 
     init() {
         startHealthMonitoring()
@@ -26,7 +26,7 @@ final class HealthMonitor: ObservableObject {
     }
 
     func setup(
-        calendarService: CalendarService, syncManager: SyncManager, overlayManager: OverlayManager
+        calendarService: CalendarService, syncManager: SyncManager, overlayManager: any OverlayManaging
     ) {
         self.calendarService = calendarService
         self.syncManager = syncManager
@@ -41,7 +41,7 @@ final class HealthMonitor: ObservableObject {
                 do {
                     try await Task.sleep(for: .seconds(Int(healthCheckInterval)))
                     if !Task.isCancelled {
-                        await performHealthCheck()
+                        performHealthCheck()
                     }
                 } catch {
                     // Task was cancelled, exit the loop
@@ -56,7 +56,7 @@ final class HealthMonitor: ObservableObject {
         healthCheckTask = nil
     }
 
-    private func performHealthCheck() async {
+    private func performHealthCheck() {
         logger.debug("Performing health check")
 
         var issues: [HealthIssue] = []
@@ -142,7 +142,7 @@ final class HealthMonitor: ObservableObject {
         return issues
     }
 
-    private func checkOverlayManagerHealth(_ overlayManager: OverlayManager) -> [HealthIssue] {
+    private func checkOverlayManagerHealth(_ overlayManager: any OverlayManaging) -> [HealthIssue] {
         var issues: [HealthIssue] = []
 
         // Check if overlay has been stuck visible for too long
@@ -219,9 +219,8 @@ final class HealthMonitor: ObservableObject {
 
         if kerr == KERN_SUCCESS {
             return Int(info.resident_size)
-        } else {
-            return 0
         }
+        return 0
     }
 
     func getHealthSummary() -> String {

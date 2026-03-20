@@ -1,6 +1,6 @@
 import Foundation
 
-struct Attendee: Identifiable, Codable, Equatable, Sendable {
+struct Attendee: Identifiable, Codable, Equatable {
     /// Email is unique and stable, making it a reliable identifier across encode/decode cycles
     var id: String {
         email
@@ -34,7 +34,7 @@ struct Attendee: Identifiable, Codable, Equatable, Sendable {
     }
 }
 
-enum AttendeeStatus: String, Codable, CaseIterable, Sendable {
+enum AttendeeStatus: String, Codable, CaseIterable {
     case needsAction
     case declined
     case tentative

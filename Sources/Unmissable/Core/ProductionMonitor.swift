@@ -26,7 +26,7 @@ final class ProductionMonitor: ObservableObject {
 
     /// Log a production error with context
     func logError(_ error: ProductionError) {
-        logger.error("🚨 PRODUCTION ERROR: \(error.description)")
+        logger.error("PRODUCTION ERROR: \(error.description)")
 
         errorCount += 1
         lastError = error
@@ -54,14 +54,14 @@ final class ProductionMonitor: ObservableObject {
             responseTimeHistory.reduce(0, +) / Double(responseTimeHistory.count)
 
         logger.info(
-            "✅ OVERLAY SUCCESS: \(String(format: "%.1f", responseTime * 1000))ms (avg: \(String(format: "%.1f", averageOverlayResponseTime * 1000))ms)"
+            "OVERLAY SUCCESS: \(String(format: "%.1f", responseTime * 1000))ms (avg: \(String(format: "%.1f", self.averageOverlayResponseTime * 1000))ms)"
         )
     }
 
     /// Check system health status
     private func updateSystemHealth() {
         let recentErrors = errorHistory.suffix(10)
-        let criticalErrorCount = recentErrors.filter { $0.severity == .critical }.count
+        let criticalErrorCount = recentErrors.count(where: { $0.severity == .critical })
         let errorRate = recentErrors.count
 
         if criticalErrorCount > 3 {
@@ -74,7 +74,7 @@ final class ProductionMonitor: ObservableObject {
             systemHealth = .healthy
         }
 
-        logger.info("📊 SYSTEM HEALTH: \(systemHealth.rawValue) (recent errors: \(errorRate))")
+        logger.info("SYSTEM HEALTH: \(self.systemHealth.rawValue) (recent errors: \(errorRate))")
     }
 
     /// Setup performance monitoring
@@ -125,7 +125,7 @@ final class ProductionMonitor: ObservableObject {
                 )
             }
 
-            logger.info("📊 MEMORY USAGE: \(String(format: "%.1f", memoryMB))MB")
+            logger.info("MEMORY USAGE: \(String(format: "%.1f", memoryMB))MB")
         }
     }
 

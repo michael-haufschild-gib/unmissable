@@ -1,6 +1,6 @@
 import Foundation
 
-enum Provider: String, Codable, CaseIterable, Sendable {
+enum Provider: String, Codable, CaseIterable {
     case meet
     case zoom
     case teams
@@ -57,16 +57,18 @@ enum Provider: String, Codable, CaseIterable, Sendable {
 
         if urlString.contains("meet.google.com") || urlString.contains("g.co/meet") {
             return .meet
-        } else if urlString.contains("zoom.us") || urlString.hasPrefix("zoommtg://") {
+        }
+        if urlString.contains("zoom.us") || urlString.hasPrefix("zoommtg://") {
             return .zoom
-        } else if urlString.contains("teams.microsoft.com") || urlString.contains("teams.live.com")
+        }
+        if urlString.contains("teams.microsoft.com") || urlString.contains("teams.live.com")
             || urlString.hasPrefix("msteams://")
         {
             return .teams
-        } else if urlString.contains("webex.com") || urlString.hasPrefix("webex://") {
-            return .webex
-        } else {
-            return .generic
         }
+        if urlString.contains("webex.com") || urlString.hasPrefix("webex://") {
+            return .webex
+        }
+        return .generic
     }
 }

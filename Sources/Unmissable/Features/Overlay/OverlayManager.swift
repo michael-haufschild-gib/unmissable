@@ -63,17 +63,17 @@ final class OverlayManager: ObservableObject, OverlayManaging {
 
     func showOverlay(for event: Event, minutesBeforeMeeting _: Int = 5, fromSnooze: Bool = false) {
         let startTime = Date()
-        logger.info("🎬 SHOW OVERLAY: Starting for event: \(event.title), fromSnooze: \(fromSnooze)")
+        logger.info("SHOW OVERLAY: Starting for event: \(event.title), fromSnooze: \(fromSnooze)")
 
         // Prevent overlapping overlay operations
         if isOverlayVisible, activeEvent?.id == event.id {
-            logger.info("⚠️ SKIP: Overlay already visible for this event")
+            logger.info("SKIP: Overlay already visible for this event")
             return
         }
 
         // Check if we should show overlay based on Focus/DND status
         guard focusModeManager.shouldShowOverlay() else {
-            logger.info("📵 FOCUS MODE: Overlay suppressed due to Focus/DND mode")
+            logger.info("FOCUS MODE: Overlay suppressed due to Focus/DND mode")
             return
         }
 
@@ -89,7 +89,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         snoozeError = nil // Clear any previous snooze error
 
         logger.info(
-            "✅ OVERLAY STATE: Set isOverlayVisible = true for \(event.title), isSnoozed = \(isSnoozedAlert)"
+            "OVERLAY STATE: Set isOverlayVisible = true for \(event.title), isSnoozed = \(self.isSnoozedAlert)"
         )
 
         // Play alert sound if enabled and allowed by focus mode
@@ -104,11 +104,11 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         let responseTime = Date().timeIntervalSince(startTime)
         ProductionMonitor.shared.logOverlaySuccess(responseTime: responseTime)
 
-        logger.info("🎬 SHOW OVERLAY: Completed for event: \(event.title) in \(responseTime)s")
+        logger.info("SHOW OVERLAY: Completed for event: \(event.title) in \(responseTime)s")
     }
 
     func hideOverlay() {
-        logger.info("🛑 HIDE OVERLAY: Starting cleanup")
+        logger.info("HIDE OVERLAY: Starting cleanup")
 
         // Clean up scheduled timers and stop sound
         invalidateAllScheduledTimers()
@@ -126,7 +126,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         overlayWindows.removeAll()
 
         if !windowsToClose.isEmpty {
-            logger.info("🪟 Hiding \(windowsToClose.count) overlay windows...")
+            logger.info("Hiding \(windowsToClose.count) overlay windows...")
 
             // Use orderOut instead of close to avoid Window Server deadlock
             // orderOut removes window from screen without complex cleanup that can deadlock
@@ -135,12 +135,12 @@ final class OverlayManager: ObservableObject, OverlayManaging {
             }
         }
 
-        logger.info("✅ HIDE OVERLAY: Cleanup completed")
+        logger.info("HIDE OVERLAY: Cleanup completed")
     }
 
     func snoozeOverlay(for minutes: Int) {
         guard let event = activeEvent else {
-            logger.warning("⚠️ SNOOZE: No active event to snooze")
+            logger.warning("SNOOZE: No active event to snooze")
             return
         }
 
@@ -153,25 +153,25 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         // Use EventScheduler for proper snooze scheduling
         if let scheduler = eventScheduler {
             scheduler.scheduleSnooze(for: eventToSnooze, minutes: minutes)
-            logger.info("✅ Snooze scheduled through EventScheduler")
+            logger.info("Snooze scheduled through EventScheduler")
         } else {
             // Fallback to Task-based method if EventScheduler not available
-            logger.warning("⚠️ EventScheduler not available, using fallback Task-based snooze")
+            logger.warning("EventScheduler not available, using fallback Task-based snooze")
 
             snoozeTask = Task { @MainActor in
                 do {
                     let snoozeSeconds = TimeInterval(minutes * 60)
-                    logger.info("⏰ SNOOZE: Starting \(snoozeSeconds)s delay")
+                    logger.info("SNOOZE: Starting \(snoozeSeconds)s delay")
                     try await Task.sleep(for: .seconds(snoozeSeconds))
 
                     if !Task.isCancelled {
-                        logger.info("⏰ SNOOZE: Delay complete, showing overlay")
+                        logger.info("SNOOZE: Delay complete, showing overlay")
                         showOverlay(for: eventToSnooze, minutesBeforeMeeting: 2, fromSnooze: true)
                     }
                 } catch is CancellationError {
-                    logger.info("⏰ SNOOZE: Task cancelled")
+                    logger.info("SNOOZE: Task cancelled")
                 } catch {
-                    logger.error("⏰ SNOOZE: Unexpected error: \(error.localizedDescription)")
+                    logger.error("SNOOZE: Unexpected error: \(error.localizedDescription)")
                 }
             }
         }
@@ -179,7 +179,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
 
     private func createOverlayWindows(for event: Event) {
         if isTestMode {
-            logger.debug("🧪 TEST MODE: Skipping actual window creation for \(event.title)")
+            logger.debug("TEST MODE: Skipping actual window creation for \(event.title)")
             return
         }
 
@@ -187,7 +187,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
 
         // Use preferences to determine which displays to show on
         let screensToUse =
-            preferencesManager.showOnAllDisplays ? screens : [NSScreen.main].compactMap { $0 }
+            preferencesManager.showOnAllDisplays ? screens : [NSScreen.main].compactMap(\.self)
 
         for screen in screensToUse {
             let window = createOverlayWindow(for: screen, event: event)
@@ -251,13 +251,13 @@ final class OverlayManager: ObservableObject, OverlayManaging {
     // MARK: - Timer Cleanup
 
     private func invalidateAllScheduledTimers() {
-        logger.info("🧹 CLEANUP: Stopping all scheduled tasks")
+        logger.info("CLEANUP: Stopping all scheduled tasks")
 
         // Cancel snooze task
         if let snoozeTask {
             snoozeTask.cancel()
             self.snoozeTask = nil
-            logger.debug("🧹 CLEANUP: Cancelled snooze task")
+            logger.debug("CLEANUP: Cancelled snooze task")
         }
     }
 }

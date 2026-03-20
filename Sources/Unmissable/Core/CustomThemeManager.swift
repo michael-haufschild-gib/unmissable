@@ -99,6 +99,7 @@ struct CustomDesign {
                 corners: .modern,
                 shadows: .subtle
             )
+
         case .dark:
             Self(
                 colors: .darkTheme,
@@ -284,17 +285,8 @@ struct CustomShadows {
     )
 }
 
-// MARK: - Environment Integration
-
-struct CustomDesignEnvironment: EnvironmentKey {
-    static let defaultValue: CustomDesign = .design(for: .dark)
-}
-
 extension EnvironmentValues {
-    var customDesign: CustomDesign {
-        get { self[CustomDesignEnvironment.self] }
-        set { self[CustomDesignEnvironment.self] = newValue }
-    }
+    @Entry var customDesign: CustomDesign = .design(for: .dark)
 }
 
 // MARK: - Custom Theme Modifier

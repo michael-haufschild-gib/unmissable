@@ -79,8 +79,9 @@ struct MeetingDetailsView: View {
                 .frame(height: 1),
             alignment: .bottom
         )
-        .contentShape(Rectangle()) // Make entire header area draggable
-        .onTapGesture {} // Enable tap handling for window dragging
+        .contentShape(Rectangle())
+        .onTapGesture {}
+        .accessibilityAddTraits(.isButton)
     }
 
     // MARK: - Meeting Info Section
@@ -339,32 +340,21 @@ struct MeetingDetailsView: View {
         let hours = Int(duration) / 3600
         let minutes = (Int(duration) % 3600) / 60
 
-        if hours > 0 {
-            return "\(hours)h \(minutes)m"
-        } else {
-            return "\(minutes)m"
-        }
-    }
-
-    private func cleanDescription(_ description: String) -> String {
-        // Remove HTML tags and clean up description
-        let cleaned =
-            description
-                .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-                .replacingOccurrences(of: "&[^;]+;", with: "", options: .regularExpression)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        return cleaned.isEmpty ? "No description available" : cleaned
+        if hours > 0 { return "\(hours)h \(minutes)m" }
+        return "\(minutes)m"
     }
 
     private func statusColor(for status: AttendeeStatus) -> Color {
         switch status {
         case .accepted:
             design.colors.success
+
         case .declined:
             design.colors.error
+
         case .tentative:
             design.colors.warning
+
         case .needsAction:
             design.colors.textTertiary
         }
@@ -392,7 +382,7 @@ struct MeetingDetailsView: View {
             ),
         ],
         calendarId: "primary",
-        links: [URL(string: "https://meet.google.com/abc-defg-hij")!]
+        links: [URL(string: "https://meet.google.com/abc-defg-hij")].compactMap(\.self)
     )
 
     MeetingDetailsView(event: sampleEvent)

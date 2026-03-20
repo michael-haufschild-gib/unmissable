@@ -2,9 +2,13 @@ import Foundation
 
 enum GoogleCalendarConfig {
     // OAuth 2.0 configuration for Google Calendar API
+    // Static URL constants — these are hardcoded valid URLs that cannot fail to parse.
+    // Force unwrap is correct here; suppressing the lint rule for compile-time constant URLs.
+    // swiftlint:disable force_unwrapping
     static let authorizationEndpoint = URL(string: "https://accounts.google.com/o/oauth2/v2/auth")!
     static let tokenEndpoint = URL(string: "https://oauth2.googleapis.com/token")!
     static let issuer = URL(string: "https://accounts.google.com")!
+    // swiftlint:enable force_unwrapping
 
     /// Google Calendar API scopes
     static let scopes = [
@@ -108,6 +112,7 @@ enum GoogleCalendarConfig {
 
     /// Loads Config.plist from app bundle Resources or project root directory
     /// Handles both bundled app and development contexts
+    // swiftlint:disable:next discouraged_optional_collection - config file may not exist
     private static func loadConfigFromProjectRoot() -> [String: Any]? {
         // First, try to load from app bundle Resources (for bundled app / App Store)
         if let bundlePath = Bundle.main.path(forResource: "Config", ofType: "plist"),
@@ -168,8 +173,8 @@ extension GoogleCalendarConfig {
     /// Returns configuration status for debugging
     static func configurationStatus() -> String {
         """
-        📊 OAUTH CONFIGURATION STATUS:
-        • Client ID: \(clientId.isEmpty ? "❌ Missing" : "✅ Configured (\(clientId.prefix(20))...)")
+        OAUTH CONFIGURATION STATUS:
+        • Client ID: \(clientId.isEmpty ? "Missing" : "Configured (\(clientId.prefix(20))...)")
         • Redirect Scheme: \(redirectScheme)
         • Environment: \(environment)
         • Configuration Source: \(configurationSource())

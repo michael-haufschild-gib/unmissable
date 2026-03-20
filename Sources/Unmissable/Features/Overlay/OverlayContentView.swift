@@ -29,173 +29,15 @@ struct OverlayContentView: View {
 
     var body: some View {
         ZStack {
-            // Full-screen dark background with opacity from preferences
             backgroundColor
                 .ignoresSafeArea()
 
-            // Content
             VStack(spacing: 40 * fontScale) {
-                // Header
-                VStack(spacing: 16 * fontScale) {
-                    Image(
-                        systemName: timeUntilMeeting > 0
-                            ? "calendar.badge.clock" : "calendar.badge.exclamationmark"
-                    )
-                    .font(.system(size: 48 * fontScale))
-                    .foregroundColor(timeUntilMeeting > 0 ? .blue : .orange)
+                overlayHeader
+                meetingDetails
+                countdownDisplay
+                actionButtons
 
-                    Text(headerText)
-                        .font(.system(size: 36 * fontScale, weight: .bold))
-                        .foregroundColor(textColor)
-                        .accessibilityLabel(headerText)
-                }
-
-                // Meeting Details
-                VStack(spacing: 20 * fontScale) {
-                    Text(event.title)
-                        .font(.system(size: 48 * fontScale, weight: .semibold))
-                        .foregroundColor(textColor)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(3)
-                        .accessibilityLabel("Meeting title: \(event.title)")
-
-                    if !preferences.minimalMode {
-                        if let organizer = event.organizer {
-                            Text("with \(organizer)")
-                                .font(.system(size: 24 * fontScale))
-                                .foregroundColor(.gray)
-                                .accessibilityLabel("Meeting organizer: \(organizer)")
-                        }
-                    }
-
-                    HStack(spacing: 16) {
-                        Image(systemName: "clock")
-                            .foregroundColor(.blue)
-                            .accessibilityHidden(true)
-                        Text(event.startDate, style: .time)
-                            .font(.system(size: 28 * fontScale, weight: .medium))
-                            .foregroundColor(textColor)
-                            .accessibilityLabel(
-                                "Meeting time: \(event.startDate.formatted(date: .omitted, time: .shortened))"
-                            )
-                    }
-                }
-
-                // Countdown Display
-                VStack(spacing: 12 * fontScale) {
-                    if timeUntilMeeting > 0 {
-                        Text("Starting in")
-                            .font(.system(size: 24 * fontScale))
-                            .foregroundColor(.gray)
-                            .accessibilityHidden(true)
-
-                        Text(formatTimeRemaining(timeUntilMeeting))
-                            .font(.system(size: 88 * fontScale, weight: .bold, design: .monospaced))
-                            .foregroundColor(timeUntilMeeting < 60 ? .red : .blue)
-                            .animation(.easeInOut(duration: 0.3), value: timeUntilMeeting < 60)
-                            .accessibilityLabel(
-                                "Meeting starts in \(formatTimeRemainingForAccessibility(timeUntilMeeting))"
-                            )
-                    } else if timeUntilMeeting > -300 {
-                        Text("Meeting Started")
-                            .font(.system(size: 36 * fontScale, weight: .bold))
-                            .foregroundColor(.red)
-                            .accessibilityLabel("Meeting has started")
-
-                        Text("\(Int(-timeUntilMeeting / 60)) minutes ago")
-                            .font(.system(size: 24 * fontScale))
-                            .foregroundColor(.orange)
-                            .accessibilityLabel(
-                                "Started \(Int(-timeUntilMeeting / 60)) minutes ago"
-                            )
-                    } else {
-                        Text("Running for")
-                            .font(.system(size: 24 * fontScale))
-                            .foregroundColor(.gray)
-                            .accessibilityHidden(true)
-
-                        Text(formatTimeRunning(-timeUntilMeeting))
-                            .font(.system(size: 48 * fontScale, weight: .bold))
-                            .foregroundColor(.orange)
-                            .accessibilityLabel(
-                                "Meeting has been running for \(formatTimeRunningForAccessibility(-timeUntilMeeting))"
-                            )
-                    }
-                }
-                .padding(.vertical, 20)
-
-                // Action Buttons
-                HStack(spacing: 24) {
-                    // Join Button (if available)
-                    if event.isOnlineMeeting {
-                        Button(action: onJoin) {
-                            HStack {
-                                Image(systemName: "video.fill")
-                                    .accessibilityHidden(true)
-                                Text("Join Meeting")
-                            }
-                            .font(.system(size: 24 * fontScale, weight: .semibold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 32)
-                            .padding(.vertical, 16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.blue)
-                            )
-                        }
-                        .buttonStyle(ScaleButtonStyle())
-                        .accessibilityLabel("Join meeting")
-                        .accessibilityHint("Opens the meeting link in your default application")
-                    }
-
-                    // Snooze Menu
-                    Menu {
-                        Button("1 minute") { onSnooze(1) }
-                            .accessibilityLabel("Snooze for 1 minute")
-                        Button("5 minutes") { onSnooze(5) }
-                            .accessibilityLabel("Snooze for 5 minutes")
-                        Button("10 minutes") { onSnooze(10) }
-                            .accessibilityLabel("Snooze for 10 minutes")
-                        Button("15 minutes") { onSnooze(15) }
-                            .accessibilityLabel("Snooze for 15 minutes")
-                    } label: {
-                        HStack {
-                            Image(systemName: "clock.badge")
-                                .accessibilityHidden(true)
-                            Text("Snooze")
-                        }
-                        .font(.system(size: 20 * fontScale, weight: .medium))
-                        .foregroundColor(textColor)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(textColor, lineWidth: 2)
-                        )
-                    }
-                    .buttonStyle(ScaleButtonStyle())
-                    .accessibilityLabel("Snooze reminder")
-                    .accessibilityHint("Postpone this reminder for a few minutes")
-
-                    // Dismiss Button
-                    Button("Dismiss") {
-                        onDismiss()
-                    }
-                    .font(.system(size: 20 * fontScale, weight: .medium))
-                    .foregroundColor(textColor)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.gray, lineWidth: 2)
-                    )
-                    .buttonStyle(ScaleButtonStyle())
-                    .accessibilityLabel("Dismiss reminder")
-                    .accessibilityHint("Close this meeting reminder")
-                    .keyboardShortcut(.cancelAction)
-                }
-
-                // Keyboard shortcuts hint
                 if !preferences.minimalMode {
                     Text("Press ESC to dismiss")
                         .font(.caption)
@@ -206,12 +48,10 @@ struct OverlayContentView: View {
             .padding(40)
         }
         .onAppear {
-            // Initialize timer on appear
             timeUntilMeeting = event.startDate.timeIntervalSinceNow
             startAdaptiveTimer()
         }
         .onDisappear {
-            // Clean up timer
             timerCancellable?.cancel()
             timerCancellable = nil
         }
@@ -219,6 +59,173 @@ struct OverlayContentView: View {
             onDismiss()
             return .handled
         }
+    }
+
+    // MARK: - Body Sections
+
+    private var overlayHeader: some View {
+        VStack(spacing: 16 * fontScale) {
+            Image(
+                systemName: timeUntilMeeting > 0
+                    ? "calendar.badge.clock" : "calendar.badge.exclamationmark"
+            )
+            .font(.system(size: 48 * fontScale))
+            .foregroundColor(timeUntilMeeting > 0 ? .blue : .orange)
+
+            Text(headerText)
+                .font(.system(size: 36 * fontScale, weight: .bold))
+                .foregroundColor(textColor)
+                .accessibilityLabel(headerText)
+        }
+    }
+
+    private var meetingDetails: some View {
+        VStack(spacing: 20 * fontScale) {
+            Text(event.title)
+                .font(.system(size: 48 * fontScale, weight: .semibold))
+                .foregroundColor(textColor)
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .accessibilityLabel("Meeting title: \(event.title)")
+
+            if !preferences.minimalMode {
+                if let organizer = event.organizer {
+                    Text("with \(organizer)")
+                        .font(.system(size: 24 * fontScale))
+                        .foregroundColor(.gray)
+                        .accessibilityLabel("Meeting organizer: \(organizer)")
+                }
+            }
+
+            HStack(spacing: 16) {
+                Image(systemName: "clock")
+                    .foregroundColor(.blue)
+                    .accessibilityHidden(true)
+                Text(event.startDate, style: .time)
+                    .font(.system(size: 28 * fontScale, weight: .medium))
+                    .foregroundColor(textColor)
+                    .accessibilityLabel(
+                        "Meeting time: \(event.startDate.formatted(date: .omitted, time: .shortened))"
+                    )
+            }
+        }
+    }
+
+    private var countdownDisplay: some View {
+        VStack(spacing: 12 * fontScale) {
+            if timeUntilMeeting > 0 {
+                Text("Starting in")
+                    .font(.system(size: 24 * fontScale))
+                    .foregroundColor(.gray)
+                    .accessibilityHidden(true)
+
+                Text(formatTimeRemaining(timeUntilMeeting))
+                    .font(.system(size: 88 * fontScale, weight: .bold, design: .monospaced))
+                    .foregroundColor(timeUntilMeeting < 60 ? .red : .blue)
+                    .animation(.easeInOut(duration: 0.3), value: timeUntilMeeting < 60)
+                    .accessibilityLabel(
+                        "Meeting starts in \(formatTimeRemainingForAccessibility(timeUntilMeeting))"
+                    )
+            } else if timeUntilMeeting > -300 {
+                Text("Meeting Started")
+                    .font(.system(size: 36 * fontScale, weight: .bold))
+                    .foregroundColor(.red)
+                    .accessibilityLabel("Meeting has started")
+
+                Text("\(Int(-timeUntilMeeting / 60)) minutes ago")
+                    .font(.system(size: 24 * fontScale))
+                    .foregroundColor(.orange)
+                    .accessibilityLabel(
+                        "Started \(Int(-timeUntilMeeting / 60)) minutes ago"
+                    )
+            } else {
+                Text("Running for")
+                    .font(.system(size: 24 * fontScale))
+                    .foregroundColor(.gray)
+                    .accessibilityHidden(true)
+
+                Text(formatTimeRunning(-timeUntilMeeting))
+                    .font(.system(size: 48 * fontScale, weight: .bold))
+                    .foregroundColor(.orange)
+                    .accessibilityLabel(
+                        "Meeting has been running for \(formatTimeRunningForAccessibility(-timeUntilMeeting))"
+                    )
+            }
+        }
+        .padding(.vertical, 20)
+    }
+
+    private var actionButtons: some View {
+        HStack(spacing: 24) {
+            if event.isOnlineMeeting {
+                Button(action: onJoin) {
+                    HStack {
+                        Image(systemName: "video.fill")
+                            .accessibilityHidden(true)
+                        Text("Join Meeting")
+                    }
+                    .font(.system(size: 24 * fontScale, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.blue)
+                    )
+                }
+                .buttonStyle(ScaleButtonStyle())
+                .accessibilityLabel("Join meeting")
+                .accessibilityHint("Opens the meeting link in your default application")
+            }
+
+            snoozeMenu
+
+            Button("Dismiss") {
+                onDismiss()
+            }
+            .font(.system(size: 20 * fontScale, weight: .medium))
+            .foregroundColor(textColor)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.gray, lineWidth: 2)
+            )
+            .buttonStyle(ScaleButtonStyle())
+            .accessibilityLabel("Dismiss reminder")
+            .accessibilityHint("Close this meeting reminder")
+            .keyboardShortcut(.cancelAction)
+        }
+    }
+
+    private var snoozeMenu: some View {
+        Menu {
+            Button("1 minute") { onSnooze(1) }
+                .accessibilityLabel("Snooze for 1 minute")
+            Button("5 minutes") { onSnooze(5) }
+                .accessibilityLabel("Snooze for 5 minutes")
+            Button("10 minutes") { onSnooze(10) }
+                .accessibilityLabel("Snooze for 10 minutes")
+            Button("15 minutes") { onSnooze(15) }
+                .accessibilityLabel("Snooze for 15 minutes")
+        } label: {
+            HStack {
+                Image(systemName: "clock.badge")
+                    .accessibilityHidden(true)
+                Text("Snooze")
+            }
+            .font(.system(size: 20 * fontScale, weight: .medium))
+            .foregroundColor(textColor)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(textColor, lineWidth: 2)
+            )
+        }
+        .buttonStyle(ScaleButtonStyle())
+        .accessibilityLabel("Snooze reminder")
+        .accessibilityHint("Postpone this reminder for a few minutes")
     }
 
     // MARK: - Computed Properties
@@ -264,13 +271,9 @@ struct OverlayContentView: View {
     /// Calculates the optimal timer interval based on time until meeting
     private func optimalTimerInterval() -> TimeInterval {
         let absTime = abs(timeUntilMeeting)
-        if absTime < 60 {
-            return 1.0 // Every second when < 1 minute
-        } else if absTime < 300 {
-            return 5.0 // Every 5 seconds when < 5 minutes
-        } else {
-            return 30.0 // Every 30 seconds otherwise
-        }
+        if absTime < 60 { return 1.0 }
+        if absTime < 300 { return 5.0 }
+        return 30.0
     }
 
     /// Starts or restarts the timer with an adaptive interval
@@ -305,11 +308,8 @@ struct OverlayContentView: View {
         let hours = totalSeconds / 3600
         let minutes = (totalSeconds % 3600) / 60
 
-        if hours > 0 {
-            return String(format: "%dh %02dm", hours, minutes)
-        } else {
-            return String(format: "%d min", minutes)
-        }
+        if hours > 0 { return String(format: "%dh %02dm", hours, minutes) }
+        return String(format: "%d min", minutes)
     }
 
     private func formatTimeRemainingForAccessibility(_ interval: TimeInterval) -> String {
@@ -318,14 +318,10 @@ struct OverlayContentView: View {
         let seconds = totalSeconds % 60
 
         if minutes > 0 {
-            if seconds > 0 {
-                return "\(minutes) minutes and \(seconds) seconds"
-            } else {
-                return "\(minutes) minute\(minutes == 1 ? "" : "s")"
-            }
-        } else {
-            return "\(seconds) second\(seconds == 1 ? "" : "s")"
+            if seconds > 0 { return "\(minutes) minutes and \(seconds) seconds" }
+            return "\(minutes) minute\(minutes == 1 ? "" : "s")"
         }
+        return "\(seconds) second\(seconds == 1 ? "" : "s")"
     }
 
     private func formatTimeRunningForAccessibility(_ interval: TimeInterval) -> String {
@@ -337,12 +333,10 @@ struct OverlayContentView: View {
             if minutes > 0 {
                 return
                     "\(hours) hour\(hours == 1 ? "" : "s") and \(minutes) minute\(minutes == 1 ? "" : "s")"
-            } else {
-                return "\(hours) hour\(hours == 1 ? "" : "s")"
             }
-        } else {
-            return "\(minutes) minute\(minutes == 1 ? "" : "s")"
+            return "\(hours) hour\(hours == 1 ? "" : "s")"
         }
+        return "\(minutes) minute\(minutes == 1 ? "" : "s")"
     }
 }
 
@@ -366,7 +360,7 @@ struct ScaleButtonStyle: ButtonStyle {
         endDate: Date().addingTimeInterval(1200),
         organizer: "team-lead@company.com",
         calendarId: "primary",
-        links: [URL(string: "https://meet.google.com/abc-defg-hij")!]
+        links: [URL(string: "https://meet.google.com/abc-defg-hij")].compactMap(\.self)
     )
 
     OverlayContentView(
@@ -386,7 +380,7 @@ struct ScaleButtonStyle: ButtonStyle {
         endDate: Date().addingTimeInterval(1800),
         organizer: "client@company.com",
         calendarId: "primary",
-        links: [URL(string: "https://meet.google.com/xyz-uvwx-stu")!]
+        links: [URL(string: "https://meet.google.com/xyz-uvwx-stu")].compactMap(\.self)
     )
 
     OverlayContentView(
@@ -406,7 +400,7 @@ struct ScaleButtonStyle: ButtonStyle {
         endDate: Date().addingTimeInterval(1800),
         organizer: "team@company.com",
         calendarId: "primary",
-        links: [URL(string: "https://meet.google.com/xyz-uvwx-stu")!]
+        links: [URL(string: "https://meet.google.com/xyz-uvwx-stu")].compactMap(\.self)
     )
 
     OverlayContentView(

@@ -59,7 +59,7 @@ final class AppState: ObservableObject {
         // Setup health monitoring
         healthMonitor.setup(
             calendarService: calendarService,
-            syncManager: calendarService.syncManagerPublic,
+            syncManager: calendarService.sync,
             overlayManager: overlayManager
         )
     }
@@ -149,36 +149,36 @@ final class AppState: ObservableObject {
 
     private func setupEventReschedulingCallback() {
         calendarService.onEventsUpdated = { [weak self] in
-            await self?.rescheduleEventsAfterSync()
+            self?.rescheduleEventsAfterSync()
         }
     }
 
-    private func rescheduleEventsAfterSync() async {
-        logger.info("🔄 Rescheduling events after sync completion...")
-        logger.info("📋 Events available for rescheduling: \(upcomingEvents.count)")
+    private func rescheduleEventsAfterSync() {
+        logger.info("Rescheduling events after sync completion...")
+        logger.info("Events available for rescheduling: \(self.upcomingEvents.count)")
 
         // List the first few events for debugging
         for (index, event) in upcomingEvents.prefix(3).enumerated() {
             logger.info("  Event \(index + 1): \(event.title) at \(event.startDate)")
         }
 
-        await eventScheduler.startScheduling(
+        eventScheduler.startScheduling(
             events: upcomingEvents,
             overlayManager: overlayManager
         )
-        logger.info("✅ Events rescheduled with updated times")
+        logger.info("Events rescheduled with updated times")
     }
 
     private func checkInitialState() {
-        logger.info("🔍 AppState checking initial state...")
+        logger.info("AppState checking initial state...")
         Task {
             await calendarService.checkConnectionStatus()
-            logger.info("📡 Connection status checked - isConnected: \(self.isConnectedToCalendar)")
+            logger.info("Connection status checked - isConnected: \(self.isConnectedToCalendar)")
             if self.isConnectedToCalendar {
-                logger.info("🔄 Starting periodic sync due to existing connection")
+                logger.info("Starting periodic sync due to existing connection")
                 await self.startPeriodicSync()
             } else {
-                logger.info("❌ Not connected to calendar - sync not started")
+                logger.info("Not connected to calendar - sync not started")
             }
         }
     }
@@ -194,9 +194,9 @@ final class AppState: ObservableObject {
         }
     }
 
-    func disconnectFromCalendar() async {
+    func disconnectFromCalendar() {
         logger.info("Disconnecting from calendar")
-        await calendarService.disconnect()
+        calendarService.disconnect()
         eventScheduler.stopScheduling()
     }
 
@@ -209,30 +209,30 @@ final class AppState: ObservableObject {
         calendarService.updateCalendarSelection(calendarId, isSelected: isSelected)
     }
 
-    // MARK: - Public Services Access
+    // MARK: - Service Access
 
-    var calendarServicePublic: CalendarService {
-        calendarService
-    }
-
-    var preferencesManagerPublic: PreferencesManager {
+    var preferences: PreferencesManager {
         preferencesManager
     }
 
-    var shortcutsManagerPublic: ShortcutsManager {
+    var shortcuts: ShortcutsManager {
         shortcutsManager
     }
 
-    var focusModeManagerPublic: FocusModeManager {
+    var focusMode: FocusModeManager {
         focusModeManager
     }
 
-    var healthMonitorPublic: HealthMonitor {
+    var health: HealthMonitor {
         healthMonitor
     }
 
-    var menuBarPreviewManagerPublic: MenuBarPreviewManager {
+    var menuBarPreview: MenuBarPreviewManager {
         menuBarPreviewManager
+    }
+
+    var calendar: CalendarService {
+        calendarService
     }
 
     func showPreferences() {
@@ -244,46 +244,26 @@ final class AppState: ObservableObject {
     }
 
     private func startPeriodicSync() async {
-        logger.info("🚀 AppState.startPeriodicSync() called")
+        logger.info("AppState.startPeriodicSync() called")
 
         // CRITICAL FIX: Load cached data first to ensure we have events to schedule
-        logger.info("📥 Loading cached events before scheduling...")
+        logger.info("Loading cached events before scheduling...")
         await calendarService.checkConnectionStatus() // This calls loadCachedData internally
 
-        logger.info("📋 Events available for scheduling: \(upcomingEvents.count)")
+        logger.info("Events available for scheduling: \(self.upcomingEvents.count)")
 
         // Start both event scheduling and calendar sync
-        await eventScheduler.startScheduling(
+        eventScheduler.startScheduling(
             events: upcomingEvents,
             overlayManager: overlayManager
         )
 
         // Also start periodic calendar sync if connected
         if isConnectedToCalendar {
-            logger.info("📅 Calling SyncManager.startPeriodicSync()")
-            calendarService.syncManagerPublic.startPeriodicSync()
+            logger.info("Calling SyncManager.startPeriodicSync()")
+            calendarService.sync.startPeriodicSync()
         } else {
-            logger.info("❌ Not connected - skipping SyncManager.startPeriodicSync()")
-        }
-    }
-}
-
-enum SyncStatus: Equatable {
-    case idle
-    case syncing
-    case offline
-    case error(String)
-
-    var description: String {
-        switch self {
-        case .idle:
-            "Ready"
-        case .syncing:
-            "Syncing..."
-        case .offline:
-            "Offline"
-        case let .error(message):
-            "Error: \(message)"
+            logger.info("Not connected - skipping SyncManager.startPeriodicSync()")
         }
     }
 }

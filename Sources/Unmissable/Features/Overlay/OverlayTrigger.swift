@@ -62,7 +62,7 @@ final class OverlayTrigger: ObservableObject {
         scheduledTasks[event.id] = task
         scheduledCount = scheduledTasks.count
 
-        logger.info("Overlay scheduled. Total scheduled: \(scheduledCount)")
+        logger.info("Overlay scheduled. Total scheduled: \(self.scheduledCount)")
     }
 
     /// Trigger overlay immediately for alerts that should fire now
@@ -78,7 +78,7 @@ final class OverlayTrigger: ObservableObject {
 
     /// Cancel all scheduled overlays
     func cancelAllScheduled() {
-        logger.info("Cancelling \(scheduledTasks.count) scheduled tasks")
+        logger.info("Cancelling \(self.scheduledTasks.count) scheduled tasks")
 
         for (_, task) in scheduledTasks {
             task.cancel()

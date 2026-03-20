@@ -168,18 +168,15 @@ final class MenuBarPreviewManager: ObservableObject {
 
         let totalMinutes = Int(timeInterval / 60)
 
-        if totalMinutes < 1 {
-            return "< 1 min"
-        } else if totalMinutes < 60 {
-            return "\(totalMinutes) min"
-        } else if totalMinutes < 1440 { // Less than 24 hours
+        if totalMinutes < 1 { return "< 1 min" }
+        if totalMinutes < 60 { return "\(totalMinutes) min" }
+        if totalMinutes < 1440 {
             let hours = totalMinutes / 60
             let minutes = totalMinutes % 60
             return String(format: "%d:%02d h", hours, minutes)
-        } else {
-            let days = totalMinutes / 1440
-            return "\(days) d"
         }
+        let days = totalMinutes / 1440
+        return "\(days) d"
     }
 
     deinit {

@@ -12,7 +12,7 @@ struct MenuBarView: View {
 
     private var groupedEvents: [EventGroup] {
         let events =
-            appState.preferencesManagerPublic.showTodayOnlyInMenuBar
+            appState.preferences.showTodayOnlyInMenuBar
                 ? filteredTodayEvents
                 : filteredEventsForDisplay
 
@@ -31,13 +31,17 @@ struct MenuBarView: View {
     private var filteredEventsForDisplay: [Event] {
         let calendar = Calendar.current
         let today = Date()
-        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+        guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else {
+            return appState.upcomingEvents.filter { event in
+                calendar.isDate(event.startDate, inSameDayAs: today)
+            }
+        }
         let monday = getNextMondayIfNeeded(from: tomorrow, calendar: calendar)
 
         return appState.upcomingEvents.filter { event in
             calendar.isDate(event.startDate, inSameDayAs: today)
                 || calendar.isDate(event.startDate, inSameDayAs: tomorrow)
-                || (monday != nil && calendar.isDate(event.startDate, inSameDayAs: monday!))
+                || (monday.map { calendar.isDate(event.startDate, inSameDayAs: $0) } ?? false)
         }
     }
 
@@ -57,7 +61,9 @@ struct MenuBarView: View {
     private func groupEventsByDate(_ events: [Event], includingStarted: Bool = false) -> [EventGroup] {
         let calendar = Calendar.current
         let today = Date()
-        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+        guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else {
+            return []
+        }
 
         var groups: [EventGroup] = []
 
@@ -97,197 +103,219 @@ struct MenuBarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header with custom styling
-            VStack(spacing: 0) {
-                HStack {
-                    HStack(spacing: design.spacing.md) {
-                        Image(systemName: "calendar.badge.clock")
-                            .foregroundColor(design.colors.accent)
-                            .font(.system(size: 18, weight: .semibold))
-
-                        Text("Unmissable")
-                            .font(design.fonts.headline)
-                            .foregroundColor(design.colors.textPrimary)
-                    }
-
-                    Spacer()
-
-                    CustomStatusIndicator(status: connectionStatus, size: 12)
-                }
-                .padding(.horizontal, design.spacing.lg)
-                .padding(.vertical, design.spacing.lg)
-                .background(design.colors.background)
-
-                Rectangle()
-                    .fill(design.colors.divider)
-                    .frame(height: 1)
-            }
-
-            // Content area with custom background
-            VStack(spacing: design.spacing.lg) {
-                if !appState.isConnectedToCalendar {
-                    // Connection error state
-                    VStack(spacing: design.spacing.lg) {
-                        if let authError = appState.authError {
-                            CustomCard(style: .flat) {
-                                VStack(alignment: .leading, spacing: design.spacing.sm) {
-                                    HStack(spacing: design.spacing.sm) {
-                                        Image(systemName: "exclamationmark.triangle.fill")
-                                            .foregroundColor(design.colors.error)
-                                            .font(.system(size: 16, weight: .medium))
-
-                                        Text("Connection Error")
-                                            .font(design.fonts.subheadline)
-                                            .foregroundColor(design.colors.error)
-                                    }
-
-                                    Text(authError)
-                                        .font(design.fonts.caption1)
-                                        .foregroundColor(design.colors.textSecondary)
-                                        .lineLimit(3)
-                                        .multilineTextAlignment(.leading)
-
-                                    if authError.contains("configuration") {
-                                        Text("See OAUTH_SETUP_GUIDE.md for setup instructions")
-                                            .font(design.fonts.caption2)
-                                            .foregroundColor(design.colors.interactive)
-                                            .lineLimit(2)
-                                            .multilineTextAlignment(.leading)
-                                    }
-                                }
-                                .padding(design.spacing.md)
-                            }
-                        }
-
-                        CustomButton("Connect Google Calendar", icon: "link", style: .primary) {
-                            Task {
-                                await appState.connectToCalendar()
-                            }
-                        }
-                    }
-                    .padding(.horizontal, design.spacing.lg)
-                } else {
-                    // Connected state
-                    VStack(spacing: design.spacing.lg) {
-                        // Sync status with custom design
-                        HStack {
-                            HStack(spacing: design.spacing.sm) {
-                                syncStatusIcon
-                                Text(appState.syncStatus.description)
-                                    .font(design.fonts.caption1)
-                                    .foregroundColor(design.colors.textSecondary)
-                            }
-
-                            Spacer()
-
-                            if case .syncing = appState.syncStatus {
-                                ProgressView()
-                                    .scaleEffect(0.7)
-                                    .tint(design.colors.accent)
-                            } else {
-                                CustomButton("Sync", style: .minimal) {
-                                    Task {
-                                        await appState.syncNow()
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.horizontal, design.spacing.lg)
-
-                        // Events list with custom cards and grouping
-                        if groupedEvents.isEmpty {
-                            CustomCard(style: .flat) {
-                                HStack(spacing: design.spacing.sm) {
-                                    Image(systemName: "calendar")
-                                        .foregroundColor(design.colors.textTertiary)
-                                        .font(.system(size: 16))
-
-                                    Text("No upcoming meetings")
-                                        .font(design.fonts.callout)
-                                        .foregroundColor(design.colors.textTertiary)
-                                }
-                                .padding(design.spacing.lg)
-                            }
-                            .padding(.horizontal, design.spacing.lg)
-                        } else {
-                            VStack(spacing: design.spacing.md) {
-                                // Show today only toggle
-                                HStack {
-                                    Text("Show today only")
-                                        .font(design.fonts.caption1)
-                                        .foregroundColor(design.colors.textSecondary)
-
-                                    Spacer()
-
-                                    CustomToggle(
-                                        isOn: Binding(
-                                            get: { appState.preferencesManagerPublic.showTodayOnlyInMenuBar },
-                                            set: { appState.preferencesManagerPublic.showTodayOnlyInMenuBar = $0 }
-                                        )
-                                    )
-                                }
-                                .padding(.horizontal, design.spacing.lg)
-
-                                // Grouped events
-                                ForEach(groupedEvents.indices, id: \.self) { groupIndex in
-                                    let group = groupedEvents[groupIndex]
-
-                                    VStack(spacing: design.spacing.sm) {
-                                        // Group header
-                                        HStack {
-                                            Text(group.title)
-                                                .font(design.fonts.subheadline)
-                                                .fontWeight(.semibold)
-                                                .foregroundColor(design.colors.accent)
-
-                                            Spacer()
-                                        }
-                                        .padding(.horizontal, design.spacing.lg)
-
-                                        // Group events
-                                        ForEach(group.events.prefix(3)) { event in
-                                            CustomEventRow(
-                                                event: event,
-                                                onEventTap: {
-                                                    appState.showMeetingDetails(for: event)
-                                                }
-                                            )
-                                            .padding(.horizontal, design.spacing.lg)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(.vertical, design.spacing.lg)
-            .background(design.colors.backgroundSecondary)
-
-            // Footer with actions
-            VStack(spacing: 0) {
-                Rectangle()
-                    .fill(design.colors.divider)
-                    .frame(height: 1)
-
-                HStack {
-                    CustomButton("Preferences", style: .minimal) {
-                        appState.showPreferences()
-                    }
-
-                    Spacer()
-
-                    CustomButton("Quit", style: .minimal) {
-                        NSApplication.shared.terminate(nil)
-                    }
-                }
-                .padding(.horizontal, design.spacing.lg)
-                .padding(.vertical, design.spacing.md)
-                .background(design.colors.background)
-            }
+            headerSection
+            contentSection
+            footerSection
         }
         .background(design.colors.background)
         .frame(width: 340)
+    }
+
+    // MARK: - Sections
+
+    private var headerSection: some View {
+        VStack(spacing: 0) {
+            HStack {
+                HStack(spacing: design.spacing.md) {
+                    Image(systemName: "calendar.badge.clock")
+                        .foregroundColor(design.colors.accent)
+                        .font(.system(size: 18, weight: .semibold))
+
+                    Text("Unmissable")
+                        .font(design.fonts.headline)
+                        .foregroundColor(design.colors.textPrimary)
+                }
+
+                Spacer()
+
+                CustomStatusIndicator(status: connectionStatus, size: 12)
+            }
+            .padding(.horizontal, design.spacing.lg)
+            .padding(.vertical, design.spacing.lg)
+            .background(design.colors.background)
+
+            Rectangle()
+                .fill(design.colors.divider)
+                .frame(height: 1)
+        }
+    }
+
+    private var contentSection: some View {
+        VStack(spacing: design.spacing.lg) {
+            if !appState.isConnectedToCalendar {
+                disconnectedContent
+            } else {
+                connectedContent
+            }
+        }
+        .padding(.vertical, design.spacing.lg)
+        .background(design.colors.backgroundSecondary)
+    }
+
+    private var footerSection: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(design.colors.divider)
+                .frame(height: 1)
+
+            HStack {
+                CustomButton("Preferences", style: .minimal) {
+                    appState.showPreferences()
+                }
+
+                Spacer()
+
+                CustomButton("Quit", style: .minimal) {
+                    NSApplication.shared.terminate(nil)
+                }
+            }
+            .padding(.horizontal, design.spacing.lg)
+            .padding(.vertical, design.spacing.md)
+            .background(design.colors.background)
+        }
+    }
+
+    // MARK: - Content States
+
+    private var disconnectedContent: some View {
+        VStack(spacing: design.spacing.lg) {
+            if let authError = appState.authError {
+                CustomCard(style: .flat) {
+                    VStack(alignment: .leading, spacing: design.spacing.sm) {
+                        HStack(spacing: design.spacing.sm) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(design.colors.error)
+                                .font(.system(size: 16, weight: .medium))
+
+                            Text("Connection Error")
+                                .font(design.fonts.subheadline)
+                                .foregroundColor(design.colors.error)
+                        }
+
+                        Text(authError)
+                            .font(design.fonts.caption1)
+                            .foregroundColor(design.colors.textSecondary)
+                            .lineLimit(3)
+                            .multilineTextAlignment(.leading)
+
+                        if authError.contains("configuration") {
+                            Text("See OAUTH_SETUP_GUIDE.md for setup instructions")
+                                .font(design.fonts.caption2)
+                                .foregroundColor(design.colors.interactive)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                        }
+                    }
+                    .padding(design.spacing.md)
+                }
+            }
+
+            CustomButton("Connect Google Calendar", icon: "link", style: .primary) {
+                Task {
+                    await appState.connectToCalendar()
+                }
+            }
+        }
+        .padding(.horizontal, design.spacing.lg)
+    }
+
+    private var connectedContent: some View {
+        VStack(spacing: design.spacing.lg) {
+            syncStatusBar
+            eventsListSection
+        }
+    }
+
+    private var syncStatusBar: some View {
+        HStack {
+            HStack(spacing: design.spacing.sm) {
+                syncStatusIcon
+                Text(appState.syncStatus.description)
+                    .font(design.fonts.caption1)
+                    .foregroundColor(design.colors.textSecondary)
+            }
+
+            Spacer()
+
+            if case .syncing = appState.syncStatus {
+                ProgressView()
+                    .scaleEffect(0.7)
+                    .tint(design.colors.accent)
+            } else {
+                CustomButton("Sync", style: .minimal) {
+                    Task {
+                        await appState.syncNow()
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, design.spacing.lg)
+    }
+
+    private var eventsListSection: some View {
+        Group {
+            if groupedEvents.isEmpty {
+                CustomCard(style: .flat) {
+                    HStack(spacing: design.spacing.sm) {
+                        Image(systemName: "calendar")
+                            .foregroundColor(design.colors.textTertiary)
+                            .font(.system(size: 16))
+
+                        Text("No upcoming meetings")
+                            .font(design.fonts.callout)
+                            .foregroundColor(design.colors.textTertiary)
+                    }
+                    .padding(design.spacing.lg)
+                }
+                .padding(.horizontal, design.spacing.lg)
+            } else {
+                VStack(spacing: design.spacing.md) {
+                    HStack {
+                        Text("Show today only")
+                            .font(design.fonts.caption1)
+                            .foregroundColor(design.colors.textSecondary)
+
+                        Spacer()
+
+                        CustomToggle(
+                            isOn: Binding(
+                                get: { appState.preferences.showTodayOnlyInMenuBar },
+                                set: { appState.preferences.showTodayOnlyInMenuBar = $0 }
+                            )
+                        )
+                    }
+                    .padding(.horizontal, design.spacing.lg)
+
+                    ForEach(groupedEvents.indices, id: \.self) { groupIndex in
+                        eventGroupView(groupedEvents[groupIndex])
+                    }
+                }
+            }
+        }
+    }
+
+    private func eventGroupView(_ group: EventGroup) -> some View {
+        VStack(spacing: design.spacing.sm) {
+            HStack {
+                Text(group.title)
+                    .font(design.fonts.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(design.colors.accent)
+
+                Spacer()
+            }
+            .padding(.horizontal, design.spacing.lg)
+
+            ForEach(group.events.prefix(3)) { event in
+                CustomEventRow(
+                    event: event,
+                    onEventTap: {
+                        appState.showMeetingDetails(for: event)
+                    }
+                )
+                .padding(.horizontal, design.spacing.lg)
+            }
+        }
     }
 
     private var syncStatusIcon: some View {
@@ -296,12 +324,15 @@ struct MenuBarView: View {
             case .idle:
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(design.colors.success)
+
             case .syncing:
                 Image(systemName: "arrow.triangle.2.circlepath")
                     .foregroundColor(design.colors.accent)
+
             case .offline:
                 Image(systemName: "wifi.slash")
                     .foregroundColor(design.colors.warning)
+
             case .error:
                 Image(systemName: "exclamationmark.circle.fill")
                     .foregroundColor(design.colors.error)
@@ -390,6 +421,7 @@ struct CustomEventRow: View {
             .onTapGesture {
                 onEventTap?()
             }
+            .accessibilityAddTraits(.isButton)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Meeting: \(event.title) at \(event.startDate, style: .time)")
             .accessibilityHint("Tap to view meeting details")

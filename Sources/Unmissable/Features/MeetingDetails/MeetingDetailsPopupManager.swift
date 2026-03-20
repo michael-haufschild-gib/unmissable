@@ -15,11 +15,11 @@ final class MeetingDetailsPopupManager: ObservableObject {
     // MARK: - Popup Management
 
     func showPopup(for event: Event, relativeTo parentWindow: NSWindow? = nil) {
-        logger.info("📋 POPUP: Showing details for event '\(event.title)'")
+        logger.info("POPUP: Showing details for event '\(event.title)'")
 
         // Prevent multiple popups for the same event
         if isPopupVisible, let currentWindow = popupWindow {
-            logger.info("📋 POPUP: Popup already visible, bringing to front")
+            logger.info("POPUP: Popup already visible, bringing to front")
             currentWindow.makeKeyAndOrderFront(nil)
             return
         }
@@ -41,20 +41,20 @@ final class MeetingDetailsPopupManager: ObservableObject {
         // DEBUG: Log window details
         let windowFrame = popup.frame
         logger.info(
-            "📋 POPUP DEBUG: Window frame: x=\(windowFrame.origin.x), y=\(windowFrame.origin.y), w=\(windowFrame.size.width), h=\(windowFrame.size.height)"
+            "POPUP DEBUG: Window frame: x=\(windowFrame.origin.x), y=\(windowFrame.origin.y), w=\(windowFrame.size.width), h=\(windowFrame.size.height)"
         )
-        logger.info("📋 POPUP DEBUG: Window level: \(popup.level.rawValue)")
-        logger.info("📋 POPUP DEBUG: Window visible: \(popup.isVisible)")
-        logger.info("📋 POPUP DEBUG: Window on active space: \(popup.isOnActiveSpace)")
-        logger.info("📋 POPUP DEBUG: Content view exists: \(popup.contentView != nil)")
+        logger.info("POPUP DEBUG: Window level: \(popup.level.rawValue)")
+        logger.info("POPUP DEBUG: Window visible: \(popup.isVisible)")
+        logger.info("POPUP DEBUG: Window on active space: \(popup.isOnActiveSpace)")
+        logger.info("POPUP DEBUG: Content view exists: \(popup.contentView != nil)")
 
-        logger.info("📋 POPUP: Successfully displayed popup for event '\(event.title)'")
+        logger.info("POPUP: Successfully displayed popup for event '\(event.title)'")
     }
 
     func hidePopup() {
         guard let popup = popupWindow else { return }
 
-        logger.info("📋 POPUP: Hiding popup")
+        logger.info("POPUP: Hiding popup")
 
         // CRITICAL: Use orderOut instead of close to prevent deadlocks
         popup.orderOut(nil)
@@ -64,7 +64,7 @@ final class MeetingDetailsPopupManager: ObservableObject {
         isPopupVisible = false
         parentWindow = nil
 
-        logger.info("📋 POPUP: Successfully hidden popup")
+        logger.info("POPUP: Successfully hidden popup")
     }
 
     // MARK: - Private Methods

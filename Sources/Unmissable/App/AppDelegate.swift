@@ -50,21 +50,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let urlString = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.stringValue,
             let url = URL(string: urlString)
         else {
-            logger.error("❌ Failed to parse URL from Apple Event")
+            logger.error("Failed to parse URL from Apple Event")
             return
         }
 
-        logger.info("📥 Received URL: \(urlString)")
+        logger.info("Received URL: \(urlString)")
 
         // Handle OAuth callback using bundle ID scheme
         if url.scheme == "com.unmissable.app" {
-            logger.info("✅ OAuth callback detected - posting notification")
+            logger.info("OAuth callback detected - posting notification")
             NotificationCenter.default.post(
                 name: .oauthCallback,
                 object: url
             )
         } else {
-            logger.warning("⚠️ Received URL with unexpected scheme: \(url.scheme ?? "nil")")
+            logger.warning("Received URL with unexpected scheme: \(url.scheme ?? "nil")")
         }
     }
 

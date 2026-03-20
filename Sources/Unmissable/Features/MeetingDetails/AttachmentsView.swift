@@ -136,12 +136,12 @@ struct AttachmentRow: View {
 
     private func openAttachment() {
         guard let url = URL(string: attachment.fileUrl) else {
-            logger.error("❌ AttachmentRow: Invalid URL for attachment - \(attachment.fileUrl)")
+            logger.error("AttachmentRow: Invalid URL for attachment - \(attachment.fileUrl)")
             return
         }
 
         logger.info(
-            "🔗 AttachmentRow: Opening attachment - \(attachment.title) at \(url.absoluteString)"
+            "AttachmentRow: Opening attachment - \(attachment.title) at \(url.absoluteString)"
         )
 
         // Open the URL in the default browser/app

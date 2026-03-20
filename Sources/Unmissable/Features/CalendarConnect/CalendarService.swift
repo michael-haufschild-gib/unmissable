@@ -26,11 +26,11 @@ final class CalendarService: ObservableObject {
     /// Callback to notify when events need to be rescheduled after sync
     var onEventsUpdated: (() async -> Void)?
 
-    init(preferencesManager: PreferencesManager) {
+    init(preferencesManager: PreferencesManager, databaseManager: DatabaseManager = .shared) {
         self.preferencesManager = preferencesManager
+        self.databaseManager = databaseManager
         oauth2Service = OAuth2Service()
         apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
-        databaseManager = DatabaseManager.shared
         syncManager = SyncManager(
             apiService: apiService, databaseManager: databaseManager,
             preferencesManager: preferencesManager
@@ -81,11 +81,11 @@ final class CalendarService: ObservableObject {
         // Set up callback to refresh UI after automatic sync completes
         syncManager.onSyncCompleted = { [weak self] in
             await self?.loadCachedData()
-            self?.logger.info("🔄 UI refreshed after automatic sync completion")
+            self?.logger.info("UI refreshed after automatic sync completion")
 
             // Also notify that events have been updated so alerts can be rescheduled
             await self?.onEventsUpdated?()
-            self?.logger.info("📅 Event rescheduling triggered after sync completion")
+            self?.logger.info("Event rescheduling triggered after sync completion")
         }
     }
 
@@ -117,7 +117,7 @@ final class CalendarService: ObservableObject {
         }
     }
 
-    func disconnect() async {
+    func disconnect() {
         logger.info("Disconnecting from calendar")
         syncManager.stopPeriodicSync()
         stopUIRefreshTimer()
@@ -139,7 +139,11 @@ final class CalendarService: ObservableObject {
 
             // Save to database
             Task {
-                try await databaseManager.saveCalendars([calendars[index]])
+                do {
+                    try await databaseManager.saveCalendars([calendars[index]])
+                } catch {
+                    logger.error("Failed to save calendar selection: \(error.localizedDescription)")
+                }
             }
 
             // Trigger a sync if we're connected
@@ -155,8 +159,8 @@ final class CalendarService: ObservableObject {
         do {
             try await apiService.fetchCalendars()
             // Convert API calendars to local models
-            calendars = apiService.calendars
-            logger.info("Loaded \(calendars.count) calendars")
+            self.calendars = apiService.calendars
+            logger.info("Loaded \(self.calendars.count) calendars")
         } catch {
             logger.error("Failed to load calendars: \(error.localizedDescription)")
         }
@@ -180,7 +184,7 @@ final class CalendarService: ObservableObject {
             startedEvents = cachedStartedEvents.map { timezoneManager.localizedEvent($0) }
 
             logger.info(
-                "Loaded \(calendars.count) calendars, \(events.count) upcoming events, and \(startedEvents.count) started meetings from cache"
+                "Loaded \(self.calendars.count) calendars, \(self.events.count) upcoming events, and \(self.startedEvents.count) started meetings from cache"
             )
         } catch {
             logger.error("Failed to load cached data: \(error.localizedDescription)")
@@ -214,9 +218,9 @@ final class CalendarService: ObservableObject {
         return results.map { timezoneManager.localizedEvent($0) }
     }
 
-    // MARK: - Public Accessors
+    // MARK: - Service Access
 
-    var syncManagerPublic: SyncManager {
+    var sync: SyncManager {
         syncManager
     }
 
@@ -238,13 +242,13 @@ final class CalendarService: ObservableObject {
                 }
             }
         }
-        logger.info("✅ UI refresh timer started (30 second interval)")
+        logger.info("UI refresh timer started (30 second interval)")
     }
 
     private func stopUIRefreshTimer() {
         uiRefreshTask?.cancel()
         uiRefreshTask = nil
-        logger.info("⏹️ UI refresh timer stopped")
+        logger.info("UI refresh timer stopped")
     }
 
     private func refreshUIEvents() async {

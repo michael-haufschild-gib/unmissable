@@ -69,8 +69,10 @@ final class FocusModeManager: ObservableObject {
                     self.isDoNotDisturbEnabled = newDNDStatus
                     self.logger.info("Do Not Disturb status changed: \(newDNDStatus)")
                 }
+
             case let .failure(error):
                 self.logger.error("Failed to check Do Not Disturb status: \(error.localizedDescription)")
+
             case .notFound:
                 self.logger.warning("DND preferences file not found at expected path")
             }
@@ -150,10 +152,10 @@ final class FocusModeManager: ObservableObject {
         if preferencesManager.overrideFocusMode {
             logger.info("Showing overlay despite Do Not Disturb (override enabled)")
             return true
-        } else {
-            logger.info("Suppressing overlay due to Do Not Disturb (override disabled)")
-            return false
         }
+
+        logger.info("Suppressing overlay due to Do Not Disturb (override disabled)")
+        return false
     }
 
     func shouldPlaySound() -> Bool {
@@ -165,7 +167,7 @@ final class FocusModeManager: ObservableObject {
 
 // MARK: - DND Check Result
 
-private enum DNDCheckResult: Sendable {
+private enum DNDCheckResult {
     case success(Bool)
     case failure(Error)
     case notFound

@@ -218,13 +218,9 @@ final class PreferencesManager: ObservableObject {
 
         let durationMinutes = Int(event.duration / 60)
 
-        if durationMinutes < 30 {
-            return shortMeetingAlertMinutes
-        } else if durationMinutes <= 60 {
-            return mediumMeetingAlertMinutes
-        } else {
-            return longMeetingAlertMinutes
-        }
+        if durationMinutes < 30 { return shortMeetingAlertMinutes }
+        if durationMinutes <= 60 { return mediumMeetingAlertMinutes }
+        return longMeetingAlertMinutes
     }
 }
 
