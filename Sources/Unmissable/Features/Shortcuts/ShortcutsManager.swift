@@ -33,14 +33,18 @@ final class ShortcutsManager: ObservableObject {
             return
         }
 
-        dismissShortcut = HotKey(identifier: "dismiss_overlay", keyCombo: keyCombo) { _ in
+        let hotKey = HotKey(identifier: "dismiss_overlay", keyCombo: keyCombo) { _ in
             Task { @MainActor in
                 self.dismissOverlay()
             }
         }
 
-        dismissShortcut?.register()
-        logger.info("Registered dismiss shortcut: Cmd+Escape")
+        if hotKey.register() {
+            dismissShortcut = hotKey
+            logger.info("Registered dismiss shortcut: Cmd+Escape")
+        } else {
+            logger.error("Failed to register dismiss shortcut — key combo may already be in use")
+        }
     }
 
     private func setupJoinShortcut() {
@@ -49,14 +53,18 @@ final class ShortcutsManager: ObservableObject {
             return
         }
 
-        joinShortcut = HotKey(identifier: "join_meeting", keyCombo: keyCombo) { _ in
+        let hotKey = HotKey(identifier: "join_meeting", keyCombo: keyCombo) { _ in
             Task { @MainActor in
                 self.joinMeeting()
             }
         }
 
-        joinShortcut?.register()
-        logger.info("Registered join shortcut: Cmd+Return")
+        if hotKey.register() {
+            joinShortcut = hotKey
+            logger.info("Registered join shortcut: Cmd+Return")
+        } else {
+            logger.error("Failed to register join shortcut — key combo may already be in use")
+        }
     }
 
     private func dismissOverlay() {

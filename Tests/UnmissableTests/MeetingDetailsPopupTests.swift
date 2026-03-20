@@ -1,14 +1,13 @@
-import AppKit
 @testable import Unmissable
 import XCTest
 
 @MainActor
 final class MeetingDetailsPopupTests: XCTestCase {
-    private var popupManager: MeetingDetailsPopupManager?
+    private var popupManager: TestSafeMeetingDetailsPopupManager?
 
     override func setUp() async throws {
         try await super.setUp()
-        popupManager = MeetingDetailsPopupManager()
+        popupManager = TestSafeMeetingDetailsPopupManager()
     }
 
     override func tearDown() async throws {

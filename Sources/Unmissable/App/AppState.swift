@@ -7,19 +7,16 @@ import OSLog
 final class AppState: ObservableObject {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "AppState")
 
-    /// Published properties for UI binding
+    // MARK: - View State (mirrored from child services for SwiftUI observation)
+
     @Published
     var isConnectedToCalendar = false
     @Published
     var syncStatus: SyncStatus = .idle
     @Published
-    var lastSyncTime: Date?
-    @Published
     var upcomingEvents: [Event] = []
     @Published
     var startedEvents: [Event] = []
-    @Published
-    var activeOverlay: Event?
     @Published
     var userEmail: String?
     @Published
@@ -27,15 +24,12 @@ final class AppState: ObservableObject {
     @Published
     var authError: String?
     @Published
-    var healthStatus: HealthStatus = .healthy
-
-    /// Menu bar preview properties (mirrored from MenuBarPreviewManager)
-    @Published
     var menuBarText: String?
     @Published
     var shouldShowIcon: Bool = true
 
-    // Services
+    // MARK: - Services (composition root)
+
     private let calendarService: CalendarService
     private let preferencesManager = PreferencesManager()
     private let overlayManager: OverlayManager
@@ -51,8 +45,11 @@ final class AppState: ObservableObject {
 
     init() {
         // Initialize services in dependency order
+        let databaseManager = DatabaseManager.shared
         focusModeManager = FocusModeManager(preferencesManager: preferencesManager)
-        calendarService = CalendarService(preferencesManager: preferencesManager)
+        calendarService = CalendarService(
+            preferencesManager: preferencesManager, databaseManager: databaseManager
+        )
         overlayManager = OverlayManager(
             preferencesManager: preferencesManager, focusModeManager: focusModeManager
         )
@@ -126,16 +123,6 @@ final class AppState: ObservableObject {
         // Observe auth errors
         calendarService.$authError
             .assign(to: \.authError, on: self)
-            .store(in: &cancellables)
-
-        // Observe active overlay
-        overlayManager.$activeEvent
-            .assign(to: \.activeOverlay, on: self)
-            .store(in: &cancellables)
-
-        // Observe health status
-        healthMonitor.$healthStatus
-            .assign(to: \.healthStatus, on: self)
             .store(in: &cancellables)
 
         // Mirror menu bar preview manager properties AND observe preferences directly

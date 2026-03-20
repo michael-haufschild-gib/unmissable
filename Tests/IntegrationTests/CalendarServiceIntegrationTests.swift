@@ -8,7 +8,9 @@ final class CalendarServiceIntegrationTests: XCTestCase {
     @MainActor
     override func setUp() async throws {
         preferencesManager = PreferencesManager()
-        calendarService = CalendarService(preferencesManager: preferencesManager)
+        calendarService = CalendarService(
+            preferencesManager: preferencesManager, databaseManager: .shared
+        )
         try await super.setUp()
     }
 
@@ -60,10 +62,11 @@ final class CalendarServiceIntegrationTests: XCTestCase {
         // since we have offline capability with database caching
         await calendarService.syncEvents()
 
-        // Should remain idle or be offline, not error
+        // Should remain idle, offline, or error (auth-related)
         XCTAssertTrue(
             calendarService.syncStatus == .idle || calendarService.syncStatus == .offline
                 || calendarService.syncStatus == .error("User not authenticated")
+                || calendarService.syncStatus == .error("Calendar sync failed: User not authenticated")
         )
     }
 

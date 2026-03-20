@@ -1,10 +1,10 @@
-import PackagePlugin
 import Foundation
+import PackagePlugin
 
 @main
 struct LintGatePlugin: BuildToolPlugin {
     func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
-        let lintTargetNames: Set<String> = ["UnmissableTests", "IntegrationTests", "SnapshotTests"]
+        let lintTargetNames: Set = ["UnmissableTests", "IntegrationTests", "SnapshotTests"]
         guard lintTargetNames.contains(target.name) else {
             return []
         }

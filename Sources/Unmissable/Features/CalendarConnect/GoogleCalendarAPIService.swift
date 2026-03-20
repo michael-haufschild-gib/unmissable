@@ -112,6 +112,7 @@ final class GoogleCalendarAPIService: ObservableObject {
                 )
             } catch {
                 skippedCalendars += 1
+                lastError = error.localizedDescription
                 logger.warning(
                     "Skipping calendar \(calendarId) due to error: \(error.localizedDescription)"
                 )
@@ -122,6 +123,11 @@ final class GoogleCalendarAPIService: ObservableObject {
         // Sort events by start date
         allEvents.sort { $0.startDate < $1.startDate }
         events = allEvents
+
+        // Clear error if at least one calendar succeeded (partial success is not a total failure)
+        if successfulCalendars > 0 {
+            lastError = nil
+        }
 
         logger.info(
             "Successfully fetched \(allEvents.count) events from \(successfulCalendars) calendars (\(skippedCalendars) skipped)"

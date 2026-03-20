@@ -12,11 +12,8 @@ final class PreferencesManager: ObservableObject {
     @Published
     var defaultAlertMinutes: Int = 1 {
         didSet {
-            let validated = max(0, min(defaultAlertMinutes, 60))
-            if validated != defaultAlertMinutes { defaultAlertMinutes = validated
-                return
-            }
-            userDefaults.set(validated, forKey: "defaultAlertMinutes")
+            let v = clamped(defaultAlertMinutes, key: "defaultAlertMinutes", range: 0 ... 60)
+            if v != defaultAlertMinutes { defaultAlertMinutes = v }
         }
     }
 
@@ -28,33 +25,24 @@ final class PreferencesManager: ObservableObject {
     @Published
     var shortMeetingAlertMinutes: Int = 1 {
         didSet {
-            let validated = max(0, min(shortMeetingAlertMinutes, 60))
-            if validated != shortMeetingAlertMinutes { shortMeetingAlertMinutes = validated
-                return
-            }
-            userDefaults.set(validated, forKey: "shortMeetingAlertMinutes")
+            let v = clamped(shortMeetingAlertMinutes, key: "shortMeetingAlertMinutes", range: 0 ... 60)
+            if v != shortMeetingAlertMinutes { shortMeetingAlertMinutes = v }
         }
     }
 
     @Published
     var mediumMeetingAlertMinutes: Int = 2 {
         didSet {
-            let validated = max(0, min(mediumMeetingAlertMinutes, 60))
-            if validated != mediumMeetingAlertMinutes { mediumMeetingAlertMinutes = validated
-                return
-            }
-            userDefaults.set(validated, forKey: "mediumMeetingAlertMinutes")
+            let v = clamped(mediumMeetingAlertMinutes, key: "mediumMeetingAlertMinutes", range: 0 ... 60)
+            if v != mediumMeetingAlertMinutes { mediumMeetingAlertMinutes = v }
         }
     }
 
     @Published
     var longMeetingAlertMinutes: Int = 5 {
         didSet {
-            let validated = max(0, min(longMeetingAlertMinutes, 60))
-            if validated != longMeetingAlertMinutes { longMeetingAlertMinutes = validated
-                return
-            }
-            userDefaults.set(validated, forKey: "longMeetingAlertMinutes")
+            let v = clamped(longMeetingAlertMinutes, key: "longMeetingAlertMinutes", range: 0 ... 60)
+            if v != longMeetingAlertMinutes { longMeetingAlertMinutes = v }
         }
     }
 
@@ -62,11 +50,8 @@ final class PreferencesManager: ObservableObject {
     @Published
     var syncIntervalSeconds: Int = 60 {
         didSet {
-            let validated = max(30, min(syncIntervalSeconds, 3600))
-            if validated != syncIntervalSeconds { syncIntervalSeconds = validated
-                return
-            }
-            userDefaults.set(validated, forKey: "syncIntervalSeconds")
+            let v = clamped(syncIntervalSeconds, key: "syncIntervalSeconds", range: 30 ... 3600)
+            if v != syncIntervalSeconds { syncIntervalSeconds = v }
         }
     }
 
@@ -80,7 +65,6 @@ final class PreferencesManager: ObservableObject {
     var appearanceTheme: AppTheme = .system {
         didSet {
             userDefaults.set(appearanceTheme.rawValue, forKey: "appearanceTheme")
-            // Update the global theme manager
             ThemeManager.shared.setTheme(appearanceTheme)
         }
     }
@@ -88,22 +72,16 @@ final class PreferencesManager: ObservableObject {
     @Published
     var overlayOpacity: Double = 0.9 {
         didSet {
-            let validated = max(0.1, min(overlayOpacity, 1.0))
-            if validated != overlayOpacity { overlayOpacity = validated
-                return
-            }
-            userDefaults.set(validated, forKey: "overlayOpacity")
+            let v = clamped(overlayOpacity, key: "overlayOpacity", range: 0.1 ... 1.0)
+            if v != overlayOpacity { overlayOpacity = v }
         }
     }
 
     @Published
     var overlayShowMinutesBefore: Int = 5 {
         didSet {
-            let validated = max(1, min(overlayShowMinutesBefore, 60))
-            if validated != overlayShowMinutesBefore { overlayShowMinutesBefore = validated
-                return
-            }
-            userDefaults.set(validated, forKey: "overlayShowMinutesBefore")
+            let v = clamped(overlayShowMinutesBefore, key: "overlayShowMinutesBefore", range: 1 ... 60)
+            if v != overlayShowMinutesBefore { overlayShowMinutesBefore = v }
         }
     }
 
@@ -140,11 +118,8 @@ final class PreferencesManager: ObservableObject {
     @Published
     var alertVolume: Double = 0.7 {
         didSet {
-            let validated = max(0.0, min(alertVolume, 1.0))
-            if validated != alertVolume { alertVolume = validated
-                return
-            }
-            userDefaults.set(validated, forKey: "alertVolume")
+            let v = clamped(alertVolume, key: "alertVolume", range: 0.0 ... 1.0)
+            if v != alertVolume { alertVolume = v }
         }
     }
 
@@ -181,6 +156,22 @@ final class PreferencesManager: ObservableObject {
 
     init() {
         loadPreferences()
+    }
+
+    // MARK: - Clamped Persistence
+
+    /// Returns clamped value and persists to UserDefaults.
+    /// Caller must check return value against current property and re-assign if different.
+    private func clamped(_ value: Int, key: String, range: ClosedRange<Int>) -> Int {
+        let result = max(range.lowerBound, min(value, range.upperBound))
+        userDefaults.set(result, forKey: key)
+        return result
+    }
+
+    private func clamped(_ value: Double, key: String, range: ClosedRange<Double>) -> Double {
+        let result = max(range.lowerBound, min(value, range.upperBound))
+        userDefaults.set(result, forKey: key)
+        return result
     }
 
     private func loadPreferences() {

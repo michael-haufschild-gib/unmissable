@@ -36,7 +36,7 @@ final class CalendarService: ObservableObject {
     /// Callback to notify when events need to be rescheduled after sync
     var onEventsUpdated: (() async -> Void)?
 
-    init(preferencesManager: PreferencesManager, databaseManager: DatabaseManager = .shared) {
+    init(preferencesManager: PreferencesManager, databaseManager: DatabaseManager) {
         self.preferencesManager = preferencesManager
         self.databaseManager = databaseManager
         oauth2Service = OAuth2Service()

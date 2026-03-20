@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 // MARK: - Protocol Definitions for Dependency Injection
@@ -69,4 +70,21 @@ protocol OverlayRendering: ObservableObject {
     var lastRenderError: String? { get }
 
     func cleanup()
+}
+
+/// Protocol for meeting details popup functionality
+@MainActor
+protocol MeetingDetailsPopupManaging: ObservableObject {
+    var isPopupVisible: Bool { get }
+
+    func showPopup(for event: Event, relativeTo parentWindow: NSWindow?)
+    func hidePopup()
+}
+
+// MARK: - MeetingDetailsPopupManaging Convenience Overloads
+
+extension MeetingDetailsPopupManaging {
+    func showPopup(for event: Event) {
+        showPopup(for: event, relativeTo: nil)
+    }
 }

@@ -95,7 +95,10 @@ final class EventScheduler: ObservableObject {
             "Rescheduling alerts for \(self.currentEvents.count) events with updated preferences"
         )
 
-        stopTimers()
+        // Cancel monitoring but don't clear scheduledAlerts — scheduleAlerts()
+        // preserves existing snooze alerts before rebuilding the alert list
+        monitoringTask?.cancel()
+        monitoringTask = nil
         scheduleAlerts(for: currentEvents)
         startMonitoring(overlayManager: overlayManager)
     }

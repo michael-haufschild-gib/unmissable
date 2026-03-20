@@ -13,8 +13,9 @@ final class FocusModeManager: ObservableObject {
     private nonisolated(unsafe) var notificationObserver: NSObjectProtocol?
     private nonisolated(unsafe) var focusModeObserver: NSObjectProtocol?
 
-    init(preferencesManager: PreferencesManager) {
+    init(preferencesManager: PreferencesManager, isTestMode: Bool = false) {
         self.preferencesManager = preferencesManager
+        guard !isTestMode else { return }
         setupNotifications()
         checkDoNotDisturbStatus()
     }

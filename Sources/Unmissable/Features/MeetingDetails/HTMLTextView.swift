@@ -63,22 +63,29 @@ struct HTMLTextView: NSViewRepresentable {
     }
 
     func updateNSView(_ textView: NSTextView, context: Context) {
-        let newAttributedText = createAttributedString(from: htmlContent)
+        let coordinator = context.coordinator
 
-        if !textView.attributedString().isEqual(to: newAttributedText) {
-            logger.debug("HTMLTextView: Updating content (\(htmlContent?.count ?? 0) chars)")
-            textView.textStorage?.setAttributedString(newAttributedText)
-
-            // Force layout update
-            textView.needsLayout = true
-            if let layoutManager = textView.layoutManager,
-               let textContainer = textView.textContainer
-            {
-                layoutManager.ensureLayout(for: textContainer)
-            }
+        // Skip re-parsing if inputs haven't changed
+        if coordinator.lastHtmlContent == htmlContent, coordinator.lastTheme == effectiveTheme {
+            return
         }
 
-        textView.delegate = context.coordinator
+        let newAttributedText = createAttributedString(from: htmlContent)
+        coordinator.lastHtmlContent = htmlContent
+        coordinator.lastTheme = effectiveTheme
+
+        logger.debug("HTMLTextView: Updating content (\(htmlContent?.count ?? 0) chars)")
+        textView.textStorage?.setAttributedString(newAttributedText)
+
+        // Force layout update
+        textView.needsLayout = true
+        if let layoutManager = textView.layoutManager,
+           let textContainer = textView.textContainer
+        {
+            layoutManager.ensureLayout(for: textContainer)
+        }
+
+        textView.delegate = coordinator
     }
 
     func makeCoordinator() -> Coordinator {
@@ -202,6 +209,8 @@ struct HTMLTextView: NSViewRepresentable {
     class Coordinator: NSObject, NSTextViewDelegate {
         let onLinkTap: ((URL) -> Void)?
         let logger: Logger
+        var lastHtmlContent: String?
+        var lastTheme: EffectiveTheme?
 
         init(onLinkTap: ((URL) -> Void)?, logger: Logger) {
             self.onLinkTap = onLinkTap

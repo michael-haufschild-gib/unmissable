@@ -18,7 +18,9 @@ final class HealthMonitorTests: XCTestCase {
 
     func testSetup_triggersImmediateHealthEvaluationWithDependencies() async throws {
         let preferences = TestUtilities.createTestPreferencesManager()
-        let calendarService = CalendarService(preferencesManager: preferences)
+        let calendarService = CalendarService(
+            preferencesManager: preferences, databaseManager: .shared
+        )
         let oauth2Service = OAuth2Service()
         let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
         let syncManager = SyncManager(
@@ -43,7 +45,9 @@ final class HealthMonitorTests: XCTestCase {
 
     func testSetup_afterInitialCheck_refreshesHealthWithoutWaitingFullInterval() async throws {
         let preferences = TestUtilities.createTestPreferencesManager()
-        let calendarService = CalendarService(preferencesManager: preferences)
+        let calendarService = CalendarService(
+            preferencesManager: preferences, databaseManager: .shared
+        )
         let oauth2Service = OAuth2Service()
         let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
         let syncManager = SyncManager(

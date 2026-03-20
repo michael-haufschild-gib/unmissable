@@ -425,14 +425,6 @@ final class OAuth2Service: NSObject, ObservableObject {
             )
             try keychain.set(authStateData, key: keychainAuthStateKey)
 
-            // Also store tokens separately for debugging/migration purposes
-            if let accessToken = authState.lastTokenResponse?.accessToken {
-                try keychain.set(accessToken, key: keychainAccessTokenKey)
-            }
-            if let refreshToken = authState.lastTokenResponse?.refreshToken {
-                try keychain.set(refreshToken, key: keychainRefreshTokenKey)
-            }
-
             if let userEmail {
                 try keychain.set(userEmail, key: keychainUserEmailKey)
             }

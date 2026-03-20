@@ -80,6 +80,16 @@ final class OverlayManager: ObservableObject, OverlayManaging {
             return
         }
 
+        // Auto-dismiss for meetings that started too long ago
+        let timeSinceStart = Date().timeIntervalSince(event.startDate)
+        let maxAge: TimeInterval = fromSnooze ? 30 * 60 : 5 * 60
+        if timeSinceStart > maxAge {
+            logger.info(
+                "SKIP: Meeting '\(event.title)' started \(Int(timeSinceStart / 60))min ago (max \(Int(maxAge / 60))min)"
+            )
+            return
+        }
+
         // Clean up any existing overlay first (atomic operation)
         hideOverlay()
 

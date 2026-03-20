@@ -3,7 +3,7 @@ import OSLog
 import SwiftUI
 
 @MainActor
-final class MeetingDetailsPopupManager: ObservableObject {
+final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
     private let logger = Logger(
         subsystem: "com.unmissable.app", category: "MeetingDetailsPopupManager"
     )
@@ -12,6 +12,7 @@ final class MeetingDetailsPopupManager: ObservableObject {
     private(set) var isPopupVisible = false
     private var popupWindow: NSWindow?
     private weak var parentWindow: NSWindow?
+    private var windowDelegate: PopupWindowDelegate?
 
     // MARK: - Popup Management
 
@@ -51,6 +52,7 @@ final class MeetingDetailsPopupManager: ObservableObject {
 
         // Clean up state
         popupWindow = nil
+        windowDelegate = nil
         isPopupVisible = false
         parentWindow = nil
 
@@ -94,23 +96,14 @@ final class MeetingDetailsPopupManager: ObservableObject {
         // Position the window
         positionWindow(window, relativeTo: parentWindow)
 
-        // Set up window delegate for cleanup
+        // Set up window delegate for cleanup — stored as property to prevent deallocation
         let delegate = PopupWindowDelegate { [weak self] in
             Task { @MainActor in
                 self?.hidePopup()
             }
         }
         window.delegate = delegate
-
-        // Store delegate to prevent deallocation
-        withUnsafePointer(to: &AssociatedKeys.windowDelegate) { pointer in
-            objc_setAssociatedObject(
-                window,
-                pointer,
-                delegate,
-                .OBJC_ASSOCIATION_RETAIN_NONATOMIC
-            )
-        }
+        self.windowDelegate = delegate
 
         return window
     }
@@ -167,14 +160,4 @@ private class PopupWindowDelegate: NSObject, NSWindowDelegate {
             }
         }
     }
-}
-
-// MARK: - Associated Object Keys
-
-private enum AssociatedKeys {
-    /// Note: nonisolated(unsafe) is required for Swift 6 strict concurrency, but this is safe because:
-    /// 1. The value is never actually read or modified - only its memory address is used
-    /// 2. This is a standard pattern for objc_setAssociatedObject keys
-    /// 3. The address is stable for the lifetime of the process
-    nonisolated(unsafe) static var windowDelegate: UInt8 = 0
 }

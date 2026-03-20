@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import OSLog
 
@@ -28,16 +29,22 @@ final class TestSafeOverlayManager: OverlayManaging {
     func showOverlay(for event: Event, minutesBeforeMeeting _: Int = 5, fromSnooze: Bool = false) {
         logger.debug("TEST-SAFE SHOW: Overlay for \(event.title), fromSnooze: \(fromSnooze)")
 
-        if isTestEnvironment {
-            // In test environment, just set state without creating UI
-            activeEvent = event
-            isOverlayVisible = true
-            logger.debug("TEST-SAFE: Set overlay visible = true")
-        } else {
-            // In production, would create actual UI (but this class is for testing)
-            activeEvent = event
-            isOverlayVisible = true
+        // Auto-dismiss for meetings that started too long ago
+        let timeSinceStart = Date().timeIntervalSince(event.startDate)
+        let maxAge: TimeInterval = fromSnooze ? 30 * 60 : 5 * 60
+        if timeSinceStart > maxAge {
+            logger
+                .debug(
+                    "TEST-SAFE: Skipping overlay — meeting started \(Int(timeSinceStart))s ago (max \(Int(maxAge))s)"
+                )
+            activeEvent = nil
+            isOverlayVisible = false
+            return
         }
+
+        activeEvent = event
+        isOverlayVisible = true
+        logger.debug("TEST-SAFE: Set overlay visible = true")
     }
 
     func hideOverlay() {
@@ -74,6 +81,49 @@ enum OverlayManagerFactory {
                 preferencesManager: preferencesManager,
                 focusModeManager: focusModeManager
             )
+        }
+    }
+}
+
+// MARK: - Test-Safe Meeting Details Popup
+
+@MainActor
+final class TestSafeMeetingDetailsPopupManager: MeetingDetailsPopupManaging {
+    private let logger = Logger(subsystem: "com.unmissable.app", category: "TestSupport")
+
+    @Published
+    private(set) var isPopupVisible = false
+    private(set) var lastShownEvent: Event?
+
+    func showPopup(for event: Event, relativeTo _: NSWindow? = nil) {
+        logger.debug("TEST-SAFE SHOW: Popup for \(event.title)")
+
+        // Mirror real behavior: if already visible, just log
+        if isPopupVisible {
+            logger.debug("TEST-SAFE: Popup already visible")
+            return
+        }
+
+        lastShownEvent = event
+        isPopupVisible = true
+    }
+
+    func hidePopup() {
+        logger.debug("TEST-SAFE HIDE: Popup")
+        lastShownEvent = nil
+        isPopupVisible = false
+    }
+}
+
+// MARK: - Factory for Meeting Details Popup
+
+enum MeetingDetailsPopupManagerFactory {
+    @MainActor
+    static func create(isTestEnvironment: Bool = false) -> any MeetingDetailsPopupManaging {
+        if isTestEnvironment {
+            TestSafeMeetingDetailsPopupManager()
+        } else {
+            MeetingDetailsPopupManager()
         }
     }
 }

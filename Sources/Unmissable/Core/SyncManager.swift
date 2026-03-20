@@ -239,17 +239,20 @@ final class SyncManager: ObservableObject {
             let fetchedEvents = apiService.events
             logger.info("API returned \(fetchedEvents.count) events")
 
+            // If all calendar fetches failed AND there's an API error, surface it as a sync failure.
+            // Empty results without an error (e.g. genuinely no events) are fine.
+            if fetchedEvents.isEmpty, let apiError = apiService.lastError {
+                throw SyncError.apiFetchFailed(apiError)
+            }
+
             // Group events by calendar ID for atomic updates
             let eventsByCalendar = Dictionary(grouping: fetchedEvents) { $0.calendarId }
 
-            // Save events to database using atomic transactions per calendar
-            logger.info("Saving events to database (transactional per calendar)...")
-
-            for calendarId in selectedCalendarIds {
-                let calendarEvents = eventsByCalendar[calendarId] ?? []
-                try await databaseManager.replaceEvents(for: calendarId, with: calendarEvents)
-                try await databaseManager.updateCalendarSyncTime(calendarId)
-            }
+            // Save events to database — per-calendar error isolation ensures partial success
+            let failedCount = await saveEventsPerCalendar(
+                eventsByCalendar: eventsByCalendar,
+                selectedCalendarIds: selectedCalendarIds
+            )
 
             // Verify events were saved by checking database
             let savedCount = try await databaseManager.fetchEvents(from: startOfDay, to: endDate).count
@@ -274,8 +277,36 @@ final class SyncManager: ObservableObject {
                 resetRetryCount()
             }
 
-            updateSyncTimes()
+            // Only update next sync time on failure — do NOT update lastSyncTime
+            // since the sync didn't succeed
+            updateNextSyncTime()
         }
+    }
+
+    private func saveEventsPerCalendar(
+        eventsByCalendar: [String: [Event]],
+        selectedCalendarIds: [String]
+    ) async -> Int {
+        logger.info("Saving events to database (transactional per calendar)...")
+        var failedCalendars: [String] = []
+        for calendarId in selectedCalendarIds {
+            let calendarEvents = eventsByCalendar[calendarId] ?? []
+            do {
+                try await databaseManager.replaceEvents(for: calendarId, with: calendarEvents)
+                try await databaseManager.updateCalendarSyncTime(calendarId)
+            } catch {
+                failedCalendars.append(calendarId)
+                logger.error(
+                    "Failed to save events for calendar \(calendarId): \(error.localizedDescription)"
+                )
+            }
+        }
+        if !failedCalendars.isEmpty {
+            logger.warning(
+                "Partial sync: \(failedCalendars.count)/\(selectedCalendarIds.count) calendars failed to save"
+            )
+        }
+        return failedCalendars.count
     }
 
     private func isNetworkError(_ error: Error) -> Bool {
@@ -411,6 +442,17 @@ final class SyncManager: ObservableObject {
             try await databaseManager.performMaintenance()
         } catch {
             logger.error("Database maintenance failed: \(error.localizedDescription)")
+        }
+    }
+}
+
+enum SyncError: LocalizedError {
+    case apiFetchFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case let .apiFetchFailed(reason):
+            "Calendar sync failed: \(reason)"
         }
     }
 }

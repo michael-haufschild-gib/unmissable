@@ -45,8 +45,9 @@ final class LinkParser: Sendable {
             }
         }
 
-        // Remove duplicates
-        return Array(Set(meetLinks))
+        // Stable dedup preserving insertion order
+        var seen = Set<String>()
+        return meetLinks.filter { seen.insert($0.absoluteString.lowercased()).inserted }
     }
 
     func isGoogleMeetURL(_ url: URL) -> Bool {

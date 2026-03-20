@@ -56,9 +56,11 @@ final class TimezoneManager: Sendable {
             return formatter.string(from: event.startDate)
         }
 
-        formatter.timeZone = TimeZone(identifier: event.timezone)
+        let eventTz = TimeZone(identifier: event.timezone) ?? .current
+        formatter.timeZone = eventTz
         let timeString = formatter.string(from: event.startDate)
-        let tzName = getTimezoneDisplayName(event.timezone)
+        // Use abbreviation at the event's date to respect DST (e.g. PDT vs PST)
+        let tzName = eventTz.abbreviation(for: event.startDate) ?? getTimezoneDisplayName(event.timezone)
         return "\(timeString) \(tzName)"
     }
 

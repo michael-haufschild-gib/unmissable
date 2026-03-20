@@ -3,8 +3,6 @@ import SwiftUI
 struct CalendarPreferencesView: View {
     @EnvironmentObject
     var appState: AppState
-    @EnvironmentObject
-    var preferences: PreferencesManager
     @Environment(\.customDesign)
     private var design
     @State
