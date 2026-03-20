@@ -18,8 +18,8 @@
 ## Running Tests
 
 ```bash
-# Run all tests (quick)
-swift test
+# Run all XCTest suites (authoritative)
+xcodebuild -scheme Unmissable -destination 'platform=macOS' test
 
 # Run all tests with full build cycle
 ./Scripts/build.sh
@@ -27,17 +27,17 @@ swift test
 # Run comprehensive test suite (unit + integration + UI + performance + memory)
 ./Scripts/run-comprehensive-tests.sh
 
-# Run specific test file
-swift test --filter [TestClassName]
+# Run specific test class
+xcodebuild -scheme Unmissable -destination 'platform=macOS' test -only-testing:[TestTarget]/[TestClassName]
 
 # Run specific test method
-swift test --filter [TestClassName]/[testMethodName]
-
-# Run tests via xcodebuild (for CI or detailed output)
-xcodebuild -scheme Unmissable -destination 'platform=macOS' test
+xcodebuild -scheme Unmissable -destination 'platform=macOS' test -only-testing:[TestTarget]/[TestClassName]/[testMethodName]
 
 # Run only unit tests
 xcodebuild -scheme Unmissable -destination 'platform=macOS' test -only-testing:UnmissableTests
+
+# Optional fast smoke check (non-authoritative in this repo setup)
+swift test
 ```
 
 ---

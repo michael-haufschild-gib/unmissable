@@ -36,7 +36,7 @@ Get OAuth credentials from [Google Cloud Console](https://console.developers.goo
 
 ```bash
 swift build          # Build
-swift test           # Run tests
+xcodebuild -scheme Unmissable -destination 'platform=macOS' test  # Run XCTest suites
 ./Scripts/build.sh   # Full build + lint + test
 ./Scripts/format.sh  # Format code
 ```

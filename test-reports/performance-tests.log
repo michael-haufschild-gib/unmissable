@@ -1,0 +1,1 @@
+MOCK_XCODEBUILD_FAIL: -scheme Unmissable -destination platform=macOS test -only-testing:UnmissableTests/testLargeNumberOfEvents -only-testing:UnmissableTests/testBatchEventSavePerformance -only-testing:UnmissableTests/testEndToEndPerformance -resultBundlePath /Users/Spare/Documents/code/unmissable/test-reports/performance-tests.xcresult

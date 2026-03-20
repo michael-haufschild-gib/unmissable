@@ -45,7 +45,7 @@ swift run
 |------|---------|
 | Build | `swift build` |
 | Run | `swift run` |
-| Test (quick) | `swift test` |
+| Test (XCTest) | `xcodebuild -scheme Unmissable -destination 'platform=macOS' test` |
 | Test (comprehensive) | `./Scripts/run-comprehensive-tests.sh` |
 | Format code | `./Scripts/format.sh` |
 | Build + lint + test | `./Scripts/build.sh` |
@@ -126,6 +126,9 @@ swiftformat .
 # Check for issues
 swiftlint lint
 
+# Enforced policy used by test scripts (fails on hard rules)
+./Scripts/enforce-lint.sh
+
 # Auto-fix where possible
 swiftlint --fix
 ```
@@ -142,7 +145,7 @@ swiftlint --fix
 
 ### Quick Test Run
 ```bash
-swift test
+xcodebuild -scheme Unmissable -destination 'platform=macOS' test
 ```
 
 ### Comprehensive Test Suite
@@ -154,13 +157,16 @@ swift test
 ### Specific Tests
 ```bash
 # Run single test class
-swift test --filter EventTests
+xcodebuild -scheme Unmissable -destination 'platform=macOS' test -only-testing:UnmissableTests/EventTests
 
 # Run single test method
-swift test --filter EventTests/testEventInitialization
+xcodebuild -scheme Unmissable -destination 'platform=macOS' test -only-testing:UnmissableTests/EventTests/testEventInitialization
 
 # Run via xcodebuild
 xcodebuild -scheme Unmissable -destination 'platform=macOS' test
+
+# Optional smoke check (non-authoritative for this repo setup)
+swift test
 ```
 
 ### Test Reports
@@ -275,6 +281,6 @@ swift build
 
 **Testing**:
 - Don't skip tests before committing
-- Do run at least `swift test`
+- Do run at least `xcodebuild -scheme Unmissable -destination 'platform=macOS' test`
 - Don't commit with failing tests
 - Do run comprehensive tests before PRs: `./Scripts/run-comprehensive-tests.sh`
