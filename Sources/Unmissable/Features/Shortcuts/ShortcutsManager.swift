@@ -7,8 +7,10 @@ import OSLog
 final class ShortcutsManager: ObservableObject {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "ShortcutsManager")
 
-    @Published var dismissShortcut: HotKey?
-    @Published var joinShortcut: HotKey?
+    @Published
+    var dismissShortcut: HotKey?
+    @Published
+    var joinShortcut: HotKey?
 
     private weak var overlayManager: (any OverlayManaging)?
 

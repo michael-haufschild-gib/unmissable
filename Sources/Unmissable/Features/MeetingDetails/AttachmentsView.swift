@@ -35,7 +35,8 @@ struct AttachmentRow: View {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "AttachmentRow")
 
     let attachment: EventAttachment
-    @State private var isHovered = false
+    @State
+    private var isHovered = false
 
     var body: some View {
         Button(action: openAttachment) {

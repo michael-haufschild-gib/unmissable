@@ -6,8 +6,10 @@ import OSLog
 final class MenuBarPreviewManager: ObservableObject {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "MenuBarPreviewManager")
 
-    @Published var menuBarText: String?
-    @Published var shouldShowIcon: Bool = true
+    @Published
+    var menuBarText: String?
+    @Published
+    var shouldShowIcon: Bool = true
 
     private let preferencesManager: PreferencesManager
     private var events: [Event] = []

@@ -5,8 +5,10 @@ import OSLog
 final class HealthMonitor: ObservableObject {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "HealthMonitor")
 
-    @Published var healthStatus: HealthStatus = .healthy
-    @Published var metrics: HealthMetrics = .init()
+    @Published
+    var healthStatus: HealthStatus = .healthy
+    @Published
+    var metrics: HealthMetrics = .init()
 
     private var healthCheckTask: Task<Void, Never>?
     private let healthCheckInterval: TimeInterval = 60.0 // Check every minute
@@ -37,6 +39,9 @@ final class HealthMonitor: ObservableObject {
         logger.info("Starting health monitoring")
 
         healthCheckTask = Task { @MainActor in
+            // Perform initial health check immediately
+            performHealthCheck()
+
             while !Task.isCancelled {
                 do {
                     try await Task.sleep(for: .seconds(Int(healthCheckInterval)))
@@ -44,7 +49,6 @@ final class HealthMonitor: ObservableObject {
                         performHealthCheck()
                     }
                 } catch {
-                    // Task was cancelled, exit the loop
                     break
                 }
             }

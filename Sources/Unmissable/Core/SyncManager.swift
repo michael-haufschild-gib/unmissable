@@ -6,13 +6,17 @@ import OSLog
 @MainActor
 final class SyncManager: ObservableObject {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "SyncManager")
-    private let debugLogger = DebugLogger(subsystem: "com.unmissable.app", category: "SyncManager")
 
-    @Published var syncStatus: SyncStatus = .idle
-    @Published var lastSyncTime: Date?
-    @Published var nextSyncTime: Date?
-    @Published var isOnline: Bool = true
-    @Published var retryCount: Int = 0
+    @Published
+    var syncStatus: SyncStatus = .idle
+    @Published
+    var lastSyncTime: Date?
+    @Published
+    var nextSyncTime: Date?
+    @Published
+    var isOnline: Bool = true
+    @Published
+    var retryCount: Int = 0
 
     private let apiService: GoogleCalendarAPIService
     private let databaseManager: DatabaseManager
@@ -173,6 +177,7 @@ final class SyncManager: ObservableObject {
         syncTask?.cancel()
         syncTask = nil
         nextSyncTime = nil
+        resetRetryCount()
         logger.info("Stopped periodic sync")
     }
 
@@ -232,7 +237,6 @@ final class SyncManager: ObservableObject {
             )
 
             let fetchedEvents = apiService.events
-            debugLogger.info("SYNC: Got \(fetchedEvents.count) events from API")
             logger.info("API returned \(fetchedEvents.count) events")
 
             // Group events by calendar ID for atomic updates

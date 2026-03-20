@@ -8,10 +8,13 @@ import SwiftUI
 final class OverlayManager: ObservableObject, OverlayManaging {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "OverlayManager")
 
-    @Published var activeEvent: Event?
-    @Published var isOverlayVisible = false
+    @Published
+    var activeEvent: Event?
+    @Published
+    var isOverlayVisible = false
     /// Error message if snooze fails due to scheduler unavailability
-    @Published var snoozeError: String?
+    @Published
+    var snoozeError: String?
 
     /// Computed time until meeting starts (negative if meeting has started)
     /// Note: This is a computed property - the View manages its own timer for UI updates
@@ -100,11 +103,10 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         // Create windows synchronously (View manages its own countdown timer)
         createOverlayWindows(for: event)
 
-        // Log successful overlay creation
         let responseTime = Date().timeIntervalSince(startTime)
-        ProductionMonitor.shared.logOverlaySuccess(responseTime: responseTime)
-
-        logger.info("SHOW OVERLAY: Completed for event: \(event.title) in \(responseTime)s")
+        logger.info(
+            "SHOW OVERLAY: Completed for event: \(event.title) in \(responseTime)s"
+        )
     }
 
     func hideOverlay() {

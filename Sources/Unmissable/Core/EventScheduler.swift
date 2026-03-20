@@ -7,7 +7,8 @@ import OSLog
 final class EventScheduler: ObservableObject {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "EventScheduler")
 
-    @Published var scheduledAlerts: [ScheduledAlert] = []
+    @Published
+    var scheduledAlerts: [ScheduledAlert] = []
 
     private nonisolated(unsafe) var monitoringTask: Task<Void, Never>?
     private let preferencesManager: PreferencesManager
@@ -215,7 +216,7 @@ final class EventScheduler: ObservableObject {
                     guard !Task.isCancelled else { break }
 
                     // Process triggers
-                    await checkForTriggeredAlerts(overlayManager: overlayManager)
+                    checkForTriggeredAlerts(overlayManager: overlayManager)
                 } catch {
                     // Task cancellation throws cancellation error
                     if Task.isCancelled {
@@ -237,7 +238,7 @@ final class EventScheduler: ObservableObject {
         startMonitoring(overlayManager: overlayManager)
     }
 
-    private func checkForTriggeredAlerts(overlayManager: any OverlayManaging) async {
+    private func checkForTriggeredAlerts(overlayManager: any OverlayManaging) {
         let now = Date()
 
         // Find alerts that should trigger
@@ -263,7 +264,7 @@ final class EventScheduler: ObservableObject {
         }
 
         for alert in triggeredAlerts {
-            await handleTriggeredAlert(alert, overlayManager: overlayManager)
+            handleTriggeredAlert(alert, overlayManager: overlayManager)
         }
 
         // Remove triggered alerts
@@ -280,39 +281,22 @@ final class EventScheduler: ObservableObject {
         }
     }
 
-    private func handleTriggeredAlert(_ alert: ScheduledAlert, overlayManager: any OverlayManaging) async {
-        let alertTypeName = switch alert.alertType {
-        case let .reminder(minutes):
-            "reminder(\(minutes)min)"
-        case let .snooze(until):
-            "snooze(until: \(until))"
+    private func handleTriggeredAlert(_ alert: ScheduledAlert, overlayManager: any OverlayManaging) {
+        switch alert.alertType {
+        case .reminder:
+            logger.info("REMINDER: Showing overlay for \(alert.event.title)")
+            overlayManager.showOverlay(for: alert.event, fromSnooze: false)
+
         case .meetingStart:
-            "meetingStart"
-        }
-
-        logger.info("HANDLING ALERT: \(alertTypeName) for event: \(alert.event.title)")
-
-        // CRITICAL FIX: Ensure all overlay operations happen on main thread
-        await MainActor.run {
-            switch alert.alertType {
-            case .reminder:
-                logger.info("REMINDER: Showing overlay for \(alert.event.title)")
-                overlayManager.showOverlay(for: alert.event, fromSnooze: false)
-
-            case .meetingStart:
-                if preferencesManager.autoJoinEnabled, let url = alert.event.primaryLink {
-                    logger.info("AUTO-JOIN: Opening meeting for \(alert.event.title)")
-                    NSWorkspace.shared.open(url)
-                }
-
-            case .snooze:
-                logger.info("SNOOZE: Re-showing overlay for \(alert.event.title)")
-                // SNOOZE FIX: Mark overlay as coming from snooze alert
-                overlayManager.showOverlay(for: alert.event, fromSnooze: true)
+            if preferencesManager.autoJoinEnabled, let url = alert.event.primaryLink {
+                logger.info("AUTO-JOIN: Opening meeting for \(alert.event.title)")
+                NSWorkspace.shared.open(url)
             }
-        }
 
-        logger.info("ALERT HANDLED: Completed for \(alert.event.title)")
+        case .snooze:
+            logger.info("SNOOZE: Re-showing overlay for \(alert.event.title)")
+            overlayManager.showOverlay(for: alert.event, fromSnooze: true)
+        }
     }
 
     func scheduleSnooze(for event: Event, minutes: Int) {

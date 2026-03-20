@@ -6,19 +6,29 @@ import OSLog
 final class CalendarService: ObservableObject {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "CalendarService")
 
-    @Published var isConnected = false
-    @Published var syncStatus: SyncStatus = .idle
-    @Published var events: [Event] = []
-    @Published var startedEvents: [Event] = []
-    @Published var calendars: [CalendarInfo] = []
-    @Published var lastSyncTime: Date?
-    @Published var nextSyncTime: Date?
+    @Published
+    var isConnected = false
+    @Published
+    var syncStatus: SyncStatus = .idle
+    @Published
+    var events: [Event] = []
+    @Published
+    var startedEvents: [Event] = []
+    @Published
+    var calendars: [CalendarInfo] = []
+    @Published
+    var lastSyncTime: Date?
+    @Published
+    var nextSyncTime: Date?
+    @Published
+    var userEmail: String?
+    @Published
+    var authError: String?
 
-    let oauth2Service: OAuth2Service
+    private let oauth2Service: OAuth2Service
     private let apiService: GoogleCalendarAPIService
     private let syncManager: SyncManager
     private let databaseManager: DatabaseManager
-    private let timezoneManager: TimezoneManager
     private let preferencesManager: PreferencesManager
     private var cancellables = Set<AnyCancellable>()
     private var uiRefreshTask: Task<Void, Never>?
@@ -35,8 +45,6 @@ final class CalendarService: ObservableObject {
             apiService: apiService, databaseManager: databaseManager,
             preferencesManager: preferencesManager
         )
-        timezoneManager = TimezoneManager.shared
-
         setupBindings()
         setupSyncCallback()
         startUIRefreshTimer()
@@ -60,6 +68,15 @@ final class CalendarService: ObservableObject {
 
         syncManager.$nextSyncTime
             .assign(to: \.nextSyncTime, on: self)
+            .store(in: &cancellables)
+
+        // Forward OAuth state for external consumers
+        oauth2Service.$userEmail
+            .assign(to: \.userEmail, on: self)
+            .store(in: &cancellables)
+
+        oauth2Service.$authorizationError
+            .assign(to: \.authError, on: self)
             .store(in: &cancellables)
 
         // Load cached data on startup
@@ -180,8 +197,8 @@ final class CalendarService: ObservableObject {
             // Load started meetings from database
             let cachedStartedEvents = try await databaseManager.fetchStartedMeetings(limit: 20)
 
-            events = cachedEvents.map { timezoneManager.localizedEvent($0) }
-            startedEvents = cachedStartedEvents.map { timezoneManager.localizedEvent($0) }
+            events = cachedEvents
+            startedEvents = cachedStartedEvents
 
             logger.info(
                 "Loaded \(self.calendars.count) calendars, \(self.events.count) upcoming events, and \(self.startedEvents.count) started meetings from cache"
@@ -200,8 +217,7 @@ final class CalendarService: ObservableObject {
     // MARK: - Search and Queries
 
     func searchEvents(query: String) async throws -> [Event] {
-        let results = try await syncManager.searchEvents(query: query)
-        return results.map { timezoneManager.localizedEvent($0) }
+        try await syncManager.searchEvents(query: query)
     }
 
     func getEventsForToday() async throws -> [Event] {
@@ -209,13 +225,11 @@ final class CalendarService: ObservableObject {
         let today = calendar.startOfDay(for: Date())
         let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today
 
-        let results = try await syncManager.getEventsInRange(from: today, to: tomorrow)
-        return results.map { timezoneManager.localizedEvent($0) }
+        return try await syncManager.getEventsInRange(from: today, to: tomorrow)
     }
 
     func getUpcomingEvents(limit: Int = 10) async throws -> [Event] {
-        let results = try await syncManager.getUpcomingEvents(limit: limit)
-        return results.map { timezoneManager.localizedEvent($0) }
+        try await syncManager.getUpcomingEvents(limit: limit)
     }
 
     // MARK: - Service Access

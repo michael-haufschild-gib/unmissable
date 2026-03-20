@@ -2,9 +2,12 @@ import SwiftUI
 
 struct MeetingDetailsView: View {
     let event: Event
-    @Environment(\.customDesign) private var design
-    @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var themeManager = ThemeManager.shared
+    @Environment(\.customDesign)
+    private var design
+    @Environment(\.dismiss)
+    private var dismiss
+    @ObservedObject
+    private var themeManager = ThemeManager.shared
 
     var body: some View {
         VStack(spacing: 0) {

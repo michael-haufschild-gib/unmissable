@@ -6,11 +6,13 @@ final class LinkParser: Sendable {
 
     static let shared = LinkParser()
 
-    /// Trusted domains for meeting links - only these are considered valid meeting URLs
+    /// Trusted domains for meeting links — only these are considered valid meeting URLs
     private static let trustedMeetingDomains = [
         "meet.google.com",
+        "g.co",
         "zoom.us",
         "teams.microsoft.com",
+        "teams.live.com",
         "webex.com",
         "gotomeeting.com",
         "whereby.com",
@@ -48,10 +50,11 @@ final class LinkParser: Sendable {
     }
 
     func isGoogleMeetURL(_ url: URL) -> Bool {
-        let urlString = url.absoluteString.lowercased()
         let host = url.host?.lowercased() ?? ""
 
-        return host.contains("meet.google.com") || urlString.contains("meet.google.com")
+        if host.contains("meet.google.com") { return true }
+        if host == "g.co", url.path.lowercased().hasPrefix("/meet/") { return true }
+        return false
     }
 
     func extractGoogleMeetID(from url: URL) -> String? {
@@ -74,51 +77,44 @@ final class LinkParser: Sendable {
     /// This helps prevent phishing attacks via lookalike domains
     func isValidMeetingURL(_ url: URL) -> Bool {
         guard url.scheme?.lowercased() == "https" else {
-            logger.debug("Rejected non-HTTPS URL: \(url.absoluteString)")
             return false
         }
 
         guard let host = url.host?.lowercased() else {
-            logger.debug("Rejected URL with no host: \(url.absoluteString)")
             return false
         }
 
-        // Check if host matches or is subdomain of trusted domain
-        let isTrusted = Self.trustedMeetingDomains.contains { trustedDomain in
+        // g.co is a Google URL shortener — only trust /meet/ paths
+        if host == "g.co" {
+            return url.path.lowercased().hasPrefix("/meet/")
+        }
+
+        return Self.trustedMeetingDomains.contains { trustedDomain in
             host == trustedDomain || host.hasSuffix(".\(trustedDomain)")
         }
-
-        if !isTrusted {
-            logger.debug("Rejected untrusted domain: \(host)")
-        }
-
-        return isTrusted
     }
 
     // MARK: - Link Prioritization
 
     func detectPrimaryLink(from links: [URL]) -> URL? {
-        // Filter to only validated meeting URLs
         let validLinks = links.filter { isValidMeetingURL($0) }
 
-        // Prioritize Google Meet video links over other types (like dial-in numbers)
-        if let meetLink = validLinks.first(where: { url in
-            let urlString = url.absoluteString.lowercased()
-            return urlString.contains("meet.google.com")
-        }) {
+        // Priority 1: Google Meet (meet.google.com, g.co/meet)
+        if let meetLink = validLinks.first(where: { isGoogleMeetURL($0) }) {
             return meetLink
         }
 
-        // Fallback to other validated video meeting providers
+        // Priority 2: Other major video providers
         if let videoLink = validLinks.first(where: { url in
-            let urlString = url.absoluteString.lowercased()
-            return urlString.contains("zoom.us") || urlString.contains("teams.microsoft.com")
-                || urlString.contains("webex.com")
+            let host = url.host?.lowercased() ?? ""
+            return host.contains("zoom.us")
+                || host.contains("teams.microsoft.com")
+                || host.contains("teams.live.com")
+                || host.contains("webex.com")
         }) {
             return videoLink
         }
 
-        // Fallback to any validated link
         return validLinks.first
     }
 

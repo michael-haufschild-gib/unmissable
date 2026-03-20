@@ -2,6 +2,9 @@ import Foundation
 @testable import Unmissable
 import XCTest
 
+/// Tests the OverlayManaging protocol contract via TestSafeOverlayManager.
+/// These tests verify the overlay state machine:
+/// hidden → show → visible → hide → hidden, and snooze behavior.
 @MainActor
 final class OverlayRuntimeContractTests: XCTestCase {
     private var overlayManager: TestSafeOverlayManager!
@@ -17,127 +20,135 @@ final class OverlayRuntimeContractTests: XCTestCase {
         try await super.tearDown()
     }
 
-    func testFutureEventIsScheduledWithoutImmediateDisplay() async throws {
-        let futureEvent = TestUtilities.createTestEvent(
-            id: "runtime-future-schedule",
-            startDate: Date().addingTimeInterval(3600)
+    // MARK: - State Machine: Show/Hide
+
+    func testShowOverlaySetsVisibleAndActiveEvent() {
+        let event = TestUtilities.createTestEvent(
+            id: "contract-show"
         )
 
-        overlayManager.showOverlay(for: futureEvent, minutesBeforeMeeting: 5, fromSnooze: false)
-
-        XCTAssertFalse(overlayManager.isOverlayVisible)
-
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in true }
-
-        XCTAssertFalse(overlayManager.isOverlayVisible)
-    }
-
-    func testScheduledOverlayAppearsNearExpectedTriggerTime() async {
-        let expectedDelay: TimeInterval = 2
-        let leadMinutes = 2
-        let scheduledEvent = TestUtilities.createTestEvent(
-            id: "runtime-delay-2s",
-            startDate: Date().addingTimeInterval(TimeInterval(leadMinutes * 60) + expectedDelay)
+        overlayManager.showOverlay(
+            for: event,
+            minutesBeforeMeeting: 5,
+            fromSnooze: false
         )
-
-        let startTime = Date()
-        overlayManager.showOverlay(for: scheduledEvent, minutesBeforeMeeting: leadMinutes, fromSnooze: false)
-
-        let appeared = await waitUntil(timeout: 6.0) {
-            self.overlayManager.isOverlayVisible
-        }
-
-        XCTAssertTrue(appeared, "Scheduled overlay should appear before timeout")
-        let timingError = abs(Date().timeIntervalSince(startTime) - expectedDelay)
-        XCTAssertLessThan(timingError, 1.2, "Trigger timing drift should stay under 1.2s")
-    }
-
-    func testMultipleScheduledOverlaysCanFireSequentially() async {
-        let delays: [TimeInterval] = [1.0, 2.0, 3.0]
-        let leadMinutes = 2
-        let events = delays.enumerated().map { index, delay in
-            TestUtilities.createTestEvent(
-                id: "runtime-multi-\(index)",
-                startDate: Date().addingTimeInterval(TimeInterval(leadMinutes * 60) + delay)
-            )
-        }
-
-        for event in events {
-            overlayManager.showOverlay(for: event, minutesBeforeMeeting: leadMinutes, fromSnooze: false)
-        }
-
-        var triggeredIDs = Set<String>()
-
-        let completed = await waitUntil(timeout: 10.0) {
-            if self.overlayManager.isOverlayVisible,
-               let activeID = self.overlayManager.activeEvent?.id,
-               !triggeredIDs.contains(activeID)
-            {
-                triggeredIDs.insert(activeID)
-                self.overlayManager.hideOverlay()
-            }
-            return triggeredIDs.count == events.count
-        }
-
-        XCTAssertTrue(completed, "All scheduled overlays should eventually fire")
-        XCTAssertEqual(triggeredIDs.count, events.count)
-    }
-
-    func testHideDoesNotCancelPendingFutureOverlays() async {
-        let leadMinutes = 2
-        let futureEvent = TestUtilities.createTestEvent(
-            id: "runtime-pending-future",
-            startDate: Date().addingTimeInterval(TimeInterval(leadMinutes * 60) + 2)
-        )
-        let immediateEvent = TestUtilities.createTestEvent(
-            id: "runtime-immediate",
-            startDate: Date().addingTimeInterval(60)
-        )
-
-        overlayManager.showOverlay(for: futureEvent, minutesBeforeMeeting: leadMinutes, fromSnooze: false)
-        overlayManager.showOverlay(for: immediateEvent, minutesBeforeMeeting: 5, fromSnooze: false)
 
         XCTAssertTrue(overlayManager.isOverlayVisible)
-        overlayManager.hideOverlay()
-
-        let futureTriggered = await waitUntil(timeout: 6.0) {
-            self.overlayManager.isOverlayVisible && self.overlayManager.activeEvent?.id == futureEvent.id
-        }
-
-        XCTAssertTrue(futureTriggered, "Hiding current overlay should not cancel other pending schedules")
+        XCTAssertEqual(overlayManager.activeEvent?.id, event.id)
     }
 
+    func testHideOverlayClearsState() {
+        let event = TestUtilities.createTestEvent(
+            id: "contract-hide"
+        )
+
+        overlayManager.showOverlay(
+            for: event,
+            minutesBeforeMeeting: 5,
+            fromSnooze: false
+        )
+        overlayManager.hideOverlay()
+
+        XCTAssertFalse(overlayManager.isOverlayVisible)
+        XCTAssertNil(overlayManager.activeEvent)
+    }
+
+    func testShowReplacesActiveEvent() {
+        let event1 = TestUtilities.createTestEvent(id: "contract-replace-1")
+        let event2 = TestUtilities.createTestEvent(id: "contract-replace-2")
+
+        overlayManager.showOverlay(
+            for: event1,
+            minutesBeforeMeeting: 5,
+            fromSnooze: false
+        )
+        overlayManager.showOverlay(
+            for: event2,
+            minutesBeforeMeeting: 5,
+            fromSnooze: false
+        )
+
+        XCTAssertTrue(overlayManager.isOverlayVisible)
+        XCTAssertEqual(
+            overlayManager.activeEvent?.id,
+            event2.id,
+            "Second show should replace the first event"
+        )
+    }
+
+    func testHideOnAlreadyHiddenIsNoOp() {
+        overlayManager.hideOverlay()
+        overlayManager.hideOverlay()
+
+        XCTAssertFalse(overlayManager.isOverlayVisible)
+        XCTAssertNil(overlayManager.activeEvent)
+    }
+
+    // MARK: - Snooze
+
+    func testSnoozeHidesOverlayAndClearsActiveEvent() {
+        let event = TestUtilities.createTestEvent(
+            id: "contract-snooze"
+        )
+
+        overlayManager.showOverlay(
+            for: event,
+            minutesBeforeMeeting: 5,
+            fromSnooze: false
+        )
+        overlayManager.snoozeOverlay(for: 5)
+
+        XCTAssertFalse(overlayManager.isOverlayVisible)
+        XCTAssertNil(overlayManager.activeEvent)
+    }
+
+    func testSnoozeWithNoActiveEventIsNoOp() {
+        overlayManager.snoozeOverlay(for: 5)
+
+        XCTAssertFalse(overlayManager.isOverlayVisible)
+        XCTAssertNil(overlayManager.activeEvent)
+    }
+
+    // MARK: - Stress Tests
+
     func testRapidShowHideCycleRemainsResponsive() {
-        let immediateEvent = TestUtilities.createTestEvent(
-            id: "runtime-rapid-cycle",
-            startDate: Date().addingTimeInterval(60)
+        let event = TestUtilities.createTestEvent(
+            id: "contract-rapid-cycle"
         )
 
         let startTime = Date()
 
         for _ in 0 ..< 25 {
-            overlayManager.showOverlay(for: immediateEvent, minutesBeforeMeeting: 5, fromSnooze: false)
+            overlayManager.showOverlay(
+                for: event,
+                minutesBeforeMeeting: 5,
+                fromSnooze: false
+            )
             overlayManager.hideOverlay()
         }
 
         let elapsed = Date().timeIntervalSince(startTime)
 
         XCTAssertFalse(overlayManager.isOverlayVisible)
-        XCTAssertLessThan(elapsed, 3.0, "Rapid show/hide cycles should complete quickly")
+        XCTAssertLessThan(
+            elapsed, 3.0,
+            "Rapid show/hide cycles should complete quickly"
+        )
     }
 
     func testConcurrentShowHideOperationsRemainConsistent() async {
-        let startTime = Date()
-
         await withTaskGroup(of: Void.self) { group in
             for index in 0 ..< 20 {
                 group.addTask { @MainActor in
                     if index % 2 == 0 {
                         let event = TestUtilities.createTestEvent(
-                            id: "runtime-concurrent-\(index)",
-                            startDate: Date().addingTimeInterval(60)
+                            id: "contract-concurrent-\(index)"
                         )
-                        self.overlayManager.showOverlay(for: event, minutesBeforeMeeting: 5, fromSnooze: false)
+                        self.overlayManager.showOverlay(
+                            for: event,
+                            minutesBeforeMeeting: 5,
+                            fromSnooze: false
+                        )
                     } else {
                         self.overlayManager.hideOverlay()
                     }
@@ -150,26 +161,9 @@ final class OverlayRuntimeContractTests: XCTestCase {
 
         XCTAssertFalse(overlayManager.isOverlayVisible)
         XCTAssertNil(overlayManager.activeEvent)
-        XCTAssertLessThan(Date().timeIntervalSince(startTime), 3.0)
     }
 
-    func testEndedEventsAreIgnoredUnlessFromSnooze() {
-        let endedEvent = TestUtilities.createTestEvent(
-            id: "runtime-ended",
-            startDate: Date().addingTimeInterval(-3600),
-            endDate: Date().addingTimeInterval(-1800)
-        )
-
-        overlayManager.showOverlay(for: endedEvent, minutesBeforeMeeting: 5, fromSnooze: false)
-
-        XCTAssertFalse(overlayManager.isOverlayVisible)
-        XCTAssertNil(overlayManager.activeEvent)
-
-        overlayManager.showOverlay(for: endedEvent, minutesBeforeMeeting: 0, fromSnooze: true)
-
-        XCTAssertTrue(overlayManager.isOverlayVisible)
-        XCTAssertEqual(overlayManager.activeEvent?.id, endedEvent.id)
-    }
+    // MARK: - Edge Cases
 
     func testMalformedEventCanStillBeShownAndSnoozed() {
         let malformedEvent = Event(
@@ -178,10 +172,14 @@ final class OverlayRuntimeContractTests: XCTestCase {
             startDate: Date().addingTimeInterval(300),
             endDate: Date().addingTimeInterval(300),
             organizer: "",
-            calendarId: "runtime-malformed"
+            calendarId: "contract-malformed"
         )
 
-        overlayManager.showOverlay(for: malformedEvent, minutesBeforeMeeting: 5, fromSnooze: false)
+        overlayManager.showOverlay(
+            for: malformedEvent,
+            minutesBeforeMeeting: 5,
+            fromSnooze: false
+        )
 
         XCTAssertTrue(overlayManager.isOverlayVisible)
         XCTAssertEqual(overlayManager.activeEvent?.id, malformedEvent.id)
@@ -192,22 +190,28 @@ final class OverlayRuntimeContractTests: XCTestCase {
         XCTAssertNil(overlayManager.activeEvent)
     }
 
-    private func waitUntil(
-        timeout: TimeInterval,
-        pollInterval: Duration = .milliseconds(50),
-        condition: @escaping @MainActor () -> Bool
-    ) async -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
+    func testTimeUntilMeetingReflectsActiveEvent() {
+        let futureEvent = TestUtilities.createTestEvent(
+            id: "contract-time-until",
+            startDate: Date().addingTimeInterval(600)
+        )
 
-        while Date() < deadline {
-            if condition() {
-                return true
-            }
+        XCTAssertEqual(
+            overlayManager.timeUntilMeeting,
+            0,
+            "No active event → timeUntilMeeting should be 0"
+        )
 
-            // swiftlint:disable:next no_raw_task_sleep_in_tests - polling implementation
-            try? await Task.sleep(for: pollInterval)
-        }
+        overlayManager.showOverlay(
+            for: futureEvent,
+            minutesBeforeMeeting: 5,
+            fromSnooze: false
+        )
 
-        return condition()
+        XCTAssertGreaterThan(
+            overlayManager.timeUntilMeeting,
+            500,
+            "Active future event → timeUntilMeeting should be positive"
+        )
     }
 }

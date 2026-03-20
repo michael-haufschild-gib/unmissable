@@ -53,7 +53,7 @@ struct Event: Identifiable, Codable, Equatable {
         self.calendarId = calendarId
         self.timezone = timezone
         self.links = links
-        self.provider = provider ?? (links.first.map { Provider.detect(from: $0) })
+        self.provider = provider ?? LinkParser.shared.detectPrimaryLink(from: links).map { Provider.detect(from: $0) }
         self.snoozeUntil = snoozeUntil
         self.autoJoinEnabled = autoJoinEnabled
         self.createdAt = createdAt

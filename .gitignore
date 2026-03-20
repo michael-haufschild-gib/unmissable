@@ -64,6 +64,11 @@ resource_bundle_accessor*
 ci-explore-log*.md
 task_state.md
 
+# Build artifacts and review reports
+release/
+codereview-*/
+coverage/
+
 # Stale test reports (should be CI artifacts, not committed)
 test-reports/
 

@@ -7,8 +7,10 @@ struct EventGroup {
 }
 
 struct MenuBarView: View {
-    @EnvironmentObject var appState: AppState
-    @Environment(\.customDesign) private var design
+    @EnvironmentObject
+    var appState: AppState
+    @Environment(\.customDesign)
+    private var design
 
     private var groupedEvents: [EventGroup] {
         let events =
@@ -364,8 +366,10 @@ struct MenuBarView: View {
 struct CustomEventRow: View {
     let event: Event
     let onEventTap: (() -> Void)?
-    @Environment(\.customDesign) private var design
-    @State private var isHovered = false
+    @Environment(\.customDesign)
+    private var design
+    @State
+    private var isHovered = false
 
     init(event: Event, onEventTap: (() -> Void)? = nil) {
         self.event = event
@@ -429,8 +433,5 @@ struct CustomEventRow: View {
     }
 }
 
-#Preview {
-    MenuBarView()
-        .environmentObject(AppState())
-        .customThemedEnvironment()
-}
+// Preview removed: MenuBarView requires AppState which creates real
+// OverlayManager and CalendarService instances.

@@ -9,9 +9,12 @@ final class OAuth2Service: NSObject, ObservableObject {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "OAuth2Service")
     private let keychain = Keychain(service: "com.unmissable.app.oauth")
 
-    @Published var isAuthenticated = false
-    @Published var userEmail: String?
-    @Published var authorizationError: String?
+    @Published
+    var isAuthenticated = false
+    @Published
+    var userEmail: String?
+    @Published
+    var authorizationError: String?
 
     private var authState: OIDAuthState?
     private let keychainAccessTokenKey = "google_access_token"

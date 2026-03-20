@@ -8,10 +8,14 @@ struct OverlayContentView: View {
     let onSnooze: (Int) -> Void
     let isFromSnooze: Bool
 
-    @EnvironmentObject private var preferences: PreferencesManager
-    @State private var timeUntilMeeting: TimeInterval = 0
-    @State private var timerCancellable: AnyCancellable?
-    @State private var currentTimerInterval: TimeInterval = 1.0
+    @EnvironmentObject
+    private var preferences: PreferencesManager
+    @State
+    private var timeUntilMeeting: TimeInterval = 0
+    @State
+    private var timerCancellable: AnyCancellable?
+    @State
+    private var currentTimerInterval: TimeInterval = 1.0
 
     init(
         event: Event,

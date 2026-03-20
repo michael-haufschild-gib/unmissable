@@ -8,32 +8,6 @@ final class TimezoneManager: Sendable {
 
     private init() {}
 
-    // MARK: - Event Timezone Handling
-
-    /// Preserve absolute timestamps; only presentation (formatting) should apply time zones.
-    func localizedEvent(_ event: Event) -> Event {
-        Event(
-            id: event.id,
-            title: event.title,
-            startDate: event.startDate,
-            endDate: event.endDate,
-            organizer: event.organizer,
-            description: event.description,
-            location: event.location,
-            attendees: event.attendees,
-            attachments: event.attachments,
-            isAllDay: event.isAllDay,
-            calendarId: event.calendarId,
-            timezone: event.timezone, // keep original tz metadata
-            links: event.links,
-            provider: event.provider,
-            snoozeUntil: event.snoozeUntil,
-            autoJoinEnabled: event.autoJoinEnabled,
-            createdAt: event.createdAt,
-            updatedAt: event.updatedAt
-        )
-    }
-
     // MARK: - Alert Timing
 
     func calculateAlertTime(for event: Event, minutesBefore: Int) -> Date {

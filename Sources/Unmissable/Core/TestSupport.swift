@@ -8,8 +8,10 @@ import OSLog
 final class TestSafeOverlayManager: OverlayManaging {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "TestSupport")
 
-    @Published var activeEvent: Event?
-    @Published var isOverlayVisible = false
+    @Published
+    var activeEvent: Event?
+    @Published
+    var isOverlayVisible = false
 
     /// Computed time until meeting starts (negative if meeting has started)
     var timeUntilMeeting: TimeInterval {

@@ -6,7 +6,8 @@ import OSLog
 final class FocusModeManager: ObservableObject {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "FocusModeManager")
 
-    @Published var isDoNotDisturbEnabled: Bool = false
+    @Published
+    var isDoNotDisturbEnabled: Bool = false
 
     private let preferencesManager: PreferencesManager
     private nonisolated(unsafe) var notificationObserver: NSObjectProtocol?

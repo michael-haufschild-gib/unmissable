@@ -7,21 +7,33 @@ import OSLog
 final class AppState: ObservableObject {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "AppState")
 
-    // Published properties for UI binding
-    @Published var isConnectedToCalendar = false
-    @Published var syncStatus: SyncStatus = .idle
-    @Published var lastSyncTime: Date?
-    @Published var upcomingEvents: [Event] = []
-    @Published var startedEvents: [Event] = []
-    @Published var activeOverlay: Event?
-    @Published var userEmail: String?
-    @Published var calendars: [CalendarInfo] = []
-    @Published var authError: String?
-    @Published var healthStatus: HealthStatus = .healthy
+    /// Published properties for UI binding
+    @Published
+    var isConnectedToCalendar = false
+    @Published
+    var syncStatus: SyncStatus = .idle
+    @Published
+    var lastSyncTime: Date?
+    @Published
+    var upcomingEvents: [Event] = []
+    @Published
+    var startedEvents: [Event] = []
+    @Published
+    var activeOverlay: Event?
+    @Published
+    var userEmail: String?
+    @Published
+    var calendars: [CalendarInfo] = []
+    @Published
+    var authError: String?
+    @Published
+    var healthStatus: HealthStatus = .healthy
 
-    // Menu bar preview properties (mirrored from MenuBarPreviewManager)
-    @Published var menuBarText: String?
-    @Published var shouldShowIcon: Bool = true
+    /// Menu bar preview properties (mirrored from MenuBarPreviewManager)
+    @Published
+    var menuBarText: String?
+    @Published
+    var shouldShowIcon: Bool = true
 
     // Services
     private let calendarService: CalendarService
@@ -107,12 +119,12 @@ final class AppState: ObservableObject {
             .store(in: &cancellables)
 
         // Observe user email
-        calendarService.oauth2Service.$userEmail
+        calendarService.$userEmail
             .assign(to: \.userEmail, on: self)
             .store(in: &cancellables)
 
         // Observe auth errors
-        calendarService.oauth2Service.$authorizationError
+        calendarService.$authError
             .assign(to: \.authError, on: self)
             .store(in: &cancellables)
 

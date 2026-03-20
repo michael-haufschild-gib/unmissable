@@ -2,8 +2,10 @@ import SwiftUI
 
 @main
 struct UnmissableApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @StateObject private var appState = AppState()
+    @NSApplicationDelegateAdaptor(AppDelegate.self)
+    var appDelegate
+    @StateObject
+    private var appState = AppState()
 
     var body: some Scene {
         MenuBarExtra {
@@ -19,7 +21,8 @@ struct UnmissableApp: App {
 }
 
 struct MenuBarLabelView: View {
-    @EnvironmentObject var appState: AppState
+    @EnvironmentObject
+    var appState: AppState
 
     var body: some View {
         Group {

@@ -3,7 +3,10 @@ import Foundation
 /// Represents a file attachment associated with a calendar event
 /// Typically used for Google Drive files attached to Google Calendar events
 struct EventAttachment: Codable, Equatable, Identifiable {
-    let id = UUID()
+    /// Stable identity derived from the file URL
+    var id: String {
+        fileUrl
+    }
 
     /// URL to the attachment file (e.g., Google Drive alternateLink)
     let fileUrl: String
@@ -109,24 +112,7 @@ struct EventAttachment: Codable, Equatable, Identifiable {
         }
     }
 
-    // MARK: - Codable Implementation
-
-    private enum CodingKeys: String, CodingKey {
-        case fileUrl
-        case title
-        case mimeType
-        case iconLink
-        case fileId
-        case fileSize
-        case lastModified
-    }
-
-    // MARK: - Equatable Implementation
-
-    static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.fileUrl == rhs.fileUrl && lhs.title == rhs.title && lhs.mimeType == rhs.mimeType
-            && lhs.iconLink == rhs.iconLink && lhs.fileId == rhs.fileId
-    }
+    // Codable and Equatable are auto-synthesized from stored properties.
 }
 
 // MARK: - Factory Methods
@@ -144,12 +130,30 @@ extension EventAttachment {
         let iconLink = googleCalendarData["iconLink"] as? String
         let fileId = googleCalendarData["fileId"] as? String
 
+        // Parse fileSize from either Int64 or String representation
+        let fileSize: Int64? = if let size = googleCalendarData["fileSize"] as? Int64 {
+            size
+        } else if let sizeStr = googleCalendarData["fileSize"] as? String {
+            Int64(sizeStr)
+        } else {
+            nil
+        }
+
+        // Parse lastModified from ISO8601 string
+        let lastModified: Date? = if let dateStr = googleCalendarData["lastModified"] as? String {
+            ISO8601DateFormatter().date(from: dateStr)
+        } else {
+            nil
+        }
+
         return EventAttachment(
             fileUrl: fileUrl,
             title: title,
             mimeType: mimeType,
             iconLink: iconLink,
-            fileId: fileId
+            fileId: fileId,
+            fileSize: fileSize,
+            lastModified: lastModified
         )
     }
 }

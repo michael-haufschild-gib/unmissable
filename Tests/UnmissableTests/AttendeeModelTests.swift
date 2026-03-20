@@ -66,7 +66,7 @@ final class AttendeeModelTests: XCTestCase {
         XCTAssertFalse(otherAttendee.isSelf)
     }
 
-    func testAttendeeID_whenEmailsDuplicate_remainsUniquePerEntry() {
+    func testAttendeeID_derivedFromEmail() {
         let organizerEntry = Attendee(
             name: "Organizer",
             email: "shared@example.com",
@@ -82,7 +82,9 @@ final class AttendeeModelTests: XCTestCase {
             isSelf: false
         )
 
-        XCTAssertNotEqual(organizerEntry.id, guestEntry.id)
+        // Attendee.id is derived from email — same email = same identity
+        XCTAssertEqual(organizerEntry.id, guestEntry.id)
+        XCTAssertEqual(organizerEntry.id, "shared@example.com")
     }
 
     // MARK: - AttendeeStatus Tests

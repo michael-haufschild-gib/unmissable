@@ -20,22 +20,17 @@ final class CalendarServiceIntegrationTests: XCTestCase {
 
     @MainActor
     func testCalendarServiceInitialization() {
-        // Test initial state
         XCTAssertFalse(calendarService.isConnected)
         XCTAssertEqual(calendarService.syncStatus, .idle)
         XCTAssertTrue(calendarService.events.isEmpty)
         XCTAssertTrue(calendarService.calendars.isEmpty)
-        XCTAssertFalse(calendarService.oauth2Service.isAuthenticated)
     }
 
     @MainActor
-    func testOAuth2ServiceInitialization() {
-        let oauth2Service = calendarService.oauth2Service
-
-        // Test initial state
-        XCTAssertFalse(oauth2Service.isAuthenticated)
-        XCTAssertNil(oauth2Service.userEmail)
-        XCTAssertNil(oauth2Service.authorizationError)
+    func testOAuth2StateExposedViaCalendarService() {
+        XCTAssertFalse(calendarService.isConnected)
+        XCTAssertNil(calendarService.userEmail)
+        XCTAssertNil(calendarService.authError)
     }
 
     @MainActor
@@ -74,12 +69,10 @@ final class CalendarServiceIntegrationTests: XCTestCase {
 
     @MainActor
     func testDisconnect() {
-        // Test disconnect functionality
         calendarService.disconnect()
 
         XCTAssertFalse(calendarService.isConnected)
         XCTAssertTrue(calendarService.events.isEmpty)
         XCTAssertTrue(calendarService.calendars.isEmpty)
-        XCTAssertFalse(calendarService.oauth2Service.isAuthenticated)
     }
 }

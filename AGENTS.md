@@ -67,7 +67,6 @@ Sources/Unmissable/
 │   ├── Overlay/    # Full-screen alert implementation
 │   ├── ...
 ├── Models/         # Codable structs & GRDB records
-├── Resources/      # Assets
 ```
 
 ## Script Reference

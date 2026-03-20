@@ -16,3 +16,7 @@
 --varattributes prev-line
 --enable blankLineAfterSwitchCase
 --enable consistentSwitchCaseSpacing
+--decimalgrouping 3,5
+--binarygrouping 4,8
+--octalgrouping 4,8
+--hexgrouping 4,8

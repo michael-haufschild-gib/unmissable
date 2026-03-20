@@ -240,29 +240,6 @@ extension EventScheduler {
 }
 
 extension TestUtilities {
-    // MARK: - Time Travel for Testing
-
-    /// Utility for testing time-dependent behavior
-    final class TimeTravel: Sendable {
-        nonisolated(unsafe) static var offset: TimeInterval = 0
-
-        static func travel(to date: Date) {
-            offset = date.timeIntervalSinceNow
-        }
-
-        static func travel(by interval: TimeInterval) {
-            offset += interval
-        }
-
-        static func reset() {
-            offset = 0
-        }
-
-        static var now: Date {
-            Date().addingTimeInterval(offset)
-        }
-    }
-
     // MARK: - Async Testing Utilities
 
     /// Wait for async operations with timeout

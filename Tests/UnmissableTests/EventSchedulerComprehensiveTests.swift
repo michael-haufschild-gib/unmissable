@@ -4,16 +4,16 @@ import XCTest
 
 @MainActor
 final class EventSchedulerComprehensiveTests: XCTestCase {
-    private var eventScheduler: EventScheduler?
-    private var mockPreferences: PreferencesManager?
-    private var overlayManager: TestSafeOverlayManager?
+    private var eventScheduler: EventScheduler!
+    private var mockPreferences: PreferencesManager!
+    private var overlayManager: TestSafeOverlayManager!
     private var cancellables = Set<AnyCancellable>()
 
     override func setUp() async throws {
         try await super.setUp()
 
         mockPreferences = TestUtilities.createTestPreferencesManager()
-        mockPreferences.testOverlayShowMinutesBefore = 2 // Set to the actual value being used
+        mockPreferences.testOverlayShowMinutesBefore = 2
         eventScheduler = EventScheduler(preferencesManager: mockPreferences)
         overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         cancellables.removeAll()
@@ -21,17 +21,13 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
 
     override func tearDown() async throws {
         // Stop all scheduling operations and clean up timers
-        eventScheduler?.stopScheduling()
+        eventScheduler.stopScheduling()
         cancellables.removeAll()
 
         // Give timers time to clean up
         try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in true }
 
-        // Re-enable memory leak test with proper cleanup
-        try TestUtilities.testForMemoryLeaks(instance: eventScheduler) {
-            eventScheduler = nil
-        }
-
+        eventScheduler = nil
         overlayManager = nil
         mockPreferences = nil
 

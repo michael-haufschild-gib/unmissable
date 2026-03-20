@@ -8,9 +8,12 @@ struct CustomButton: View {
     let style: CustomButtonStyle
     let action: () -> Void
 
-    @Environment(\.customDesign) private var design
-    @Environment(\.isEnabled) private var isEnabled
-    @State private var isPressed = false
+    @Environment(\.customDesign)
+    private var design
+    @Environment(\.isEnabled)
+    private var isEnabled
+    @State
+    private var isPressed = false
 
     init(
         _ title: String, icon: String? = nil, style: CustomButtonStyle = .primary,
@@ -178,8 +181,10 @@ enum CustomButtonStyle {
 // MARK: - Custom Toggle Style
 
 struct CustomToggleStyle: ToggleStyle {
-    @Environment(\.customDesign) private var design
-    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.customDesign)
+    private var design
+    @Environment(\.isEnabled)
+    private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         HStack {
@@ -235,7 +240,8 @@ struct CustomToggleStyle: ToggleStyle {
 // MARK: - Custom Toggle Convenience
 
 struct CustomToggle: View {
-    @Binding var isOn: Bool
+    @Binding
+    var isOn: Bool
     let label: String?
 
     init(_ label: String? = nil, isOn: Binding<Bool>) {
@@ -259,7 +265,8 @@ struct CustomStatusIndicator: View {
     let status: Status
     let size: CGFloat
 
-    @Environment(\.customDesign) private var design
+    @Environment(\.customDesign)
+    private var design
 
     init(status: Status, size: CGFloat = 10) {
         self.status = status
@@ -312,7 +319,8 @@ struct CustomCard<Content: View>: View {
     let content: Content
     let style: CardStyle
 
-    @Environment(\.customDesign) private var design
+    @Environment(\.customDesign)
+    private var design
 
     init(style: CardStyle = .standard, @ViewBuilder content: () -> Content) {
         self.style = style
@@ -411,11 +419,14 @@ struct CustomCard<Content: View>: View {
 
 struct CustomPicker<SelectionValue: Hashable>: View {
     let title: String
-    @Binding var selection: SelectionValue
+    @Binding
+    var selection: SelectionValue
     let options: [(SelectionValue, String)]
 
-    @Environment(\.customDesign) private var design
-    @State private var isExpanded = false
+    @Environment(\.customDesign)
+    private var design
+    @State
+    private var isExpanded = false
 
     init(_ title: String, selection: Binding<SelectionValue>, options: [(SelectionValue, String)]) {
         self.title = title

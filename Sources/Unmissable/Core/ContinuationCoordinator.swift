@@ -5,8 +5,13 @@ import Foundation
 /// Guarantees:
 /// 1. Exactly-once continuation resumption (prevents crashes from double-resume)
 /// 2. Timeout handling (prevents continuation leaks if callback never fires)
-/// 3. Thread safety via @MainActor isolation
+/// 3. Thread safety via @MainActor isolation — all mutable state accessed only on MainActor
 /// 4. Proper cleanup of timeout tasks
+///
+/// Sendable conformance: Marked `@unchecked Sendable` because @MainActor provides
+/// the actual isolation. The Sendable marker is required to pass this object into
+/// AppAuth's non-Sendable callback closures that execute on arbitrary threads, where
+/// it is then dispatched back to MainActor before any state access.
 @MainActor
 final class ContinuationCoordinator<T: Sendable>: @unchecked Sendable {
     private var continuation: CheckedContinuation<T, Error>?

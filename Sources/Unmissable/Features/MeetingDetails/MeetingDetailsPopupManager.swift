@@ -8,7 +8,8 @@ final class MeetingDetailsPopupManager: ObservableObject {
         subsystem: "com.unmissable.app", category: "MeetingDetailsPopupManager"
     )
 
-    @Published private(set) var isPopupVisible = false
+    @Published
+    private(set) var isPopupVisible = false
     private var popupWindow: NSWindow?
     private weak var parentWindow: NSWindow?
 
@@ -35,20 +36,9 @@ final class MeetingDetailsPopupManager: ObservableObject {
         popupWindow = popup
         isPopupVisible = true
 
-        // Show the popup
         popup.makeKeyAndOrderFront(nil)
 
-        // DEBUG: Log window details
-        let windowFrame = popup.frame
-        logger.info(
-            "POPUP DEBUG: Window frame: x=\(windowFrame.origin.x), y=\(windowFrame.origin.y), w=\(windowFrame.size.width), h=\(windowFrame.size.height)"
-        )
-        logger.info("POPUP DEBUG: Window level: \(popup.level.rawValue)")
-        logger.info("POPUP DEBUG: Window visible: \(popup.isVisible)")
-        logger.info("POPUP DEBUG: Window on active space: \(popup.isOnActiveSpace)")
-        logger.info("POPUP DEBUG: Content view exists: \(popup.contentView != nil)")
-
-        logger.info("POPUP: Successfully displayed popup for event '\(event.title)'")
+        logger.info("POPUP: Displayed popup for event '\(event.title)'")
     }
 
     func hidePopup() {

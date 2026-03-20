@@ -5,16 +5,15 @@ import OSLog
 @MainActor
 final class DatabaseManager: ObservableObject {
     let logger = Logger(subsystem: "com.unmissable.app", category: "DatabaseManager")
-    private let debugLogger = DebugLogger(
-        subsystem: "com.unmissable.app", category: "DatabaseManager"
-    )
-    var dbQueue: DatabaseQueue?
+    private(set) var dbQueue: DatabaseQueue?
     private let currentSchemaVersion = 3
 
     /// Indicates whether the database was successfully initialized
-    @Published private(set) var isInitialized: Bool = false
+    @Published
+    private(set) var isInitialized: Bool = false
     /// Contains error message if database initialization failed
-    @Published private(set) var initializationError: String?
+    @Published
+    private(set) var initializationError: String?
 
     static let shared = DatabaseManager()
 
@@ -225,19 +224,6 @@ final class DatabaseManager: ObservableObject {
             throw DatabaseError.notInitialized
         }
 
-        // Log first event being saved to verify data
-        if let firstEvent = events.first {
-            debugLogger.info("SAVING EVENT TO DATABASE:")
-            debugLogger.info("   - Title: \(firstEvent.title)")
-            if let desc = firstEvent.description {
-                debugLogger.info("   - Description being saved: YES (\(desc.count) chars)")
-            } else {
-                debugLogger.info("   - Description being saved: NO")
-            }
-            debugLogger.info("   - Location being saved: \(firstEvent.location != nil ? "YES" : "NO")")
-            debugLogger.info("   - Attendees being saved: \(firstEvent.attendees.count) attendees")
-        }
-
         try await withTimeout(defaultTimeout) {
             try await dbQueue.write { db in
                 for event in events {
@@ -293,7 +279,7 @@ final class DatabaseManager: ObservableObject {
         }
 
         let now = Date()
-        let events = try await withTimeout(defaultTimeout) {
+        return try await withTimeout(defaultTimeout) {
             try await dbQueue.read { db in
                 try Event
                     .filter(Event.Columns.startDate > now)
@@ -302,21 +288,6 @@ final class DatabaseManager: ObservableObject {
                     .fetchAll(db)
             }
         }
-
-        // Log first fetched event to verify data retrieval
-        if let firstEvent = events.first {
-            debugLogger.info("FETCHED EVENT FROM DATABASE:")
-            debugLogger.info("   - Title: \(firstEvent.title)")
-            if let desc = firstEvent.description {
-                debugLogger.info("   - Description fetched: YES (\(desc.count) chars)")
-            } else {
-                debugLogger.info("   - Description fetched: NO")
-            }
-            debugLogger.info("   - Location fetched: \(firstEvent.location != nil ? "YES" : "NO")")
-            debugLogger.info("   - Attendees fetched: \(firstEvent.attendees.count) attendees")
-        }
-
-        return events
     }
 
     func fetchStartedMeetings(limit: Int = 10) async throws -> [Event] {
@@ -325,25 +296,15 @@ final class DatabaseManager: ObservableObject {
         }
 
         let now = Date()
-        let events = try await withTimeout(defaultTimeout) {
+        return try await withTimeout(defaultTimeout) {
             try await dbQueue.read { db in
                 try Event
                     .filter(Event.Columns.startDate <= now && Event.Columns.endDate > now)
-                    .order(Event.Columns.startDate.desc) // Most recently started first
+                    .order(Event.Columns.startDate.desc)
                     .limit(limit)
                     .fetchAll(db)
             }
         }
-
-        debugLogger.info("FETCHED \(events.count) STARTED MEETINGS FROM DATABASE")
-        if let firstEvent = events.first {
-            debugLogger.info("   - First started meeting: \(firstEvent.title)")
-            debugLogger.info(
-                "   - Started at: \(firstEvent.startDate), ends at: \(firstEvent.endDate)"
-            )
-        }
-
-        return events
     }
 
     func deleteEventsForCalendar(_ calendarId: String) async throws {

@@ -30,8 +30,8 @@ fi
 "$SWIFTLINT_BIN" lint \
     --config "$PROJECT_DIR/.swiftlint.yml" \
     --cache-path "$CACHE_DIR" \
-    --only-rule no_default_overlay_manager_init_in_tests \
-    --only-rule overlay_manager_requires_test_mode_true_in_tests \
+    --only-rule no_real_overlay_manager_in_tests \
+    --only-rule no_real_appstate_in_tests \
     "$PROJECT_DIR"
 
 touch "$OUTPUT_DIR/lint-complete"

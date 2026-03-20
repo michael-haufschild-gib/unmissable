@@ -4,15 +4,16 @@ import OSLog
 @MainActor
 final class GoogleCalendarAPIService: ObservableObject {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "GoogleCalendarAPIService")
-    private let debugLogger = DebugLogger(
-        subsystem: "com.unmissable.app", category: "GoogleCalendarAPIService"
-    )
     private let oauth2Service: OAuth2Service
 
-    @Published var calendars: [CalendarInfo] = []
-    @Published var events: [Event] = []
-    @Published var isLoading = false
-    @Published var lastError: String?
+    @Published
+    var calendars: [CalendarInfo] = []
+    @Published
+    var events: [Event] = []
+    @Published
+    var isLoading = false
+    @Published
+    var lastError: String?
 
     /// URLSession with timeout configuration to prevent indefinite hangs
     private static let urlSession: URLSession = {
@@ -87,8 +88,6 @@ final class GoogleCalendarAPIService: ObservableObject {
     }
 
     func fetchEvents(for calendarIds: [String], from startDate: Date, to endDate: Date) async {
-        debugLogger.info("API: fetchEvents called for \(calendarIds.count) calendars")
-
         logger.info("Fetching events for \(calendarIds.count) calendars")
         isLoading = true
         lastError = nil
@@ -229,10 +228,6 @@ final class GoogleCalendarAPIService: ObservableObject {
         let events = items.compactMap { entry in
             convertToEvent(from: entry, calendarId: calendarId)
         }
-
-        debugLogger.info(
-            "Parsed \(events.count)/\(items.count) events for calendar \(calendarId)"
-        )
 
         return (events, response.nextPageToken)
     }

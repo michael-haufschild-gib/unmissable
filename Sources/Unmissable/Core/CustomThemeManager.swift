@@ -8,8 +8,10 @@ import SwiftUI
 final class ThemeManager: ObservableObject {
     static let shared = ThemeManager()
 
-    @Published var currentTheme: AppTheme = .system
-    @Published var effectiveTheme: EffectiveTheme = .dark
+    @Published
+    var currentTheme: AppTheme = .system
+    @Published
+    var effectiveTheme: EffectiveTheme = .dark
 
     private var cancellables = Set<AnyCancellable>()
     private var systemAppearanceObserver: NSKeyValueObservation?
@@ -286,13 +288,15 @@ struct CustomShadows {
 }
 
 extension EnvironmentValues {
-    @Entry var customDesign: CustomDesign = .design(for: .dark)
+    @Entry
+    var customDesign: CustomDesign = .design(for: .dark)
 }
 
 // MARK: - Custom Theme Modifier
 
 struct CustomThemeModifier: ViewModifier {
-    @ObservedObject private var themeManager = ThemeManager.shared
+    @ObservedObject
+    private var themeManager = ThemeManager.shared
 
     func body(content: Content) -> some View {
         content

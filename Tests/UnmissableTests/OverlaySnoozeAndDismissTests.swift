@@ -5,9 +5,9 @@ import XCTest
 /// Tests for overlay snooze and dismiss functionality
 @MainActor
 final class OverlaySnoozeAndDismissTests: XCTestCase {
-    private var overlayManager: TestSafeOverlayManager?
-    private var mockPreferences: PreferencesManager?
-    private var eventScheduler: EventScheduler?
+    private var overlayManager: TestSafeOverlayManager!
+    private var mockPreferences: PreferencesManager!
+    private var eventScheduler: EventScheduler!
     private var cancellables = Set<AnyCancellable>()
 
     override func setUp() async throws {
@@ -23,7 +23,7 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
     }
 
     override func tearDown() async throws {
-        overlayManager?.hideOverlay()
+        overlayManager.hideOverlay()
         cancellables.removeAll()
         overlayManager = nil
         eventScheduler = nil
@@ -34,7 +34,7 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
     // MARK: - Snooze Functionality Tests
 
     func testSnoozeOverlayHidesOverlay() throws {
-        let om = try XCTUnwrap(overlayManager)
+        let om: TestSafeOverlayManager = overlayManager
         let event = TestUtilities.createTestEvent()
 
         om.showOverlayImmediately(for: event)
@@ -49,8 +49,8 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
     }
 
     func testSnoozeOverlaySchedulesCorrectSnoozeAlert() throws {
-        let om = try XCTUnwrap(overlayManager)
-        let es = try XCTUnwrap(eventScheduler)
+        let om: TestSafeOverlayManager = overlayManager
+        let es: EventScheduler = eventScheduler
         let event = TestUtilities.createTestEvent(
             title: "Important Meeting",
             startDate: Date().addingTimeInterval(600)
@@ -71,9 +71,9 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
         XCTAssertLessThan(timeDifference, 5.0, "Snooze time should be approximately correct")
     }
 
-    func testSnoozeWithDifferentDurations() throws {
-        let om = try XCTUnwrap(overlayManager)
-        let es = try XCTUnwrap(eventScheduler)
+    func testSnoozeWithDifferentDurations() {
+        let om: TestSafeOverlayManager = overlayManager
+        let es: EventScheduler = eventScheduler
         let testDurations = [1, 5, 10, 15]
 
         for duration in testDurations {
@@ -94,7 +94,7 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
     }
 
     func testSnoozeOverlayStopsCountdownTimer() async throws {
-        let om = try XCTUnwrap(overlayManager)
+        let om: TestSafeOverlayManager = overlayManager
         let event = TestUtilities.createTestEvent()
 
         om.showOverlayImmediately(for: event)
@@ -117,7 +117,7 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
     // MARK: - Dismiss Functionality Tests
 
     func testDismissOverlayHidesOverlay() throws {
-        let om = try XCTUnwrap(overlayManager)
+        let om: TestSafeOverlayManager = overlayManager
         let event = TestUtilities.createTestEvent()
 
         om.showOverlayImmediately(for: event)
@@ -132,7 +132,7 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
     }
 
     func testDismissOverlayStopsCountdownTimer() async throws {
-        let om = try XCTUnwrap(overlayManager)
+        let om: TestSafeOverlayManager = overlayManager
         let event = TestUtilities.createTestEvent()
 
         om.showOverlayImmediately(for: event)
@@ -152,7 +152,7 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
     }
 
     func testDismissResetsTimeUntilMeetingToZero() async throws {
-        let om = try XCTUnwrap(overlayManager)
+        let om: TestSafeOverlayManager = overlayManager
         let event = TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(600))
 
         om.showOverlayImmediately(for: event)
@@ -166,9 +166,9 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
         XCTAssertEqual(om.timeUntilMeeting, 0)
     }
 
-    func testDismissDoesNotScheduleSnooze() throws {
-        let om = try XCTUnwrap(overlayManager)
-        let es = try XCTUnwrap(eventScheduler)
+    func testDismissDoesNotScheduleSnooze() {
+        let om: TestSafeOverlayManager = overlayManager
+        let es: EventScheduler = eventScheduler
         let event = TestUtilities.createTestEvent()
 
         om.showOverlayImmediately(for: event)
@@ -180,9 +180,9 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
 
     // MARK: - Rapid Interaction Tests
 
-    func testRapidSnoozeAndDismissInteractions() throws {
-        let om = try XCTUnwrap(overlayManager)
-        let es = try XCTUnwrap(eventScheduler)
+    func testRapidSnoozeAndDismissInteractions() {
+        let om: TestSafeOverlayManager = overlayManager
+        let es: EventScheduler = eventScheduler
         let event = TestUtilities.createTestEvent()
 
         for i in 0 ..< 5 {
@@ -202,9 +202,9 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
         }
     }
 
-    func testSnoozeWhileOverlayNotVisible() throws {
-        let om = try XCTUnwrap(overlayManager)
-        let es = try XCTUnwrap(eventScheduler)
+    func testSnoozeWhileOverlayNotVisible() {
+        let om: TestSafeOverlayManager = overlayManager
+        let es: EventScheduler = eventScheduler
         XCTAssertFalse(om.isOverlayVisible, "Overlay should not be visible initially")
 
         om.snoozeOverlay(for: 5)
@@ -215,9 +215,9 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
 
     // MARK: - Error Handling Tests
 
-    func testSnoozeWithInvalidDuration() throws {
-        let om = try XCTUnwrap(overlayManager)
-        let es = try XCTUnwrap(eventScheduler)
+    func testSnoozeWithInvalidDuration() {
+        let om: TestSafeOverlayManager = overlayManager
+        let es: EventScheduler = eventScheduler
         let event = TestUtilities.createTestEvent()
 
         om.showOverlayImmediately(for: event)
@@ -232,9 +232,9 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
         XCTAssertEqual(es.snoozeMinutes, 1440, "Should handle large durations")
     }
 
-    func testRepeatedSnoozeAndDismissCallsRemainIdempotent() throws {
-        let om = try XCTUnwrap(overlayManager)
-        let es = try XCTUnwrap(eventScheduler)
+    func testRepeatedSnoozeAndDismissCallsRemainIdempotent() {
+        let om: TestSafeOverlayManager = overlayManager
+        let es: EventScheduler = eventScheduler
         let event = TestUtilities.createTestEvent()
 
         om.showOverlayImmediately(for: event)
@@ -253,8 +253,8 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
 
     // MARK: - State Consistency Tests
 
-    func testOverlayStateConsistencyAfterSnooze() async throws {
-        let om = try XCTUnwrap(overlayManager)
+    func testOverlayStateConsistencyAfterSnooze() async {
+        let om: TestSafeOverlayManager = overlayManager
         let event = TestUtilities.createTestEvent()
 
         om.showOverlayImmediately(for: event)
@@ -278,8 +278,8 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
         )
     }
 
-    func testOverlayStateConsistencyAfterDismiss() async throws {
-        let om = try XCTUnwrap(overlayManager)
+    func testOverlayStateConsistencyAfterDismiss() async {
+        let om: TestSafeOverlayManager = overlayManager
         let event = TestUtilities.createTestEvent()
 
         om.showOverlayImmediately(for: event)

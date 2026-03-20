@@ -1,10 +1,14 @@
 import SwiftUI
 
 struct CalendarPreferencesView: View {
-    @EnvironmentObject var appState: AppState
-    @EnvironmentObject var preferences: PreferencesManager
-    @Environment(\.customDesign) private var design
-    @State private var isConnecting = false
+    @EnvironmentObject
+    var appState: AppState
+    @EnvironmentObject
+    var preferences: PreferencesManager
+    @Environment(\.customDesign)
+    private var design
+    @State
+    private var isConnecting = false
 
     var body: some View {
         ScrollView {
@@ -174,7 +178,8 @@ struct CalendarPreferencesView: View {
 struct CalendarSelectionRow: View {
     let calendar: CalendarInfo
     let onToggle: (Bool) -> Void
-    @Environment(\.customDesign) private var design
+    @Environment(\.customDesign)
+    private var design
 
     var body: some View {
         HStack(alignment: .top, spacing: design.spacing.md) {

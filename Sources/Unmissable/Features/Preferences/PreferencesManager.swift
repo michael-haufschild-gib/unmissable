@@ -9,7 +9,8 @@ final class PreferencesManager: ObservableObject {
     private let userDefaults = UserDefaults.standard
 
     /// Alert timing (validated to 0-60 minutes)
-    @Published var defaultAlertMinutes: Int = 1 {
+    @Published
+    var defaultAlertMinutes: Int = 1 {
         didSet {
             let validated = max(0, min(defaultAlertMinutes, 60))
             if validated != defaultAlertMinutes { defaultAlertMinutes = validated
@@ -19,11 +20,13 @@ final class PreferencesManager: ObservableObject {
         }
     }
 
-    @Published var useLengthBasedTiming: Bool = false {
+    @Published
+    var useLengthBasedTiming: Bool = false {
         didSet { userDefaults.set(useLengthBasedTiming, forKey: "useLengthBasedTiming") }
     }
 
-    @Published var shortMeetingAlertMinutes: Int = 1 {
+    @Published
+    var shortMeetingAlertMinutes: Int = 1 {
         didSet {
             let validated = max(0, min(shortMeetingAlertMinutes, 60))
             if validated != shortMeetingAlertMinutes { shortMeetingAlertMinutes = validated
@@ -33,7 +36,8 @@ final class PreferencesManager: ObservableObject {
         }
     }
 
-    @Published var mediumMeetingAlertMinutes: Int = 2 {
+    @Published
+    var mediumMeetingAlertMinutes: Int = 2 {
         didSet {
             let validated = max(0, min(mediumMeetingAlertMinutes, 60))
             if validated != mediumMeetingAlertMinutes { mediumMeetingAlertMinutes = validated
@@ -43,7 +47,8 @@ final class PreferencesManager: ObservableObject {
         }
     }
 
-    @Published var longMeetingAlertMinutes: Int = 5 {
+    @Published
+    var longMeetingAlertMinutes: Int = 5 {
         didSet {
             let validated = max(0, min(longMeetingAlertMinutes, 60))
             if validated != longMeetingAlertMinutes { longMeetingAlertMinutes = validated
@@ -54,7 +59,8 @@ final class PreferencesManager: ObservableObject {
     }
 
     /// Sync settings (validated to 30-3600 seconds)
-    @Published var syncIntervalSeconds: Int = 60 {
+    @Published
+    var syncIntervalSeconds: Int = 60 {
         didSet {
             let validated = max(30, min(syncIntervalSeconds, 3600))
             if validated != syncIntervalSeconds { syncIntervalSeconds = validated
@@ -64,12 +70,14 @@ final class PreferencesManager: ObservableObject {
         }
     }
 
-    @Published var includeAllDayEvents: Bool = false {
+    @Published
+    var includeAllDayEvents: Bool = false {
         didSet { userDefaults.set(includeAllDayEvents, forKey: "includeAllDayEvents") }
     }
 
     /// Appearance - Updated to use new custom theme system
-    @Published var appearanceTheme: AppTheme = .system {
+    @Published
+    var appearanceTheme: AppTheme = .system {
         didSet {
             userDefaults.set(appearanceTheme.rawValue, forKey: "appearanceTheme")
             // Update the global theme manager
@@ -77,7 +85,8 @@ final class PreferencesManager: ObservableObject {
         }
     }
 
-    @Published var overlayOpacity: Double = 0.9 {
+    @Published
+    var overlayOpacity: Double = 0.9 {
         didSet {
             let validated = max(0.1, min(overlayOpacity, 1.0))
             if validated != overlayOpacity { overlayOpacity = validated
@@ -87,7 +96,8 @@ final class PreferencesManager: ObservableObject {
         }
     }
 
-    @Published var overlayShowMinutesBefore: Int = 5 {
+    @Published
+    var overlayShowMinutesBefore: Int = 5 {
         didSet {
             let validated = max(1, min(overlayShowMinutesBefore, 60))
             if validated != overlayShowMinutesBefore { overlayShowMinutesBefore = validated
@@ -97,20 +107,24 @@ final class PreferencesManager: ObservableObject {
         }
     }
 
-    @Published var fontSize: FontSize = .medium {
+    @Published
+    var fontSize: FontSize = .medium {
         didSet { userDefaults.set(fontSize.rawValue, forKey: "fontSize") }
     }
 
-    @Published var minimalMode: Bool = false {
+    @Published
+    var minimalMode: Bool = false {
         didSet { userDefaults.set(minimalMode, forKey: "minimalMode") }
     }
 
-    @Published var showOnAllDisplays: Bool = true {
+    @Published
+    var showOnAllDisplays: Bool = true {
         didSet { userDefaults.set(showOnAllDisplays, forKey: "showOnAllDisplays") }
     }
 
     /// Sound
-    @Published var playAlertSound: Bool = true {
+    @Published
+    var playAlertSound: Bool = true {
         didSet { userDefaults.set(playAlertSound, forKey: "playAlertSound") }
     }
 
@@ -123,7 +137,8 @@ final class PreferencesManager: ObservableObject {
         defaultAlertMinutes
     }
 
-    @Published var alertVolume: Double = 0.7 {
+    @Published
+    var alertVolume: Double = 0.7 {
         didSet {
             let validated = max(0.0, min(alertVolume, 1.0))
             if validated != alertVolume { alertVolume = validated
@@ -134,28 +149,33 @@ final class PreferencesManager: ObservableObject {
     }
 
     /// Focus mode
-    @Published var overrideFocusMode: Bool = true {
+    @Published
+    var overrideFocusMode: Bool = true {
         didSet { userDefaults.set(overrideFocusMode, forKey: "overrideFocusMode") }
     }
 
     /// Auto-join
-    @Published var autoJoinEnabled: Bool = false {
+    @Published
+    var autoJoinEnabled: Bool = false {
         didSet { userDefaults.set(autoJoinEnabled, forKey: "autoJoinEnabled") }
     }
 
     /// Snooze
-    @Published var allowSnooze: Bool = true {
+    @Published
+    var allowSnooze: Bool = true {
         didSet { userDefaults.set(allowSnooze, forKey: "allowSnooze") }
     }
 
     /// Menu bar display
-    @Published var menuBarDisplayMode: MenuBarDisplayMode = .icon {
+    @Published
+    var menuBarDisplayMode: MenuBarDisplayMode = .icon {
         didSet {
             userDefaults.set(menuBarDisplayMode.rawValue, forKey: "menuBarDisplayMode")
         }
     }
 
-    @Published var showTodayOnlyInMenuBar: Bool = false {
+    @Published
+    var showTodayOnlyInMenuBar: Bool = false {
         didSet { userDefaults.set(showTodayOnlyInMenuBar, forKey: "showTodayOnlyInMenuBar") }
     }
 
