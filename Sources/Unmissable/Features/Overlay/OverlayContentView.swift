@@ -50,6 +50,7 @@ struct OverlayContentView: View {
                 }
             }
             .padding(40)
+            .accessibilityIdentifier("overlay-content")
         }
         .onAppear {
             timeUntilMeeting = event.startDate.timeIntervalSinceNow
@@ -79,6 +80,7 @@ struct OverlayContentView: View {
             Text(headerText)
                 .font(.system(size: 36 * fontScale, weight: .bold))
                 .foregroundColor(textColor)
+                .accessibilityIdentifier("overlay-header-text")
                 .accessibilityLabel(headerText)
         }
     }
@@ -90,6 +92,7 @@ struct OverlayContentView: View {
                 .foregroundColor(textColor)
                 .multilineTextAlignment(.center)
                 .lineLimit(3)
+                .accessibilityIdentifier("overlay-meeting-title")
                 .accessibilityLabel("Meeting title: \(event.title)")
 
             if !preferences.minimalMode {
@@ -127,6 +130,7 @@ struct OverlayContentView: View {
                     .font(.system(size: 88 * fontScale, weight: .bold, design: .monospaced))
                     .foregroundColor(timeUntilMeeting < 60 ? .red : .blue)
                     .animation(.easeInOut(duration: 0.3), value: timeUntilMeeting < 60)
+                    .accessibilityIdentifier("overlay-countdown")
                     .accessibilityLabel(
                         "Meeting starts in \(formatTimeRemainingForAccessibility(timeUntilMeeting))"
                     )
@@ -134,6 +138,7 @@ struct OverlayContentView: View {
                 Text("Meeting Started")
                     .font(.system(size: 36 * fontScale, weight: .bold))
                     .foregroundColor(.red)
+                    .accessibilityIdentifier("overlay-meeting-started")
                     .accessibilityLabel("Meeting has started")
 
                 Text("\(Int(-timeUntilMeeting / 60)) minutes ago")
@@ -178,6 +183,7 @@ struct OverlayContentView: View {
                     )
                 }
                 .buttonStyle(ScaleButtonStyle())
+                .accessibilityIdentifier("overlay-join-button")
                 .accessibilityLabel("Join meeting")
                 .accessibilityHint("Opens the meeting link in your default application")
             }
@@ -196,6 +202,7 @@ struct OverlayContentView: View {
                     .stroke(Color.gray, lineWidth: 2)
             )
             .buttonStyle(ScaleButtonStyle())
+            .accessibilityIdentifier("overlay-dismiss-button")
             .accessibilityLabel("Dismiss reminder")
             .accessibilityHint("Close this meeting reminder")
             .keyboardShortcut(.cancelAction)
@@ -205,12 +212,16 @@ struct OverlayContentView: View {
     private var snoozeMenu: some View {
         Menu {
             Button("1 minute") { onSnooze(1) }
+                .accessibilityIdentifier("overlay-snooze-1")
                 .accessibilityLabel("Snooze for 1 minute")
             Button("5 minutes") { onSnooze(5) }
+                .accessibilityIdentifier("overlay-snooze-5")
                 .accessibilityLabel("Snooze for 5 minutes")
             Button("10 minutes") { onSnooze(10) }
+                .accessibilityIdentifier("overlay-snooze-10")
                 .accessibilityLabel("Snooze for 10 minutes")
             Button("15 minutes") { onSnooze(15) }
+                .accessibilityIdentifier("overlay-snooze-15")
                 .accessibilityLabel("Snooze for 15 minutes")
         } label: {
             HStack {
@@ -228,6 +239,7 @@ struct OverlayContentView: View {
             )
         }
         .buttonStyle(ScaleButtonStyle())
+        .accessibilityIdentifier("overlay-snooze-menu")
         .accessibilityLabel("Snooze reminder")
         .accessibilityHint("Postpone this reminder for a few minutes")
     }

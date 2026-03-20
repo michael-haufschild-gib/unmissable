@@ -111,6 +111,7 @@ struct MenuBarView: View {
         }
         .background(design.colors.background)
         .frame(width: 340)
+        .accessibilityIdentifier("menu-bar-view")
     }
 
     // MARK: - Sections
@@ -164,12 +165,14 @@ struct MenuBarView: View {
                 CustomButton("Preferences", style: .minimal) {
                     appState.showPreferences()
                 }
+                .accessibilityIdentifier("preferences-button")
 
                 Spacer()
 
                 CustomButton("Quit", style: .minimal) {
                     NSApplication.shared.terminate(nil)
                 }
+                .accessibilityIdentifier("quit-button")
             }
             .padding(.horizontal, design.spacing.lg)
             .padding(.vertical, design.spacing.md)
@@ -217,6 +220,7 @@ struct MenuBarView: View {
                     await appState.connectToCalendar()
                 }
             }
+            .accessibilityIdentifier("connect-calendar-button")
         }
         .padding(.horizontal, design.spacing.lg)
     }
@@ -235,6 +239,7 @@ struct MenuBarView: View {
                 Text(appState.syncStatus.description)
                     .font(design.fonts.caption1)
                     .foregroundColor(design.colors.textSecondary)
+                    .accessibilityIdentifier("sync-status-text")
             }
 
             Spacer()
@@ -249,6 +254,7 @@ struct MenuBarView: View {
                         await appState.syncNow()
                     }
                 }
+                .accessibilityIdentifier("sync-button")
             }
         }
         .padding(.horizontal, design.spacing.lg)
@@ -266,6 +272,7 @@ struct MenuBarView: View {
                         Text("No upcoming meetings")
                             .font(design.fonts.callout)
                             .foregroundColor(design.colors.textTertiary)
+                            .accessibilityIdentifier("no-events-text")
                     }
                     .padding(design.spacing.lg)
                 }
@@ -428,6 +435,7 @@ struct CustomEventRow: View {
             .accessibilityAddTraits(.isButton)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Meeting: \(event.title) at \(event.startDate, style: .time)")
+            .accessibilityIdentifier("event-row-\(event.id)")
             .accessibilityHint("Tap to view meeting details")
         }
     }
