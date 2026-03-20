@@ -276,6 +276,7 @@ extension TestUtilities {
             if await condition() {
                 return
             }
+            // swiftlint:disable:next no_raw_task_sleep_in_tests - this IS the polling infrastructure
             try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         }
 
@@ -388,6 +389,7 @@ private func withTimeout<T: Sendable>(
         }
 
         group.addTask {
+            // swiftlint:disable:next no_raw_task_sleep_in_tests - timeout implementation
             try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
             throw XCTestError(.timeoutWhileWaiting)
         }

@@ -6,9 +6,12 @@ final class HealthMonitorTests: XCTestCase {
     func testInit_performsInitialHealthCheckImmediately() async throws {
         var monitor: HealthMonitor? = HealthMonitor()
 
-        try await Task.sleep(for: .milliseconds(200))
+        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+            monitor?.metrics.lastHealthCheck != nil
+        }
 
-        XCTAssertNotNil(monitor?.metrics.lastHealthCheck)
+        let lastCheck = try XCTUnwrap(monitor?.metrics.lastHealthCheck)
+        XCTAssertGreaterThan(lastCheck, Date.distantPast)
 
         monitor = nil
     }
@@ -52,7 +55,9 @@ final class HealthMonitorTests: XCTestCase {
         let monitor = HealthMonitor()
 
         // Let the initial check run before dependencies are attached.
-        try await Task.sleep(for: .milliseconds(250))
+        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+            monitor.metrics.lastHealthCheck != nil
+        }
 
         monitor.setup(
             calendarService: calendarService,

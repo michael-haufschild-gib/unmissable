@@ -54,7 +54,7 @@ struct ProviderDetectionTests {
 struct EventPropertyTests {
     @Test(
         "Duration equals endDate minus startDate",
-        arguments: [60.0, 300.0, 1800.0, 3600.0, 7200.0, 86400.0] as [TimeInterval]
+        arguments: [60.0, 300.0, 1800.0, 3600.0, 7200.0, 86_400.0] as [TimeInterval]
     )
     func durationMatchesInterval(interval: TimeInterval) {
         let start = Date()

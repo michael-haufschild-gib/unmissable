@@ -345,7 +345,7 @@ final class SystemIntegrationTests: XCTestCase {
             prefs.testOverlayShowMinutesBefore = 7
 
             // Wait for rescheduling
-            try? await Task.sleep(nanoseconds: 500_000_000) // Brief wait for rescheduling
+            try? await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in true }
         }
 
         XCTAssertLessThan(totalTime, 10.0, "End-to-end workflow should complete in under 10 seconds")

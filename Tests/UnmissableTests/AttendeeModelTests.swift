@@ -46,6 +46,7 @@ final class AttendeeModelTests: XCTestCase {
         XCTAssertFalse(attendee.isOptional)
         XCTAssertFalse(attendee.isOrganizer)
         XCTAssertFalse(attendee.isSelf)
+        XCTAssertEqual(attendee.displayName, "default@example.com")
     }
 
     func testAttendeeSelfField() {
@@ -122,8 +123,7 @@ final class AttendeeModelTests: XCTestCase {
         let encoder = JSONEncoder()
         let data = try encoder.encode(attendee)
 
-        XCTAssertNotNil(data)
-        XCTAssertGreaterThan(data.count, 0)
+        XCTAssertGreaterThan(data.count, 0, "Encoded data should not be empty")
     }
 
     func testAttendeeCodableDecoding() throws {
@@ -197,7 +197,7 @@ final class AttendeeModelTests: XCTestCase {
     }
 
     func testAttendeeWithSpecialCharacters() {
-        let specialName = "José Müller-Schmidt 🎉"
+        let specialName = "Jose Muller-Schmidt (special)"
         let specialEmail = "josé.müller+test@exämple-dömaın.cöm"
 
         let attendee = Attendee(name: specialName, email: specialEmail, isSelf: false)

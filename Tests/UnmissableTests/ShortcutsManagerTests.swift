@@ -31,7 +31,7 @@ final class ShortcutsManagerTests: XCTestCase {
         sut.setup(overlayManager: overlayManager)
 
         XCTAssertNil(sut.dismissShortcut)
-        XCTAssertNotNil(sut.joinShortcut)
+        XCTAssertEqual(sut.joinShortcut?.identifier, "join_meeting")
     }
 
     func testSetup_whenJoinIdentifierAlreadyRegistered_keepsJoinShortcutNil() throws {
@@ -41,7 +41,7 @@ final class ShortcutsManagerTests: XCTestCase {
 
         sut.setup(overlayManager: overlayManager)
 
-        XCTAssertNotNil(sut.dismissShortcut)
+        XCTAssertEqual(sut.dismissShortcut?.identifier, "dismiss_overlay")
         XCTAssertNil(sut.joinShortcut)
     }
 

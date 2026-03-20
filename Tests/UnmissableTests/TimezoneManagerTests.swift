@@ -42,7 +42,13 @@ final class TimezoneManagerTests: XCTestCase {
         let winterText = manager.formatEventTime(winterEvent, includeTimezone: true)
         let summerText = manager.formatEventTime(summerEvent, includeTimezone: true)
 
-        XCTAssertTrue(winterText.contains(winterAbbreviation))
-        XCTAssertTrue(summerText.contains(summerAbbreviation))
+        XCTAssertTrue(
+            winterText.hasSuffix(winterAbbreviation),
+            "Winter text '\(winterText)' should end with abbreviation '\(winterAbbreviation)'"
+        )
+        XCTAssertTrue(
+            summerText.hasSuffix(summerAbbreviation),
+            "Summer text '\(summerText)' should end with abbreviation '\(summerAbbreviation)'"
+        )
     }
 }

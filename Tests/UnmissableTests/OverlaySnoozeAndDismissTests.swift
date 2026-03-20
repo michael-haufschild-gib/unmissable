@@ -2,323 +2,303 @@ import Combine
 @testable import Unmissable
 import XCTest
 
-/// Comprehensive tests for overlay snooze and dismiss functionality
+/// Tests for overlay snooze and dismiss functionality
 @MainActor
 final class OverlaySnoozeAndDismissTests: XCTestCase {
-    private var overlayManager: TestSafeOverlayManager!
-    private var mockPreferences: PreferencesManager!
-    private var eventScheduler: EventScheduler!
-    private var cancellables: Set<AnyCancellable>!
+    private var overlayManager: TestSafeOverlayManager?
+    private var mockPreferences: PreferencesManager?
+    private var eventScheduler: EventScheduler?
+    private var cancellables = Set<AnyCancellable>()
 
     override func setUp() async throws {
-        mockPreferences = TestUtilities.createTestPreferencesManager()
-        overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
-        eventScheduler = EventScheduler(preferencesManager: mockPreferences)
-        overlayManager.setEventScheduler(eventScheduler)
-        cancellables = Set<AnyCancellable>()
-
+        let prefs = TestUtilities.createTestPreferencesManager()
+        let om = TestSafeOverlayManager(isTestEnvironment: true)
+        let es = EventScheduler(preferencesManager: prefs)
+        om.setEventScheduler(es)
+        mockPreferences = prefs
+        overlayManager = om
+        eventScheduler = es
+        cancellables.removeAll()
         try await super.setUp()
     }
 
     override func tearDown() async throws {
-        overlayManager.hideOverlay()
+        overlayManager?.hideOverlay()
         cancellables.removeAll()
-
         overlayManager = nil
         eventScheduler = nil
         mockPreferences = nil
-
         try await super.tearDown()
     }
 
     // MARK: - Snooze Functionality Tests
 
-    func testSnoozeOverlayHidesOverlay() {
-        // Test that snooze properly hides the overlay
+    func testSnoozeOverlayHidesOverlay() throws {
+        let om = try XCTUnwrap(overlayManager)
         let event = TestUtilities.createTestEvent()
 
-        overlayManager.showOverlayImmediately(for: event)
-        XCTAssertTrue(overlayManager.isOverlayVisible, "Overlay should be visible initially")
-        XCTAssertNotNil(overlayManager.activeEvent, "Should have active event")
+        om.showOverlayImmediately(for: event)
+        XCTAssertTrue(om.isOverlayVisible, "Overlay should be visible initially")
+        let activeEvent = try XCTUnwrap(om.activeEvent)
+        XCTAssertEqual(activeEvent.id, event.id)
 
-        // Snooze for 5 minutes
-        overlayManager.snoozeOverlay(for: 5)
+        om.snoozeOverlay(for: 5)
 
-        XCTAssertFalse(overlayManager.isOverlayVisible, "Overlay should be hidden after snooze")
-        XCTAssertNil(overlayManager.activeEvent, "Active event should be cleared after snooze")
+        XCTAssertFalse(om.isOverlayVisible, "Overlay should be hidden after snooze")
+        XCTAssertNil(om.activeEvent, "Active event should be cleared after snooze")
     }
 
     func testSnoozeOverlaySchedulesCorrectSnoozeAlert() throws {
-        // Test that snooze schedules a new alert with correct timing
+        let om = try XCTUnwrap(overlayManager)
+        let es = try XCTUnwrap(eventScheduler)
         let event = TestUtilities.createTestEvent(
             title: "Important Meeting",
-            startDate: Date().addingTimeInterval(600) // 10 minutes from now
+            startDate: Date().addingTimeInterval(600)
         )
 
-        overlayManager.showOverlayImmediately(for: event)
+        om.showOverlayImmediately(for: event)
 
-        // Snooze for 3 minutes
         let snoozeMinutes = 3
-        overlayManager.snoozeOverlay(for: snoozeMinutes)
+        om.snoozeOverlay(for: snoozeMinutes)
 
-        // Verify snooze was scheduled correctly
-        XCTAssertTrue(eventScheduler.snoozeScheduled, "Snooze should be scheduled")
-        XCTAssertEqual(
-            eventScheduler.snoozeMinutes, snoozeMinutes, "Should schedule correct snooze duration"
-        )
-        XCTAssertEqual(
-            eventScheduler.snoozeEvent?.id, event.id, "Should schedule snooze for correct event"
-        )
+        XCTAssertTrue(es.snoozeScheduled, "Snooze should be scheduled")
+        XCTAssertEqual(es.snoozeMinutes, snoozeMinutes, "Should schedule correct snooze duration")
+        XCTAssertEqual(es.snoozeEvent?.id, event.id, "Should schedule snooze for correct event")
 
-        // Verify timing is approximately correct (within 5 seconds tolerance)
         let expectedSnoozeTime = Date().addingTimeInterval(TimeInterval(snoozeMinutes * 60))
-        let actualSnoozeTime = try XCTUnwrap(eventScheduler.snoozeTime)
+        let actualSnoozeTime = try XCTUnwrap(es.snoozeTime)
         let timeDifference = abs(expectedSnoozeTime.timeIntervalSince(actualSnoozeTime))
-
         XCTAssertLessThan(timeDifference, 5.0, "Snooze time should be approximately correct")
     }
 
-    func testSnoozeWithDifferentDurations() {
-        // Test snooze with various durations (1, 5, 10, 15 minutes)
+    func testSnoozeWithDifferentDurations() throws {
+        let om = try XCTUnwrap(overlayManager)
+        let es = try XCTUnwrap(eventScheduler)
         let testDurations = [1, 5, 10, 15]
 
         for duration in testDurations {
-            eventScheduler.reset()
+            es.reset()
 
             let event = TestUtilities.createTestEvent(title: "Test Meeting \(duration)")
-            overlayManager.showOverlayImmediately(for: event)
+            om.showOverlayImmediately(for: event)
+            om.snoozeOverlay(for: duration)
 
-            overlayManager.snoozeOverlay(for: duration)
-
-            XCTAssertTrue(
-                eventScheduler.snoozeScheduled, "Snooze should be scheduled for \(duration) minutes"
-            )
+            XCTAssertTrue(es.snoozeScheduled, "Snooze should be scheduled for \(duration) minutes")
             XCTAssertEqual(
-                eventScheduler.snoozeMinutes, duration,
-                "Should schedule correct duration: \(duration) minutes"
+                es.snoozeMinutes, duration, "Should schedule correct duration: \(duration) minutes"
             )
             XCTAssertFalse(
-                overlayManager.isOverlayVisible, "Overlay should be hidden after \(duration)-minute snooze"
+                om.isOverlayVisible, "Overlay should be hidden after \(duration)-minute snooze"
             )
         }
     }
 
     func testSnoozeOverlayStopsCountdownTimer() async throws {
-        // Test that snoozing stops the countdown timer
+        let om = try XCTUnwrap(overlayManager)
         let event = TestUtilities.createTestEvent()
 
-        overlayManager.showOverlayImmediately(for: event)
+        om.showOverlayImmediately(for: event)
 
-        // Let timer run briefly
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+            om.timeUntilMeeting > 0
+        }
 
-        // Snooze the overlay
-        overlayManager.snoozeOverlay(for: 5)
-        let countdownAfterSnooze = overlayManager.timeUntilMeeting
+        om.snoozeOverlay(for: 5)
+        let countdownAfterSnooze = om.timeUntilMeeting
 
-        // Wait and verify timer stopped
-        try await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
-        let countdownAfterWait = overlayManager.timeUntilMeeting
+        // Verify timer stopped by waiting and checking value hasn't changed
+        try? await TestUtilities.waitForAsync(timeout: 2.0) { @MainActor @Sendable in
+            om.timeUntilMeeting != countdownAfterSnooze
+        }
 
-        XCTAssertEqual(countdownAfterSnooze, countdownAfterWait, "Timer should stop after snooze")
+        XCTAssertEqual(countdownAfterSnooze, om.timeUntilMeeting, "Timer should stop after snooze")
     }
 
     // MARK: - Dismiss Functionality Tests
 
-    func testDismissOverlayHidesOverlay() {
-        // Test that dismiss properly hides the overlay
+    func testDismissOverlayHidesOverlay() throws {
+        let om = try XCTUnwrap(overlayManager)
         let event = TestUtilities.createTestEvent()
 
-        overlayManager.showOverlayImmediately(for: event)
-        XCTAssertTrue(overlayManager.isOverlayVisible, "Overlay should be visible initially")
-        XCTAssertNotNil(overlayManager.activeEvent, "Should have active event")
+        om.showOverlayImmediately(for: event)
+        XCTAssertTrue(om.isOverlayVisible, "Overlay should be visible initially")
+        let activeEvent = try XCTUnwrap(om.activeEvent)
+        XCTAssertEqual(activeEvent.id, event.id)
 
-        overlayManager.hideOverlay()
+        om.hideOverlay()
 
-        XCTAssertFalse(overlayManager.isOverlayVisible, "Overlay should be hidden after dismiss")
-        XCTAssertNil(overlayManager.activeEvent, "Active event should be cleared after dismiss")
+        XCTAssertFalse(om.isOverlayVisible, "Overlay should be hidden after dismiss")
+        XCTAssertNil(om.activeEvent, "Active event should be cleared after dismiss")
     }
 
     func testDismissOverlayStopsCountdownTimer() async throws {
-        // Test that dismissing stops the countdown timer
+        let om = try XCTUnwrap(overlayManager)
         let event = TestUtilities.createTestEvent()
 
-        overlayManager.showOverlayImmediately(for: event)
+        om.showOverlayImmediately(for: event)
 
-        // Let timer run briefly
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+            om.timeUntilMeeting > 0
+        }
 
-        // Dismiss the overlay
-        overlayManager.hideOverlay()
-        let countdownAfterDismiss = overlayManager.timeUntilMeeting
+        om.hideOverlay()
+        let countdownAfterDismiss = om.timeUntilMeeting
 
-        // Wait and verify timer stopped
-        try await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
-        let countdownAfterWait = overlayManager.timeUntilMeeting
+        try? await TestUtilities.waitForAsync(timeout: 2.0) { @MainActor @Sendable in
+            om.timeUntilMeeting != countdownAfterDismiss
+        }
 
-        XCTAssertEqual(countdownAfterDismiss, countdownAfterWait, "Timer should stop after dismiss")
+        XCTAssertEqual(countdownAfterDismiss, om.timeUntilMeeting, "Timer should stop after dismiss")
     }
 
     func testDismissResetsTimeUntilMeetingToZero() async throws {
+        let om = try XCTUnwrap(overlayManager)
         let event = TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(600))
 
-        overlayManager.showOverlayImmediately(for: event)
-        try await Task.sleep(nanoseconds: 100_000_000)
-        XCTAssertGreaterThan(overlayManager.timeUntilMeeting, 0)
+        om.showOverlayImmediately(for: event)
+        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+            om.timeUntilMeeting > 0
+        }
+        XCTAssertGreaterThan(om.timeUntilMeeting, 0)
 
-        overlayManager.hideOverlay()
+        om.hideOverlay()
 
-        XCTAssertEqual(overlayManager.timeUntilMeeting, 0)
+        XCTAssertEqual(om.timeUntilMeeting, 0)
     }
 
-    func testDismissDoesNotScheduleSnooze() {
-        // Test that dismiss doesn't accidentally schedule a snooze
+    func testDismissDoesNotScheduleSnooze() throws {
+        let om = try XCTUnwrap(overlayManager)
+        let es = try XCTUnwrap(eventScheduler)
         let event = TestUtilities.createTestEvent()
 
-        overlayManager.showOverlayImmediately(for: event)
-        overlayManager.hideOverlay()
+        om.showOverlayImmediately(for: event)
+        om.hideOverlay()
 
-        XCTAssertFalse(eventScheduler.snoozeScheduled, "Dismiss should not schedule snooze")
-        XCTAssertNil(eventScheduler.snoozeEvent, "No snooze event should be set")
+        XCTAssertFalse(es.snoozeScheduled, "Dismiss should not schedule snooze")
+        XCTAssertNil(es.snoozeEvent, "No snooze event should be set")
     }
 
     // MARK: - Rapid Interaction Tests
 
-    func testRapidSnoozeAndDismissInteractions() {
-        // Test rapid snooze/dismiss interactions don't cause issues
+    func testRapidSnoozeAndDismissInteractions() throws {
+        let om = try XCTUnwrap(overlayManager)
+        let es = try XCTUnwrap(eventScheduler)
         let event = TestUtilities.createTestEvent()
 
         for i in 0 ..< 5 {
-            eventScheduler.reset()
-
-            overlayManager.showOverlayImmediately(for: event)
-            XCTAssertTrue(overlayManager.isOverlayVisible, "Overlay should show for iteration \(i)")
+            es.reset()
+            om.showOverlayImmediately(for: event)
+            XCTAssertTrue(om.isOverlayVisible, "Overlay should show for iteration \(i)")
 
             if i % 2 == 0 {
-                // Even iterations: snooze
-                overlayManager.snoozeOverlay(for: 1)
-                XCTAssertTrue(eventScheduler.snoozeScheduled, "Snooze should work on iteration \(i)")
+                om.snoozeOverlay(for: 1)
+                XCTAssertTrue(es.snoozeScheduled, "Snooze should work on iteration \(i)")
             } else {
-                // Odd iterations: dismiss
-                overlayManager.hideOverlay()
-                XCTAssertFalse(eventScheduler.snoozeScheduled, "Dismiss should work on iteration \(i)")
+                om.hideOverlay()
+                XCTAssertFalse(es.snoozeScheduled, "Dismiss should work on iteration \(i)")
             }
 
-            XCTAssertFalse(
-                overlayManager.isOverlayVisible, "Overlay should be hidden after iteration \(i)"
-            )
+            XCTAssertFalse(om.isOverlayVisible, "Overlay should be hidden after iteration \(i)")
         }
     }
 
-    func testSnoozeWhileOverlayNotVisible() {
-        // Test that snooze calls when overlay is not visible don't cause issues
-        XCTAssertFalse(overlayManager.isOverlayVisible, "Overlay should not be visible initially")
+    func testSnoozeWhileOverlayNotVisible() throws {
+        let om = try XCTUnwrap(overlayManager)
+        let es = try XCTUnwrap(eventScheduler)
+        XCTAssertFalse(om.isOverlayVisible, "Overlay should not be visible initially")
 
-        // This should not crash or cause issues
-        overlayManager.snoozeOverlay(for: 5)
+        om.snoozeOverlay(for: 5)
 
-        XCTAssertFalse(overlayManager.isOverlayVisible, "Overlay should still not be visible")
-        XCTAssertFalse(
-            eventScheduler.snoozeScheduled, "No snooze should be scheduled when no overlay is active"
-        )
+        XCTAssertFalse(om.isOverlayVisible, "Overlay should still not be visible")
+        XCTAssertFalse(es.snoozeScheduled, "No snooze should be scheduled when no overlay is active")
     }
 
     // MARK: - Error Handling Tests
 
-    func testSnoozeWithInvalidDuration() {
-        // Test snooze with edge case durations
+    func testSnoozeWithInvalidDuration() throws {
+        let om = try XCTUnwrap(overlayManager)
+        let es = try XCTUnwrap(eventScheduler)
         let event = TestUtilities.createTestEvent()
 
-        // Test zero duration
-        overlayManager.showOverlayImmediately(for: event)
-        overlayManager.snoozeOverlay(for: 0)
+        om.showOverlayImmediately(for: event)
+        om.snoozeOverlay(for: 0)
+        XCTAssertFalse(om.isOverlayVisible, "Overlay should be hidden even with 0-minute snooze")
 
-        XCTAssertFalse(
-            overlayManager.isOverlayVisible, "Overlay should be hidden even with 0-minute snooze"
-        )
+        es.reset()
+        om.showOverlayImmediately(for: event)
+        om.snoozeOverlay(for: 1440) // 24 hours
 
-        // Test very large duration
-        eventScheduler.reset()
-        overlayManager.showOverlayImmediately(for: event)
-        overlayManager.snoozeOverlay(for: 1440) // 24 hours
-
-        XCTAssertTrue(eventScheduler.snoozeScheduled, "Large snooze duration should still work")
-        XCTAssertEqual(eventScheduler.snoozeMinutes, 1440, "Should handle large durations")
+        XCTAssertTrue(es.snoozeScheduled, "Large snooze duration should still work")
+        XCTAssertEqual(es.snoozeMinutes, 1440, "Should handle large durations")
     }
 
-    func testRepeatedSnoozeAndDismissCallsRemainIdempotent() {
+    func testRepeatedSnoozeAndDismissCallsRemainIdempotent() throws {
+        let om = try XCTUnwrap(overlayManager)
+        let es = try XCTUnwrap(eventScheduler)
         let event = TestUtilities.createTestEvent()
 
-        overlayManager.showOverlayImmediately(for: event)
-        overlayManager.snoozeOverlay(for: 1)
+        om.showOverlayImmediately(for: event)
+        om.snoozeOverlay(for: 1)
 
-        let firstSnoozeMinutes = eventScheduler.snoozeMinutes
-        overlayManager.snoozeOverlay(for: 2) // No active event, should be a no-op
+        let firstSnoozeMinutes = es.snoozeMinutes
+        om.snoozeOverlay(for: 2) // No active event, should be a no-op
 
-        overlayManager.hideOverlay()
-        overlayManager.hideOverlay()
+        om.hideOverlay()
+        om.hideOverlay()
 
-        XCTAssertFalse(overlayManager.isOverlayVisible)
-        XCTAssertNil(overlayManager.activeEvent)
-        XCTAssertEqual(eventScheduler.snoozeMinutes, firstSnoozeMinutes)
+        XCTAssertFalse(om.isOverlayVisible)
+        XCTAssertNil(om.activeEvent)
+        XCTAssertEqual(es.snoozeMinutes, firstSnoozeMinutes)
     }
 
     // MARK: - State Consistency Tests
 
     func testOverlayStateConsistencyAfterSnooze() async throws {
-        // Test that all overlay state is properly reset after snooze
+        let om = try XCTUnwrap(overlayManager)
         let event = TestUtilities.createTestEvent()
 
-        overlayManager.showOverlayImmediately(for: event)
+        om.showOverlayImmediately(for: event)
 
-        // Capture initial state
-        XCTAssertTrue(overlayManager.isOverlayVisible)
-        XCTAssertNotNil(overlayManager.activeEvent)
-        XCTAssertGreaterThan(overlayManager.timeUntilMeeting, 0) // Timer should be running
+        XCTAssertTrue(om.isOverlayVisible)
+        XCTAssertEqual(om.activeEvent?.id, event.id)
+        XCTAssertGreaterThan(om.timeUntilMeeting, 0)
 
-        overlayManager.snoozeOverlay(for: 5)
+        om.snoozeOverlay(for: 5)
 
-        // Verify all state is properly reset
-        XCTAssertFalse(overlayManager.isOverlayVisible, "isOverlayVisible should be false")
-        XCTAssertNil(overlayManager.activeEvent, "activeEvent should be nil")
+        XCTAssertFalse(om.isOverlayVisible, "isOverlayVisible should be false")
+        XCTAssertNil(om.activeEvent, "activeEvent should be nil")
 
-        // timeUntilMeeting state after snooze can vary, but timer should be stopped
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-        let countdownAfterWait = overlayManager.timeUntilMeeting
-
-        try await Task.sleep(nanoseconds: 1_000_000_000) // Another 1 second
-        let countdownAfterSecondWait = overlayManager.timeUntilMeeting
+        let countdownAfterSnooze = om.timeUntilMeeting
+        try? await TestUtilities.waitForAsync(timeout: 2.0) { @MainActor @Sendable in
+            om.timeUntilMeeting != countdownAfterSnooze
+        }
 
         XCTAssertEqual(
-            countdownAfterWait, countdownAfterSecondWait, "Timer should not be running after snooze"
+            countdownAfterSnooze, om.timeUntilMeeting, "Timer should not be running after snooze"
         )
     }
 
     func testOverlayStateConsistencyAfterDismiss() async throws {
-        // Test that all overlay state is properly reset after dismiss
+        let om = try XCTUnwrap(overlayManager)
         let event = TestUtilities.createTestEvent()
 
-        overlayManager.showOverlayImmediately(for: event)
+        om.showOverlayImmediately(for: event)
 
-        // Capture initial state
-        XCTAssertTrue(overlayManager.isOverlayVisible)
-        XCTAssertNotNil(overlayManager.activeEvent)
+        XCTAssertTrue(om.isOverlayVisible)
+        XCTAssertEqual(om.activeEvent?.id, event.id)
 
-        overlayManager.hideOverlay()
+        om.hideOverlay()
 
-        // Verify all state is properly reset
-        XCTAssertFalse(overlayManager.isOverlayVisible, "isOverlayVisible should be false")
-        XCTAssertNil(overlayManager.activeEvent, "activeEvent should be nil")
+        XCTAssertFalse(om.isOverlayVisible, "isOverlayVisible should be false")
+        XCTAssertNil(om.activeEvent, "activeEvent should be nil")
 
-        // Timer should be stopped
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-        let countdownAfterWait = overlayManager.timeUntilMeeting
-
-        try await Task.sleep(nanoseconds: 1_000_000_000) // Another 1 second
-        let countdownAfterSecondWait = overlayManager.timeUntilMeeting
+        let countdownAfterDismiss = om.timeUntilMeeting
+        try? await TestUtilities.waitForAsync(timeout: 2.0) { @MainActor @Sendable in
+            om.timeUntilMeeting != countdownAfterDismiss
+        }
 
         XCTAssertEqual(
-            countdownAfterWait, countdownAfterSecondWait, "Timer should not be running after dismiss"
+            countdownAfterDismiss, om.timeUntilMeeting, "Timer should not be running after dismiss"
         )
     }
 }

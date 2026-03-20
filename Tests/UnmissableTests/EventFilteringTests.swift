@@ -56,7 +56,7 @@ final class EventFilteringTests: XCTestCase {
         XCTAssertNil(result, "Events where user declined should be filtered out and return nil")
     }
 
-    func testAcceptedEventNotFiltered() {
+    func testAcceptedEventNotFiltered() throws {
         // Test that confirmed events where user accepted are NOT filtered
         let oauth2Service = OAuth2Service()
         let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
@@ -78,14 +78,16 @@ final class EventFilteringTests: XCTestCase {
         ]
 
         // Parse the event - should NOT be filtered
-        let result = apiService.parseEvent(from: acceptedEventData, calendarId: "test-calendar")
+        let result = try XCTUnwrap(
+            apiService.parseEvent(from: acceptedEventData, calendarId: "test-calendar"),
+            "Events where user accepted should NOT be filtered"
+        )
 
-        XCTAssertNotNil(result, "Events where user accepted should NOT be filtered")
-        XCTAssertEqual(result?.title, "User Accepted Meeting")
-        XCTAssertEqual(result?.id, "accepted-event-123")
+        XCTAssertEqual(result.title, "User Accepted Meeting")
+        XCTAssertEqual(result.id, "accepted-event-123")
     }
 
-    func testTentativeEventNotFiltered() {
+    func testTentativeEventNotFiltered() throws {
         // Test that events where user responded tentative are NOT filtered
         let oauth2Service = OAuth2Service()
         let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
@@ -107,13 +109,15 @@ final class EventFilteringTests: XCTestCase {
         ]
 
         // Parse the event - should NOT be filtered
-        let result = apiService.parseEvent(from: tentativeEventData, calendarId: "test-calendar")
+        let result = try XCTUnwrap(
+            apiService.parseEvent(from: tentativeEventData, calendarId: "test-calendar"),
+            "Events where user responded tentative should NOT be filtered"
+        )
 
-        XCTAssertNotNil(result, "Events where user responded tentative should NOT be filtered")
-        XCTAssertEqual(result?.title, "User Tentative Meeting")
+        XCTAssertEqual(result.title, "User Tentative Meeting")
     }
 
-    func testEventWithoutCurrentUserNotFiltered() {
+    func testEventWithoutCurrentUserNotFiltered() throws {
         // Test that events where current user is not an attendee are NOT filtered
         let oauth2Service = OAuth2Service()
         let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
@@ -140,13 +144,15 @@ final class EventFilteringTests: XCTestCase {
         ]
 
         // Parse the event - should NOT be filtered (no current user attendee)
-        let result = apiService.parseEvent(from: eventData, calendarId: "test-calendar")
+        let result = try XCTUnwrap(
+            apiService.parseEvent(from: eventData, calendarId: "test-calendar"),
+            "Events without current user as attendee should NOT be filtered"
+        )
 
-        XCTAssertNotNil(result, "Events without current user as attendee should NOT be filtered")
-        XCTAssertEqual(result?.title, "Other People Meeting")
+        XCTAssertEqual(result.title, "Other People Meeting")
     }
 
-    func testEventWithMissingStatusDefaultsToConfirmed() {
+    func testEventWithMissingStatusDefaultsToConfirmed() throws {
         // Test that events without status field default to confirmed (not filtered)
         let oauth2Service = OAuth2Service()
         let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
@@ -164,13 +170,13 @@ final class EventFilteringTests: XCTestCase {
         // Parse the event - should NOT be filtered (defaults to confirmed)
         let result = apiService.parseEvent(from: eventData, calendarId: "test-calendar")
 
-        XCTAssertNotNil(
+        let unwrappedResult = try XCTUnwrap(
             result, "Events without status field should default to confirmed and not be filtered"
         )
-        XCTAssertEqual(result?.title, "Meeting Without Status")
+        XCTAssertEqual(unwrappedResult.title, "Meeting Without Status")
     }
 
-    func testAttendeeSelfFieldParsing() {
+    func testAttendeeSelfFieldParsing() throws {
         // Test that the isSelf field is correctly parsed from attendee data
         let oauth2Service = OAuth2Service()
         let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
@@ -198,18 +204,15 @@ final class EventFilteringTests: XCTestCase {
         XCTAssertEqual(attendees.count, 3)
 
         // First attendee should have isSelf = true
-        let currentUser = attendees.first { $0.email == "current-user@example.com" }
-        XCTAssertNotNil(currentUser)
-        XCTAssertTrue(currentUser?.isSelf == true)
+        let currentUser = try XCTUnwrap(attendees.first { $0.email == "current-user@example.com" })
+        XCTAssertTrue(currentUser.isSelf)
 
         // Second attendee should have isSelf = false
-        let otherUser = attendees.first { $0.email == "other-user@example.com" }
-        XCTAssertNotNil(otherUser)
-        XCTAssertFalse(otherUser?.isSelf == true)
+        let otherUser = try XCTUnwrap(attendees.first { $0.email == "other-user@example.com" })
+        XCTAssertFalse(otherUser.isSelf)
 
         // Third attendee should default to isSelf = false
-        let noSelfField = attendees.first { $0.email == "no-self-field@example.com" }
-        XCTAssertNotNil(noSelfField)
-        XCTAssertFalse(noSelfField?.isSelf == true)
+        let noSelfField = try XCTUnwrap(attendees.first { $0.email == "no-self-field@example.com" })
+        XCTAssertFalse(noSelfField.isSelf)
     }
 }

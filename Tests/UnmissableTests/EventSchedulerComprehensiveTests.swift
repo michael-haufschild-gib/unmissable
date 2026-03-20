@@ -4,10 +4,10 @@ import XCTest
 
 @MainActor
 final class EventSchedulerComprehensiveTests: XCTestCase {
-    private var eventScheduler: EventScheduler!
-    private var mockPreferences: PreferencesManager!
-    private var overlayManager: TestSafeOverlayManager!
-    private var cancellables: Set<AnyCancellable>!
+    private var eventScheduler: EventScheduler?
+    private var mockPreferences: PreferencesManager?
+    private var overlayManager: TestSafeOverlayManager?
+    private var cancellables = Set<AnyCancellable>()
 
     override func setUp() async throws {
         try await super.setUp()
@@ -16,16 +16,16 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         mockPreferences.testOverlayShowMinutesBefore = 2 // Set to the actual value being used
         eventScheduler = EventScheduler(preferencesManager: mockPreferences)
         overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
-        cancellables = Set<AnyCancellable>()
+        cancellables.removeAll()
     }
 
     override func tearDown() async throws {
         // Stop all scheduling operations and clean up timers
-        eventScheduler.stopScheduling()
+        eventScheduler?.stopScheduling()
         cancellables.removeAll()
 
         // Give timers time to clean up
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in true }
 
         // Re-enable memory leak test with proper cleanup
         try TestUtilities.testForMemoryLeaks(instance: eventScheduler) {
@@ -164,7 +164,7 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         testScheduler.stopScheduling()
     }
 
-    func testLengthBasedTimingPreferences() async {
+    func testLengthBasedTimingPreferences() async throws {
         // Create events of different lengths
         let shortEvent = TestUtilities.createTestEvent(
             id: "short",
@@ -188,14 +188,11 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         )
 
         // Verify different timing for different event lengths
-        let shortAlert = eventScheduler.scheduledAlerts.first { $0.event.id == "short" }
-        let longAlert = eventScheduler.scheduledAlerts.first { $0.event.id == "long" }
-
-        XCTAssertNotNil(shortAlert)
-        XCTAssertNotNil(longAlert)
+        let shortAlert = try XCTUnwrap(eventScheduler.scheduledAlerts.first { $0.event.id == "short" })
+        let longAlert = try XCTUnwrap(eventScheduler.scheduledAlerts.first { $0.event.id == "long" })
 
         // Long events should have different timing than short events
-        XCTAssertNotEqual(shortAlert?.triggerDate, longAlert?.triggerDate)
+        XCTAssertNotEqual(shortAlert.triggerDate, longAlert.triggerDate)
     }
 
     // MARK: - Sound Alert Tests
@@ -325,7 +322,9 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         scheduler = nil
 
         // Give longer time for cleanup
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1.0 seconds
+        try await TestUtilities.waitForAsync(timeout: 2.0) { @MainActor @Sendable in
+            weakScheduler == nil
+        }
 
         // Log what we see for debugging
         if weakScheduler != nil {

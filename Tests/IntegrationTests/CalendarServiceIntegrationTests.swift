@@ -39,7 +39,7 @@ final class CalendarServiceIntegrationTests: XCTestCase {
     }
 
     @MainActor
-    func testCalendarSelectionUpdate() {
+    func testCalendarSelectionUpdate() throws {
         // Add a mock calendar to test selection updates
         let mockCalendar = CalendarInfo(
             id: "test-calendar",
@@ -55,9 +55,8 @@ final class CalendarServiceIntegrationTests: XCTestCase {
         calendarService.updateCalendarSelection("test-calendar", isSelected: true)
 
         // Verify selection was updated
-        let updatedCalendar = calendarService.calendars.first { $0.id == "test-calendar" }
-        XCTAssertNotNil(updatedCalendar)
-        XCTAssertTrue(updatedCalendar?.isSelected ?? false)
+        let updatedCalendar = try XCTUnwrap(calendarService.calendars.first { $0.id == "test-calendar" })
+        XCTAssertTrue(updatedCalendar.isSelected)
     }
 
     @MainActor

@@ -47,9 +47,12 @@ final class LinkParserTests: XCTestCase {
         """
         let links = linkParser.extractGoogleMeetLinks(from: text)
 
-        XCTAssertEqual(links.count, 2)
-        XCTAssertTrue(links.contains { $0.absoluteString.contains("abc-defg-hij") })
-        XCTAssertTrue(links.contains { $0.absoluteString.contains("xyz-uvwx-stu") })
+        let linkStrings = Set(links.map(\.absoluteString))
+        XCTAssertEqual(linkStrings.count, 2)
+        XCTAssertEqual(linkStrings, [
+            "https://meet.google.com/abc-defg-hij",
+            "https://meet.google.com/xyz-uvwx-stu",
+        ])
     }
 
     func testNoGoogleMeetLinks() {

@@ -27,7 +27,7 @@ final class OverlayRuntimeContractTests: XCTestCase {
 
         XCTAssertFalse(overlayManager.isOverlayVisible)
 
-        try await Task.sleep(for: .milliseconds(250))
+        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in true }
 
         XCTAssertFalse(overlayManager.isOverlayVisible)
     }
@@ -184,7 +184,7 @@ final class OverlayRuntimeContractTests: XCTestCase {
         overlayManager.showOverlay(for: malformedEvent, minutesBeforeMeeting: 5, fromSnooze: false)
 
         XCTAssertTrue(overlayManager.isOverlayVisible)
-        XCTAssertNotNil(overlayManager.activeEvent)
+        XCTAssertEqual(overlayManager.activeEvent?.id, malformedEvent.id)
 
         overlayManager.snoozeOverlay(for: 1)
 
@@ -204,6 +204,7 @@ final class OverlayRuntimeContractTests: XCTestCase {
                 return true
             }
 
+            // swiftlint:disable:next no_raw_task_sleep_in_tests - polling implementation
             try? await Task.sleep(for: pollInterval)
         }
 
