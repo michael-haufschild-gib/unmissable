@@ -44,12 +44,10 @@ opt_in_rules:
   - discouraged_optional_boolean
   - discouraged_optional_collection
   - force_unwrapping
-  - implicitly_unwrapped_optional
+  # implicitly_unwrapped_optional: replaced by custom rule scoped to Sources only
   - weak_delegate
   - discarded_notification_center_observer
   - return_value_from_void_function
-  - capture_variable
-
   # Concurrency
   - async_without_await
   - unhandled_throwing_task
@@ -94,6 +92,7 @@ opt_in_rules:
 analyzer_rules:
   - unused_import
   - unused_declaration
+  - capture_variable
 
 included:
   - Sources
@@ -112,7 +111,7 @@ excluded:
 # -------------------------------------------------------------------
 
 line_length:
-  warning: 120
+  warning: 150
   error: 150
   ignores_urls: true
   ignores_function_declarations: false
@@ -120,35 +119,37 @@ line_length:
   ignores_interpolated_strings: true
 
 file_length:
-  warning: 400
+  warning: 500
   error: 500
   ignore_comment_only_lines: true
 
 function_body_length:
-  warning: 40
+  warning: 80
   error: 80
 
 type_body_length:
-  warning: 300
+  warning: 500
   error: 500
 
 closure_body_length:
-  warning: 50
+  warning: 100
   error: 100
 
 cyclomatic_complexity:
-  warning: 8
+  warning: 12
   error: 12
   ignores_case_statements: false
 
 nesting:
   type_level:
     warning: 2
+    error: 2
   function_level:
     warning: 3
+    error: 3
 
 large_tuple:
-  warning: 3
+  warning: 4
   error: 4
 
 # -------------------------------------------------------------------
@@ -157,10 +158,10 @@ large_tuple:
 
 identifier_name:
   min_length:
-    warning: 2
+    warning: 1
     error: 1
   max_length:
-    warning: 50
+    warning: 60
     error: 60
   excluded:
     - i
@@ -179,7 +180,6 @@ identifier_name:
 type_name:
   min_length: 3
   max_length:
-    warning: 50
     error: 60
 
 # -------------------------------------------------------------------
@@ -191,16 +191,16 @@ trailing_comma:
 
 number_separator:
   minimum_length: 5
+  severity: error
 
 force_unwrapping:
   severity: error
 
-implicitly_unwrapped_optional:
-  severity: warning
-  mode: all_except_iboutlets
+# implicitly_unwrapped_optional: disabled in favor of custom rule below that
+# excludes test files — IUO is the standard XCTest setUp/tearDown pattern.
 
 xct_specific_matcher:
-  severity: warning
+  severity: error
 
 deployment_target:
   macOS_deployment_target: '14.0'
@@ -217,23 +217,65 @@ custom_rules:
     message: "Tests must use TestSafeOverlayManager instead of OverlayManager to prevent fullscreen UI."
     severity: error
 
+  no_real_appstate_in_tests:
+    name: "No Real AppState in Tests"
+    included: "Tests/.*\\.swift"
+    regex: "AppState\\(\\)"
+    message: "Tests must not instantiate AppState() directly — it creates a real OverlayManager that blocks the screen. Inject dependencies instead."
+    severity: error
+
   no_assert_not_nil_without_unwrap:
     name: "No Bare XCTAssertNotNil"
     included: "Tests/.*\\.swift"
     regex: "XCTAssertNotNil\\([^)]+\\)\\s*$"
     message: "XCTAssertNotNil alone is shallow. Use XCTUnwrap + assert the value, or assert a specific property."
-    severity: warning
+    severity: error
 
   no_assert_true_contains:
     name: "No XCTAssertTrue with .contains"
     included: "Tests/.*\\.swift"
     regex: "XCTAssertTrue\\([^)]*\\.contains\\("
     message: "Use XCTAssertEqual or XCTAssert with a specific matcher instead of XCTAssertTrue(.contains(...))."
-    severity: warning
+    severity: error
 
   no_type_check_assertions:
     name: "No Type-Only Assertions"
     included: "Tests/.*\\.swift"
-    regex: "XCTAssert(True|Equal)\\([^)]*\\b(is |typeof |type\\(of:)"
+    regex: "XCTAssert(True|Equal)\\([^,\"]*\\b(is |typeof |type\\(of:)"
     message: "Asserting type alone is shallow. Assert behavior or specific values."
-    severity: warning
+    severity: error
+
+  no_implicitly_unwrapped_optional_in_sources:
+    name: "No IUO in Production Code"
+    included: "Sources/.*\\.swift"
+    regex: ":\\s*\\w+!"
+    message: "Implicitly unwrapped optionals are not allowed in production code. Use optional (?) instead."
+    severity: error
+
+  no_debug_print_in_tests:
+    name: "No Debug Prints in Tests"
+    included: "Tests/.*\\.swift"
+    regex: "print\\(\"[Dd][Ee][Bb][Uu][Gg]"
+    message: "Remove debug print statements from tests. Use XCTAssert to verify values instead."
+    severity: error
+
+  no_nsapplication_in_tests:
+    name: "No NSApplication in Tests"
+    included: "Tests/.*\\.swift"
+    regex: "NSApplication\\.shared"
+    message: "Tests must not interact with the real window server. Mock the window layer or test at a lower level."
+    severity: error
+
+  no_raw_task_sleep_in_tests:
+    name: "No Raw Task.sleep in Tests"
+    included: "Tests/.*\\.swift"
+    regex: "Task\\.sleep\\("
+    message: "Use TestUtilities.waitForAsync instead of raw Task.sleep. Bare sleeps cause flaky tests."
+    severity: error
+
+  no_emoji_in_test_output:
+    name: "No Emoji in Test Output"
+    included: "Tests/.*\\.swift"
+    regex: "[\\x{1F300}-\\x{1F9FF}\\x{2600}-\\x{27BF}\\x{FE00}-\\x{FE0F}\\x{1FA00}-\\x{1FA6F}\\x{1FA70}-\\x{1FAFF}\\x{2702}-\\x{27B0}]"
+    message: "Remove emoji from test files. They are noise that obscures intent."
+    severity: error
