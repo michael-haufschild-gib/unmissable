@@ -12,21 +12,15 @@ extension DatabaseManager {
 
         return try await withTimeout(defaultTimeout) {
             try await dbQueue.read { db in
-                let eventIds =
-                    try String
-                        .fetchAll(
-                            db,
-                            sql: """
-                            SELECT id FROM events_fts
-                            WHERE events_fts MATCH ?
-                            ORDER BY rank
-                            """, arguments: [query]
-                        )
-
-                return
-                    try Event
-                        .filter(eventIds.contains(Event.Columns.id))
-                        .fetchAll(db)
+                try Event.fetchAll(
+                    db,
+                    sql: """
+                    SELECT events.* FROM events
+                    JOIN events_fts ON events.rowid = events_fts.rowid
+                    WHERE events_fts MATCH ?
+                    ORDER BY events_fts.rank
+                    """, arguments: [query]
+                )
             }
         }
     }
