@@ -7,11 +7,14 @@ set -e
 
 APP_NAME="Unmissable"
 APP_BUNDLE="${APP_NAME}.app"
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+APP_SOURCE_PATH="${PROJECT_DIR}/${APP_BUNDLE}"
+INSTALL_DESTINATION="/Applications/${APP_BUNDLE}"
 
 echo "🚀  Installing ${APP_NAME}..."
 
 # Check if app bundle exists
-if [ ! -d "${APP_BUNDLE}" ]; then
+if [ ! -d "${APP_SOURCE_PATH}" ]; then
     echo "❌  ${APP_BUNDLE} not found!"
     echo "    Run './Scripts/build-release.sh' first to create the app bundle."
     exit 1
@@ -23,14 +26,14 @@ if [ ! -w "/Applications" ]; then
     echo "📋  Manual installation:"
     echo "    1. Copy ${APP_BUNDLE} to /Applications/"
     echo "    2. You may need to enter your password"
-    sudo cp -R "${APP_BUNDLE}" "/Applications/"
+    sudo cp -R "${APP_SOURCE_PATH}" "/Applications/"
 else
     echo "📦  Copying ${APP_BUNDLE} to /Applications/..."
-    cp -R "${APP_BUNDLE}" "/Applications/"
+    cp -R "${APP_SOURCE_PATH}" "/Applications/"
 fi
 
 # Verify installation
-if [ -d "/Applications/${APP_BUNDLE}" ]; then
+if [ -d "${INSTALL_DESTINATION}" ]; then
     echo "✅  ${APP_NAME} installed successfully!"
     echo ""
     echo "🔧  Setup Instructions:"

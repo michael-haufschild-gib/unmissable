@@ -9,9 +9,12 @@ echo "📦  Creating portable app package..."
 echo "===================================="
 
 # Configuration
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKAGE_NAME="Unmissable-Ready-To-Use"
-PACKAGE_DIR="${PACKAGE_NAME}"
-ZIP_NAME="${PACKAGE_NAME}.zip"
+PACKAGE_DIR="${PROJECT_DIR}/${PACKAGE_NAME}"
+ZIP_NAME="${PROJECT_DIR}/${PACKAGE_NAME}.zip"
+APP_BUNDLE_PATH="${PROJECT_DIR}/Unmissable.app"
+cd "$PROJECT_DIR"
 
 # Clean previous package
 echo "🧹  Cleaning previous package..."
@@ -19,7 +22,7 @@ rm -rf "${PACKAGE_DIR}" "${ZIP_NAME}"
 
 # Build latest release first
 echo "🏗️  Building latest release..."
-./Scripts/build-release.sh
+"${PROJECT_DIR}/Scripts/build-release.sh"
 
 # Create package structure
 echo "📁  Creating package structure..."
@@ -27,7 +30,7 @@ mkdir -p "${PACKAGE_DIR}"
 
 # Copy the complete app bundle (with OAuth already configured)
 echo "📋  Copying complete app bundle..."
-cp -R "Unmissable.app" "${PACKAGE_DIR}/"
+cp -R "${APP_BUNDLE_PATH}" "${PACKAGE_DIR}/"
 
 # Create simple installation README
 echo "📖  Creating installation instructions..."
@@ -99,12 +102,20 @@ fi
 
 # Copy to Applications
 echo "📱  Copying to Applications folder..."
-if [[ -d "/Applications/Unmissable.app" ]]; then
-    echo "⚠️  Replacing existing version..."
-    rm -rf "/Applications/Unmissable.app"
-fi
+	if [[ -d "/Applications/Unmissable.app" ]]; then
+	    echo "⚠️  Replacing existing version..."
+	    if [[ -w "/Applications" ]]; then
+	        rm -rf "/Applications/Unmissable.app"
+	    else
+	        sudo rm -rf "/Applications/Unmissable.app"
+	    fi
+	fi
 
-cp -R "Unmissable.app" "/Applications/"
+	if [[ -w "/Applications" ]]; then
+	    cp -R "Unmissable.app" "/Applications/"
+	else
+	    sudo cp -R "Unmissable.app" "/Applications/"
+	fi
 
 # Remove quarantine attribute
 echo "🔓  Removing quarantine attribute..."
@@ -123,7 +134,7 @@ chmod +x "${PACKAGE_DIR}/install.sh"
 
 # Create compressed package
 echo "🗜️  Creating compressed package..."
-zip -r "${ZIP_NAME}" "${PACKAGE_DIR}/"
+(cd "$PROJECT_DIR" && zip -r "${ZIP_NAME}" "${PACKAGE_NAME}/")
 
 # Get package size
 PACKAGE_SIZE=$(du -sh "${ZIP_NAME}" | cut -f1)

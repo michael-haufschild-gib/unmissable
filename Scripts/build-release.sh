@@ -8,11 +8,13 @@ set -e
 # Configuration
 APP_NAME="Unmissable"
 BUNDLE_ID="com.unmissable.app"
-BUILD_DIR=".build/release"
-APP_BUNDLE="${APP_NAME}.app"
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BUILD_DIR="${PROJECT_DIR}/.build/release"
+APP_BUNDLE="${PROJECT_DIR}/${APP_NAME}.app"
 CONTENTS_DIR="${APP_BUNDLE}/Contents"
 MACOS_DIR="${CONTENTS_DIR}/MacOS"
 RESOURCES_DIR="${CONTENTS_DIR}/Resources"
+cd "$PROJECT_DIR"
 
 echo "🏗️  Building ${APP_NAME} for release..."
 
@@ -35,20 +37,20 @@ cp "${BUILD_DIR}/${APP_NAME}" "${MACOS_DIR}/"
 
 # Copy Info.plist
 echo "📄  Copying Info.plist..."
-cp "Info.plist" "${CONTENTS_DIR}/"
+cp "${PROJECT_DIR}/Info.plist" "${CONTENTS_DIR}/"
 
 # Copy resources if they exist
-if [ -d "Sources/${APP_NAME}/Resources" ] && [ "$(ls -A Sources/${APP_NAME}/Resources 2>/dev/null)" ]; then
+if [ -d "${PROJECT_DIR}/Sources/${APP_NAME}/Resources" ] && [ "$(ls -A "${PROJECT_DIR}/Sources/${APP_NAME}/Resources" 2>/dev/null)" ]; then
     echo "📦  Copying resources..."
-    cp -R "Sources/${APP_NAME}/Resources/"* "${RESOURCES_DIR}/"
+    cp -R "${PROJECT_DIR}/Sources/${APP_NAME}/Resources/"* "${RESOURCES_DIR}/"
 else
     echo "📦  No resources directory found, skipping..."
 fi
 
 # Copy Config.plist if it exists (OAuth configuration)
-if [ -f "Config.plist" ]; then
+if [ -f "${PROJECT_DIR}/Config.plist" ]; then
     echo "⚙️  Copying configuration..."
-    cp "Config.plist" "${RESOURCES_DIR}/"
+    cp "${PROJECT_DIR}/Config.plist" "${RESOURCES_DIR}/"
 else
     echo "⚠️  Config.plist not found - app may not work without OAuth configuration"
 fi
@@ -65,7 +67,7 @@ codesign --force --deep --sign - "${APP_BUNDLE}"
 echo "✅  Verifying app bundle..."
 if [ -x "${MACOS_DIR}/${APP_NAME}" ] && [ -f "${CONTENTS_DIR}/Info.plist" ]; then
     echo "✅  App bundle created successfully!"
-    echo "📦  Location: $(pwd)/${APP_BUNDLE}"
+    echo "📦  Location: ${APP_BUNDLE}"
     echo ""
     echo "📋  Installation instructions:"
     echo "   1. Move ${APP_BUNDLE} to /Applications/"

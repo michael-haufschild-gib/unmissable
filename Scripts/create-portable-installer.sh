@@ -5,19 +5,22 @@
 
 set -e
 
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKAGE_NAME="Unmissable-Installer"
-PACKAGE_DIR="${PACKAGE_NAME}"
-TEMP_CONFIG="Config.plist.work"
+PACKAGE_DIR="${PROJECT_DIR}/${PACKAGE_NAME}"
+ZIP_PATH="${PROJECT_DIR}/${PACKAGE_NAME}.zip"
+APP_BUNDLE_PATH="${PROJECT_DIR}/Unmissable.app"
+cd "$PROJECT_DIR"
 
 echo "📦  Creating portable installer package..."
 
 # Clean up any existing package
 rm -rf "${PACKAGE_DIR}"
-rm -f "${PACKAGE_NAME}.zip"
+rm -f "${ZIP_PATH}"
 
 # Step 1: Build the latest version
 echo "🏗️  Building latest release..."
-./Scripts/build-release.sh
+"${PROJECT_DIR}/Scripts/build-release.sh"
 
 # Step 2: Create package directory structure
 echo "📁  Creating package structure..."
@@ -25,7 +28,7 @@ mkdir -p "${PACKAGE_DIR}"
 
 # Step 3: Copy the built app
 echo "📋  Copying app bundle..."
-cp -R "Unmissable.app" "${PACKAGE_DIR}/"
+cp -R "${APP_BUNDLE_PATH}" "${PACKAGE_DIR}/"
 
 # Step 4: Create work-safe config template
 echo "⚙️  Creating work config template..."
@@ -122,7 +125,11 @@ if [[ -d "/Applications/Unmissable.app" ]]; then
         echo "Installation cancelled"
         exit 0
     fi
-    rm -rf "/Applications/Unmissable.app"
+    if [[ -w "/Applications" ]]; then
+        rm -rf "/Applications/Unmissable.app"
+    else
+        sudo rm -rf "/Applications/Unmissable.app"
+    fi
 fi
 
 # Copy with appropriate permissions
@@ -266,20 +273,20 @@ chmod +x "${PACKAGE_DIR}/install-on-work-laptop.sh"
 
 # Step 8: Create compressed package
 echo "🗜️  Creating compressed package..."
-zip -r "${PACKAGE_NAME}.zip" "${PACKAGE_DIR}"
+(cd "$PROJECT_DIR" && zip -r "${ZIP_PATH}" "${PACKAGE_NAME}")
 
 # Step 9: Show package info
 echo ""
 echo "✅  Portable installer created!"
 echo ""
-echo "📦  Package: ${PACKAGE_NAME}.zip"
-echo "📏  Size: $(du -sh "${PACKAGE_NAME}.zip" | cut -f1)"
+echo "📦  Package: ${ZIP_PATH}"
+echo "📏  Size: $(du -sh "${ZIP_PATH}" | cut -f1)"
 echo "📁  Contents:"
 ls -la "${PACKAGE_DIR}"
 echo ""
 echo "📧  Email Instructions:"
 echo "======================================"
-echo "1. Attach ${PACKAGE_NAME}.zip to email"
+echo "1. Attach ${ZIP_PATH} to email"
 echo "2. Send to your work email"
 echo "3. On work laptop: Download and extract"
 echo "4. Run: ./install-on-work-laptop.sh"

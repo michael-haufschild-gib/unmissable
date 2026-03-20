@@ -5,28 +5,36 @@
 
 set -e
 
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+APP_BUNDLE_PATH="${PROJECT_DIR}/Unmissable.app"
+APP_EXECUTABLE_PATH="${APP_BUNDLE_PATH}/Contents/MacOS/Unmissable"
+cd "$PROJECT_DIR"
+
 echo "🚀  Unmissable Release Workflow"
 echo "==============================="
 echo ""
 
 # Step 1: Build the release
 echo "📦  Step 1: Building release version..."
-./Scripts/build-release.sh
+"${PROJECT_DIR}/Scripts/build-release.sh"
 echo ""
 
 # Step 2: Show what was created
 echo "🔍  Step 2: Verifying app bundle..."
-echo "App bundle location: $(pwd)/Unmissable.app"
-echo "App bundle size: $(du -sh Unmissable.app | cut -f1)"
-echo "Executable size: $(du -sh Unmissable.app/Contents/MacOS/Unmissable | cut -f1)"
+echo "App bundle location: ${APP_BUNDLE_PATH}"
+echo "App bundle size: $(du -sh "${APP_BUNDLE_PATH}" | cut -f1)"
+echo "Executable size: $(du -sh "${APP_EXECUTABLE_PATH}" | cut -f1)"
 echo ""
 
 # Step 3: Test the app
 echo "🧪  Step 3: Testing app launch..."
 echo "Opening app for verification (will appear in menu bar)..."
-open Unmissable.app
-sleep 2
-echo "✅  App should now be running in menu bar"
+if open "${APP_BUNDLE_PATH}"; then
+    sleep 2
+    echo "✅  App should now be running in menu bar"
+else
+    echo "⚠️  Could not open app automatically in this environment. You can launch it manually from Applications after install."
+fi
 echo ""
 
 # Step 4: Show installation options
@@ -56,5 +64,5 @@ echo ""
 
 echo "🎉  Release workflow complete!"
 echo ""
-echo "📖  For detailed instructions, see INSTALL.md"
+echo "📖  For detailed instructions, see README.md"
 echo "🔧  To install permanently: ./Scripts/install.sh"

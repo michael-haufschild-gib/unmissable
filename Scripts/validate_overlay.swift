@@ -2,58 +2,86 @@
 
 import Foundation
 
-// Simple validation script to check overlay functionality
-print("🧪 Overlay Validation Script")
-print("==========================")
-
-// Test 1: Basic callback function definitions
-print("✅ Test 1: Function signature validation")
-
-// Simulate the callback signatures we expect
-typealias DismissCallback = () -> Void
-typealias JoinCallback = (URL) -> Void
-typealias SnoozeCallback = (Int) -> Void
-
-let testDismiss: DismissCallback = {
-    print("   Dismiss callback executed safely")
+struct XCTestCluster {
+    let name: String
+    let onlyTesting: [String]
 }
 
-let testJoin: JoinCallback = { url in
-    print("   Join callback executed safely with URL: \(url)")
+private let scheme = "Unmissable"
+private let destination = "platform=macOS"
+private let executedPattern = #"Executed [1-9][0-9]* test"#
+
+private func projectRoot() -> URL {
+    URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent() // Scripts
+        .deletingLastPathComponent() // project root
 }
 
-let testSnooze: SnoozeCallback = { minutes in
-    print("   Snooze callback executed safely with \(minutes) minutes")
+@discardableResult
+private func runCluster(_ cluster: XCTestCluster, in projectURL: URL) -> Bool {
+    print("🧪 \(cluster.name)")
+
+    let process = Process()
+    process.currentDirectoryURL = projectURL
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/xcodebuild")
+
+    var args = ["-scheme", scheme, "-destination", destination, "test"]
+    args.append(contentsOf: cluster.onlyTesting.flatMap { ["-only-testing:\($0)"] })
+    process.arguments = args
+
+    let outputPipe = Pipe()
+    process.standardOutput = outputPipe
+    process.standardError = outputPipe
+
+    do {
+        try process.run()
+    } catch {
+        fputs("❌ Failed to start xcodebuild: \(error.localizedDescription)\n", stderr)
+        return false
+    }
+
+    let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+    process.waitUntilExit()
+
+    let output = String(data: outputData, encoding: .utf8) ?? ""
+    print(output)
+
+    guard process.terminationStatus == 0 else {
+        fputs("❌ \(cluster.name) failed with exit code \(process.terminationStatus)\n", stderr)
+        return false
+    }
+
+    guard output.range(of: executedPattern, options: .regularExpression) != nil else {
+        fputs("❌ \(cluster.name) executed zero tests (failing to avoid false confidence)\n", stderr)
+        return false
+    }
+
+    print("✅ \(cluster.name) passed with executed XCTest coverage")
+    return true
 }
 
-// Test 2: Verify callbacks don't cause infinite loops
-print("✅ Test 2: Callback execution safety")
+let clusters = [
+    XCTestCluster(
+        name: "Overlay runtime contract validation",
+        onlyTesting: ["UnmissableTests/OverlayRuntimeContractTests"]
+    ),
+    XCTestCluster(
+        name: "Overlay snooze and dismiss validation",
+        onlyTesting: ["UnmissableTests/OverlaySnoozeAndDismissTests"]
+    ),
+]
 
-testDismiss()
-testJoin(URL(string: "https://meet.google.com/test")!)
-testSnooze(5)
-
-// Test 3: Verify DispatchQueue usage
-print("✅ Test 3: Async callback safety")
-
-DispatchQueue.main.async {
-    testDismiss()
+let root = projectRoot()
+var hasFailure = false
+for cluster in clusters {
+    if !runCluster(cluster, in: root) {
+        hasFailure = true
+    }
 }
 
-DispatchQueue.main.async {
-    testJoin(URL(string: "https://example.com/async-test")!)
+if hasFailure {
+    fputs("❌ Overlay validation failed\n", stderr)
+    exit(1)
 }
 
-DispatchQueue.main.async {
-    testSnooze(10)
-}
-
-// Sleep briefly to let async callbacks complete
-Thread.sleep(forTimeInterval: 0.1)
-
-print("✅ All overlay validation tests passed!")
-print("   - Callback signatures are correct")
-print("   - No infinite loops detected")
-print("   - Async execution is safe")
-print("")
-print("🎯 The overlay fixes should prevent the freezing issues.")
+print("🎯 Overlay validation complete")

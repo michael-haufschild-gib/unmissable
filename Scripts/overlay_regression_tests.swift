@@ -1,128 +1,94 @@
+#!/usr/bin/env swift
+
 import Foundation
 
-// Simple console test runner for overlay functionality
-// This can be run as part of CI to catch callback deadlocks
+struct XCTestCluster {
+    let name: String
+    let onlyTesting: [String]
+}
 
-class OverlayRegressionTests {
-    private var testsPassed = 0
-    private var testsFailed = 0
+private let scheme = "Unmissable"
+private let destination = "platform=macOS"
+private let executedPattern = #"Executed [1-9][0-9]* test"#
 
-    func runAllTests() {
-        print("🧪 Running Overlay Regression Tests")
-        print("==================================")
+private func projectRoot() -> URL {
+    URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent() // Scripts
+        .deletingLastPathComponent() // project root
+}
 
-        testCallbackSignatures()
-        testAsyncSafety()
-        testSnoozeOptions()
-        testMemorySafety()
+@discardableResult
+private func runCluster(_ cluster: XCTestCluster, in projectURL: URL) -> Bool {
+    print("🧪 \(cluster.name)")
 
-        printResults()
+    let process = Process()
+    process.currentDirectoryURL = projectURL
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/xcodebuild")
+
+    var args = ["-scheme", scheme, "-destination", destination, "test"]
+    args.append(contentsOf: cluster.onlyTesting.flatMap { ["-only-testing:\($0)"] })
+    process.arguments = args
+
+    let outputPipe = Pipe()
+    process.standardOutput = outputPipe
+    process.standardError = outputPipe
+
+    do {
+        try process.run()
+    } catch {
+        fputs("❌ Failed to start xcodebuild: \(error.localizedDescription)\n", stderr)
+        return false
     }
 
-    func testCallbackSignatures() {
-        let testName = "Callback Signatures"
+    let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+    process.waitUntilExit()
 
-        do {
-            // Test that our callback types match expected signatures
-            let dismissCallback: () -> Void = {}
-            let joinCallback: (URL) -> Void = { _ in }
-            let snoozeCallback: (Int) -> Void = { _ in }
+    let output = String(data: outputData, encoding: .utf8) ?? ""
+    print(output)
 
-            // If we get here without compilation errors, signatures are correct
-            recordTest(testName, passed: true)
-        } catch {
-            recordTest(testName, passed: false, error: error.localizedDescription)
-        }
+    guard process.terminationStatus == 0 else {
+        fputs("❌ \(cluster.name) failed with exit code \(process.terminationStatus)\n", stderr)
+        return false
     }
 
-    func testAsyncSafety() {
-        let testName = "Async Callback Safety"
-        let expectation = DispatchSemaphore(value: 0)
-        var callbackExecuted = false
-
-        // Simulate the async pattern used in the fixed overlay
-        DispatchQueue.main.async {
-            callbackExecuted = true
-            expectation.signal()
-        }
-
-        // Wait for completion with timeout
-        let result = expectation.wait(timeout: .now() + 1.0)
-
-        if result == .success, callbackExecuted {
-            recordTest(testName, passed: true)
-        } else {
-            recordTest(testName, passed: false, error: "Async callback failed or timed out")
-        }
+    guard output.range(of: executedPattern, options: .regularExpression) != nil else {
+        fputs("❌ \(cluster.name) executed zero tests (failing to avoid false confidence)\n", stderr)
+        return false
     }
 
-    func testSnoozeOptions() {
-        let testName = "Snooze Options Validation"
+    print("✅ \(cluster.name) passed with executed XCTest coverage")
+    return true
+}
 
-        let validSnoozeMinutes = [1, 5, 10, 15]
-        var allValid = true
+let clusters = [
+    XCTestCluster(
+        name: "Overlay interaction regression suite",
+        onlyTesting: [
+            "UnmissableTests/OverlayAccuracyAndInteractionTests",
+            "UnmissableTests/OverlaySnoozeAndDismissTests",
+        ]
+    ),
+    XCTestCluster(
+        name: "Scheduling and integration regression suite",
+        onlyTesting: [
+            "UnmissableTests/EventSchedulerComprehensiveTests",
+            "UnmissableTests/SystemIntegrationTests",
+            "UnmissableTests/AppStateDisconnectCleanupTests",
+        ]
+    ),
+]
 
-        for minutes in validSnoozeMinutes {
-            if minutes <= 0 || minutes > 60 {
-                allValid = false
-                break
-            }
-        }
-
-        recordTest(testName, passed: allValid)
-    }
-
-    func testMemorySafety() {
-        let testName = "Memory Safety"
-
-        // Test that callbacks don't retain references
-        weak var weakRef: AnyObject?
-
-        autoreleasepool {
-            class TestObject {
-                let callback: () -> Void = {}
-            }
-
-            let testObj = TestObject()
-            weakRef = testObj
-
-            // Simulate callback execution
-            testObj.callback()
-        }
-
-        // Object should be deallocated after autoreleasepool
-        recordTest(testName, passed: weakRef == nil)
-    }
-
-    private func recordTest(_ name: String, passed: Bool, error: String? = nil) {
-        if passed {
-            print("✅ \(name)")
-            testsPassed += 1
-        } else {
-            print("❌ \(name)")
-            if let error {
-                print("   Error: \(error)")
-            }
-            testsFailed += 1
-        }
-    }
-
-    private func printResults() {
-        print("")
-        print("Test Results:")
-        print("✅ Passed: \(testsPassed)")
-        print("❌ Failed: \(testsFailed)")
-
-        if testsFailed == 0 {
-            print("🎉 All overlay regression tests passed!")
-            exit(0)
-        } else {
-            print("💥 Some tests failed - overlay functionality may have regressions")
-            exit(1)
-        }
+let root = projectRoot()
+var hasFailure = false
+for cluster in clusters {
+    if !runCluster(cluster, in: root) {
+        hasFailure = true
     }
 }
 
-/// Run the tests
-let tester = OverlayRegressionTests()
-tester.runAllTests()
+if hasFailure {
+    fputs("❌ Overlay regression validation failed\n", stderr)
+    exit(1)
+}
+
+print("🎯 Overlay regression validation complete")

@@ -3,7 +3,7 @@
 # Test Automation Script for Unmissable App
 # This script runs the comprehensive test suite and validates production readiness
 
-set -e  # Exit on any error
+set -euo pipefail  # Exit on errors and fail piped commands when xcodebuild fails
 
 echo "🧪 Starting Unmissable Test Automation Suite"
 echo "=============================================="
@@ -15,6 +15,7 @@ DESTINATION="platform=macOS"
 BUILD_DIR="$PROJECT_DIR/.build"
 COVERAGE_DIR="$PROJECT_DIR/coverage"
 REPORTS_DIR="$PROJECT_DIR/test-reports"
+cd "$PROJECT_DIR"
 
 # Colors for output
 RED='\033[0;31m'
@@ -64,27 +65,25 @@ else
     log_warning "SwiftFormat not found, skipping formatting"
 fi
 
-if command -v swiftlint &> /dev/null; then
-    log_info "Running SwiftLint..."
-    swiftlint --config "$PROJECT_DIR/.swiftlint.yml" --path "$PROJECT_DIR/Sources" --path "$PROJECT_DIR/Tests"
-    log_success "Linting completed"
-else
-    log_warning "SwiftLint not found, skipping linting"
-fi
+log_info "Running enforced SwiftLint policy..."
+"$PROJECT_DIR/Scripts/enforce-lint.sh"
+log_success "Linting completed"
 
 # Step 2: Build the project
 log_info "Step 2: Building project..."
-xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" build | tee "$REPORTS_DIR/build.log"
-log_success "Build completed successfully"
+if xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" build | tee "$REPORTS_DIR/build.log"; then
+    log_success "Build completed successfully"
+else
+    log_error "Build failed"
+    exit 1
+fi
 
 # Step 3: Run Unit Tests
 log_info "Step 3: Running unit tests..."
-xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
+if xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
     -only-testing:"UnmissableTests" \
     -resultBundlePath "$REPORTS_DIR/unit-tests.xcresult" \
-    | tee "$REPORTS_DIR/unit-tests.log"
-
-if [ $? -eq 0 ]; then
+    | tee "$REPORTS_DIR/unit-tests.log"; then
     log_success "Unit tests passed"
 else
     log_error "Unit tests failed"
@@ -93,12 +92,10 @@ fi
 
 # Step 4: Run Integration Tests
 log_info "Step 4: Running integration tests..."
-xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
+if xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
     -only-testing:"IntegrationTests" \
     -resultBundlePath "$REPORTS_DIR/integration-tests.xcresult" \
-    | tee "$REPORTS_DIR/integration-tests.log"
-
-if [ $? -eq 0 ]; then
+    | tee "$REPORTS_DIR/integration-tests.log"; then
     log_success "Integration tests passed"
 else
     log_error "Integration tests failed"
@@ -107,12 +104,10 @@ fi
 
 # Step 5: Run UI/Snapshot Tests
 log_info "Step 5: Running UI and snapshot tests..."
-xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
+if xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
     -only-testing:"SnapshotTests" \
     -resultBundlePath "$REPORTS_DIR/ui-tests.xcresult" \
-    | tee "$REPORTS_DIR/ui-tests.log"
-
-if [ $? -eq 0 ]; then
+    | tee "$REPORTS_DIR/ui-tests.log"; then
     log_success "UI tests passed"
 else
     log_warning "UI tests failed (may be acceptable for snapshot tests)"
@@ -132,32 +127,29 @@ fi
 
 # Step 7: Performance Testing
 log_info "Step 7: Running performance tests..."
-xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
+if xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
     -only-testing:"UnmissableTests/testLargeNumberOfEvents" \
     -only-testing:"UnmissableTests/testBatchEventSavePerformance" \
     -only-testing:"UnmissableTests/testEndToEndPerformance" \
     -resultBundlePath "$REPORTS_DIR/performance-tests.xcresult" \
-    | tee "$REPORTS_DIR/performance-tests.log"
-
-if [ $? -eq 0 ]; then
+    | tee "$REPORTS_DIR/performance-tests.log"; then
     log_success "Performance tests passed"
 else
     log_warning "Performance tests had issues"
 fi
 
-# Step 8: Memory Leak Detection
-log_info "Step 8: Running memory leak detection tests..."
-xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
-    -only-testing:"UnmissableTests/testEventSchedulerDeallocation" \
-    -only-testing:"UnmissableTests/testOverlayManagerDeallocation" \
-    -only-testing:"UnmissableTests/testDatabaseManagerDeallocation" \
+# Step 8: Resource Lifecycle / Cleanup Tests
+log_info "Step 8: Running resource lifecycle and cleanup tests..."
+if xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
+    -only-testing:"UnmissableTests/AppStateDisconnectCleanupTests" \
+    -only-testing:"UnmissableTests/CalendarServiceTests" \
+    -only-testing:"UnmissableTests/SyncManagerLifecycleTests" \
+    -only-testing:"UnmissableTests/HealthMonitorTests" \
     -resultBundlePath "$REPORTS_DIR/memory-tests.xcresult" \
-    | tee "$REPORTS_DIR/memory-tests.log"
-
-if [ $? -eq 0 ]; then
-    log_success "Memory leak tests passed"
+    | tee "$REPORTS_DIR/memory-tests.log"; then
+    log_success "Resource lifecycle tests passed"
 else
-    log_error "Memory leak tests failed"
+    log_error "Resource lifecycle tests failed"
     exit 1
 fi
 
@@ -194,9 +186,9 @@ if grep -q "Test Suite.*failed" "$REPORTS_DIR/integration-tests.log"; then
     CRITICAL_ISSUES=$((CRITICAL_ISSUES + 1))
 fi
 
-# Check for memory leaks
-if grep -q "Memory leak detected" "$REPORTS_DIR/memory-tests.log"; then
-    log_error "Memory leaks detected"
+# Check resource-lifecycle test result stream
+if grep -q "Test Suite.*failed" "$REPORTS_DIR/memory-tests.log"; then
+    log_error "Resource lifecycle test failures detected"
     CRITICAL_ISSUES=$((CRITICAL_ISSUES + 1))
 fi
 
@@ -230,7 +222,7 @@ Generated: $(date)
 - Log: performance-tests.log
 
 ### Memory Tests
-- Status: $(if grep -q "Memory leak detected" "$REPORTS_DIR/memory-tests.log"; then echo "❌ LEAKS"; else echo "✅ PASSED"; fi)
+- Status: $(if grep -q "Test Suite.*failed" "$REPORTS_DIR/memory-tests.log"; then echo "❌ FAILED"; else echo "✅ PASSED"; fi)
 - Log: memory-tests.log
 
 ## Critical Issues
@@ -242,12 +234,12 @@ $(if [ $CRITICAL_ISSUES -eq 0 ]; then echo "✅ **READY FOR PRODUCTION**"; else 
 ## Recommendations
 $(if [ $CRITICAL_ISSUES -eq 0 ]; then
     echo "- All critical tests passing"
-    echo "- No memory leaks detected"
+    echo "- Resource lifecycle/cleanup checks passed"
     echo "- System meets performance requirements"
     echo "- Safe to deploy to production"
 else
     echo "- Fix failing unit/integration tests"
-    echo "- Resolve memory leaks"
+    echo "- Resolve resource lifecycle/cleanup failures"
     echo "- Review performance issues"
     echo "- Re-run test suite before deployment"
 fi)
