@@ -110,8 +110,8 @@ enum GoogleCalendarConfig {
 
     // MARK: - Configuration Loading Helper
 
-    /// Loads Config.plist from app bundle Resources or project root directory
-    /// Handles both bundled app and development contexts
+    // Loads Config.plist from app bundle Resources or project root directory.
+    // Handles both bundled app and development contexts.
     // swiftlint:disable:next discouraged_optional_collection - config file may not exist
     private static func loadConfigFromProjectRoot() -> [String: Any]? {
         // First, try to load from app bundle Resources (for bundled app / App Store)
