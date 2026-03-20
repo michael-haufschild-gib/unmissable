@@ -3,18 +3,21 @@ import XCTest
 
 @MainActor
 final class PreferencesManagerTests: XCTestCase {
-    var preferencesManager: PreferencesManager!
+    private var preferencesManager: PreferencesManager!
 
     override func setUp() async throws {
         // Clear UserDefaults for testing
-        let domain = Bundle.main.bundleIdentifier!
-        UserDefaults.standard.removePersistentDomain(forName: domain)
+        if let domain = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: domain)
+        }
 
         preferencesManager = PreferencesManager()
+        try await super.setUp()
     }
 
     override func tearDown() async throws {
         preferencesManager = nil
+        try await super.tearDown()
     }
 
     func testDefaultValues() {
@@ -28,6 +31,14 @@ final class PreferencesManagerTests: XCTestCase {
         XCTAssertTrue(preferencesManager.showOnAllDisplays)
         XCTAssertTrue(preferencesManager.playAlertSound)
         XCTAssertTrue(preferencesManager.overrideFocusMode)
+    }
+
+    func testSyncIntervalSeconds_whenOutOfBounds_clampsToHardcodedBounds() {
+        preferencesManager.syncIntervalSeconds = 10 // below min (30)
+        XCTAssertEqual(preferencesManager.syncIntervalSeconds, 30)
+
+        preferencesManager.syncIntervalSeconds = 5000 // above max (3600)
+        XCTAssertEqual(preferencesManager.syncIntervalSeconds, 3600)
     }
 
     func testAlertMinutesForEvent() {

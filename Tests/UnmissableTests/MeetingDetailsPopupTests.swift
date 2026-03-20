@@ -1,9 +1,10 @@
+import AppKit
 @testable import Unmissable
 import XCTest
 
 @MainActor
-class MeetingDetailsPopupTests: XCTestCase {
-    var popupManager: MeetingDetailsPopupManager!
+final class MeetingDetailsPopupTests: XCTestCase {
+    private var popupManager: MeetingDetailsPopupManager!
 
     override func setUp() async throws {
         try await super.setUp()
@@ -64,6 +65,24 @@ class MeetingDetailsPopupTests: XCTestCase {
 
         // Should not cause memory leaks
         XCTAssertFalse(popupManager.isPopupVisible, "Final state should be hidden")
+    }
+
+    func testHidePopupClosesWindowWithoutAccumulation() async throws {
+        let sampleEvent = createSampleEvent()
+        let baselineCount = activePopupWindowCount()
+
+        popupManager.showPopup(for: sampleEvent)
+        try await Task.sleep(for: .milliseconds(150))
+        XCTAssertEqual(activePopupWindowCount(), baselineCount + 1)
+
+        popupManager.hidePopup()
+        try await Task.sleep(for: .milliseconds(150))
+
+        XCTAssertEqual(
+            activePopupWindowCount(),
+            baselineCount,
+            "Popup windows should be closed, not left hidden in NSApplication.shared.windows"
+        )
     }
 
     // MARK: - Deadlock Prevention Tests
@@ -255,7 +274,14 @@ class MeetingDetailsPopupTests: XCTestCase {
                 ),
             ],
             calendarId: "primary",
+            // swiftlint:disable:next force_unwrapping
             links: [URL(string: "https://meet.google.com/abc-defg-hij")!]
         )
+    }
+
+    private func activePopupWindowCount() -> Int {
+        NSApplication.shared.windows.count(where: { window in
+            window.identifier?.rawValue == "unmissable.meeting-details-popup"
+        })
     }
 }

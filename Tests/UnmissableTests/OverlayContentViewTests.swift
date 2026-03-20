@@ -99,6 +99,7 @@ final class OverlayContentViewTests: XCTestCase {
         XCTAssertEqual(joinedURL, testURL)
     }
 
+    @MainActor
     func testOverlayContentViewDoesNotRetainTimers() {
         let event = createTestEvent()
 
@@ -118,6 +119,62 @@ final class OverlayContentViewTests: XCTestCase {
         // The timer should be cleaned up automatically
         // This test mainly ensures no crashes occur during deallocation
         XCTAssertNil(view)
+    }
+
+    @MainActor
+    func testCallbacksRouteCorrectlyAcrossEventVariants() throws {
+        let variants = try [
+            createTestEvent(),
+            createTestEventWithURL(XCTUnwrap(URL(string: "https://meet.google.com/test"))),
+            Event(
+                id: "test-event-no-link",
+                title: "In-Person Meeting",
+                startDate: Date().addingTimeInterval(600),
+                endDate: Date().addingTimeInterval(1800),
+                organizer: "manager@example.com",
+                calendarId: "test-calendar",
+                links: []
+            ),
+            Event(
+                id: "test-event-zoom",
+                title: "Zoom Planning",
+                startDate: Date().addingTimeInterval(600),
+                endDate: Date().addingTimeInterval(1800),
+                organizer: "manager@example.com",
+                calendarId: "test-calendar",
+                links: [XCTUnwrap(URL(string: "https://zoom.us/j/123456789"))]
+            ),
+        ]
+
+        for event in variants {
+            nonisolated(unsafe) var dismissCalls = 0
+            nonisolated(unsafe) var joinCalls = 0
+            nonisolated(unsafe) var snoozeCalls = 0
+            nonisolated(unsafe) var snoozeMinutes: Int?
+
+            let view = OverlayContentView(
+                event: event,
+                onDismiss: {
+                    dismissCalls += 1
+                },
+                onJoin: {
+                    joinCalls += 1
+                },
+                onSnooze: { minutes in
+                    snoozeCalls += 1
+                    snoozeMinutes = minutes
+                }
+            )
+
+            view.onDismiss()
+            view.onJoin()
+            view.onSnooze(10)
+
+            XCTAssertEqual(dismissCalls, 1, "Dismiss callback should route for event: \(event.id)")
+            XCTAssertEqual(joinCalls, 1, "Join callback should route for event: \(event.id)")
+            XCTAssertEqual(snoozeCalls, 1, "Snooze callback should route for event: \(event.id)")
+            XCTAssertEqual(snoozeMinutes, 10, "Snooze minutes should be forwarded for event: \(event.id)")
+        }
     }
 
     // MARK: - Helper Methods

@@ -1,7 +1,7 @@
 @testable import Unmissable
 import XCTest
 
-class AttendeeModelTests: XCTestCase {
+final class AttendeeModelTests: XCTestCase {
     // MARK: - Basic Model Tests
 
     func testAttendeeInitialization() {
@@ -63,6 +63,25 @@ class AttendeeModelTests: XCTestCase {
 
         XCTAssertTrue(currentUserAttendee.isSelf)
         XCTAssertFalse(otherAttendee.isSelf)
+    }
+
+    func testAttendeeID_whenEmailsDuplicate_remainsUniquePerEntry() {
+        let organizerEntry = Attendee(
+            name: "Organizer",
+            email: "shared@example.com",
+            status: .accepted,
+            isOrganizer: true,
+            isSelf: false
+        )
+        let guestEntry = Attendee(
+            name: "Guest",
+            email: "shared@example.com",
+            status: .accepted,
+            isOrganizer: false,
+            isSelf: false
+        )
+
+        XCTAssertNotEqual(organizerEntry.id, guestEntry.id)
     }
 
     // MARK: - AttendeeStatus Tests

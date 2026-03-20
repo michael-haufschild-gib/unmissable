@@ -5,38 +5,23 @@ import XCTest
 
 @MainActor
 final class OverlaySnapshotTests: XCTestCase {
-    func testOverlayContentBeforeMeeting() {
-        let preferencesManager = PreferencesManager()
-        let event = createSampleEvent()
-
-        // Build the full view hierarchy with environment first
-        let fullView = AnyView(
-            OverlayContentView(
-                event: event,
-                onDismiss: {},
-                onJoin: {},
-                onSnooze: { _ in }
-            )
-            .environmentObject(preferencesManager)
-            .frame(width: 1200, height: 800)
-            .preferredColorScheme(.light)
-        )
-
-        // Use NSHostingController with local scope
-        let hostingController = NSHostingController(rootView: fullView)
-        // Force view loading
-        _ = hostingController.view
-        hostingController.view.frame = CGRect(x: 0, y: 0, width: 1200, height: 800)
-
-        // Basic view creation test (snapshots disabled for now)
-        XCTAssertNotNil(hostingController.view)
+    func testOverlayContentBeforeMeeting_recursiveDescriptionSnapshot() {
+        let hostingController = makeHostingController(event: createSampleEvent())
+        assertSnapshot(of: hostingController, as: .recursiveDescription)
     }
 
-    func testOverlayContentTestThree() {
-        let preferencesManager = PreferencesManager()
-        let event = createSampleEvent()
+    func testOverlayContentWithoutMeetingLink_recursiveDescriptionSnapshot() {
+        let hostingController = makeHostingController(event: createSampleEventWithoutLink())
+        assertSnapshot(of: hostingController, as: .recursiveDescription)
+    }
 
-        // Build the full view hierarchy with environment first
+    func testOverlayContentWithLongTitle_recursiveDescriptionSnapshot() {
+        let hostingController = makeHostingController(event: createSampleEventWithLongTitle())
+        assertSnapshot(of: hostingController, as: .recursiveDescription)
+    }
+
+    private func makeHostingController(event: Event) -> NSHostingController<AnyView> {
+        let preferencesManager = PreferencesManager()
         let fullView = AnyView(
             OverlayContentView(
                 event: event,
@@ -49,14 +34,10 @@ final class OverlaySnapshotTests: XCTestCase {
             .preferredColorScheme(.light)
         )
 
-        // Use NSHostingController with local scope
         let hostingController = NSHostingController(rootView: fullView)
-        // Force view loading
         _ = hostingController.view
         hostingController.view.frame = CGRect(x: 0, y: 0, width: 1200, height: 800)
-
-        // Basic view creation test (snapshots disabled for now)
-        XCTAssertNotNil(hostingController.view)
+        return hostingController
     }
 
     private func createSampleEvent() -> Event {
@@ -67,6 +48,7 @@ final class OverlaySnapshotTests: XCTestCase {
             endDate: Date().addingTimeInterval(1800), // 30 minutes from now
             organizer: "john.doe@company.com",
             calendarId: "primary",
+            // swiftlint:disable:next force_unwrapping
             links: [URL(string: "https://meet.google.com/abc-defg-hij")!],
             provider: .meet
         )
@@ -92,6 +74,7 @@ final class OverlaySnapshotTests: XCTestCase {
             endDate: Date().addingTimeInterval(1800),
             organizer: "strategic.planner@company.com",
             calendarId: "primary",
+            // swiftlint:disable:next force_unwrapping
             links: [URL(string: "https://meet.google.com/abc-defg-hij")!],
             provider: .meet
         )

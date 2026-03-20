@@ -4,10 +4,10 @@ import XCTest
 
 @MainActor
 final class EventSchedulerComprehensiveTests: XCTestCase {
-    var eventScheduler: EventScheduler!
-    var mockPreferences: PreferencesManager!
-    var overlayManager: OverlayManager!
-    var cancellables: Set<AnyCancellable>!
+    private var eventScheduler: EventScheduler!
+    private var mockPreferences: PreferencesManager!
+    private var overlayManager: TestSafeOverlayManager!
+    private var cancellables: Set<AnyCancellable>!
 
     override func setUp() async throws {
         try await super.setUp()
@@ -15,10 +15,7 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         mockPreferences = TestUtilities.createTestPreferencesManager()
         mockPreferences.testOverlayShowMinutesBefore = 2 // Set to the actual value being used
         eventScheduler = EventScheduler(preferencesManager: mockPreferences)
-        let focusModeManager = FocusModeManager(preferencesManager: mockPreferences)
-        overlayManager = OverlayManager(
-            preferencesManager: mockPreferences, focusModeManager: focusModeManager, isTestMode: true
-        )
+        overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         cancellables = Set<AnyCancellable>()
     }
 
@@ -62,6 +59,25 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         } else {
             XCTFail("Expected reminder alert type")
         }
+    }
+
+    func testStartScheduling_acceptsOverlayManagingExistential() async {
+        let protocolOverlayManager: any OverlayManaging = TestSafeOverlayManager(isTestEnvironment: true)
+        protocolOverlayManager.setEventScheduler(eventScheduler)
+
+        let upcomingEvent = TestUtilities.createTestEvent(
+            id: "protocol-overlay-event",
+            startDate: Date().addingTimeInterval(30),
+            endDate: Date().addingTimeInterval(1800)
+        )
+
+        await eventScheduler.startScheduling(
+            events: [upcomingEvent],
+            overlayManager: protocolOverlayManager
+        )
+
+        XCTAssertTrue(protocolOverlayManager.isOverlayVisible)
+        XCTAssertEqual(protocolOverlayManager.activeEvent?.id, upcomingEvent.id)
     }
 
     func testPastEventNotScheduled() async {
@@ -126,24 +142,19 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         await testScheduler.startScheduling(events: [futureEvent], overlayManager: overlayManager)
 
         // Verify we got scheduled alerts
-        XCTAssertGreaterThan(eventScheduler.scheduledAlerts.count, 0, "Should have scheduled alerts")
+        XCTAssertGreaterThan(testScheduler.scheduledAlerts.count, 0, "Should have scheduled alerts")
 
-        print(
-            "DebugTestPreferences:\(testPreferences.overlayShowMinutesBefore)"
-        )
-        print("DebugTestPreferences:\(testPreferences.soundEnabled)")
-        print(
-            "DebugTestPreferences:\(testPreferences.mediumMeetingAlertMinutes)"
-        ) // Should have alerts with the specified timing
         let reminderAlerts = testScheduler.scheduledAlerts.filter {
             if case .reminder = $0.alertType { true } else { false }
         }
         XCTAssertFalse(reminderAlerts.isEmpty, "Should have reminder alerts")
 
-        if let firstAlert = reminderAlerts.first,
-           case let .reminder(minutes) = firstAlert.alertType
-        {
-            print("First alert reminder minutes = \(minutes)")
+        guard let firstAlert = reminderAlerts.first else {
+            XCTFail("Expected reminder alert type")
+            return
+        }
+
+        if case let .reminder(minutes) = firstAlert.alertType {
             XCTAssertEqual(minutes, 10, "EventScheduler should use the specified preference value")
         } else {
             XCTFail("Expected reminder alert type")
@@ -297,7 +308,8 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         }
 
         var simpleObject: SimpleTestObject? = SimpleTestObject()
-        weak var weakSimple = simpleObject
+        weak var weakSimple: SimpleTestObject?
+        weakSimple = simpleObject
         simpleObject = nil
 
         XCTAssertNil(weakSimple, "Simple object should be deallocated")
@@ -306,7 +318,8 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         let testPreferences = PreferencesManager()
 
         var scheduler: EventScheduler? = EventScheduler(preferencesManager: testPreferences)
-        weak var weakScheduler = scheduler
+        weak var weakScheduler: EventScheduler?
+        weakScheduler = scheduler
 
         // Clean up reference immediately
         scheduler = nil
@@ -343,6 +356,26 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         // Verify the overlay is showing the correct event
         XCTAssertTrue(overlayManager.isOverlayVisible)
         XCTAssertEqual(overlayManager.activeEvent?.id, nearFutureEvent.id)
+    }
+
+    func testReminderTriggerDoesNotApplyHardcodedFiveMinuteDelay() async throws {
+        mockPreferences.testOverlayShowMinutesBefore = 6
+        mockPreferences.testSoundEnabled = false
+
+        let event = TestUtilities.createTestEvent(
+            id: "trigger-no-hardcoded-delay",
+            startDate: Date().addingTimeInterval(TimeInterval(6 * 60) + 2)
+        )
+
+        await eventScheduler.startScheduling(events: [event], overlayManager: overlayManager)
+
+        let overlay = try XCTUnwrap(overlayManager)
+        try await TestUtilities.waitForAsync(timeout: 6.0) { @MainActor @Sendable in
+            overlay.isOverlayVisible && overlay.activeEvent?.id == event.id
+        }
+
+        XCTAssertTrue(overlayManager.isOverlayVisible)
+        XCTAssertEqual(overlayManager.activeEvent?.id, event.id)
     }
 
     // MARK: - Performance Tests

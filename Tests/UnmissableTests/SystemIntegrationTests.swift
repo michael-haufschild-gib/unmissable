@@ -4,11 +4,10 @@ import XCTest
 
 @MainActor
 final class SystemIntegrationTests: XCTestCase {
-    var mockPreferences: PreferencesManager!
-    var focusModeManager: FocusModeManager!
-    var eventScheduler: EventScheduler!
-    var overlayManager: OverlayManager!
-    var cancellables: Set<AnyCancellable>!
+    private var mockPreferences: PreferencesManager!
+    private var eventScheduler: EventScheduler!
+    private var overlayManager: TestSafeOverlayManager!
+    private var cancellables: Set<AnyCancellable>!
 
     override func setUp() async throws {
         try await super.setUp()
@@ -18,10 +17,7 @@ final class SystemIntegrationTests: XCTestCase {
 
         mockPreferences = TestUtilities.createTestPreferencesManager()
         mockPreferences.testSoundEnabled = false // Disable sound to simplify alert counting
-        focusModeManager = FocusModeManager(preferencesManager: mockPreferences)
-        overlayManager = OverlayManager(
-            preferencesManager: mockPreferences, focusModeManager: focusModeManager
-        )
+        overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         eventScheduler = EventScheduler(preferencesManager: mockPreferences)
         cancellables = Set<AnyCancellable>()
 
@@ -39,7 +35,6 @@ final class SystemIntegrationTests: XCTestCase {
 
         eventScheduler = nil
         overlayManager = nil
-        focusModeManager = nil
         mockPreferences = nil
 
         try await super.tearDown()
@@ -148,20 +143,16 @@ final class SystemIntegrationTests: XCTestCase {
         }
     }
 
-    func testFocusModeIntegration() {
-        // Test that FocusModeManager is properly integrated
-        // Since FocusModeManager checks system DND state, we test the integration exists
+    func testOverlayShowAndHideIntegration() {
         let event = TestUtilities.createTestEvent()
-
-        // Verify focus mode manager is connected
-        XCTAssertNotNil(focusModeManager)
-
-        // With override enabled, overlay should always show regardless of DND
-        mockPreferences.testOverrideFocusMode = true
 
         overlayManager.showOverlay(for: event)
         XCTAssertTrue(overlayManager.isOverlayVisible)
+        XCTAssertEqual(overlayManager.activeEvent?.id, event.id)
+
         overlayManager.hideOverlay()
+        XCTAssertFalse(overlayManager.isOverlayVisible)
+        XCTAssertNil(overlayManager.activeEvent)
     }
 
     // MARK: - Multi-Event Coordination Tests
@@ -208,10 +199,10 @@ final class SystemIntegrationTests: XCTestCase {
         XCTAssertEqual(eventScheduler.scheduledAlerts.count, 2)
 
         // Test that overlays can be shown for overlapping events
-        overlayManager.showOverlay(for: overlappingEvents[0])
+        overlayManager.showOverlay(for: overlappingEvents[0], minutesBeforeMeeting: 60)
         XCTAssertEqual(overlayManager.activeEvent?.id, "overlap1")
 
-        overlayManager.showOverlay(for: overlappingEvents[1])
+        overlayManager.showOverlay(for: overlappingEvents[1], minutesBeforeMeeting: 60)
         XCTAssertEqual(overlayManager.activeEvent?.id, "overlap2") // Should replace first overlay
     }
 
@@ -311,7 +302,7 @@ final class SystemIntegrationTests: XCTestCase {
         async let schedulingTask: Void = scheduler.startScheduling(
             events: events, overlayManager: overlay
         )
-        async let overlayTask: Void = overlay.showOverlay(for: events[0])
+        async let overlayTask: Void = overlay.showOverlay(for: events[0], minutesBeforeMeeting: 15)
         async let preferencesTask: Void = await MainActor.run {
             prefs.testOverlayShowMinutesBefore = 8
         }

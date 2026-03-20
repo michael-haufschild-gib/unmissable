@@ -46,6 +46,40 @@ final class EventTests: XCTestCase {
         XCTAssertEqual(event.links.count, 2)
     }
 
+    func testEventProviderDefaultsToPrimaryMeetingLinkNotFirstLink() throws {
+        let docsUrl = try XCTUnwrap(URL(string: "https://example.com/spec"))
+        let meetUrl = try XCTUnwrap(URL(string: "https://meet.google.com/abc-defg-hij"))
+
+        let event = Event(
+            id: "test-primary-provider",
+            title: "Mixed Links Meeting",
+            startDate: Date(),
+            endDate: Date().addingTimeInterval(1800),
+            calendarId: "primary",
+            links: [docsUrl, meetUrl]
+        )
+
+        XCTAssertEqual(event.primaryLink, meetUrl)
+        XCTAssertEqual(event.provider, .meet)
+    }
+
+    func testTeamsLiveLinkIsOnlineMeeting() throws {
+        let teamsLiveUrl = try XCTUnwrap(URL(string: "https://teams.live.com/meet/abc-defg-hij"))
+
+        let event = Event(
+            id: "test-teams-live",
+            title: "Teams Live Meeting",
+            startDate: Date(),
+            endDate: Date().addingTimeInterval(1800),
+            calendarId: "primary",
+            links: [teamsLiveUrl]
+        )
+
+        XCTAssertTrue(event.isOnlineMeeting)
+        XCTAssertEqual(event.primaryLink, teamsLiveUrl)
+        XCTAssertEqual(event.provider, .teams)
+    }
+
     func testEventTimezoneHandling() throws {
         let utcDate = Date()
         _ = try XCTUnwrap(TimeZone(identifier: "America/Los_Angeles"))
@@ -59,8 +93,9 @@ final class EventTests: XCTestCase {
             timezone: "America/Los_Angeles"
         )
 
-        // Dates represent absolute instants; convenience properties should not shift time
-        XCTAssertEqual(event.localStartDate, event.startDate)
+        // Event stores absolute instants regardless of timezone metadata
+        XCTAssertEqual(event.startDate, utcDate)
+        XCTAssertEqual(event.timezone, "America/Los_Angeles")
     }
 
     func testEventEquality() {

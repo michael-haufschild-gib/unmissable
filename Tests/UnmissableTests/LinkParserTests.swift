@@ -2,7 +2,7 @@
 import XCTest
 
 final class LinkParserTests: XCTestCase {
-    var linkParser: LinkParser!
+    private var linkParser: LinkParser!
 
     override func setUp() {
         super.setUp()
@@ -31,9 +31,11 @@ final class LinkParserTests: XCTestCase {
 
     func testGoogleMeetDetection() throws {
         let meetUrl = try XCTUnwrap(URL(string: "https://meet.google.com/test-room"))
+        let shortMeetUrl = try XCTUnwrap(URL(string: "https://g.co/meet/test-room"))
         let regularUrl = try XCTUnwrap(URL(string: "https://example.com"))
 
         XCTAssertTrue(linkParser.isGoogleMeetURL(meetUrl))
+        XCTAssertTrue(linkParser.isGoogleMeetURL(shortMeetUrl))
         XCTAssertFalse(linkParser.isGoogleMeetURL(regularUrl))
     }
 
@@ -57,6 +59,14 @@ final class LinkParserTests: XCTestCase {
         XCTAssertEqual(links.count, 0)
     }
 
+    func testGoogleMeetShortLinkExtraction() {
+        let text = "Join via short link https://g.co/meet/abc-defg-hij"
+        let links = linkParser.extractGoogleMeetLinks(from: text)
+
+        XCTAssertEqual(links.count, 1)
+        XCTAssertEqual(links.first?.host?.lowercased(), "g.co")
+    }
+
     func testDuplicateGoogleMeetLinks() {
         let text = """
         https://meet.google.com/abc-defg-hij
@@ -65,6 +75,19 @@ final class LinkParserTests: XCTestCase {
         let links = linkParser.extractGoogleMeetLinks(from: text)
 
         XCTAssertEqual(links.count, 1)
+    }
+
+    func testMeetingURLValidation_acceptsGoogleMeetShortLinksOnlyOnMeetPath() throws {
+        let validShort = try XCTUnwrap(URL(string: "https://g.co/meet/abc-defg-hij"))
+        let invalidShort = try XCTUnwrap(URL(string: "https://g.co/maps"))
+
+        XCTAssertTrue(linkParser.isValidMeetingURL(validShort))
+        XCTAssertFalse(linkParser.isValidMeetingURL(invalidShort))
+    }
+
+    func testMeetingURLValidation_acceptsTeamsLiveURL() throws {
+        let teamsLive = try XCTUnwrap(URL(string: "https://teams.live.com/meet/abc-defg-hij"))
+        XCTAssertTrue(linkParser.isValidMeetingURL(teamsLive))
     }
 
     @MainActor

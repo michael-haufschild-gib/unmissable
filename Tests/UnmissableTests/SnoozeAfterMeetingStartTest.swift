@@ -9,7 +9,7 @@ import XCTest
 /// This test verifies that snoozed overlays appear even when the meeting has already started,
 /// addressing the reported bug where snooze timers would expire but overlays wouldn't show.
 @MainActor
-class SnoozeAfterMeetingStartTest: XCTestCase {
+final class SnoozeAfterMeetingStartTest: XCTestCase {
     private let logger = Logger(
         subsystem: "com.unmissable.test", category: "SnoozeAfterMeetingStartTest"
     )
@@ -17,14 +17,9 @@ class SnoozeAfterMeetingStartTest: XCTestCase {
     func testSnoozeTimerExpiresAfterMeetingStarted() async throws {
         logger.info("🔄 SNOOZE EDGE CASE: Testing snooze timer expiring after meeting started")
 
-        // Create test components (TEST MODE to avoid blocking screen)
+        // Create test components using TestSafeOverlayManager to avoid blocking screen
         let preferencesManager = PreferencesManager()
-        let focusModeManager = FocusModeManager(preferencesManager: preferencesManager)
-        let overlayManager = OverlayManager(
-            preferencesManager: preferencesManager,
-            focusModeManager: focusModeManager,
-            isTestMode: true // Test mode to avoid blocking screen
-        )
+        let overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         let eventScheduler = EventScheduler(preferencesManager: preferencesManager)
 
         // Connect components like production
@@ -44,7 +39,7 @@ class SnoozeAfterMeetingStartTest: XCTestCase {
 
         // STEP 1: Show initial overlay
         logger.info("🎬 STEP 1: Showing initial overlay...")
-        overlayManager.showOverlay(for: testEvent, minutesBeforeMeeting: 0, fromSnooze: false)
+        overlayManager.showOverlayImmediately(for: testEvent, fromSnooze: false)
         XCTAssertTrue(overlayManager.isOverlayVisible, "Initial overlay should be visible")
 
         // STEP 2: User snoozes for 5 seconds (which will expire after meeting starts)
@@ -107,13 +102,7 @@ class SnoozeAfterMeetingStartTest: XCTestCase {
             "🔄 AUTO-HIDE THRESHOLDS: Testing different auto-hide behavior for regular vs snoozed alerts"
         )
 
-        let preferencesManager = PreferencesManager()
-        let focusModeManager = FocusModeManager(preferencesManager: preferencesManager)
-        let overlayManager = OverlayManager(
-            preferencesManager: preferencesManager,
-            focusModeManager: focusModeManager,
-            isTestMode: true // Test mode to avoid blocking screen
-        )
+        let overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
 
         // Create test event that started 10 minutes ago
         let meetingStartTime = Date().addingTimeInterval(-600) // 10 minutes ago
@@ -127,7 +116,7 @@ class SnoozeAfterMeetingStartTest: XCTestCase {
 
         // TEST 1: Regular overlay should auto-hide quickly (5 minute threshold)
         logger.info("🎬 TEST 1: Regular overlay for old meeting...")
-        overlayManager.showOverlay(for: testEvent, minutesBeforeMeeting: 0, fromSnooze: false)
+        overlayManager.showOverlayImmediately(for: testEvent, fromSnooze: false)
 
         // Give it a moment to process the countdown timer
         try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
@@ -161,12 +150,7 @@ class SnoozeAfterMeetingStartTest: XCTestCase {
         logger.info("📊 SNOOZE LOGGING: Testing comprehensive logging for snooze operations")
 
         let preferencesManager = PreferencesManager()
-        let focusModeManager = FocusModeManager(preferencesManager: preferencesManager)
-        let overlayManager = OverlayManager(
-            preferencesManager: preferencesManager,
-            focusModeManager: focusModeManager,
-            isTestMode: true // Test mode to avoid blocking screen
-        )
+        let overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         let eventScheduler = EventScheduler(preferencesManager: preferencesManager)
         overlayManager.setEventScheduler(eventScheduler)
 

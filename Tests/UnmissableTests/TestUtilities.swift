@@ -5,7 +5,7 @@ import XCTest
 // MARK: - Test Utilities for Comprehensive Testing
 
 /// Centralized test utilities for creating test data, mocking services, and testing async operations
-class TestUtilities {
+enum TestUtilities {
     // MARK: - Test Data Creation
 
     static func createTestEvent(
@@ -45,18 +45,25 @@ class TestUtilities {
         provider: Provider = .meet,
         startDate: Date = Date().addingTimeInterval(300)
     ) -> Event {
+        // swiftlint:disable force_unwrapping
+        // Test-only compile-time constant URLs.
         let links: [URL] = switch provider {
         case .meet:
             [URL(string: "https://meet.google.com/abc-defg-hij")!]
+
         case .zoom:
             [URL(string: "https://zoom.us/j/123456789")!]
+
         case .teams:
             [URL(string: "https://teams.microsoft.com/l/meetup-join/abc123")!]
+
         case .webex:
             [URL(string: "https://example.webex.com/meet/123")!]
+
         case .generic:
             [URL(string: "https://example.com/meeting")!]
         }
+        // swiftlint:enable force_unwrapping
 
         return createTestEvent(
             title: "\(provider.rawValue.capitalized) Meeting",
@@ -82,7 +89,7 @@ class TestUtilities {
             id: "all-day-\(UUID())",
             title: "All Day Event",
             startDate: startOfDay,
-            endDate: startOfDay.addingTimeInterval(86400), // 24 hours
+            endDate: startOfDay.addingTimeInterval(24 * 60 * 60), // 24 hours
             organizer: nil,
             isAllDay: true,
             calendarId: "primary",
@@ -126,6 +133,11 @@ class TestUtilities {
     static func createTestPreferencesManager() -> PreferencesManager {
         let prefs = PreferencesManager()
         // Set test-specific defaults
+        prefs.defaultAlertMinutes = 1
+        prefs.useLengthBasedTiming = false
+        prefs.shortMeetingAlertMinutes = 1
+        prefs.mediumMeetingAlertMinutes = 2
+        prefs.longMeetingAlertMinutes = 5
         prefs.overlayShowMinutesBefore = 2
         prefs.playAlertSound = true
         prefs.autoJoinEnabled = false
@@ -190,8 +202,12 @@ extension EventScheduler {
     var snoozeMinutes: Int? {
         for alert in scheduledAlerts.reversed() {
             if case let .snooze(until) = alert.alertType {
-                // Calculate minutes from now to snooze time
-                return Int(until.timeIntervalSinceNow / 60)
+                // Use ceil for future intervals so assertions don't intermittently
+                // read N-1 minutes due sub-second execution delays.
+                let minutesUntilSnooze = until.timeIntervalSinceNow / 60
+                return minutesUntilSnooze >= 0
+                    ? Int(ceil(minutesUntilSnooze))
+                    : Int(floor(minutesUntilSnooze))
             }
         }
         return nil
@@ -228,7 +244,7 @@ extension TestUtilities {
 
     /// Utility for testing time-dependent behavior
     final class TimeTravel: Sendable {
-        private nonisolated(unsafe) static var offset: TimeInterval = 0
+        nonisolated(unsafe) static var offset: TimeInterval = 0
 
         static func travel(to date: Date) {
             offset = date.timeIntervalSinceNow
@@ -273,11 +289,12 @@ extension TestUtilities {
 
     /// Test for memory leaks
     static func testForMemoryLeaks(
-        instance: some AnyObject,
+        instance: @autoclosure () -> (some AnyObject)?,
         after: () throws -> Void,
         timeout: TimeInterval = 5.0
     ) throws {
-        weak var weakInstance = instance
+        weak var weakInstance: AnyObject?
+        weakInstance = instance()
 
         try after()
 

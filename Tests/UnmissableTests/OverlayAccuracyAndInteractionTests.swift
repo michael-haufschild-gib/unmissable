@@ -6,19 +6,11 @@ import XCTest
 /// Tests critical bugs: wrong start time, wrong countdown, non-functioning timer, frozen overlay
 @MainActor
 final class OverlayAccuracyAndInteractionTests: XCTestCase {
-    var overlayManager: OverlayManager!
-    var mockPreferences: PreferencesManager!
-    var focusModeManager: FocusModeManager!
-    var cancellables: Set<AnyCancellable>!
+    private var overlayManager: TestSafeOverlayManager!
+    private var cancellables: Set<AnyCancellable>!
 
     override func setUp() async throws {
-        mockPreferences = TestUtilities.createTestPreferencesManager()
-        focusModeManager = FocusModeManager(preferencesManager: mockPreferences)
-        overlayManager = OverlayManager(
-            preferencesManager: mockPreferences,
-            focusModeManager: focusModeManager,
-            isTestMode: true // CRITICAL FIX: Prevent UI creation in tests
-        )
+        overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         cancellables = Set<AnyCancellable>()
 
         try await super.setUp()
@@ -28,12 +20,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         overlayManager.hideOverlay()
         cancellables.removeAll()
 
-        // Give UI components time to clean up
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-
         overlayManager = nil
-        focusModeManager = nil
-        mockPreferences = nil
 
         try await super.tearDown()
     }
@@ -50,7 +37,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         )
 
         // Show overlay
-        overlayManager.showOverlay(for: event)
+        overlayManager.showOverlayImmediately(for: event)
 
         // Verify overlay is visible and has correct event
         XCTAssertTrue(overlayManager.isOverlayVisible, "Overlay should be visible")
@@ -82,19 +69,19 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         )
 
         // Show first event
-        overlayManager.showOverlay(for: firstEvent)
+        overlayManager.showOverlayImmediately(for: firstEvent)
         XCTAssertEqual(
             overlayManager.activeEvent?.startDate, firstEventTime, "Should show first event time"
         )
 
         // Switch to second event
-        overlayManager.showOverlay(for: secondEvent)
+        overlayManager.showOverlayImmediately(for: secondEvent)
         XCTAssertEqual(
             overlayManager.activeEvent?.startDate, secondEventTime, "Should show second event time"
         )
 
         // Switch back to first event
-        overlayManager.showOverlay(for: firstEvent)
+        overlayManager.showOverlayImmediately(for: firstEvent)
         XCTAssertEqual(
             overlayManager.activeEvent?.startDate, firstEventTime, "Should show first event time again"
         )
@@ -108,7 +95,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         let event = TestUtilities.createTestEvent(startDate: futureTime)
 
         // Show overlay
-        overlayManager.showOverlay(for: event)
+        overlayManager.showOverlayImmediately(for: event)
 
         // Wait for timer to initialize
         try await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
@@ -131,12 +118,25 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         )
     }
 
+    func testCountdownTimerInitializesImmediatelyOnShow() {
+        let event = TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(300))
+
+        overlayManager.showOverlayImmediately(for: event)
+
+        XCTAssertGreaterThan(
+            overlayManager.timeUntilMeeting, 290, "Countdown should be initialized immediately"
+        )
+        XCTAssertLessThan(
+            overlayManager.timeUntilMeeting, 310, "Initial countdown should be close to 5 minutes"
+        )
+    }
+
     func testCountdownTimerUpdatesEverySecond() async throws {
         // Test that countdown timer actually updates every second consistently
         let futureTime = Date().addingTimeInterval(300) // 5 minutes from now
         let event = TestUtilities.createTestEvent(startDate: futureTime)
 
-        overlayManager.showOverlay(for: event)
+        overlayManager.showOverlayImmediately(for: event)
 
         // Record multiple countdown values over time
         var countdownValues: [TimeInterval] = []
@@ -161,7 +161,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         let pastTime = Date().addingTimeInterval(-60) // 1 minute ago
         let event = TestUtilities.createTestEvent(startDate: pastTime)
 
-        overlayManager.showOverlay(for: event)
+        overlayManager.showOverlayImmediately(for: event)
         try await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
 
         // Countdown should be negative (meeting already started)
@@ -180,7 +180,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         let futureTime = Date().addingTimeInterval(180) // 3 minutes from now
         let event = TestUtilities.createTestEvent(startDate: futureTime)
 
-        overlayManager.showOverlay(for: event)
+        overlayManager.showOverlayImmediately(for: event)
 
         // Get initial value
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
@@ -205,7 +205,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         let futureTime = Date().addingTimeInterval(300) // 5 minutes from now
         let event = TestUtilities.createTestEvent(startDate: futureTime)
 
-        overlayManager.showOverlay(for: event)
+        overlayManager.showOverlayImmediately(for: event)
         try await Task.sleep(nanoseconds: 100_000_000) // Let timer start
 
         // Hide overlay
@@ -227,12 +227,12 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         let secondEvent = TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(600))
 
         // Show first event
-        overlayManager.showOverlay(for: firstEvent)
+        overlayManager.showOverlayImmediately(for: firstEvent)
         try await Task.sleep(nanoseconds: 100_000_000)
         let firstEventTime = overlayManager.timeUntilMeeting
 
         // Switch to second event (should restart timer)
-        overlayManager.showOverlay(for: secondEvent)
+        overlayManager.showOverlayImmediately(for: secondEvent)
         try await Task.sleep(nanoseconds: 100_000_000)
         let secondEventTime = overlayManager.timeUntilMeeting
 
@@ -255,7 +255,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         // Test that overlay doesn't freeze and can be interacted with
         let event = TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(300))
 
-        overlayManager.showOverlay(for: event)
+        overlayManager.showOverlayImmediately(for: event)
         XCTAssertTrue(overlayManager.isOverlayVisible, "Overlay should be visible")
 
         // Wait for timer to run
@@ -271,7 +271,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         let event = TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(300))
 
         let showStartTime = Date()
-        overlayManager.showOverlay(for: event)
+        overlayManager.showOverlayImmediately(for: event)
         let showEndTime = Date()
 
         let showDuration = showEndTime.timeIntervalSince(showStartTime)
@@ -291,12 +291,12 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
     // MARK: - Integration Tests
 
     func testOverlayManagerTimerSynchronization() async throws {
-        // Test that OverlayManager's computed timeUntilMeeting decreases over time
+        // Test that the overlay's computed timeUntilMeeting decreases over time
         let event = TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(240)) // 4 minutes
 
         var collectedValues: [TimeInterval] = []
 
-        overlayManager.showOverlay(for: event)
+        overlayManager.showOverlayImmediately(for: event)
 
         // Collect values at intervals
         for _ in 0 ..< 3 {
@@ -318,11 +318,44 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         }
     }
 
+    func testOverlayPreservesComplexEventPayload() throws {
+        let complexEvent = try Event(
+            id: "accuracy-complex",
+            title: "Complex Meeting with All Features",
+            startDate: Date().addingTimeInterval(300),
+            endDate: Date().addingTimeInterval(3900),
+            organizer: "test@example.com",
+            description: "Detailed planning session",
+            location: "Conference Room A / Google Meet",
+            attendees: [
+                Attendee(
+                    name: "John Doe", email: "john@example.com", status: .accepted, isOrganizer: true,
+                    isSelf: false
+                ),
+                Attendee(name: "Jane Smith", email: "jane@example.com", status: .tentative, isSelf: false),
+                Attendee(email: "user@example.com", status: .accepted, isSelf: true),
+            ],
+            calendarId: "primary",
+            links: [XCTUnwrap(URL(string: "https://meet.google.com/test-room"))],
+            provider: .meet
+        )
+
+        overlayManager.showOverlayImmediately(for: complexEvent)
+
+        let activeEvent = try XCTUnwrap(overlayManager.activeEvent)
+        XCTAssertTrue(overlayManager.isOverlayVisible, "Overlay should show complex event")
+        XCTAssertEqual(activeEvent.id, complexEvent.id)
+        XCTAssertEqual(activeEvent.title, complexEvent.title)
+        XCTAssertEqual(activeEvent.organizer, complexEvent.organizer)
+        XCTAssertEqual(activeEvent.attendees.count, complexEvent.attendees.count)
+        XCTAssertEqual(activeEvent.provider, complexEvent.provider)
+    }
+
     func testTimerAccuracyOverLongerPeriod() async throws {
         // Test timer accuracy over a longer period to catch drift issues
         let event = TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(600)) // 10 minutes
 
-        overlayManager.showOverlay(for: event)
+        overlayManager.showOverlayImmediately(for: event)
 
         // Record initial time
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
@@ -349,7 +382,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         let exactStartTime = Date().addingTimeInterval(1) // 1 second from now
         let event = TestUtilities.createTestEvent(startDate: exactStartTime)
 
-        overlayManager.showOverlay(for: event)
+        overlayManager.showOverlayImmediately(for: event)
 
         // Wait for countdown to reach zero and go negative
         try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
@@ -365,7 +398,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         let pastTime = Date().addingTimeInterval(-400) // Meeting started 6+ minutes ago
         let event = TestUtilities.createTestEvent(startDate: pastTime)
 
-        overlayManager.showOverlay(for: event)
+        overlayManager.showOverlayImmediately(for: event)
 
         // Wait for auto-hide logic to trigger
         try await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds

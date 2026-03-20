@@ -2,7 +2,7 @@
 import XCTest
 
 @MainActor
-class EventFilteringTests: XCTestCase {
+final class EventFilteringTests: XCTestCase {
     func testCancelledEventFiltering() {
         // Test that cancelled events are filtered out during parsing
         let oauth2Service = OAuth2Service()

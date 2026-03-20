@@ -2,15 +2,20 @@
 import XCTest
 
 final class CalendarServiceIntegrationTests: XCTestCase {
-    var calendarService: CalendarService!
+    private var calendarService: CalendarService!
+    private var preferencesManager: PreferencesManager!
 
     @MainActor
     override func setUp() async throws {
-        calendarService = CalendarService()
+        preferencesManager = PreferencesManager()
+        calendarService = CalendarService(preferencesManager: preferencesManager)
+        try await super.setUp()
     }
 
     override func tearDown() async throws {
         calendarService = nil
+        preferencesManager = nil
+        try await super.tearDown()
     }
 
     @MainActor
@@ -69,9 +74,9 @@ final class CalendarServiceIntegrationTests: XCTestCase {
     }
 
     @MainActor
-    func testDisconnect() async {
+    func testDisconnect() {
         // Test disconnect functionality
-        await calendarService.disconnect()
+        calendarService.disconnect()
 
         XCTAssertFalse(calendarService.isConnected)
         XCTAssertTrue(calendarService.events.isEmpty)

@@ -60,7 +60,7 @@ class TestDataCleanup {
 /// Test base class that automatically handles cleanup
 /// Use this as a base class for any tests that interact with the database
 @MainActor
-class DatabaseTestCase: XCTestCase {
+final class DatabaseTestCase: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         // Clean up any existing test data before the test starts
