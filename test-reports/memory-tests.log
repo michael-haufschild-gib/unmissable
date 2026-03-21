@@ -1,1 +1,0 @@
-MOCK_XCODEBUILD_FAIL: -scheme Unmissable -destination platform=macOS test -only-testing:UnmissableTests/testEventSchedulerDeallocation -only-testing:UnmissableTests/testOverlayManagerDeallocation -only-testing:UnmissableTests/testDatabaseManagerDeallocation -resultBundlePath /Users/Spare/Documents/code/unmissable/test-reports/memory-tests.xcresult
