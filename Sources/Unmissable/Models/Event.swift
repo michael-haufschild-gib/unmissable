@@ -53,7 +53,13 @@ struct Event: Identifiable, Codable, Equatable {
         self.calendarId = calendarId
         self.timezone = timezone
         self.links = links
-        self.provider = provider ?? LinkParser.shared.detectPrimaryLink(from: links).map { Provider.detect(from: $0) }
+        if let provider {
+            self.provider = provider
+        } else if links.isEmpty {
+            self.provider = nil
+        } else {
+            self.provider = LinkParser.shared.detectPrimaryLink(from: links).map { Provider.detect(from: $0) }
+        }
         self.snoozeUntil = snoozeUntil
         self.autoJoinEnabled = autoJoinEnabled
         self.createdAt = createdAt

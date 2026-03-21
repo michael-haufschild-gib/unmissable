@@ -2,17 +2,13 @@ import Foundation
 import GRDB
 import OSLog
 
-@MainActor
-final class DatabaseManager: ObservableObject {
+final class DatabaseManager: @unchecked Sendable {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "DatabaseManager")
     private(set) var dbQueue: DatabaseQueue?
-    private let currentSchemaVersion = 4
 
     /// Indicates whether the database was successfully initialized
-    @Published
     private(set) var isInitialized: Bool = false
     /// Contains error message if database initialization failed
-    @Published
     private(set) var initializationError: String?
 
     static let shared = DatabaseManager()
@@ -47,10 +43,14 @@ final class DatabaseManager: ObservableObject {
 
     private func setupDatabase(at dbURL: URL) {
         do {
-            dbQueue = try DatabaseQueue(path: dbURL.path)
+            let queue = try DatabaseQueue(path: dbURL.path)
+            dbQueue = queue
 
-            try dbQueue?.write { db in
-                try setupSchema(db)
+            try Self.migrator.migrate(queue)
+
+            // Drop legacy schema_version table left by the old hand-rolled migration system
+            try queue.write { db in
+                try db.execute(sql: "DROP TABLE IF EXISTS schema_version")
             }
 
             isInitialized = true
@@ -60,170 +60,102 @@ final class DatabaseManager: ObservableObject {
             logger.error("Failed to setup database: \(error.localizedDescription)")
             isInitialized = false
             initializationError = "Database setup failed: \(error.localizedDescription)"
-            // Graceful degradation instead of crash - app can still run with limited functionality
         }
     }
 
-    func setupSchema(_ db: Database) throws {
-        // Enable foreign keys
-        try db.execute(sql: "PRAGMA foreign_keys = ON")
+    // MARK: - Migrations (GRDB DatabaseMigrator)
 
-        // Get current schema version
-        let currentVersion = try getCurrentSchemaVersion(db)
+    static let migrator: DatabaseMigrator = {
+        var migrator = DatabaseMigrator()
 
-        if currentVersion == 0 {
-            // Fresh install
-            try createInitialSchema(db)
-            try setSchemaVersion(db, version: currentSchemaVersion)
-        } else if currentVersion < currentSchemaVersion {
-            // Migration needed
-            try migrateSchema(db, from: currentVersion, to: currentSchemaVersion)
-        }
-    }
+        #if DEBUG
+            migrator.eraseDatabaseOnSchemaChange = true
+        #endif
 
-    private func getCurrentSchemaVersion(_ db: Database) throws -> Int {
-        // Check if schema_version table exists
-        let tableExists =
-            try Bool.fetchOne(
-                db,
-                sql: "SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_version'"
-            ) ?? false
-
-        if !tableExists {
-            return 0
-        }
-
-        return try Int.fetchOne(db, sql: "SELECT version FROM schema_version LIMIT 1") ?? 0
-    }
-
-    private func setSchemaVersion(_ db: Database, version: Int) throws {
-        try db.create(table: "schema_version", ifNotExists: true) { t in
-            t.column("version", .integer).notNull()
-        }
-
-        try db.execute(sql: "DELETE FROM schema_version")
-        try db.execute(sql: "INSERT INTO schema_version (version) VALUES (?)", arguments: [version])
-    }
-
-    private func createInitialSchema(_ db: Database) throws {
-        try createTables(db)
-    }
-
-    private func migrateSchema(_ db: Database, from oldVersion: Int, to newVersion: Int) throws {
-        logger.info("Migrating database from version \(oldVersion) to \(newVersion)")
-
-        for version in (oldVersion + 1) ... newVersion {
-            try performMigration(db, to: version)
-        }
-
-        try setSchemaVersion(db, version: newVersion)
-        logger.info("Database migration completed")
-    }
-
-    private func performMigration(_ db: Database, to version: Int) throws {
-        switch version {
-        case 1:
-            // Initial version, no migration needed
-            break
-
-        case 2:
-            // Add description, location, and attendees columns to events table
-            try db.alter(table: Event.databaseTableName) { t in
-                t.add(column: "description", .text)
-                t.add(column: "location", .text)
-                t.add(column: "attendees", .text).notNull().defaults(to: "[]")
+        migrator.registerMigration("v1-createTables") { db in
+            try db.create(table: Event.databaseTableName, ifNotExists: true) { t in
+                t.column("id", .text).primaryKey()
+                t.column("title", .text).notNull()
+                t.column("startDate", .datetime).notNull()
+                t.column("endDate", .datetime).notNull()
+                t.column("organizer", .text)
+                t.column("isAllDay", .boolean).notNull().defaults(to: false)
+                t.column("calendarId", .text).notNull()
+                t.column("timezone", .text).notNull()
+                t.column("links", .text).notNull().defaults(to: "[]")
+                t.column("provider", .text)
+                t.column("snoozeUntil", .datetime)
+                t.column("autoJoinEnabled", .boolean).notNull().defaults(to: false)
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
             }
-            logger.info("Migrated to version 2: Added description, location, and attendees columns")
 
-        case 3:
-            // Add attachments column to events table for Google Drive file attachments
-            try db.alter(table: Event.databaseTableName) { t in
-                t.add(column: "attachments", .text).notNull().defaults(to: "[]")
+            try db.create(
+                index: "idx_events_startDate", on: Event.databaseTableName,
+                columns: ["startDate"], ifNotExists: true
+            )
+            try db.create(
+                index: "idx_events_calendarId", on: Event.databaseTableName,
+                columns: ["calendarId"], ifNotExists: true
+            )
+
+            try db.create(table: CalendarInfo.databaseTableName, ifNotExists: true) { t in
+                t.column("id", .text).primaryKey()
+                t.column("name", .text).notNull()
+                t.column("description", .text)
+                t.column("isSelected", .boolean).notNull().defaults(to: false)
+                t.column("isPrimary", .boolean).notNull().defaults(to: false)
+                t.column("colorHex", .text)
+                t.column("lastSyncAt", .datetime)
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
             }
-            logger.info("Migrated to version 3: Added attachments column")
 
-        case 4:
-            // Add sourceProvider column to calendars table for multi-provider support
-            try db.alter(table: CalendarInfo.databaseTableName) { t in
-                t.add(column: "sourceProvider", .text).notNull().defaults(to: "google")
-            }
-            logger.info("Migrated to version 4: Added sourceProvider column to calendars")
-
-        default:
-            throw DatabaseError.migrationFailed("Unknown migration version: \(version)")
-        }
-    }
-
-    private func createTables(_ db: Database) throws {
-        // Create events table
-        try db.create(table: Event.databaseTableName, ifNotExists: true) { t in
-            t.column("id", .text).primaryKey()
-            t.column("title", .text).notNull()
-            t.column("startDate", .datetime).notNull()
-            t.column("endDate", .datetime).notNull()
-            t.column("organizer", .text)
-            t.column("description", .text)
-            t.column("location", .text)
-            t.column("attendees", .text).notNull().defaults(to: "[]")
-            t.column("attachments", .text).notNull().defaults(to: "[]")
-            t.column("isAllDay", .boolean).notNull().defaults(to: false)
-            t.column("calendarId", .text).notNull()
-            t.column("timezone", .text).notNull()
-            t.column("links", .text).notNull().defaults(to: "[]")
-            t.column("provider", .text)
-            t.column("snoozeUntil", .datetime)
-            t.column("autoJoinEnabled", .boolean).notNull().defaults(to: false)
-            t.column("createdAt", .datetime).notNull()
-            t.column("updatedAt", .datetime).notNull()
-        }
-
-        // Create indexes
-        try db.create(
-            index: "idx_events_startDate", on: Event.databaseTableName, columns: ["startDate"],
-            ifNotExists: true
-        )
-        try db.create(
-            index: "idx_events_calendarId", on: Event.databaseTableName, columns: ["calendarId"],
-            ifNotExists: true
-        )
-
-        // Create calendars table
-        try db.create(table: CalendarInfo.databaseTableName, ifNotExists: true) { t in
-            t.column("id", .text).primaryKey()
-            t.column("name", .text).notNull()
-            t.column("description", .text)
-            t.column("isSelected", .boolean).notNull().defaults(to: false)
-            t.column("isPrimary", .boolean).notNull().defaults(to: false)
-            t.column("colorHex", .text)
-            t.column("sourceProvider", .text).notNull().defaults(to: "google")
-            t.column("lastSyncAt", .datetime)
-            t.column("createdAt", .datetime).notNull()
-            t.column("updatedAt", .datetime).notNull()
-        }
-
-        // Create full-text search for events - with safe creation
-        try createFTSTableSafely(db)
-    }
-
-    private func createFTSTableSafely(_ db: Database) throws {
-        // Check if FTS table already exists
-        let ftsExists =
-            try Bool.fetchOne(
+            // FTS for event search
+            let ftsExists = try Bool.fetchOne(
                 db,
                 sql: "SELECT 1 FROM sqlite_master WHERE type='table' AND name='events_fts'"
             ) ?? false
-
-        if !ftsExists {
-            try db.create(virtualTable: "events_fts", using: FTS5()) { t in
-                t.synchronize(withTable: Event.databaseTableName)
-                t.column("title")
-                t.column("organizer")
+            if !ftsExists {
+                try db.create(virtualTable: "events_fts", using: FTS5()) { t in
+                    t.synchronize(withTable: Event.databaseTableName)
+                    t.column("title")
+                    t.column("organizer")
+                }
             }
-            logger.info("Created FTS table for events")
-        } else {
-            logger.info("FTS table already exists, skipping creation")
         }
-    }
+
+        migrator.registerMigration("v2-eventDetails") { db in
+            let columns = try db.columns(in: Event.databaseTableName).map(\.name)
+            if !columns.contains("description") {
+                try db.alter(table: Event.databaseTableName) { t in
+                    t.add(column: "description", .text)
+                    t.add(column: "location", .text)
+                    t.add(column: "attendees", .text).notNull().defaults(to: "[]")
+                }
+            }
+        }
+
+        migrator.registerMigration("v3-attachments") { db in
+            let columns = try db.columns(in: Event.databaseTableName).map(\.name)
+            if !columns.contains("attachments") {
+                try db.alter(table: Event.databaseTableName) { t in
+                    t.add(column: "attachments", .text).notNull().defaults(to: "[]")
+                }
+            }
+        }
+
+        migrator.registerMigration("v4-sourceProvider") { db in
+            let columns = try db.columns(in: CalendarInfo.databaseTableName).map(\.name)
+            if !columns.contains("sourceProvider") {
+                try db.alter(table: CalendarInfo.databaseTableName) { t in
+                    t.add(column: "sourceProvider", .text).notNull().defaults(to: "google")
+                }
+            }
+        }
+
+        return migrator
+    }()
 
     // MARK: - Event Operations
 

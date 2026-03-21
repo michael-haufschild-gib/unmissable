@@ -172,9 +172,9 @@ struct MenuBarView: View {
                 Spacer()
 
                 CustomButton("Check for Updates", style: .minimal) {
-                    appState.updater.checkForUpdates()
+                    appState.checkForUpdates()
                 }
-                .disabled(!appState.updater.canCheckForUpdates)
+                .disabled(!appState.canCheckForUpdates)
                 .accessibilityIdentifier("check-updates-button")
 
                 Spacer()

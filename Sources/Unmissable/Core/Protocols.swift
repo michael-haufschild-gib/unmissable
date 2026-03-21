@@ -47,7 +47,7 @@ extension MeetingDetailsPopupManaging {
 
 /// Protocol for calendar API data fetching, abstracting the provider (Google, Apple, etc.)
 @MainActor
-protocol CalendarAPIProviding: ObservableObject {
+protocol CalendarAPIProviding {
     var calendars: [CalendarInfo] { get }
     var events: [Event] { get }
     var lastError: String? { get }
@@ -61,7 +61,7 @@ protocol CalendarAPIProviding: ObservableObject {
 
 /// Protocol for calendar authentication, abstracting the auth mechanism (OAuth, EventKit, etc.)
 @MainActor
-protocol CalendarAuthProviding: ObservableObject {
+protocol CalendarAuthProviding {
     var isAuthenticated: Bool { get }
     var userEmail: String? { get }
     var authorizationError: String? { get }

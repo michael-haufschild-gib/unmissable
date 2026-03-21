@@ -157,12 +157,10 @@ struct OverlayContentView: View {
                     .accessibilityIdentifier("overlay-meeting-started")
                     .accessibilityLabel("Meeting has started")
 
-                Text("\(Int(-timeUntilMeeting / 60)) minutes ago")
+                Text(elapsedText)
                     .font(.system(size: 24 * fontScale, weight: .medium))
                     .foregroundColor(design.colors.warning)
-                    .accessibilityLabel(
-                        "Started \(Int(-timeUntilMeeting / 60)) minutes ago"
-                    )
+                    .accessibilityLabel("Started \(elapsedText)")
             } else {
                 Text("Running for")
                     .font(.system(size: 24 * fontScale))
@@ -268,6 +266,16 @@ struct OverlayContentView: View {
 
     private var fontScale: Double {
         preferences.fontSize.scale
+    }
+
+    /// Human-readable elapsed time since meeting started, with correct grammar.
+    private var elapsedText: String {
+        let minutes = Int(-timeUntilMeeting / 60)
+        switch minutes {
+        case 0: return "just now"
+        case 1: return "1 minute ago"
+        default: return "\(minutes) minutes ago"
+        }
     }
 
     private var headerText: String {

@@ -56,9 +56,10 @@ extension DatabaseManager {
             try db.execute(sql: "DROP TABLE IF EXISTS events")
             try db.execute(sql: "DROP TABLE IF EXISTS calendars")
             try db.execute(sql: "DROP TABLE IF EXISTS schema_version")
-
-            try setupSchema(db)
+            try db.execute(sql: "DROP TABLE IF EXISTS grdb_migrations")
         }
+
+        try Self.migrator.migrate(dbQueue)
 
         extensionLogger.info("Database reset completed")
     }

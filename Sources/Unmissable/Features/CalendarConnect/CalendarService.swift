@@ -50,8 +50,10 @@ final class CalendarService: ObservableObject {
     /// Shared EKEventStore for Apple Calendar (reused across auth + API services)
     private lazy var sharedEventStore = EKEventStore()
 
-    /// Callback to notify when events need to be rescheduled after sync
-    var onEventsUpdated: (() async -> Void)?
+    /// Publisher that fires after events are updated from a sync cycle.
+    /// Supports multiple observers without retain-cycle risk.
+    private let eventsUpdatedSubject = PassthroughSubject<Void, Never>()
+    var eventsUpdated: AnyPublisher<Void, Never> { eventsUpdatedSubject.eraseToAnyPublisher() }
 
     // MARK: - Initialization
 
@@ -269,7 +271,7 @@ final class CalendarService: ObservableObject {
     private func setupSyncCallback(for backend: ProviderBackend) {
         backend.sync.onSyncCompleted = { [weak self] in
             await self?.loadCachedData()
-            await self?.onEventsUpdated?()
+            self?.eventsUpdatedSubject.send()
             self?.logger.debug("UI refreshed after \(backend.type.rawValue) sync")
         }
     }

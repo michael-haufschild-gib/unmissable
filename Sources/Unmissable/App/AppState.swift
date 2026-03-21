@@ -56,14 +56,12 @@ final class AppState: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Set up callback to reschedule events after sync updates
-        setupEventReschedulingCallback()
-    }
-
-    private func setupEventReschedulingCallback() {
-        services.calendarService.onEventsUpdated = { [weak self] in
-            self?.rescheduleEventsAfterSync()
-        }
+        // Reschedule events after sync updates
+        calendarService.eventsUpdated
+            .sink { [weak self] in
+                self?.rescheduleEventsAfterSync()
+            }
+            .store(in: &cancellables)
     }
 
     private func rescheduleEventsAfterSync() {
@@ -128,22 +126,10 @@ final class AppState: ObservableObject {
         services.calendarService.updateCalendarSelection(calendarId, isSelected: isSelected)
     }
 
-    // MARK: - Service Access
+    // MARK: - Service Access (only services required by SwiftUI environment)
 
     var preferences: PreferencesManager {
         services.preferencesManager
-    }
-
-    var shortcuts: ShortcutsManager {
-        services.shortcutsManager
-    }
-
-    var focusMode: FocusModeManager {
-        services.focusModeManager
-    }
-
-    var health: HealthMonitor {
-        services.healthMonitor
     }
 
     var menuBarPreview: MenuBarPreviewManager {
@@ -154,8 +140,14 @@ final class AppState: ObservableObject {
         services.calendarService
     }
 
-    var updater: UpdateManager {
-        services.updateManager
+    // MARK: - Update Management
+
+    var canCheckForUpdates: Bool {
+        services.updateManager.canCheckForUpdates
+    }
+
+    func checkForUpdates() {
+        services.updateManager.checkForUpdates()
     }
 
     func showPreferences() {

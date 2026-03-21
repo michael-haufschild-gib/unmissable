@@ -42,10 +42,8 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            // Extract the URL before crossing isolation boundary to avoid
-            // sending non-Sendable Notification into MainActor-isolated closure
             guard let url = notification.object as? URL else { return }
-            MainActor.assumeIsolated {
+            Task { @MainActor in
                 self?.handleOAuthCallback(url: url)
             }
         }

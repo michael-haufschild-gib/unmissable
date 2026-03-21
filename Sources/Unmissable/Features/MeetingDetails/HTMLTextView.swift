@@ -79,10 +79,8 @@ struct HTMLTextView: NSViewRepresentable {
 
         // Force layout update
         textView.needsLayout = true
-        if let layoutManager = textView.layoutManager,
-           let textContainer = textView.textContainer
-        {
-            layoutManager.ensureLayout(for: textContainer)
+        if let textLayoutManager = textView.textLayoutManager {
+            textLayoutManager.ensureLayout(for: textLayoutManager.documentRange)
         }
 
         textView.delegate = coordinator
