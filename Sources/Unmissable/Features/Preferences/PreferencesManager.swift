@@ -44,6 +44,7 @@ private extension UserDefaults {
 @MainActor
 final class PreferencesManager: ObservableObject {
     private let userDefaults: UserDefaults
+    private let themeManager: ThemeManager
 
     // MARK: - Clamped Properties
 
@@ -103,7 +104,7 @@ final class PreferencesManager: ObservableObject {
     var appearanceTheme: AppTheme = .system {
         didSet {
             userDefaults.set(appearanceTheme.rawValue, forKey: PrefKey.appearanceTheme)
-            ThemeManager.shared.setTheme(appearanceTheme)
+            themeManager.setTheme(appearanceTheme)
         }
     }
 
@@ -189,8 +190,9 @@ final class PreferencesManager: ObservableObject {
         didSet { userDefaults.set(showTodayOnlyInMenuBar, forKey: PrefKey.showTodayOnlyInMenuBar) }
     }
 
-    init(userDefaults: UserDefaults = .standard) {
+    init(userDefaults: UserDefaults = .standard, themeManager: ThemeManager = .shared) {
         self.userDefaults = userDefaults
+        self.themeManager = themeManager
         loadPreferences()
     }
 
@@ -224,9 +226,9 @@ final class PreferencesManager: ObservableObject {
            let theme = AppTheme(rawValue: themeRawValue)
         {
             appearanceTheme = theme
-            ThemeManager.shared.setTheme(theme)
+            themeManager.setTheme(theme)
         } else {
-            ThemeManager.shared.setTheme(.system)
+            themeManager.setTheme(.system)
         }
 
         overlayOpacity = Self.clamp(

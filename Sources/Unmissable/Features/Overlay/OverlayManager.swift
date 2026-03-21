@@ -199,7 +199,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
             },
             onJoin: { [weak self] in
                 Task { @MainActor in
-                    if let url = event.primaryLink {
+                    if let url = LinkParser.shared.primaryLink(for: event) {
                         NSWorkspace.shared.open(url)
                         self?.hideOverlay()
                     }

@@ -90,7 +90,7 @@ struct EventPropertyTests {
             calendarId: "primary",
             links: links
         )
-        #expect(event.isOnlineMeeting == expected)
+        #expect(LinkParser.shared.isOnlineMeeting(event) == expected)
     }
 
     @Test(
@@ -121,7 +121,7 @@ struct EventPropertyTests {
             links: links
         )
         let expected = expectedString.flatMap { URL(string: $0) }
-        #expect(event.primaryLink == expected)
+        #expect(LinkParser.shared.primaryLink(for: event) == expected)
     }
 
     @Test(

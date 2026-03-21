@@ -17,7 +17,7 @@ final class ServiceContainer {
     let updateManager: UpdateManager
 
     init(
-        databaseManager: any DatabaseManaging = DatabaseManager(),
+        databaseManager: any DatabaseManaging,
         preferencesManager: PreferencesManager = PreferencesManager()
     ) {
         self.databaseManager = databaseManager

@@ -342,6 +342,14 @@ struct MenuBarView: View {
                 )
                 .padding(.horizontal, design.spacing.lg)
             }
+
+            if group.events.count > 3 {
+                Text("and \(group.events.count - 3) more")
+                    .font(design.fonts.caption1)
+                    .foregroundColor(design.colors.textTertiary)
+                    .padding(.horizontal, design.spacing.lg)
+                    .accessibilityIdentifier("more-events-indicator")
+            }
         }
     }
 
@@ -425,13 +433,13 @@ struct CustomEventRow: View {
                 Spacer()
 
                 HStack(spacing: design.spacing.md) {
-                    if event.isOnlineMeeting {
+                    if LinkParser.shared.isOnlineMeeting(event) {
                         Image(systemName: event.provider?.iconName ?? "link")
                             .foregroundColor(design.colors.accent)
                             .font(.system(size: 14, weight: .medium))
                     }
 
-                    if event.shouldShowJoinButton, let primaryLink = event.primaryLink {
+                    if LinkParser.shared.shouldShowJoinButton(for: event), let primaryLink = LinkParser.shared.primaryLink(for: event) {
                         CustomButton("Join", icon: "video.fill", style: .secondary) {
                             NSWorkspace.shared.open(primaryLink)
                         }

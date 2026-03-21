@@ -339,8 +339,8 @@ final class OverlayFlowE2ETests: XCTestCase {
         env.overlayManager.showOverlayImmediately(for: dbEvent)
 
         let activeEvent = try XCTUnwrap(env.overlayManager.activeEvent)
-        XCTAssertTrue(activeEvent.isOnlineMeeting)
-        let link = try XCTUnwrap(activeEvent.primaryLink)
+        XCTAssertTrue(LinkParser.shared.isOnlineMeeting(activeEvent))
+        let link = try XCTUnwrap(LinkParser.shared.primaryLink(for: activeEvent))
         XCTAssertEqual(link.host, "meet.google.com")
         XCTAssertEqual(activeEvent.provider, .meet)
     }

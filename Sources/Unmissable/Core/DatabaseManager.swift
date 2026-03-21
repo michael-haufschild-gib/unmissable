@@ -65,9 +65,6 @@ actor DatabaseManager: DatabaseManaging {
             let queue = try DatabaseQueue(path: dbURL.path)
             dbQueue = queue
             try Self.migrator.migrate(queue)
-            try queue.write { db in
-                try db.execute(sql: "DROP TABLE IF EXISTS schema_version")
-            }
             isInitialized = true
             initializationError = nil
             logger.info("Database initialized at: \(dbURL.path)")
@@ -84,9 +81,6 @@ actor DatabaseManager: DatabaseManaging {
             let queue = try DatabaseQueue(path: databaseURL.path)
             dbQueue = queue
             try Self.migrator.migrate(queue)
-            try queue.write { db in
-                try db.execute(sql: "DROP TABLE IF EXISTS schema_version")
-            }
             isInitialized = true
             initializationError = nil
             logger.info("Database initialized at: \(databaseURL.path)")
@@ -186,6 +180,10 @@ actor DatabaseManager: DatabaseManaging {
                     t.add(column: "sourceProvider", .text).notNull().defaults(to: "google")
                 }
             }
+        }
+
+        migrator.registerMigration("v5-dropLegacySchemaVersion") { db in
+            try db.execute(sql: "DROP TABLE IF EXISTS schema_version")
         }
 
         return migrator

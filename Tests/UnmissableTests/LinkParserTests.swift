@@ -105,9 +105,9 @@ final class LinkParserTests: XCTestCase {
             calendarId: "primary"
         )
 
-        XCTAssertTrue(event.isOnlineMeeting)
+        XCTAssertTrue(LinkParser.shared.isOnlineMeeting(event))
         XCTAssertEqual(event.links.count, 1)
         XCTAssertEqual(event.provider, Provider.meet)
-        XCTAssertEqual(event.primaryLink?.absoluteString, "https://meet.google.com/abc-defg-hij")
+        XCTAssertEqual(LinkParser.shared.primaryLink(for: event)?.absoluteString, "https://meet.google.com/abc-defg-hij")
     }
 }

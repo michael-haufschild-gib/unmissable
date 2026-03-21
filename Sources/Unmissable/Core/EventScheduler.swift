@@ -307,7 +307,7 @@ final class EventScheduler: ObservableObject {
             overlayManager.showOverlay(for: alert.event, fromSnooze: false)
 
         case .meetingStart:
-            if preferencesManager.autoJoinEnabled, let url = alert.event.primaryLink {
+            if preferencesManager.autoJoinEnabled, let url = LinkParser.shared.primaryLink(for: alert.event) {
                 logger.info("AUTO-JOIN: Opening meeting for \(alert.event.title)")
                 NSWorkspace.shared.open(url)
             }

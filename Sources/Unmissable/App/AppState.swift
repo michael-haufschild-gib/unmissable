@@ -14,7 +14,7 @@ final class AppState: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
 
-    init(services: ServiceContainer = ServiceContainer()) {
+    init(services: ServiceContainer = ServiceContainer(databaseManager: DatabaseManager())) {
         self.services = services
 
         setupBindings()

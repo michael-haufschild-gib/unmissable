@@ -180,7 +180,7 @@ struct OverlayContentView: View {
 
     private var actionButtons: some View {
         HStack(spacing: 20) {
-            if event.isOnlineMeeting {
+            if LinkParser.shared.isOnlineMeeting(event) {
                 Button(action: onJoin) {
                     HStack(spacing: 10) {
                         Image(systemName: "video.fill")

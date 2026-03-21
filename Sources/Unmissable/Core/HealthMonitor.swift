@@ -148,21 +148,20 @@ final class HealthMonitor: ObservableObject {
     private func checkOverlayManagerHealth(_ overlayManager: any OverlayManaging) -> [HealthIssue] {
         var issues: [HealthIssue] = []
 
-        // Auto-dismiss overlay stuck visible for 30+ minutes past meeting end
+        // Report overlay stuck visible for 30+ minutes past meeting end
         if overlayManager.isOverlayVisible,
            let activeEvent = overlayManager.activeEvent,
            Date().timeIntervalSince(activeEvent.endDate) > 1800
         {
             logger.warning(
-                "Auto-dismissing stuck overlay for '\(activeEvent.title)' — meeting ended 30+ minutes ago"
+                "Stuck overlay detected for '\(activeEvent.title)' — meeting ended 30+ minutes ago"
             )
-            overlayManager.hideOverlay()
             issues.append(
                 HealthIssue(
                     severity: .warning,
                     component: "Overlay Manager",
-                    message: "Auto-dismissed stuck overlay for meeting that ended 30+ minutes ago",
-                    suggestion: "Overlay was automatically dismissed"
+                    message: "Overlay stuck for meeting that ended 30+ minutes ago",
+                    suggestion: "Dismiss the overlay manually or restart the app"
                 )
             )
         }

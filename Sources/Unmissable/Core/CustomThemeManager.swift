@@ -16,7 +16,7 @@ final class ThemeManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var systemAppearanceObserver: NSKeyValueObservation?
 
-    private init() {
+    init() {
         setupSystemAppearanceObserver()
         updateEffectiveTheme()
     }
@@ -298,8 +298,12 @@ extension EnvironmentValues {
 // MARK: - Custom Theme Modifier
 
 struct CustomThemeModifier: ViewModifier {
-    @ObservedObject
-    private var themeManager = ThemeManager.shared
+    @StateObject
+    private var themeManager: ThemeManager
+
+    init(themeManager: ThemeManager = .shared) {
+        _themeManager = StateObject(wrappedValue: themeManager)
+    }
 
     func body(content: Content) -> some View {
         content
@@ -309,7 +313,7 @@ struct CustomThemeModifier: ViewModifier {
 }
 
 extension View {
-    func customThemedEnvironment() -> some View {
-        modifier(CustomThemeModifier())
+    func customThemedEnvironment(themeManager: ThemeManager = .shared) -> some View {
+        modifier(CustomThemeModifier(themeManager: themeManager))
     }
 }

@@ -71,8 +71,8 @@ final class MeetingDetailsE2ETests: XCTestCase {
         env.meetingDetailsPopupManager.showPopup(for: dbEvent)
 
         let shownEvent = try XCTUnwrap(env.meetingDetailsPopupManager.lastShownEvent)
-        XCTAssertTrue(shownEvent.isOnlineMeeting)
-        let link = try XCTUnwrap(shownEvent.primaryLink)
+        XCTAssertTrue(LinkParser.shared.isOnlineMeeting(shownEvent))
+        let link = try XCTUnwrap(LinkParser.shared.primaryLink(for: shownEvent))
         XCTAssertEqual(link.host, "meet.google.com")
         XCTAssertEqual(shownEvent.provider, .meet)
     }
@@ -91,8 +91,8 @@ final class MeetingDetailsE2ETests: XCTestCase {
         env.meetingDetailsPopupManager.showPopup(for: dbEvent)
 
         let shownEvent = try XCTUnwrap(env.meetingDetailsPopupManager.lastShownEvent)
-        XCTAssertFalse(shownEvent.isOnlineMeeting)
-        XCTAssertNil(shownEvent.primaryLink)
+        XCTAssertFalse(LinkParser.shared.isOnlineMeeting(shownEvent))
+        XCTAssertNil(LinkParser.shared.primaryLink(for: shownEvent))
     }
 
     func testPopupWithEventWithAttendees() async throws {

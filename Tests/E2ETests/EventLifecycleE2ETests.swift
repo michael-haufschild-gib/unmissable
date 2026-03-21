@@ -213,8 +213,8 @@ final class EventLifecycleE2ETests: XCTestCase {
 
         let roundTripped = try XCTUnwrap(fetched.first)
         XCTAssertEqual(roundTripped.id, meetEvent.id)
-        XCTAssertTrue(roundTripped.isOnlineMeeting)
-        let link = try XCTUnwrap(roundTripped.primaryLink)
+        XCTAssertTrue(LinkParser.shared.isOnlineMeeting(roundTripped))
+        let link = try XCTUnwrap(LinkParser.shared.primaryLink(for: roundTripped))
         XCTAssertEqual(link.host, "meet.google.com")
         XCTAssertEqual(roundTripped.provider, .meet)
     }

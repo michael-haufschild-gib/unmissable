@@ -81,7 +81,7 @@ final class ShortcutsManager: ObservableObject {
         guard let overlayManager,
               overlayManager.isOverlayVisible,
               let event = overlayManager.activeEvent,
-              let url = event.primaryLink
+              let url = LinkParser.shared.primaryLink(for: event)
         else {
             logger.info("Join shortcut pressed but no active meeting to join")
             return

@@ -22,7 +22,7 @@ final class EventTests: XCTestCase {
         XCTAssertEqual(event.organizer, "test@example.com")
         XCTAssertEqual(event.calendarId, "primary")
         XCTAssertFalse(event.isAllDay)
-        XCTAssertFalse(event.isOnlineMeeting)
+        XCTAssertFalse(LinkParser.shared.isOnlineMeeting(event))
         XCTAssertEqual(event.duration, 3600)
     }
 
@@ -40,8 +40,8 @@ final class EventTests: XCTestCase {
             provider: .meet
         )
 
-        XCTAssertTrue(event.isOnlineMeeting)
-        XCTAssertEqual(event.primaryLink, meetUrl)
+        XCTAssertTrue(LinkParser.shared.isOnlineMeeting(event))
+        XCTAssertEqual(LinkParser.shared.primaryLink(for: event), meetUrl)
         XCTAssertEqual(event.provider, .meet)
         XCTAssertEqual(event.links.count, 2)
     }
@@ -59,7 +59,7 @@ final class EventTests: XCTestCase {
             links: [docsUrl, meetUrl]
         )
 
-        XCTAssertEqual(event.primaryLink, meetUrl)
+        XCTAssertEqual(LinkParser.shared.primaryLink(for: event), meetUrl)
         XCTAssertEqual(event.provider, .meet)
     }
 
@@ -75,8 +75,8 @@ final class EventTests: XCTestCase {
             links: [teamsLiveUrl]
         )
 
-        XCTAssertTrue(event.isOnlineMeeting)
-        XCTAssertEqual(event.primaryLink, teamsLiveUrl)
+        XCTAssertTrue(LinkParser.shared.isOnlineMeeting(event))
+        XCTAssertEqual(LinkParser.shared.primaryLink(for: event), teamsLiveUrl)
         XCTAssertEqual(event.provider, .teams)
     }
 

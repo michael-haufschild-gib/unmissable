@@ -281,7 +281,8 @@ final class SyncManager: ObservableObject {
             || nsError.code == NSURLErrorNetworkConnectionLost
     }
 
-    private func handleNetworkError(_: Error) {
+    private func handleNetworkError(_ error: Error) {
+        logger.warning("Network error encountered: \(error.localizedDescription)")
         guard retryCount < maxRetries else {
             logger.error("Max retries reached, giving up")
             syncStatus = .error("Network error after \(maxRetries) attempts")

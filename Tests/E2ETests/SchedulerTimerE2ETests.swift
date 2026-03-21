@@ -171,8 +171,8 @@ final class SchedulerTimerE2ETests: XCTestCase {
                 "Should find event for provider \(provider.rawValue)"
             )
             XCTAssertEqual(event.provider, provider)
-            XCTAssertTrue(event.isOnlineMeeting, "\(provider.rawValue) should be online meeting")
-            XCTAssertNotNil(event.primaryLink, "\(provider.rawValue) should have a primary link")
+            XCTAssertTrue(LinkParser.shared.isOnlineMeeting(event), "\(provider.rawValue) should be online meeting")
+            XCTAssertNotNil(LinkParser.shared.primaryLink(for: event), "\(provider.rawValue) should have a primary link")
         }
 
         // Generic provider may or may not be detected as online meeting depending on

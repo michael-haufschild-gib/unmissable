@@ -79,12 +79,13 @@ struct Event: Identifiable, Codable, Equatable {
         snoozeUntil: Date? = nil,
         autoJoinEnabled: Bool = false,
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        linkParser: LinkParser = .shared
     ) -> Self {
         let detectedProvider: Provider? = if links.isEmpty {
             nil
         } else {
-            LinkParser.shared.detectPrimaryLink(from: links).map { Provider.detect(from: $0) }
+            linkParser.detectPrimaryLink(from: links).map { Provider.detect(from: $0) }
         }
 
         return Self(
@@ -113,26 +114,6 @@ struct Event: Identifiable, Codable, Equatable {
         endDate.timeIntervalSince(startDate)
     }
 
-    var primaryLink: URL? {
-        LinkParser.shared.detectPrimaryLink(from: links)
-    }
-
-    var isOnlineMeeting: Bool {
-        LinkParser.shared.isOnlineMeeting(links: links)
-    }
-
-    var shouldShowJoinButton: Bool {
-        guard isOnlineMeeting else { return false }
-
-        let now = Date()
-        let tenMinutesBeforeStart = startDate.addingTimeInterval(-600) // 10 minutes = 600 seconds
-
-        // Show join button if:
-        // 1. Meeting starts within 10 minutes (now >= tenMinutesBeforeStart AND now < startDate)
-        // 2. Meeting has already started (now >= startDate AND now < endDate)
-        return now >= tenMinutesBeforeStart && now < endDate
-    }
-
     /// Creates an event by extracting Google Meet links from text fields (title, description, location).
     /// For events from calendar APIs, use the API service's conversion methods which handle all providers.
     static func withParsedMeetLinks(
@@ -151,14 +132,15 @@ struct Event: Identifiable, Codable, Equatable {
         snoozeUntil: Date? = nil,
         autoJoinEnabled: Bool = false,
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        linkParser: LinkParser = .shared
     ) -> Self {
         // Combine all text fields that might contain meeting links
         let allText = [title, description, location]
             .compactMap(\.self)
             .joined(separator: " ")
 
-        let googleMeetLinks = LinkParser.shared.extractGoogleMeetLinks(from: allText)
+        let googleMeetLinks = linkParser.extractGoogleMeetLinks(from: allText)
         let provider = googleMeetLinks.first.map { Provider.detect(from: $0) }
 
         return Self(

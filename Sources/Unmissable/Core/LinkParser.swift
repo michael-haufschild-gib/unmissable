@@ -19,7 +19,7 @@ final class LinkParser: Sendable {
         "around.co",
     ]
 
-    private init() {}
+    init() {}
 
     // MARK: - Google Meet Link Detection (Simplified)
 
@@ -142,5 +142,26 @@ final class LinkParser: Sendable {
     /// Extracts the first URL from a text string
     func extractURL(from text: String) -> URL? {
         extractURLs(from: text).first
+    }
+
+    // MARK: - Event Convenience Methods
+
+    /// Returns the primary meeting link for the given event's links.
+    func primaryLink(for event: Event) -> URL? {
+        detectPrimaryLink(from: event.links)
+    }
+
+    /// Whether the event has at least one validated meeting link.
+    func isOnlineMeeting(_ event: Event) -> Bool {
+        isOnlineMeeting(links: event.links)
+    }
+
+    /// Whether the join button should be shown for this event.
+    func shouldShowJoinButton(for event: Event) -> Bool {
+        guard isOnlineMeeting(event) else { return false }
+
+        let now = Date()
+        let tenMinutesBeforeStart = event.startDate.addingTimeInterval(-600)
+        return now >= tenMinutesBeforeStart && now < event.endDate
     }
 }
