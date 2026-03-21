@@ -22,7 +22,7 @@ jobs:
   # Code Quality and Linting
   code-quality:
     name: Code Quality
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,7 +47,7 @@ jobs:
   # Unit Tests
   unit-tests:
     name: Unit Tests
-    runs-on: macos-latest
+    runs-on: macos-15
     needs: code-quality
     steps:
       - name: Checkout
@@ -78,7 +78,7 @@ jobs:
   # Integration Tests
   integration-tests:
     name: Integration Tests
-    runs-on: macos-latest
+    runs-on: macos-15
     needs: unit-tests
     steps:
       - name: Checkout
@@ -105,7 +105,7 @@ jobs:
   # Performance Tests
   performance-tests:
     name: Performance Tests
-    runs-on: macos-latest
+    runs-on: macos-15
     needs: unit-tests
     steps:
       - name: Checkout
@@ -119,9 +119,9 @@ jobs:
       - name: Run Performance Tests
         run: |
           xcodebuild -scheme ${{ env.SCHEME }} -destination "${{ env.DESTINATION }}" test \
-            -only-testing:UnmissableTests/testLargeNumberOfEvents \
-            -only-testing:UnmissableTests/testBatchEventSavePerformance \
-            -only-testing:UnmissableTests/testEndToEndPerformance \
+            -only-testing:UnmissableTests/EventSchedulerComprehensiveTests/testLargeNumberOfEvents \
+            -only-testing:UnmissableTests/SystemIntegrationTests/testEndToEndPerformance \
+            -only-testing:UnmissableTests/MeetingDetailsPopupTests/testPopupPerformanceUnderLoad \
             -resultBundlePath performance-tests.xcresult
 
       - name: Upload Performance Results
@@ -134,7 +134,7 @@ jobs:
   # Memory Leak Tests
   memory-tests:
     name: Memory Leak Detection
-    runs-on: macos-latest
+    runs-on: macos-15
     needs: unit-tests
     steps:
       - name: Checkout
@@ -148,9 +148,8 @@ jobs:
       - name: Run Memory Tests
         run: |
           xcodebuild -scheme ${{ env.SCHEME }} -destination "${{ env.DESTINATION }}" test \
-            -only-testing:UnmissableTests/testEventSchedulerDeallocation \
-            -only-testing:UnmissableTests/testOverlayManagerDeallocation \
-            -only-testing:UnmissableTests/testDatabaseManagerDeallocation \
+            -only-testing:UnmissableTests/EventSchedulerComprehensiveTests/testMemoryCleanupSimple \
+            -only-testing:UnmissableTests/SystemIntegrationTests/testMemoryPressureHandling \
             -resultBundlePath memory-tests.xcresult
 
       - name: Upload Memory Test Results
@@ -163,7 +162,7 @@ jobs:
   # UI/Snapshot Tests
   ui-tests:
     name: UI Tests
-    runs-on: macos-latest
+    runs-on: macos-15
     needs: unit-tests
     continue-on-error: true # Allow UI tests to fail without blocking deployment
     steps:
@@ -191,7 +190,7 @@ jobs:
   # Production Readiness Check
   production-readiness:
     name: Production Readiness
-    runs-on: macos-latest
+    runs-on: macos-15
     needs: [unit-tests, integration-tests, performance-tests, memory-tests]
     steps:
       - name: Checkout
@@ -202,10 +201,10 @@ jobs:
         with:
           path: test-results
 
-      - name: Install xcparse
+      - name: Install xcresultparser
         run: |
           brew tap a7ex/homebrew-formulae
-          brew install xcparse
+          brew install xcresultparser
 
       - name: Generate Production Readiness Report
         run: |
@@ -215,40 +214,26 @@ jobs:
           for result in test-results/*/*.xcresult; do
             if [ -f "$result" ]; then
               bundle_name=$(basename "$(dirname "$result")")
-              xcparse --output "reports/$bundle_name-summary.json" "$result"
+              xcresultparser "$result" > "reports/$bundle_name-summary.txt" 2>/dev/null || true
             fi
           done
 
-          # Create production readiness report
-          cat > reports/production-readiness.md << 'EOF'
+          # Create production readiness report with actual job outcomes
+          cat > reports/production-readiness.md << EOF
           # Production Readiness Report
 
-          Generated: $(date)
-          Commit: ${{ github.sha }}
-          Branch: ${{ github.ref_name }}
+          **Generated:** $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          **Commit:** ${{ github.sha }}
+          **Branch:** ${{ github.ref_name }}
 
-          ## Test Results Summary
+          ## Test Results
 
-          - ✅ Unit Tests: PASSED
-          - ✅ Integration Tests: PASSED
-          - ✅ Memory Tests: PASSED
-          - 📊 Performance Tests: COMPLETED
-          - 📱 UI Tests: COMPLETED
+          All required jobs (unit, integration, performance, memory) passed — this
+          step only runs when the \`needs\` gate succeeds.
 
-          ## Critical Issues
-          - Count: 0
+          ## Artifacts
 
-          ## Production Status
-          ✅ **READY FOR PRODUCTION**
-
-          All critical tests are passing. The application is stable, freeze-free, and ready for deployment.
-
-          ## Quality Metrics
-          - Zero memory leaks detected
-          - Performance benchmarks met
-          - All edge cases covered
-          - Error handling validated
-
+          Individual test result bundles are attached to this workflow run.
           EOF
 
       - name: Upload Production Readiness Report
@@ -276,7 +261,7 @@ jobs:
   # Security Scan
   security-scan:
     name: Security Scan
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -324,7 +309,7 @@ jobs:
   # Notify on failure - creates/updates GitHub issue for non-trivial failures
   notify-failure:
     name: Notify Test Failure
-    runs-on: macos-latest
+    runs-on: macos-15
     needs: [code-quality, unit-tests, integration-tests, performance-tests, memory-tests]
     if: failure() && github.event.pull_request == null
     steps:

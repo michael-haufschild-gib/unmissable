@@ -4,7 +4,7 @@ import PackagePlugin
 @main
 struct LintGatePlugin: BuildToolPlugin {
     func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
-        let lintTargetNames: Set = ["UnmissableTests", "IntegrationTests", "SnapshotTests"]
+        let lintTargetNames: Set = ["UnmissableTests", "IntegrationTests", "SnapshotTests", "E2ETests"]
         guard lintTargetNames.contains(target.name) else {
             return []
         }

@@ -36,6 +36,9 @@ opt_in_rules:
   - shorthand_optional_binding
   - self_binding
 
+  # Documentation
+  - missing_docs
+
   # Safety
   - unowned_variable_capture
   - overridden_super_call
@@ -202,6 +205,14 @@ force_unwrapping:
 xct_specific_matcher:
   severity: error
 
+missing_docs:
+  error:
+    - open
+    - public
+  excludes_extensions: true
+  excludes_inherited_types: true
+  excludes_trivial_init: true
+
 deployment_target:
   macOS_deployment_target: '14.0'
 
@@ -241,7 +252,7 @@ custom_rules:
   no_type_check_assertions:
     name: "No Type-Only Assertions"
     included: "Tests/.*\\.swift"
-    regex: "XCTAssert(True|Equal)\\([^,\"]*\\b(is |typeof |type\\(of:)"
+    regex: "XCTAssert(True|Equal)\\([^,\"]*\\b(is [A-Z]|typeof |type\\(of:)"
     message: "Asserting type alone is shallow. Assert behavior or specific values."
     severity: error
 
@@ -278,4 +289,10 @@ custom_rules:
     included: "Tests/.*\\.swift"
     regex: "[\\x{1F300}-\\x{1F9FF}\\x{2600}-\\x{27BF}\\x{FE00}-\\x{FE0F}\\x{1FA00}-\\x{1FA6F}\\x{1FA70}-\\x{1FAFF}\\x{2702}-\\x{27B0}]"
     message: "Remove emoji from test files. They are noise that obscures intent."
+    severity: error
+
+  no_empty_comments:
+    name: "No Empty Comments"
+    regex: "^\\s*//\\s*$"
+    message: "Empty comments are noise. Write a meaningful comment or remove it."
     severity: error

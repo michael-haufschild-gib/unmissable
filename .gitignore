@@ -13,7 +13,7 @@ DerivedData/
 /.build
 /Packages
 Package.pins
-Package.resolved
+# Package.resolved is tracked intentionally — reproducible builds for this application
 xcuserdata/
 
 # Configuration files with secrets
@@ -63,6 +63,7 @@ resource_bundle_accessor*
 # Agent exploration logs
 ci-explore-log*.md
 task_state.md
+market-readiness*.md
 
 # Build artifacts and review reports
 release/

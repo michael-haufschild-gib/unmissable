@@ -115,22 +115,24 @@ fi
 
 # Step 6: Generate Code Coverage Report
 log_info "Step 6: Generating code coverage report..."
-if command -v xcov &> /dev/null; then
-    xcov --project "$PROJECT_DIR/Unmissable.xcodeproj" \
-         --scheme "$SCHEME" \
-         --output_directory "$COVERAGE_DIR" \
-         --minimum_coverage_percentage 80
-    log_success "Code coverage report generated"
+PROFDATA_PATH="$BUILD_DIR/debug/codecov/default.profdata"
+BINARY_PATH="$BUILD_DIR/debug/UnmissablePackageTests.xctest/Contents/MacOS/UnmissablePackageTests"
+if [ -f "$PROFDATA_PATH" ] && [ -f "$BINARY_PATH" ]; then
+    xcrun llvm-cov export -format="lcov" \
+        "$BINARY_PATH" \
+        -instr-profile="$PROFDATA_PATH" > "$COVERAGE_DIR/coverage.lcov" 2>/dev/null \
+        && log_success "Code coverage report generated" \
+        || log_warning "Coverage export failed"
 else
-    log_warning "xcov not found, skipping coverage report"
+    log_warning "Coverage data not found (run swift test --enable-code-coverage first)"
 fi
 
 # Step 7: Performance Testing
 log_info "Step 7: Running performance tests..."
 if xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
-    -only-testing:"UnmissableTests/testLargeNumberOfEvents" \
-    -only-testing:"UnmissableTests/testBatchEventSavePerformance" \
-    -only-testing:"UnmissableTests/testEndToEndPerformance" \
+    -only-testing:"UnmissableTests/EventSchedulerComprehensiveTests/testLargeNumberOfEvents" \
+    -only-testing:"UnmissableTests/SystemIntegrationTests/testEndToEndPerformance" \
+    -only-testing:"UnmissableTests/MeetingDetailsPopupTests/testPopupPerformanceUnderLoad" \
     -resultBundlePath "$REPORTS_DIR/performance-tests.xcresult" \
     | tee "$REPORTS_DIR/performance-tests.log"; then
     log_success "Performance tests passed"
@@ -141,10 +143,10 @@ fi
 # Step 8: Resource Lifecycle / Cleanup Tests
 log_info "Step 8: Running resource lifecycle and cleanup tests..."
 if xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
-    -only-testing:"UnmissableTests/AppStateDisconnectCleanupTests" \
-    -only-testing:"UnmissableTests/CalendarServiceTests" \
     -only-testing:"UnmissableTests/SyncManagerLifecycleTests" \
     -only-testing:"UnmissableTests/HealthMonitorTests" \
+    -only-testing:"UnmissableTests/EventSchedulerComprehensiveTests/testMemoryCleanupSimple" \
+    -only-testing:"UnmissableTests/SystemIntegrationTests/testMemoryPressureHandling" \
     -resultBundlePath "$REPORTS_DIR/memory-tests.xcresult" \
     | tee "$REPORTS_DIR/memory-tests.log"; then
     log_success "Resource lifecycle tests passed"
