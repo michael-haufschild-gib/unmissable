@@ -52,7 +52,9 @@ opt_in_rules:
   - discarded_notification_center_observer
   - return_value_from_void_function
   # Concurrency
-  - async_without_await
+  # async_without_await: removed — protocol conformance legitimately requires async
+  # on synchronous implementations (e.g. AppleCalendarAPIService conforming to
+  # CalendarAPIProviding). SwiftLint cannot exclude protocol conformance cases.
   - unhandled_throwing_task
 
   # SwiftUI specific

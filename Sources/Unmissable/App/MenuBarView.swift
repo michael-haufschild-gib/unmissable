@@ -25,7 +25,7 @@ struct MenuBarView: View {
         let calendar = Calendar.current
         let today = Date()
 
-        return appState.upcomingEvents.filter { event in
+        return appState.calendar.events.filter { event in
             calendar.isDate(event.startDate, inSameDayAs: today)
         }
     }
@@ -34,13 +34,13 @@ struct MenuBarView: View {
         let calendar = Calendar.current
         let today = Date()
         guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else {
-            return appState.upcomingEvents.filter { event in
+            return appState.calendar.events.filter { event in
                 calendar.isDate(event.startDate, inSameDayAs: today)
             }
         }
         let monday = getNextMondayIfNeeded(from: tomorrow, calendar: calendar)
 
-        return appState.upcomingEvents.filter { event in
+        return appState.calendar.events.filter { event in
             calendar.isDate(event.startDate, inSameDayAs: today)
                 || calendar.isDate(event.startDate, inSameDayAs: tomorrow)
                 || (monday.map { calendar.isDate(event.startDate, inSameDayAs: $0) } ?? false)
@@ -71,7 +71,7 @@ struct MenuBarView: View {
 
         // Add started meetings group if including started events
         if includingStarted {
-            let startedMeetings = appState.startedEvents
+            let startedMeetings = appState.calendar.startedEvents
             if !startedMeetings.isEmpty {
                 groups.append(EventGroup(title: "Started", events: startedMeetings))
             }
@@ -146,7 +146,7 @@ struct MenuBarView: View {
 
     private var contentSection: some View {
         VStack(spacing: design.spacing.lg) {
-            if !appState.isConnectedToCalendar {
+            if !appState.calendar.isConnected {
                 disconnectedContent
             } else {
                 connectedContent
@@ -191,7 +191,7 @@ struct MenuBarView: View {
 
     private var disconnectedContent: some View {
         VStack(spacing: design.spacing.lg) {
-            if let authError = appState.authError {
+            if let authError = appState.calendar.authError {
                 CustomCard(style: .flat) {
                     VStack(alignment: .leading, spacing: design.spacing.sm) {
                         HStack(spacing: design.spacing.sm) {
@@ -252,7 +252,7 @@ struct MenuBarView: View {
         HStack {
             HStack(spacing: design.spacing.sm) {
                 syncStatusIcon
-                Text(appState.syncStatus.description)
+                Text(appState.calendar.syncStatus.description)
                     .font(design.fonts.caption1)
                     .foregroundColor(design.colors.textSecondary)
                     .accessibilityIdentifier("sync-status-text")
@@ -260,7 +260,7 @@ struct MenuBarView: View {
 
             Spacer()
 
-            if case .syncing = appState.syncStatus {
+            if case .syncing = appState.calendar.syncStatus {
                 ProgressView()
                     .scaleEffect(0.7)
                     .tint(design.colors.accent)
@@ -345,7 +345,7 @@ struct MenuBarView: View {
 
     private var syncStatusIcon: some View {
         Group {
-            switch appState.syncStatus {
+            switch appState.calendar.syncStatus {
             case .idle:
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(design.colors.success)
@@ -367,11 +367,11 @@ struct MenuBarView: View {
     }
 
     private var connectionStatus: CustomStatusIndicator.Status {
-        if !appState.isConnectedToCalendar {
+        if !appState.calendar.isConnected {
             return .disconnected
         }
 
-        switch appState.syncStatus {
+        switch appState.calendar.syncStatus {
         case .idle:
             return .connected
         case .syncing:

@@ -331,7 +331,11 @@ final class SyncManager: ObservableObject {
     func syncCalendarList() async throws {
         logger.debug("Syncing calendar list")
 
-        try await apiService.fetchCalendars()
+        await apiService.fetchCalendars()
+        guard apiService.lastError == nil else {
+            logger.error("Calendar list fetch failed, skipping save")
+            return
+        }
 
         // Convert API calendars to database models, preserving sourceProvider
         let dbCalendars = apiService.calendars.map { calendar in

@@ -24,7 +24,7 @@ struct CalendarPreferencesView: View {
 
                 providerConnectionSection
 
-                if appState.isConnectedToCalendar {
+                if appState.calendar.isConnected {
                     calendarSelectionSection
                 }
 
@@ -106,7 +106,7 @@ struct CalendarPreferencesView: View {
     private func providerStatusText(for providerType: CalendarProviderType) -> some View {
         switch providerType {
         case .google:
-            if let email = appState.userEmail {
+            if let email = appState.calendar.userEmail {
                 Text(email)
                     .font(design.fonts.caption1)
                     .foregroundColor(design.colors.textSecondary)
@@ -117,7 +117,7 @@ struct CalendarPreferencesView: View {
             }
 
         case .apple:
-            let appleCalendarCount = appState.calendars.count(where: { $0.sourceProvider == .apple })
+            let appleCalendarCount = appState.calendar.calendars.count(where: { $0.sourceProvider == .apple })
             if appleCalendarCount > 0 {
                 Text("\(appleCalendarCount) calendar\(appleCalendarCount == 1 ? "" : "s") available")
                     .font(design.fonts.caption1)
@@ -134,7 +134,7 @@ struct CalendarPreferencesView: View {
 
     private var calendarSelectionSection: some View {
         Group {
-            if appState.calendars.isEmpty {
+            if appState.calendar.calendars.isEmpty {
                 CustomCard(style: .standard) {
                     HStack(spacing: design.spacing.sm) {
                         ProgressView()
@@ -155,7 +155,7 @@ struct CalendarPreferencesView: View {
     private var calendarListByProvider: some View {
         VStack(alignment: .leading, spacing: design.spacing.lg) {
             ForEach(CalendarProviderType.allCases, id: \.self) { providerType in
-                let providerCalendars = appState.calendars.filter { $0.sourceProvider == providerType }
+                let providerCalendars = appState.calendar.calendars.filter { $0.sourceProvider == providerType }
                 if !providerCalendars.isEmpty {
                     CustomCard(style: .standard) {
                         VStack(alignment: .leading, spacing: design.spacing.lg) {

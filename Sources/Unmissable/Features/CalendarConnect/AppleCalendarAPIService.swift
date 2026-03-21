@@ -2,10 +2,6 @@ import EventKit
 import Foundation
 import OSLog
 
-// CalendarAPIProviding requires async throws — EventKit is synchronous but the
-// protocol must be async for Google's network-based implementation.
-// swiftlint:disable async_without_await unneeded_throws_rethrows
-
 /// Fetches calendars and events from macOS Calendar via EventKit.
 /// Supports iCloud, Exchange, CalDAV, and any other source configured in System Settings.
 @MainActor
@@ -24,7 +20,7 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         self.eventStore = eventStore
     }
 
-    func fetchCalendars() async throws {
+    func fetchCalendars() async {
         logger.debug("Fetching Apple Calendar list")
         lastError = nil
 
@@ -193,5 +189,3 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         return String(format: "#%02X%02X%02X", r, g, b)
     }
 }
-
-// swiftlint:enable async_without_await unneeded_throws_rethrows

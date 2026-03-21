@@ -46,10 +46,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         soundManager = SoundManager(preferencesManager: preferencesManager)
         self.focusModeManager =
             focusModeManager ?? FocusModeManager(preferencesManager: preferencesManager)
-        // Auto-detect XCTest environment to avoid creating real windows during tests
-        let isRunningUnderXCTest =
-            ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-        self.isTestMode = isTestMode || isRunningUnderXCTest
+        self.isTestMode = isTestMode
     }
 
     convenience init() {

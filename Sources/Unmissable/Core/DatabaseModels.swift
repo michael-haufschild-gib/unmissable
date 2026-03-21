@@ -4,6 +4,48 @@ import OSLog
 
 private let logger = Logger(subsystem: "com.unmissable.app", category: "DatabaseModels")
 
+// MARK: - JSON Column Helpers
+
+/// Decodes a JSON-encoded string column into a Decodable value, returning `defaultValue` on failure.
+private func decodeJSONColumn<T: Decodable>(
+    _ row: Row, _ column: Column, default defaultValue: T
+) -> T {
+    let raw = row[column] as? String ?? "[]"
+    guard let data = raw.data(using: .utf8) else { return defaultValue }
+    do {
+        return try JSONDecoder().decode(T.self, from: data)
+    } catch {
+        logger.error("Failed to decode \(column.name): \(error.localizedDescription)")
+        return defaultValue
+    }
+}
+
+/// Decodes a JSON-encoded `[String]` column into `[URL]`, dropping unparseable entries.
+private func decodeJSONURLColumn(_ row: Row, _ column: Column) -> [URL] {
+    let strings: [String] = decodeJSONColumn(row, column, default: [])
+    return strings.compactMap { URL(string: $0) }
+}
+
+/// Encodes an Encodable value as a JSON string into a persistence container column.
+private func encodeJSONColumn<T: Encodable>(
+    _ value: T, into container: inout PersistenceContainer, _ column: Column
+) {
+    do {
+        let data = try JSONEncoder().encode(value)
+        container[column] = String(data: data, encoding: .utf8) ?? "[]"
+    } catch {
+        logger.error("Failed to encode \(column.name): \(error.localizedDescription)")
+        container[column] = "[]"
+    }
+}
+
+/// Encodes `[URL]` as a JSON `[String]` into a persistence container column.
+private func encodeJSONURLColumn(
+    _ value: [URL], into container: inout PersistenceContainer, _ column: Column
+) {
+    encodeJSONColumn(value.map(\.absoluteString), into: &container, column)
+}
+
 extension Event: FetchableRecord, PersistableRecord {
     static let databaseTableName = "events"
 
@@ -37,49 +79,14 @@ extension Event: FetchableRecord, PersistableRecord {
         description = row[Columns.description]
         location = row[Columns.location]
 
-        // Decode attendees from JSON string
-        let attendeesData = row[Columns.attendees] as? String ?? "[]"
-        if let data = attendeesData.data(using: .utf8) {
-            do {
-                attendees = try JSONDecoder().decode([Attendee].self, from: data)
-            } catch {
-                logger.error("Failed to decode attendees for event: \(error.localizedDescription)")
-                attendees = []
-            }
-        } else {
-            attendees = []
-        }
-
-        // Decode attachments from JSON string
-        let attachmentsData = row[Columns.attachments] as? String ?? "[]"
-        if let data = attachmentsData.data(using: .utf8) {
-            do {
-                attachments = try JSONDecoder().decode([EventAttachment].self, from: data)
-            } catch {
-                logger.error("Failed to decode attachments for event: \(error.localizedDescription)")
-                attachments = []
-            }
-        } else {
-            attachments = []
-        }
+        attendees = decodeJSONColumn(row, Columns.attendees, default: [Attendee]())
+        attachments = decodeJSONColumn(row, Columns.attachments, default: [EventAttachment]())
 
         isAllDay = row[Columns.isAllDay]
         calendarId = row[Columns.calendarId]
         timezone = row[Columns.timezone]
 
-        // Decode URLs from JSON string
-        let linksData = row[Columns.links] as? String ?? "[]"
-        if let data = linksData.data(using: .utf8) {
-            do {
-                let urlStrings = try JSONDecoder().decode([String].self, from: data)
-                links = urlStrings.compactMap { URL(string: $0) }
-            } catch {
-                logger.error("Failed to decode links for event: \(error.localizedDescription)")
-                links = []
-            }
-        } else {
-            links = []
-        }
+        links = decodeJSONURLColumn(row, Columns.links)
 
         // Decode provider
         if let providerRawValue = row[Columns.provider] as? String {
@@ -103,37 +110,14 @@ extension Event: FetchableRecord, PersistableRecord {
         container[Columns.description] = description
         container[Columns.location] = location
 
-        // Encode attendees as JSON string
-        do {
-            let data = try JSONEncoder().encode(attendees)
-            container[Columns.attendees] = String(data: data, encoding: .utf8) ?? "[]"
-        } catch {
-            logger.error("Failed to encode attendees for event \(id): \(error.localizedDescription)")
-            container[Columns.attendees] = "[]"
-        }
-
-        // Encode attachments as JSON string
-        do {
-            let data = try JSONEncoder().encode(attachments)
-            container[Columns.attachments] = String(data: data, encoding: .utf8) ?? "[]"
-        } catch {
-            logger.error("Failed to encode attachments for event \(id): \(error.localizedDescription)")
-            container[Columns.attachments] = "[]"
-        }
+        encodeJSONColumn(attendees, into: &container, Columns.attendees)
+        encodeJSONColumn(attachments, into: &container, Columns.attachments)
 
         container[Columns.isAllDay] = isAllDay
         container[Columns.calendarId] = calendarId
         container[Columns.timezone] = timezone
 
-        // Encode URLs as JSON string
-        let urlStrings = links.map(\.absoluteString)
-        do {
-            let data = try JSONEncoder().encode(urlStrings)
-            container[Columns.links] = String(data: data, encoding: .utf8) ?? "[]"
-        } catch {
-            logger.error("Failed to encode links for event \(id): \(error.localizedDescription)")
-            container[Columns.links] = "[]"
-        }
+        encodeJSONURLColumn(links, into: &container, Columns.links)
 
         container[Columns.provider] = provider?.rawValue
         container[Columns.snoozeUntil] = snoozeUntil

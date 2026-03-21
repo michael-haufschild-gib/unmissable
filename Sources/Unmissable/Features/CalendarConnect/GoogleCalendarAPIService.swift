@@ -29,7 +29,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
 
     // MARK: - Calendar Operations
 
-    func fetchCalendars() async throws {
+    func fetchCalendars() async {
         logger.debug("Fetching calendar list")
         isLoading = true
         lastError = nil
@@ -40,7 +40,8 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
             let accessToken = try await oauth2Service.getValidAccessToken()
             guard let url = URL(string: "\(GoogleCalendarConfig.calendarAPIBaseURL)/users/me/calendarList")
             else {
-                throw GoogleCalendarAPIError.invalidURL
+                lastError = GoogleCalendarAPIError.invalidURL.localizedDescription
+                return
             }
 
             var request = URLRequest(url: url)
@@ -50,7 +51,8 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
             let (data, response) = try await Self.urlSession.data(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse else {
-                throw GoogleCalendarAPIError.invalidResponse
+                lastError = GoogleCalendarAPIError.invalidResponse.localizedDescription
+                return
             }
 
             guard httpResponse.statusCode == 200 else {
@@ -62,7 +64,10 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
                     }
                 }
                 logger.error("Calendar list fetch failed: \(errorMessage)")
-                throw GoogleCalendarAPIError.requestFailed(httpResponse.statusCode, errorMessage)
+                lastError = GoogleCalendarAPIError.requestFailed(
+                    httpResponse.statusCode, errorMessage
+                ).localizedDescription
+                return
             }
 
             let calendarList = try parseCalendarList(from: data)
@@ -72,7 +77,6 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         } catch {
             logger.error("Failed to fetch calendars: \(error.localizedDescription)")
             lastError = error.localizedDescription
-            throw error
         }
     }
 

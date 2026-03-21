@@ -2,6 +2,8 @@ import Foundation
 import GRDB
 import OSLog
 
+private let extensionLogger = Logger(subsystem: "com.unmissable.app", category: "DatabaseManager")
+
 // MARK: - Search & Maintenance
 
 extension DatabaseManager {
@@ -26,7 +28,7 @@ extension DatabaseManager {
     }
 
     func performMaintenance() async throws {
-        logger.info("Starting database maintenance")
+        extensionLogger.info("Starting database maintenance")
 
         // Delete events older than 30 days
         let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
@@ -41,7 +43,7 @@ extension DatabaseManager {
             }
         }
 
-        logger.info("Database maintenance completed")
+        extensionLogger.info("Database maintenance completed")
     }
 
     func resetDatabase() throws {
@@ -58,7 +60,7 @@ extension DatabaseManager {
             try setupSchema(db)
         }
 
-        logger.info("Database reset completed")
+        extensionLogger.info("Database reset completed")
     }
 }
 
@@ -83,7 +85,7 @@ extension DatabaseManager {
                     .deleteAll(db)
             }
 
-            logger.info("Deleted \(deletedCount) test events with pattern: \(pattern)")
+            extensionLogger.info("Deleted \(deletedCount) test events with pattern: \(pattern)")
         }
 
         /// Delete test calendars matching a name pattern (for testing only)
@@ -103,7 +105,7 @@ extension DatabaseManager {
                     .deleteAll(db)
             }
 
-            logger.info("Deleted \(deletedCount) test calendars with pattern: \(pattern)")
+            extensionLogger.info("Deleted \(deletedCount) test calendars with pattern: \(pattern)")
         }
 
         /// Delete events matching a specific title pattern (for testing only)
@@ -123,7 +125,7 @@ extension DatabaseManager {
                     .deleteAll(db)
             }
 
-            logger.info("Deleted \(deletedCount) test events with title pattern: \(pattern)")
+            extensionLogger.info("Deleted \(deletedCount) test events with title pattern: \(pattern)")
         }
     }
 #endif

@@ -81,7 +81,12 @@ final class CalendarService: ObservableObject {
 
             if backend.auth.isAuthenticated {
                 // Fetch and save calendars for this provider
-                try await backend.api.fetchCalendars()
+                await backend.api.fetchCalendars()
+                guard backend.api.lastError == nil else {
+                    logger.error("Calendar fetch failed for \(providerType.rawValue)")
+                    syncAggregatedAuthState()
+                    return
+                }
                 let providerCalendars = backend.api.calendars
                 try await databaseManager.saveCalendars(providerCalendars)
 

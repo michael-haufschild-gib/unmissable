@@ -2,6 +2,25 @@ import AppKit
 import Foundation
 import OSLog
 
+/// Owns NotificationCenter observer tokens and removes them on deinit.
+/// Separating this from the @MainActor class avoids nonisolated(unsafe) escape hatches.
+private final class NotificationTokenBag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var tokens: [NSObjectProtocol] = []
+
+    func add(_ token: NSObjectProtocol) {
+        lock.lock()
+        tokens.append(token)
+        lock.unlock()
+    }
+
+    deinit {
+        for token in tokens {
+            NotificationCenter.default.removeObserver(token)
+        }
+    }
+}
+
 @MainActor
 final class FocusModeManager: ObservableObject {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "FocusModeManager")
@@ -10,8 +29,7 @@ final class FocusModeManager: ObservableObject {
     var isDoNotDisturbEnabled: Bool = false
 
     private let preferencesManager: PreferencesManager
-    private nonisolated(unsafe) var notificationObserver: NSObjectProtocol?
-    private nonisolated(unsafe) var focusModeObserver: NSObjectProtocol?
+    private let notificationTokens = NotificationTokenBag()
 
     init(preferencesManager: PreferencesManager, isTestMode: Bool = false) {
         self.preferencesManager = preferencesManager
@@ -20,24 +38,9 @@ final class FocusModeManager: ObservableObject {
         checkDoNotDisturbStatus()
     }
 
-    deinit {
-        // Capture nonisolated(unsafe) properties to local constants to avoid data race.
-        // The capture itself is atomic (reading a reference), avoiding the race condition.
-        // NotificationCenter.removeObserver() is thread-safe, so we can safely call it
-        // synchronously from any thread.
-        let notifObserver = notificationObserver
-        let focusObserver = focusModeObserver
-        if let observer = notifObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
-        if let observer = focusObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
-    }
-
     private func setupNotifications() {
         // Monitor for Do Not Disturb state changes
-        notificationObserver = NotificationCenter.default.addObserver(
+        notificationTokens.add(NotificationCenter.default.addObserver(
             forName: .dndPrefsChanged,
             object: nil,
             queue: .main
@@ -45,10 +48,10 @@ final class FocusModeManager: ObservableObject {
             Task { @MainActor in
                 self?.checkDoNotDisturbStatus()
             }
-        }
+        })
 
         // Also monitor for Focus mode changes
-        focusModeObserver = NotificationCenter.default.addObserver(
+        notificationTokens.add(NotificationCenter.default.addObserver(
             forName: .focusStateChanged,
             object: nil,
             queue: .main
@@ -56,7 +59,7 @@ final class FocusModeManager: ObservableObject {
             Task { @MainActor in
                 self?.checkDoNotDisturbStatus()
             }
-        }
+        })
     }
 
     private func checkDoNotDisturbStatus() {

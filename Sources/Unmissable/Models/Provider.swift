@@ -23,18 +23,7 @@ enum Provider: String, Codable, CaseIterable {
     }
 
     var iconName: String {
-        switch self {
-        case .meet:
-            "video.fill"
-        case .zoom:
-            "video.fill"
-        case .teams:
-            "video.fill"
-        case .webex:
-            "video.fill"
-        case .generic:
-            "link"
-        }
+        self == .generic ? "link" : "video.fill"
     }
 
     var urlSchemes: [String] {

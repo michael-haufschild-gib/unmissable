@@ -26,9 +26,9 @@ struct MenuBarLabelView: View {
 
     var body: some View {
         Group {
-            if appState.shouldShowIcon {
+            if appState.menuBarPreview.shouldShowIcon {
                 Image(systemName: "calendar.badge.clock")
-            } else if let text = appState.menuBarText {
+            } else if let text = appState.menuBarPreview.menuBarText {
                 Text(text)
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
             } else {

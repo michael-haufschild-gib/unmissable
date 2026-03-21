@@ -27,9 +27,8 @@ final class ThemeManager: ObservableObject {
     }
 
     private func setupSystemAppearanceObserver() {
-        // Skip setting up observer during testing to avoid crashes
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
-              NSApplication.shared.delegate != nil
+        // Skip setting up observer when NSApp isn't fully initialized (e.g. during tests)
+        guard NSApplication.shared.delegate != nil
         else { return }
 
         systemAppearanceObserver = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
@@ -46,9 +45,9 @@ final class ThemeManager: ObservableObject {
         case .dark:
             effectiveTheme = .dark
         case .system:
-            // Check if NSApp is available during testing
-            if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
-                effectiveTheme = .dark // Default to dark during testing
+            // When NSApp isn't fully initialized (e.g. tests), default to dark
+            if NSApplication.shared.delegate == nil {
+                effectiveTheme = .dark
             } else {
                 effectiveTheme =
                     NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua

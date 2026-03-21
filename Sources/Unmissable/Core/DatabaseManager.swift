@@ -4,7 +4,7 @@ import OSLog
 
 @MainActor
 final class DatabaseManager: ObservableObject {
-    let logger = Logger(subsystem: "com.unmissable.app", category: "DatabaseManager")
+    private let logger = Logger(subsystem: "com.unmissable.app", category: "DatabaseManager")
     private(set) var dbQueue: DatabaseQueue?
     private let currentSchemaVersion = 4
 

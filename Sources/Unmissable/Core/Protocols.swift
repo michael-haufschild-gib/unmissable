@@ -57,7 +57,7 @@ protocol CalendarAPIProviding: ObservableObject {
     var events: [Event] { get }
     var lastError: String? { get }
 
-    func fetchCalendars() async throws
+    func fetchCalendars() async
     func fetchEvents(for calendarIds: [String], from startDate: Date, to endDate: Date) async
 }
 

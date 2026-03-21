@@ -188,8 +188,9 @@ final class EventScheduler: ObservableObject {
                 do {
                     guard let nextAlert = scheduledAlerts.first else {
                         logger.debug("No alerts scheduled, waiting for updates")
-                        // Wait indefinitely until task is cancelled (which happens on reschedule)
-                        try await Task.sleep(for: .seconds(3600))
+                        // Short sleep so newly-added events are picked up promptly
+                        // if a reschedule doesn't cancel this task first.
+                        try await Task.sleep(for: .seconds(30))
                         continue
                     }
 
