@@ -94,8 +94,9 @@ struct Event: Identifiable, Codable, Equatable {
         endDate
     }
 
-    /// Helper method to create event with parsed Google Meet links
-    static func withParsedLinks(
+    /// Creates an event by extracting Google Meet links from text fields (title, description, location).
+    /// For events from calendar APIs, use the API service's conversion methods which handle all providers.
+    static func withParsedMeetLinks(
         id: String,
         title: String,
         startDate: Date,

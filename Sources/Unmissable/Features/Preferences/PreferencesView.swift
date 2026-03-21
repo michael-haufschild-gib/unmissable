@@ -1,34 +1,59 @@
 import SwiftUI
 
+private enum PreferencesTab: Int, CaseIterable {
+    case general
+    case calendars
+    case appearance
+    case shortcuts
+
+    var title: String {
+        switch self {
+        case .general: "General"
+        case .calendars: "Calendars"
+        case .appearance: "Appearance"
+        case .shortcuts: "Shortcuts"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .general: "gear"
+        case .calendars: "calendar"
+        case .appearance: "paintbrush"
+        case .shortcuts: "keyboard"
+        }
+    }
+}
+
 struct PreferencesView: View {
     @EnvironmentObject
     var appState: AppState
     @Environment(\.customDesign)
     private var design
     @State
-    private var selectedTab = 0
+    private var selectedTab: PreferencesTab = .general
 
     var body: some View {
         VStack(spacing: 0) {
             // Custom Tab Bar
             HStack {
-                ForEach(0 ..< 4) { index in
-                    Button(action: { selectedTab = index }) {
+                ForEach(PreferencesTab.allCases, id: \.rawValue) { tab in
+                    Button(action: { selectedTab = tab }) {
                         HStack(spacing: design.spacing.sm) {
-                            Image(systemName: tabIcon(for: index))
+                            Image(systemName: tab.icon)
                                 .font(.system(size: 14, weight: .medium))
 
-                            Text(tabTitle(for: index))
+                            Text(tab.title)
                                 .font(design.fonts.callout)
                                 .fontWeight(.medium)
                         }
                         .foregroundColor(
-                            selectedTab == index ? design.colors.textInverse : design.colors.textSecondary
+                            selectedTab == tab ? design.colors.textInverse : design.colors.textSecondary
                         )
                         .padding(.horizontal, design.spacing.lg)
                         .padding(.vertical, design.spacing.md)
                         .background(
-                            selectedTab == index ? design.colors.accent : Color.clear
+                            selectedTab == tab ? design.colors.accent : Color.clear
                         )
                         .cornerRadius(design.corners.medium)
                     }
@@ -45,16 +70,14 @@ struct PreferencesView: View {
             // Tab Content
             Group {
                 switch selectedTab {
-                case 0:
+                case .general:
                     GeneralPreferencesView()
-                case 1:
+                case .calendars:
                     CalendarPreferencesView()
-                case 2:
+                case .appearance:
                     AppearancePreferencesView()
-                case 3:
+                case .shortcuts:
                     ShortcutsPreferencesView()
-                default:
-                    GeneralPreferencesView()
                 }
             }
             .environmentObject(appState.preferences)
@@ -62,26 +85,6 @@ struct PreferencesView: View {
         }
         .background(design.colors.background)
         .frame(width: 650, height: 450)
-    }
-
-    private func tabIcon(for index: Int) -> String {
-        switch index {
-        case 0: "gear"
-        case 1: "calendar"
-        case 2: "paintbrush"
-        case 3: "keyboard"
-        default: "gear"
-        }
-    }
-
-    private func tabTitle(for index: Int) -> String {
-        switch index {
-        case 0: "General"
-        case 1: "Calendars"
-        case 2: "Appearance"
-        case 3: "Shortcuts"
-        default: "General"
-        }
     }
 }
 
@@ -277,7 +280,6 @@ struct GeneralPreferencesView: View {
                             "Interval",
                             selection: $preferences.syncIntervalSeconds,
                             options: [
-                                (15, "15 seconds"),
                                 (30, "30 seconds"),
                                 (60, "1 minute"),
                                 (120, "2 minutes"),

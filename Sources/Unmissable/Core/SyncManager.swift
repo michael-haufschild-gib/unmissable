@@ -18,7 +18,7 @@ final class SyncManager: ObservableObject {
     @Published
     var retryCount: Int = 0
 
-    private let apiService: GoogleCalendarAPIService
+    private let apiService: any CalendarAPIProviding
     private let databaseManager: DatabaseManager
     private let preferencesManager: PreferencesManager
     private var syncTask: Task<Void, Never>?
@@ -44,7 +44,7 @@ final class SyncManager: ObservableObject {
     private let networkDebounceDelay: TimeInterval = 0.5 // 500ms debounce
 
     init(
-        apiService: GoogleCalendarAPIService, databaseManager: DatabaseManager,
+        apiService: any CalendarAPIProviding, databaseManager: DatabaseManager,
         preferencesManager: PreferencesManager
     ) {
         self.apiService = apiService
@@ -140,15 +140,12 @@ final class SyncManager: ObservableObject {
 
     func startPeriodicSync() {
         guard syncTask == nil else {
-            logger.info("Periodic sync already running - task exists")
+            logger.debug("Periodic sync already running")
             return
         }
 
         let intervalSeconds = syncInterval
-        let prefsInterval = preferencesManager.syncIntervalSeconds
-        logger.info(
-            "Starting periodic sync every \(intervalSeconds) seconds (from preferences: \(prefsInterval))"
-        )
+        logger.info("Starting periodic sync every \(Int(intervalSeconds))s")
 
         // Schedule periodic sync
         syncTask = Task { @MainActor in
@@ -170,7 +167,6 @@ final class SyncManager: ObservableObject {
         }
 
         updateNextSyncTime()
-        logger.info("Periodic sync timer created and scheduled successfully")
     }
 
     func stopPeriodicSync() {
@@ -182,94 +178,65 @@ final class SyncManager: ObservableObject {
     }
 
     func performSync() async {
-        logger.info("SYNC STARTED - Beginning manual sync process")
-
         guard isOnline else {
-            logger.info("Skipping sync - device is offline")
+            logger.debug("Skipping sync - device is offline")
             syncStatus = .offline
             return
         }
 
         guard syncStatus != .syncing else {
-            logger.info("Sync already in progress, skipping")
+            logger.debug("Sync already in progress, skipping")
             return
         }
 
         syncStatus = .syncing
-        logger.info("Starting calendar sync (attempt \(self.retryCount + 1))")
+        logger.debug("Starting calendar sync (attempt \(self.retryCount + 1))")
 
         do {
-            // Get calendars from database
             let calendars = try await databaseManager.fetchCalendars()
-            logger.info("Found \(calendars.count) calendars in database")
-
             let selectedCalendarIds = calendars.filter(\.isSelected).map(\.id)
-            logger.info("Selected calendar IDs: \(selectedCalendarIds)")
 
             guard !selectedCalendarIds.isEmpty else {
                 logger.warning("No calendars selected for sync")
-                // Log details about available calendars
-                for calendar in calendars {
-                    logger.info(
-                        "Available calendar: \(calendar.name) (ID: \(calendar.id), Selected: \(calendar.isSelected))"
-                    )
-                }
                 syncStatus = .idle
                 updateSyncTimes()
                 resetRetryCount()
                 return
             }
 
-            // Calculate sync window - include events from earlier today to catch running meetings
             let now = Date()
             let startOfDay = Calendar.current.startOfDay(for: now)
             let endDate = Calendar.current.date(byAdding: .day, value: self.eventLookAheadDays, to: now) ?? now
 
-            logger.info(
-                "Syncing events from \(startOfDay) to \(endDate) (from start of today + \(self.eventLookAheadDays) days ahead)"
-            )
-
-            // Fetch events from API
             await apiService.fetchEvents(
                 for: selectedCalendarIds,
-                from: startOfDay, // Start from beginning of today, not "now"
+                from: startOfDay,
                 to: endDate
             )
 
             let fetchedEvents = apiService.events
-            logger.info("API returned \(fetchedEvents.count) events")
 
-            // If all calendar fetches failed AND there's an API error, surface it as a sync failure.
-            // Empty results without an error (e.g. genuinely no events) are fine.
             if fetchedEvents.isEmpty, let apiError = apiService.lastError {
                 throw SyncError.apiFetchFailed(apiError)
             }
 
-            // Group events by calendar ID for atomic updates
             let eventsByCalendar = Dictionary(grouping: fetchedEvents) { $0.calendarId }
 
-            // Save events to database — per-calendar error isolation ensures partial success
-            let failedCount = await saveEventsPerCalendar(
+            _ = await saveEventsPerCalendar(
                 eventsByCalendar: eventsByCalendar,
                 selectedCalendarIds: selectedCalendarIds
             )
-
-            // Verify events were saved by checking database
-            let savedCount = try await databaseManager.fetchEvents(from: startOfDay, to: endDate).count
-            logger.info("Database now contains \(savedCount) events in sync window")
 
             syncStatus = .idle
             updateSyncTimes()
             resetRetryCount()
 
-            logger.info("Sync completed successfully. Synced \(fetchedEvents.count) events")
+            logger.info("Sync completed: \(fetchedEvents.count) events from \(selectedCalendarIds.count) calendars")
 
-            // Notify completion callback
             await onSyncCompleted?()
         } catch {
             logger.error("Sync failed: \(error.localizedDescription)")
 
-            // Check if it's a network-related error
             if isNetworkError(error) {
                 handleNetworkError(error)
             } else {
@@ -277,8 +244,6 @@ final class SyncManager: ObservableObject {
                 resetRetryCount()
             }
 
-            // Only update next sync time on failure — do NOT update lastSyncTime
-            // since the sync didn't succeed
             updateNextSyncTime()
         }
     }
@@ -287,7 +252,7 @@ final class SyncManager: ObservableObject {
         eventsByCalendar: [String: [Event]],
         selectedCalendarIds: [String]
     ) async -> Int {
-        logger.info("Saving events to database (transactional per calendar)...")
+        logger.debug("Saving events to database (transactional per calendar)")
         var failedCalendars: [String] = []
         for calendarId in selectedCalendarIds {
             let calendarEvents = eventsByCalendar[calendarId] ?? []
@@ -364,11 +329,11 @@ final class SyncManager: ObservableObject {
     }
 
     func syncCalendarList() async throws {
-        logger.info("Syncing calendar list")
+        logger.debug("Syncing calendar list")
 
         try await apiService.fetchCalendars()
 
-        // Convert API calendars to database models
+        // Convert API calendars to database models, preserving sourceProvider
         let dbCalendars = apiService.calendars.map { calendar in
             CalendarInfo(
                 id: calendar.id,
@@ -377,13 +342,14 @@ final class SyncManager: ObservableObject {
                 isSelected: calendar.isSelected,
                 isPrimary: calendar.isPrimary,
                 colorHex: calendar.colorHex,
+                sourceProvider: calendar.sourceProvider,
                 createdAt: Date(),
                 updatedAt: Date()
             )
         }
 
         try await databaseManager.saveCalendars(dbCalendars)
-        logger.info("Calendar list synced successfully")
+        logger.debug("Calendar list synced: \(dbCalendars.count) calendars")
     }
 
     private func updateSyncTimes() {
@@ -402,23 +368,22 @@ final class SyncManager: ObservableObject {
     // MARK: - Manual Operations
 
     func forceSyncNow() async {
-        // Rate limit manual sync requests to prevent API abuse
         if let lastSync = lastManualSyncTime {
             let timeSinceLastSync = Date().timeIntervalSince(lastSync)
             if timeSinceLastSync < minSyncCooldown {
                 let remainingCooldown = Int(minSyncCooldown - timeSinceLastSync)
-                logger.info("Manual sync rate limited - please wait \(remainingCooldown) seconds")
+                logger.debug("Manual sync rate limited - \(remainingCooldown)s remaining")
                 return
             }
         }
 
-        logger.info("Force sync requested")
+        logger.debug("Force sync requested")
         lastManualSyncTime = Date()
         await performSync()
     }
 
     func refreshCalendarList() async throws {
-        logger.info("Refresh calendar list requested")
+        logger.debug("Refresh calendar list requested")
         try await syncCalendarList()
     }
 
@@ -437,7 +402,7 @@ final class SyncManager: ObservableObject {
     }
 
     func performDatabaseMaintenance() async {
-        logger.info("Performing database maintenance")
+        logger.debug("Performing database maintenance")
         do {
             try await databaseManager.performMaintenance()
         } catch {

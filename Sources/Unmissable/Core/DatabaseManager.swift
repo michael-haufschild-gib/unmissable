@@ -6,7 +6,7 @@ import OSLog
 final class DatabaseManager: ObservableObject {
     let logger = Logger(subsystem: "com.unmissable.app", category: "DatabaseManager")
     private(set) var dbQueue: DatabaseQueue?
-    private let currentSchemaVersion = 3
+    private let currentSchemaVersion = 4
 
     /// Indicates whether the database was successfully initialized
     @Published
@@ -142,6 +142,13 @@ final class DatabaseManager: ObservableObject {
             }
             logger.info("Migrated to version 3: Added attachments column")
 
+        case 4:
+            // Add sourceProvider column to calendars table for multi-provider support
+            try db.alter(table: CalendarInfo.databaseTableName) { t in
+                t.add(column: "sourceProvider", .text).notNull().defaults(to: "google")
+            }
+            logger.info("Migrated to version 4: Added sourceProvider column to calendars")
+
         default:
             throw DatabaseError.migrationFailed("Unknown migration version: \(version)")
         }
@@ -188,6 +195,7 @@ final class DatabaseManager: ObservableObject {
             t.column("isSelected", .boolean).notNull().defaults(to: false)
             t.column("isPrimary", .boolean).notNull().defaults(to: false)
             t.column("colorHex", .text)
+            t.column("sourceProvider", .text).notNull().defaults(to: "google")
             t.column("lastSyncAt", .datetime)
             t.column("createdAt", .datetime).notNull()
             t.column("updatedAt", .datetime).notNull()
@@ -387,6 +395,65 @@ final class DatabaseManager: ObservableObject {
                 )
             }
         }
+    }
+
+    // MARK: - Provider-Scoped Operations
+
+    func fetchCalendars(for provider: CalendarProviderType) async throws -> [CalendarInfo] {
+        guard let dbQueue else {
+            throw DatabaseError.notInitialized
+        }
+
+        return try await withTimeout(defaultTimeout) {
+            try await dbQueue.read { db in
+                try CalendarInfo
+                    .filter(CalendarInfo.Columns.sourceProvider == provider.rawValue)
+                    .order(CalendarInfo.Columns.isPrimary.desc, CalendarInfo.Columns.name)
+                    .fetchAll(db)
+            }
+        }
+    }
+
+    func deleteCalendarsForProvider(_ provider: CalendarProviderType) async throws {
+        guard let dbQueue else {
+            throw DatabaseError.notInitialized
+        }
+
+        let deletedCount = try await withTimeout(defaultTimeout) {
+            try await dbQueue.write { db in
+                try CalendarInfo
+                    .filter(CalendarInfo.Columns.sourceProvider == provider.rawValue)
+                    .deleteAll(db)
+            }
+        }
+
+        logger.info("Deleted \(deletedCount) calendars for provider \(provider.rawValue)")
+    }
+
+    func deleteEventsForProvider(_ provider: CalendarProviderType) async throws {
+        guard let dbQueue else {
+            throw DatabaseError.notInitialized
+        }
+
+        let calendarIds = try await fetchCalendars(for: provider).map(\.id)
+        guard !calendarIds.isEmpty else { return }
+
+        let deletedCount = try await withTimeout(defaultTimeout) {
+            try await dbQueue.write { db in
+                try Event
+                    .filter(calendarIds.contains(Event.Columns.calendarId))
+                    .deleteAll(db)
+            }
+        }
+
+        logger.info(
+            "Deleted \(deletedCount) events for provider \(provider.rawValue) across \(calendarIds.count) calendars"
+        )
+    }
+
+    func deleteAllDataForProvider(_ provider: CalendarProviderType) async throws {
+        try await deleteEventsForProvider(provider)
+        try await deleteCalendarsForProvider(provider)
     }
 
     // MARK: - Timeout Wrapper

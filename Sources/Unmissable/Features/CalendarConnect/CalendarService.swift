@@ -1,10 +1,21 @@
 import Combine
+import EventKit
 import Foundation
 import OSLog
+
+/// Internal representation of a connected calendar provider backend.
+private struct ProviderBackend {
+    let type: CalendarProviderType
+    let auth: any CalendarAuthProviding
+    let api: any CalendarAPIProviding
+    let sync: SyncManager
+}
 
 @MainActor
 final class CalendarService: ObservableObject {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "CalendarService")
+
+    // MARK: - Published State
 
     @Published
     var isConnected = false
@@ -24,137 +35,134 @@ final class CalendarService: ObservableObject {
     var userEmail: String?
     @Published
     var authError: String?
+    @Published
+    var connectedProviders: Set<CalendarProviderType> = []
 
-    private let oauth2Service: OAuth2Service
-    private let apiService: GoogleCalendarAPIService
-    private let syncManager: SyncManager
+    // MARK: - Private State
+
+    private var providers: [CalendarProviderType: ProviderBackend] = [:]
     private let databaseManager: DatabaseManager
     private let preferencesManager: PreferencesManager
     private var cancellables = Set<AnyCancellable>()
+    private var providerCancellables: [CalendarProviderType: Set<AnyCancellable>] = [:]
     private var uiRefreshTask: Task<Void, Never>?
+
+    /// Shared EKEventStore for Apple Calendar (reused across auth + API services)
+    private lazy var sharedEventStore = EKEventStore()
 
     /// Callback to notify when events need to be rescheduled after sync
     var onEventsUpdated: (() async -> Void)?
 
-    init(preferencesManager: PreferencesManager, databaseManager: DatabaseManager) {
+    // MARK: - Initialization
+
+    init(
+        preferencesManager: PreferencesManager,
+        databaseManager: DatabaseManager
+    ) {
         self.preferencesManager = preferencesManager
         self.databaseManager = databaseManager
-        oauth2Service = OAuth2Service()
-        apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
-        syncManager = SyncManager(
-            apiService: apiService, databaseManager: databaseManager,
-            preferencesManager: preferencesManager
-        )
-        setupBindings()
-        setupSyncCallback()
+        setupTimezoneObserver()
         startUIRefreshTimer()
-    }
-
-    private func setupBindings() {
-        // Observe OAuth authentication status
-        oauth2Service.$isAuthenticated
-            .assign(to: \.isConnected, on: self)
-            .store(in: &cancellables)
-
-        // Observe sync status
-        syncManager.$syncStatus
-            .assign(to: \.syncStatus, on: self)
-            .store(in: &cancellables)
-
-        // Observe sync times
-        syncManager.$lastSyncTime
-            .assign(to: \.lastSyncTime, on: self)
-            .store(in: &cancellables)
-
-        syncManager.$nextSyncTime
-            .assign(to: \.nextSyncTime, on: self)
-            .store(in: &cancellables)
-
-        // Forward OAuth state for external consumers
-        oauth2Service.$userEmail
-            .assign(to: \.userEmail, on: self)
-            .store(in: &cancellables)
-
-        oauth2Service.$authorizationError
-            .assign(to: \.authError, on: self)
-            .store(in: &cancellables)
-
-        // Load cached data on startup
         Task {
             await loadCachedData()
         }
-
-        // Listen for system timezone changes
-        NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)
-            .sink { [weak self] _ in
-                Task { @MainActor in
-                    await self?.handleTimezoneChange()
-                }
-            }
-            .store(in: &cancellables)
     }
 
-    private func setupSyncCallback() {
-        // Set up callback to refresh UI after automatic sync completes
-        syncManager.onSyncCompleted = { [weak self] in
-            await self?.loadCachedData()
-            self?.logger.info("UI refreshed after automatic sync completion")
+    // MARK: - Provider Management
 
-            // Also notify that events have been updated so alerts can be rescheduled
-            await self?.onEventsUpdated?()
-            self?.logger.info("Event rescheduling triggered after sync completion")
+    func connect(provider providerType: CalendarProviderType) async {
+        logger.info("Connecting provider: \(providerType.rawValue)")
+
+        let backend = getOrCreateBackend(for: providerType)
+
+        do {
+            try await backend.auth.startAuthorizationFlow()
+            syncAggregatedAuthState()
+
+            if backend.auth.isAuthenticated {
+                // Fetch and save calendars for this provider
+                try await backend.api.fetchCalendars()
+                let providerCalendars = backend.api.calendars
+                try await databaseManager.saveCalendars(providerCalendars)
+
+                backend.sync.startPeriodicSync()
+                await loadCachedData()
+            }
+        } catch {
+            logger.error("Connection failed for \(providerType.rawValue): \(error.localizedDescription)")
+            syncAggregatedAuthState()
         }
     }
 
-    func checkConnectionStatus() async {
-        logger.info("Checking calendar connection status")
+    func disconnect(provider providerType: CalendarProviderType) {
+        logger.info("Disconnecting provider: \(providerType.rawValue)")
 
-        // Validate auth state on startup to catch expired/invalid tokens early
-        await oauth2Service.validateAuthState()
+        guard let backend = providers[providerType] else { return }
+
+        backend.sync.stopPeriodicSync()
+        backend.auth.signOut()
+
+        // Clean up provider data from database
+        Task {
+            do {
+                try await databaseManager.deleteAllDataForProvider(providerType)
+            } catch {
+                logger.error("Failed to delete data for \(providerType.rawValue): \(error.localizedDescription)")
+            }
+            await loadCachedData()
+        }
+
+        // Remove bindings for this provider
+        providerCancellables[providerType] = nil
+        providers[providerType] = nil
+
+        syncAggregatedAuthState()
+
+        // Stop UI refresh if no providers are connected
+        if providers.isEmpty {
+            stopUIRefreshTimer()
+        }
+    }
+
+    func disconnectAll() {
+        for providerType in Array(providers.keys) {
+            disconnect(provider: providerType)
+        }
+    }
+
+    // MARK: - Connection Status
+
+    func checkConnectionStatus() async {
+        logger.debug("Checking connection status for all providers")
+
+        for (_, backend) in providers {
+            await backend.auth.validateAuthState()
+        }
+
+        syncAggregatedAuthState()
 
         if isConnected {
             await loadCachedData()
         }
     }
 
-    func connect() async {
-        logger.info("Initiating calendar connection")
-        do {
-            try await oauth2Service.startAuthorizationFlow()
-
-            if isConnected {
-                await loadCalendars()
-                try await syncManager.syncCalendarList()
-                syncManager.startPeriodicSync()
-                await loadCachedData()
-            }
-        } catch {
-            logger.error("Calendar connection failed: \(error.localizedDescription)")
-            isConnected = false
-        }
-    }
-
-    func disconnect() {
-        logger.info("Disconnecting from calendar")
-        syncManager.stopPeriodicSync()
-        stopUIRefreshTimer()
-        oauth2Service.signOut()
-        events = []
-        calendars = []
-    }
+    // MARK: - Sync
 
     func syncEvents() async {
-        await syncManager.performSync()
+        for (_, backend) in providers where backend.auth.isAuthenticated {
+            await backend.sync.performSync()
+        }
         await loadCachedData()
     }
+
+    // MARK: - Calendar Selection
 
     func updateCalendarSelection(_ calendarId: String, isSelected: Bool) {
         if let index = calendars.firstIndex(where: { $0.id == calendarId }) {
             calendars[index] = calendars[index].withSelection(isSelected)
 
-            logger.info("Updated calendar \(calendarId) selection to \(isSelected)")
+            logger.debug("Updated calendar \(calendarId) selection to \(isSelected)")
 
-            // Save to database
             Task {
                 do {
                     try await databaseManager.saveCalendars([calendars[index]])
@@ -163,7 +171,6 @@ final class CalendarService: ObservableObject {
                 }
             }
 
-            // Trigger a sync if we're connected
             if isConnected {
                 Task {
                     await syncEvents()
@@ -172,102 +179,179 @@ final class CalendarService: ObservableObject {
         }
     }
 
-    private func loadCalendars() async {
-        do {
-            try await apiService.fetchCalendars()
-            // Convert API calendars to local models
-            self.calendars = apiService.calendars
-            logger.info("Loaded \(self.calendars.count) calendars")
-        } catch {
-            logger.error("Failed to load calendars: \(error.localizedDescription)")
-        }
-    }
-
-    private func loadCachedData() async {
-        do {
-            // Load calendars from database
-            let cachedCalendars = try await databaseManager.fetchCalendars()
-            if !cachedCalendars.isEmpty {
-                calendars = cachedCalendars
-            }
-
-            // Load upcoming events from database
-            let cachedEvents = try await databaseManager.fetchUpcomingEvents(limit: 50)
-
-            // Load started meetings from database
-            let cachedStartedEvents = try await databaseManager.fetchStartedMeetings(limit: 20)
-
-            events = cachedEvents
-            startedEvents = cachedStartedEvents
-
-            logger.info(
-                "Loaded \(self.calendars.count) calendars, \(self.events.count) upcoming events, and \(self.startedEvents.count) started meetings from cache"
-            )
-        } catch {
-            logger.error("Failed to load cached data: \(error.localizedDescription)")
-        }
-    }
-
-    private func handleTimezoneChange() async {
-        logger.info("Handling timezone change")
-        // Reload events to reflect new system timezone in any formatted strings
-        await loadCachedData()
-    }
-
     // MARK: - Search and Queries
 
     func searchEvents(query: String) async throws -> [Event] {
-        try await syncManager.searchEvents(query: query)
+        try await databaseManager.searchEvents(query: query)
     }
 
     func getEventsForToday() async throws -> [Event] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today
-
-        return try await syncManager.getEventsInRange(from: today, to: tomorrow)
+        return try await databaseManager.fetchEvents(from: today, to: tomorrow)
     }
 
     func getUpcomingEvents(limit: Int = 10) async throws -> [Event] {
-        try await syncManager.getUpcomingEvents(limit: limit)
+        try await databaseManager.fetchUpcomingEvents(limit: limit)
     }
 
     // MARK: - Service Access
 
-    var sync: SyncManager {
-        syncManager
+    /// Returns the SyncManager for the first available provider, or nil if none connected.
+    var sync: SyncManager? {
+        providers[.google]?.sync ?? providers.values.first?.sync
+    }
+
+    // MARK: - Private Implementation
+
+    private func getOrCreateBackend(for providerType: CalendarProviderType) -> ProviderBackend {
+        if let existing = providers[providerType] {
+            return existing
+        }
+
+        let auth: any CalendarAuthProviding
+        let api: any CalendarAPIProviding
+
+        switch providerType {
+        case .google:
+            let oauthService = OAuth2Service()
+            auth = oauthService
+            api = GoogleCalendarAPIService(oauth2Service: oauthService)
+
+        case .apple:
+            let appleAuth = AppleCalendarAuthService(eventStore: sharedEventStore)
+            auth = appleAuth
+            api = AppleCalendarAPIService(eventStore: sharedEventStore)
+        }
+
+        let sync = SyncManager(
+            apiService: api, databaseManager: databaseManager,
+            preferencesManager: preferencesManager
+        )
+
+        let backend = ProviderBackend(type: providerType, auth: auth, api: api, sync: sync)
+        providers[providerType] = backend
+
+        setupProviderBindings(for: backend)
+        setupSyncCallback(for: backend)
+
+        return backend
+    }
+
+    private func setupProviderBindings(for backend: ProviderBackend) {
+        var subs = Set<AnyCancellable>()
+
+        // When any provider's sync status changes, update aggregated status
+        backend.sync.$syncStatus
+            .sink { [weak self] _ in
+                self?.syncAggregatedSyncStatus()
+            }
+            .store(in: &subs)
+
+        backend.sync.$lastSyncTime
+            .sink { [weak self] _ in
+                self?.syncAggregatedSyncTimes()
+            }
+            .store(in: &subs)
+
+        backend.sync.$nextSyncTime
+            .sink { [weak self] _ in
+                self?.syncAggregatedSyncTimes()
+            }
+            .store(in: &subs)
+
+        providerCancellables[backend.type] = subs
+    }
+
+    private func setupSyncCallback(for backend: ProviderBackend) {
+        backend.sync.onSyncCompleted = { [weak self] in
+            await self?.loadCachedData()
+            await self?.onEventsUpdated?()
+            self?.logger.debug("UI refreshed after \(backend.type.rawValue) sync")
+        }
+    }
+
+    private func setupTimezoneObserver() {
+        NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)
+            .sink { [weak self] _ in
+                Task { @MainActor in
+                    await self?.loadCachedData()
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    // MARK: - Aggregated State
+
+    private func syncAggregatedAuthState() {
+        let authenticatedProviders = providers.values.filter(\.auth.isAuthenticated)
+        connectedProviders = Set(authenticatedProviders.map(\.type))
+        isConnected = !authenticatedProviders.isEmpty
+
+        // Show email from Google if available, otherwise nil
+        userEmail = providers[.google]?.auth.userEmail
+
+        // Show first auth error if any
+        authError = providers.values.compactMap(\.auth.authorizationError).first
+    }
+
+    private func syncAggregatedSyncStatus() {
+        let statuses = providers.values.map(\.sync.syncStatus)
+
+        if statuses.contains(where: \.isSyncing) {
+            syncStatus = .syncing
+        } else if let errorStatus = statuses.first(where: \.isError) {
+            syncStatus = errorStatus
+        } else if statuses.contains(where: { $0 == .offline }) {
+            syncStatus = .offline
+        } else {
+            syncStatus = .idle
+        }
+    }
+
+    private func syncAggregatedSyncTimes() {
+        // Most recent sync time across all providers
+        lastSyncTime = providers.values.compactMap(\.sync.lastSyncTime).max()
+        // Earliest next sync time
+        nextSyncTime = providers.values.compactMap(\.sync.nextSyncTime).min()
+    }
+
+    private func loadCachedData() async {
+        do {
+            calendars = try await databaseManager.fetchCalendars()
+            events = try await databaseManager.fetchUpcomingEvents(limit: 50)
+            startedEvents = try await databaseManager.fetchStartedMeetings(limit: 20)
+
+            logger.debug(
+                "Cache loaded: \(self.calendars.count) calendars, \(self.events.count) upcoming, \(self.startedEvents.count) started"
+            )
+        } catch {
+            logger.error("Failed to load cached data: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - UI Refresh Timer
 
     private func startUIRefreshTimer() {
-        // Start a timer that refreshes UI events every 30 seconds
-        // This ensures real-time updates for time-dependent UI elements like join buttons
         uiRefreshTask = Task { @MainActor in
             while !Task.isCancelled {
                 do {
                     try await Task.sleep(for: .seconds(30))
                     if !Task.isCancelled {
-                        await refreshUIEvents()
+                        await loadCachedData()
                     }
                 } catch {
-                    // Task was cancelled, exit the loop
                     break
                 }
             }
         }
-        logger.info("UI refresh timer started (30 second interval)")
+        logger.debug("UI refresh timer started")
     }
 
     private func stopUIRefreshTimer() {
         uiRefreshTask?.cancel()
         uiRefreshTask = nil
-        logger.info("UI refresh timer stopped")
-    }
-
-    private func refreshUIEvents() async {
-        // Refresh events from database to update time-dependent UI elements
-        // without triggering a full calendar sync
-        await loadCachedData()
+        logger.debug("UI refresh timer stopped")
     }
 }

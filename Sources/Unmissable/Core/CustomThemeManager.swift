@@ -82,7 +82,7 @@ enum EffectiveTheme {
     case light, dark
 }
 
-// MARK: - Custom Design System (No System Dependencies)
+// MARK: - Design System — "Beacon"
 
 struct CustomDesign {
     let colors: CustomColors
@@ -96,25 +96,25 @@ struct CustomDesign {
         case .light:
             Self(
                 colors: .lightTheme,
-                fonts: .systemFonts,
+                fonts: .standard,
                 spacing: .standard,
-                corners: .modern,
-                shadows: .subtle
+                corners: .standard,
+                shadows: .light
             )
 
         case .dark:
             Self(
                 colors: .darkTheme,
-                fonts: .systemFonts,
+                fonts: .standard,
                 spacing: .standard,
-                corners: .modern,
+                corners: .standard,
                 shadows: .dark
             )
         }
     }
 }
 
-// MARK: - Custom Colors (Completely Custom - No System Colors)
+// MARK: - Colors — Zinc + Signal Orange
 
 struct CustomColors {
     // Backgrounds
@@ -148,85 +148,88 @@ struct CustomColors {
     let interactivePressed: Color
     let interactiveDisabled: Color
 
-    // MARK: - Light Theme (Professional, Clean)
-
-    static let lightTheme = Self(
-        // Clean white backgrounds with subtle distinction
-        background: Color.white,
-        backgroundSecondary: Color(red: 0.98, green: 0.98, blue: 0.99),
-        backgroundTertiary: Color(red: 0.95, green: 0.96, blue: 0.97),
-        backgroundCard: Color.white,
-        backgroundButton: Color(red: 0.97, green: 0.97, blue: 0.98),
-
-        // Professional dark text
-        textPrimary: Color(red: 0.11, green: 0.11, blue: 0.13),
-        textSecondary: Color(red: 0.37, green: 0.37, blue: 0.39),
-        textTertiary: Color(red: 0.55, green: 0.55, blue: 0.58),
-        textInverse: Color.white,
-
-        // AI Wave purple accent adapted for light theme
-        accent: Color(red: 0.502, green: 0.353, blue: 0.961), // #805AF5 same as dark
-        accentSecondary: Color(red: 0.702, green: 0.553, blue: 0.871), // Slightly darker purple
-        success: Color(red: 0.243, green: 0.718, blue: 0.369), // Same as AI Wave
-        warning: Color(red: 0.918, green: 0.584, blue: 0.063), // Slightly darker for contrast
-        error: Color(red: 0.863, green: 0.196, blue: 0.208), // Better contrast
-
-        // Clean borders
-        border: Color(red: 0.89, green: 0.89, blue: 0.91),
-        borderSecondary: Color(red: 0.94, green: 0.94, blue: 0.96),
-        divider: Color(red: 0.92, green: 0.92, blue: 0.94),
-
-        // Interactive states matching accent
-        interactive: Color(red: 0.502, green: 0.353, blue: 0.961), // #805AF5
-        interactiveHover: Color(red: 0.427, green: 0.278, blue: 0.945), // Darker on hover for light
-        interactivePressed: Color(red: 0.376, green: 0.235, blue: 0.922), // Even darker when pressed
-        interactiveDisabled: Color(red: 0.78, green: 0.78, blue: 0.8)
-    )
-
-    // MARK: - Dark Theme (AI Wave Inspired)
+    // MARK: - Dark Theme — Zinc + Signal Orange
 
     static let darkTheme = Self(
-        // Rich, deep dark backgrounds inspired by AI Wave
-        background: Color(red: 0.055, green: 0.047, blue: 0.082), // #0E0C15 AI Wave primary bg
-        backgroundSecondary: Color(red: 0.129, green: 0.129, blue: 0.153), // #21242D AI Wave dark
-        backgroundTertiary: Color(red: 0.180, green: 0.192, blue: 0.239), // #2E313D AI Wave less dark
-        backgroundCard: Color(red: 0.086, green: 0.086, blue: 0.110), // Slightly lighter than bg
-        backgroundButton: Color(red: 0.172, green: 0.192, blue: 0.247), // #2C313F AI Wave button
+        // Zinc-scale backgrounds
+        background: Color(red: 0.035, green: 0.035, blue: 0.043), // #09090B zinc-950
+        backgroundSecondary: Color(red: 0.094, green: 0.094, blue: 0.106), // #18181B zinc-900
+        backgroundTertiary: Color(red: 0.153, green: 0.153, blue: 0.165), // #27272A zinc-800
+        backgroundCard: Color(red: 0.078, green: 0.078, blue: 0.086), // #141416 between 950-900
+        backgroundButton: Color(red: 0.153, green: 0.153, blue: 0.165), // #27272A zinc-800
 
-        // AI Wave inspired text colors
-        textPrimary: Color.white, // #ffffff AI Wave headings
-        textSecondary: Color(red: 0.737, green: 0.765, blue: 0.843), // #BCC3D7 AI Wave body
-        textTertiary: Color(red: 0.337, green: 0.369, blue: 0.471), // #565e78 AI Wave off text
-        textInverse: Color(red: 0.055, green: 0.047, blue: 0.082),
+        // Zinc-scale text
+        textPrimary: Color(red: 0.980, green: 0.980, blue: 0.980), // #FAFAFA zinc-50
+        textSecondary: Color(red: 0.631, green: 0.631, blue: 0.667), // #A1A1AA zinc-400
+        textTertiary: Color(red: 0.322, green: 0.322, blue: 0.357), // #52525B zinc-600
+        textInverse: Color(red: 0.035, green: 0.035, blue: 0.043), // #09090B zinc-950
 
-        // AI Wave purple gradient accent system
-        accent: Color(red: 0.502, green: 0.353, blue: 0.961), // #805AF5 AI Wave primary
-        accentSecondary: Color(red: 0.804, green: 0.600, blue: 1.0), // #CD99FF AI Wave secondary
-        success: Color(red: 0.243, green: 0.718, blue: 0.369), // #3EB75E AI Wave success
-        warning: Color(red: 1.0, green: 0.784, blue: 0.463), // #FFC876 AI Wave warning
-        error: Color(red: 1.0, green: 0.0, blue: 0.012), // #FF0003 AI Wave danger
+        // Signal orange accent system
+        accent: Color(red: 0.976, green: 0.451, blue: 0.086), // #F97316 orange-500
+        accentSecondary: Color(red: 0.984, green: 0.573, blue: 0.235), // #FB923C orange-400 (AA on dark)
+        success: Color(red: 0.133, green: 0.773, blue: 0.369), // #22C55E green-500
+        warning: Color(red: 0.984, green: 0.749, blue: 0.141), // #FBBF24 amber-400
+        error: Color(red: 0.937, green: 0.267, blue: 0.267), // #EF4444 red-500
 
-        // Subtle borders with AI Wave influence
-        border: Color(red: 1.0, green: 1.0, blue: 1.0).opacity(0.05), // AI Wave border
-        borderSecondary: Color(red: 0.118, green: 0.118, blue: 0.118), // #1E1E1E
-        divider: Color(red: 1.0, green: 1.0, blue: 1.0).opacity(0.08),
+        // Borders — subtle white overlay
+        border: Color.white.opacity(0.06),
+        borderSecondary: Color.white.opacity(0.04),
+        divider: Color.white.opacity(0.08),
 
-        // Interactive states with purple gradient influence
-        interactive: Color(red: 0.502, green: 0.353, blue: 0.961), // #805AF5
-        interactiveHover: Color(red: 0.627, green: 0.471, blue: 0.976), // Brighter purple
-        interactivePressed: Color(red: 0.376, green: 0.235, blue: 0.945), // Darker purple
-        interactiveDisabled: Color(red: 0.4, green: 0.4, blue: 0.42)
+        // Interactive — orange states
+        interactive: Color(red: 0.976, green: 0.451, blue: 0.086), // #F97316
+        interactiveHover: Color(red: 0.984, green: 0.573, blue: 0.235), // #FB923C lighter
+        interactivePressed: Color(red: 0.918, green: 0.345, blue: 0.047), // #EA580C darker
+        interactiveDisabled: Color(red: 0.322, green: 0.322, blue: 0.357) // #52525B zinc-600
+    )
+
+    // MARK: - Light Theme — Clean Zinc + Warm Orange
+
+    static let lightTheme = Self(
+        // Light zinc-scale backgrounds
+        background: Color(red: 0.980, green: 0.980, blue: 0.980), // #FAFAFA zinc-50
+        backgroundSecondary: Color(red: 0.953, green: 0.953, blue: 0.961), // #F4F4F5 zinc-100
+        backgroundTertiary: Color(red: 0.894, green: 0.894, blue: 0.906), // #E4E4E7 zinc-200
+        backgroundCard: Color.white,
+        backgroundButton: Color(red: 0.953, green: 0.953, blue: 0.961), // #F4F4F5 zinc-100
+
+        // Dark text on light
+        textPrimary: Color(red: 0.094, green: 0.094, blue: 0.106), // #18181B zinc-900
+        textSecondary: Color(red: 0.322, green: 0.322, blue: 0.357), // #52525B zinc-600
+        textTertiary: Color(red: 0.631, green: 0.631, blue: 0.667), // #A1A1AA zinc-400
+        textInverse: Color.white,
+
+        // Darker orange for light backgrounds (better contrast)
+        accent: Color(red: 0.918, green: 0.345, blue: 0.047), // #EA580C orange-600
+        accentSecondary: Color(red: 0.976, green: 0.451, blue: 0.086), // #F97316 orange-500
+        success: Color(red: 0.082, green: 0.647, blue: 0.290), // #15803D green-700
+        warning: Color(red: 0.855, green: 0.580, blue: 0.024), // #D97706 amber-600
+        error: Color(red: 0.863, green: 0.149, blue: 0.149), // #DC2626 red-600
+
+        // Clean borders
+        border: Color(red: 0.894, green: 0.894, blue: 0.906), // #E4E4E7 zinc-200
+        borderSecondary: Color(red: 0.953, green: 0.953, blue: 0.961), // #F4F4F5 zinc-100
+        divider: Color(red: 0.894, green: 0.894, blue: 0.906), // #E4E4E7 zinc-200
+
+        // Interactive — orange states (darker for light bg)
+        interactive: Color(red: 0.918, green: 0.345, blue: 0.047), // #EA580C
+        interactiveHover: Color(red: 0.976, green: 0.451, blue: 0.086), // #F97316 lighter
+        interactivePressed: Color(red: 0.780, green: 0.271, blue: 0.012), // #C2450A darker
+        interactiveDisabled: Color(red: 0.631, green: 0.631, blue: 0.667) // #A1A1AA zinc-400
     )
 }
 
-// MARK: - Custom Typography
+// MARK: - Typography — SF Rounded headings, SF Mono timestamps
 
 struct CustomFonts {
-    let largeTitle: Font = .system(size: 34, weight: .bold, design: .default)
-    let title1: Font = .system(size: 28, weight: .bold, design: .default)
-    let title2: Font = .system(size: 22, weight: .bold, design: .default)
-    let title3: Font = .system(size: 20, weight: .semibold, design: .default)
-    let headline: Font = .system(size: 17, weight: .semibold, design: .default)
+    // Headings — rounded for warmth and distinction
+    let largeTitle: Font = .system(size: 34, weight: .bold, design: .rounded)
+    let title1: Font = .system(size: 28, weight: .bold, design: .rounded)
+    let title2: Font = .system(size: 22, weight: .bold, design: .rounded)
+    let title3: Font = .system(size: 20, weight: .semibold, design: .rounded)
+    let headline: Font = .system(size: 17, weight: .semibold, design: .rounded)
+
+    // Body — default for readability
     let subheadline: Font = .system(size: 15, weight: .medium, design: .default)
     let body: Font = .system(size: 17, weight: .regular, design: .default)
     let callout: Font = .system(size: 16, weight: .regular, design: .default)
@@ -234,14 +237,15 @@ struct CustomFonts {
     let caption1: Font = .system(size: 12, weight: .regular, design: .default)
     let caption2: Font = .system(size: 11, weight: .regular, design: .default)
 
-    // Monospaced
+    // Monospaced — timestamps, countdown, technical data
     let mono: Font = .system(size: 13, weight: .medium, design: .monospaced)
     let monoLarge: Font = .system(size: 16, weight: .medium, design: .monospaced)
+    let monoTimestamp: Font = .system(size: 12, weight: .medium, design: .monospaced)
 
-    static let systemFonts = Self()
+    static let standard = Self()
 }
 
-// MARK: - Custom Spacing
+// MARK: - Spacing
 
 struct CustomSpacing {
     let xs: CGFloat = 4
@@ -255,33 +259,33 @@ struct CustomSpacing {
     static let standard = Self()
 }
 
-// MARK: - Custom Corner Radius (AI Wave Inspired)
+// MARK: - Corner Radius
 
 struct CustomCorners {
-    let small: CGFloat = 4 // AI Wave small radius
-    let medium: CGFloat = 8 // AI Wave default button radius
-    let large: CGFloat = 12 // AI Wave card radius
-    let extraLarge: CGFloat = 16 // AI Wave big radius
+    let small: CGFloat = 4
+    let medium: CGFloat = 8
+    let large: CGFloat = 12
+    let extraLarge: CGFloat = 16
     let circle: CGFloat = 999
 
-    static let modern = Self()
+    static let standard = Self()
 }
 
-// MARK: - Custom Shadows
+// MARK: - Shadows
 
 struct CustomShadows {
     let color: Color
     let radius: CGFloat
     let offset: CGSize
 
-    static let subtle = Self(
-        color: Color.black.opacity(0.08),
-        radius: 8,
+    static let light = Self(
+        color: Color.black.opacity(0.06),
+        radius: 6,
         offset: CGSize(width: 0, height: 2)
     )
 
     static let dark = Self(
-        color: Color.black.opacity(0.25),
+        color: Color.black.opacity(0.3),
         radius: 12,
         offset: CGSize(width: 0, height: 4)
     )

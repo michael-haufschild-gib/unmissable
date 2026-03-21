@@ -31,47 +31,6 @@ extension OverlayManaging {
     }
 }
 
-/// Protocol for event scheduling functionality
-@MainActor
-protocol EventScheduling: ObservableObject {
-    func startScheduling(events: [Event], overlayManager: any OverlayManaging)
-    func stopScheduling()
-    func scheduleSnooze(for event: Event, minutes: Int)
-}
-
-/// Protocol for sound management
-protocol SoundManaging {
-    func playAlertSound()
-}
-
-/// Protocol for focus mode detection
-@MainActor
-protocol FocusModeManaging {
-    func shouldShowOverlay() -> Bool
-    func shouldPlaySound() -> Bool
-}
-
-/// Protocol for preferences management
-@MainActor
-protocol PreferencesManaging: ObservableObject {
-    var overlayShowMinutesBefore: Int { get set }
-    var soundEnabled: Bool { get set }
-    var overlayOpacity: Double { get set }
-    var appearanceTheme: AppTheme { get set }
-    var showOnAllDisplays: Bool { get set }
-
-    func alertMinutes(for event: Event) -> Int
-}
-
-/// Protocol for overlay rendering with error handling
-@MainActor
-protocol OverlayRendering: ObservableObject {
-    var isRenderingOverlay: Bool { get }
-    var lastRenderError: String? { get }
-
-    func cleanup()
-}
-
 /// Protocol for meeting details popup functionality
 @MainActor
 protocol MeetingDetailsPopupManaging: ObservableObject {
@@ -87,4 +46,29 @@ extension MeetingDetailsPopupManaging {
     func showPopup(for event: Event) {
         showPopup(for: event, relativeTo: nil)
     }
+}
+
+// MARK: - Calendar Provider Protocols
+
+/// Protocol for calendar API data fetching, abstracting the provider (Google, Apple, etc.)
+@MainActor
+protocol CalendarAPIProviding: ObservableObject {
+    var calendars: [CalendarInfo] { get }
+    var events: [Event] { get }
+    var lastError: String? { get }
+
+    func fetchCalendars() async throws
+    func fetchEvents(for calendarIds: [String], from startDate: Date, to endDate: Date) async
+}
+
+/// Protocol for calendar authentication, abstracting the auth mechanism (OAuth, EventKit, etc.)
+@MainActor
+protocol CalendarAuthProviding: ObservableObject {
+    var isAuthenticated: Bool { get }
+    var userEmail: String? { get }
+    var authorizationError: String? { get }
+
+    func startAuthorizationFlow() async throws
+    func validateAuthState() async
+    func signOut()
 }

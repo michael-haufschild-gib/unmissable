@@ -12,6 +12,8 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
     private(set) var isPopupVisible = false
     private var popupWindow: NSWindow?
     private weak var parentWindow: NSWindow?
+    // Intentionally strong: sole owner of the delegate (NSWindow.delegate is weak)
+    // swiftlint:disable:next weak_delegate
     private var windowDelegate: PopupWindowDelegate?
 
     // MARK: - Popup Management

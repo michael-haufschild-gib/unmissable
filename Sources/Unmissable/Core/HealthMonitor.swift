@@ -16,7 +16,6 @@ final class HealthMonitor: ObservableObject {
 
     // Dependencies to monitor
     private weak var calendarService: CalendarService?
-    private weak var syncManager: SyncManager?
     private weak var overlayManager: (any OverlayManaging)?
 
     init() {
@@ -28,10 +27,9 @@ final class HealthMonitor: ObservableObject {
     }
 
     func setup(
-        calendarService: CalendarService, syncManager: SyncManager, overlayManager: any OverlayManaging
+        calendarService: CalendarService, overlayManager: any OverlayManaging
     ) {
         self.calendarService = calendarService
-        self.syncManager = syncManager
         self.overlayManager = overlayManager
         performHealthCheck()
     }
@@ -72,7 +70,7 @@ final class HealthMonitor: ObservableObject {
         }
 
         // Check sync manager health
-        if let syncManager {
+        if let syncManager = calendarService?.sync {
             issues.append(contentsOf: checkSyncManagerHealth(syncManager))
         }
 
@@ -97,7 +95,7 @@ final class HealthMonitor: ObservableObject {
                 HealthIssue(
                     severity: .warning,
                     component: "Calendar Service",
-                    message: "Not connected to Google Calendar",
+                    message: "No calendar provider connected",
                     suggestion: "Check calendar connection in preferences"
                 )
             )

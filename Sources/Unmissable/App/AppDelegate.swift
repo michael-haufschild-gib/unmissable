@@ -1,6 +1,5 @@
 import Cocoa
 import OSLog
-import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -54,7 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        logger.info("Received URL: \(urlString)")
+        logger.info("Received URL with scheme: \(url.scheme ?? "nil", privacy: .public)")
 
         // Handle OAuth callback using bundle ID scheme
         if url.scheme == "com.unmissable.app" {

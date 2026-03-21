@@ -7,25 +7,27 @@ struct AttachmentsView: View {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "AttachmentsView")
 
     let attachments: [EventAttachment]
+    @Environment(\.customDesign)
+    private var design
 
     var body: some View {
         if !attachments.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: design.spacing.sm) {
                 HStack {
                     Image(systemName: "paperclip")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(design.colors.textSecondary)
                     Text("Attachments")
-                        .font(.headline)
-                        .foregroundColor(.primary)
+                        .font(design.fonts.headline)
+                        .foregroundColor(design.colors.textPrimary)
                 }
 
-                LazyVStack(alignment: .leading, spacing: 6) {
+                LazyVStack(alignment: .leading, spacing: design.spacing.sm) {
                     ForEach(attachments) { attachment in
                         AttachmentRow(attachment: attachment)
                     }
                 }
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, design.spacing.xs)
         }
     }
 }
@@ -35,60 +37,55 @@ struct AttachmentRow: View {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "AttachmentRow")
 
     let attachment: EventAttachment
+    @Environment(\.customDesign)
+    private var design
     @State
     private var isHovered = false
 
     var body: some View {
         Button(action: openAttachment) {
-            HStack(spacing: 8) {
-                // File type icon
+            HStack(spacing: design.spacing.sm) {
                 Image(systemName: attachment.systemIconName)
                     .foregroundColor(iconColor)
                     .frame(width: 16, height: 16)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    // File name
                     Text(attachment.title)
-                        .font(.body)
-                        .foregroundColor(.primary)
+                        .font(design.fonts.callout)
+                        .foregroundColor(design.colors.textPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
 
-                    // File details
-                    HStack(spacing: 4) {
+                    HStack(spacing: design.spacing.xs) {
                         if let fileSize = attachment.fileSizeString {
                             Text(fileSize)
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
+                                .font(design.fonts.caption2)
+                                .foregroundColor(design.colors.textSecondary)
                         }
 
                         if attachment.isGoogleDriveFile {
-                            Text("•")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-
                             Text("Google Drive")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
+                                .font(design.fonts.caption2)
+                                .foregroundColor(design.colors.textSecondary)
                         }
 
                         Spacer()
 
                         Image(systemName: "arrow.up.right.square")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(design.fonts.caption1)
+                            .foregroundColor(design.colors.textSecondary)
                             .opacity(isHovered ? 1.0 : 0.6)
                     }
                 }
 
                 Spacer()
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .padding(.horizontal, design.spacing.sm)
+            .padding(.vertical, design.spacing.sm)
             .background(backgroundColor)
-            .cornerRadius(6)
+            .cornerRadius(design.corners.medium)
             .overlay(
-                RoundedRectangle(cornerRadius: 6)
+                RoundedRectangle(cornerRadius: design.corners.medium)
                     .stroke(borderColor, lineWidth: 1)
             )
         }
@@ -105,32 +102,24 @@ struct AttachmentRow: View {
 
     private var iconColor: Color {
         if attachment.isImage {
-            .green
+            design.colors.success
         } else if attachment.isDocument {
-            .blue
+            design.colors.accent
         } else if attachment.mimeType.hasPrefix("video/") {
-            .purple
+            design.colors.warning
         } else if attachment.mimeType.hasPrefix("audio/") {
-            .orange
+            design.colors.accentSecondary
         } else {
-            .gray
+            design.colors.textTertiary
         }
     }
 
     private var backgroundColor: Color {
-        if isHovered {
-            Color.gray.opacity(0.1)
-        } else {
-            Color.clear
-        }
+        isHovered ? design.colors.backgroundSecondary : Color.clear
     }
 
     private var borderColor: Color {
-        if isHovered {
-            Color.gray.opacity(0.3)
-        } else {
-            Color.gray.opacity(0.15)
-        }
+        isHovered ? design.colors.border : design.colors.borderSecondary
     }
 
     // MARK: - Actions
@@ -145,7 +134,6 @@ struct AttachmentRow: View {
             "AttachmentRow: Opening attachment - \(attachment.title) at \(url.absoluteString)"
         )
 
-        // Open the URL in the default browser/app
         NSWorkspace.shared.open(url)
     }
 }
@@ -183,26 +171,10 @@ struct AttachmentRow: View {
                 ),
             ]
 
-            VStack(spacing: 20) {
-                // With attachments
-                AttachmentsView(attachments: sampleAttachments)
-                    .padding()
-                    .background(Color.gray.opacity(0.05))
-                    .cornerRadius(8)
-
-                // Empty state
-                AttachmentsView(attachments: [])
-                    .padding()
-                    .background(Color.gray.opacity(0.05))
-                    .cornerRadius(8)
-
-                Text("Empty attachments view should show nothing")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .padding()
-            .frame(width: 400)
-            .customThemedEnvironment()
+            AttachmentsView(attachments: sampleAttachments)
+                .padding()
+                .frame(width: 400)
+                .customThemedEnvironment()
         }
     }
 #endif

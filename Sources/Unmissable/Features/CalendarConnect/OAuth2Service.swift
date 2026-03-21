@@ -5,7 +5,7 @@ import KeychainAccess
 import OSLog
 
 @MainActor
-final class OAuth2Service: NSObject, ObservableObject {
+final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "OAuth2Service")
     private let keychain = Keychain(service: "com.unmissable.app.oauth")
 
@@ -54,10 +54,7 @@ final class OAuth2Service: NSObject, ObservableObject {
             return
         }
 
-        logger.info("Handling OAuth callback URL: \(url)")
-        logger.info("   Scheme: \(url.scheme ?? "nil")")
-        logger.info("   Host: \(url.host ?? "nil")")
-        logger.info("   Query: \(url.query ?? "nil")")
+        logger.info("Handling OAuth callback (scheme: \(url.scheme ?? "nil", privacy: .public))")
 
         // Handle the callback URL with AppAuth
         if let currentAuthFlow = currentAuthorizationFlow {
@@ -395,17 +392,7 @@ final class OAuth2Service: NSObject, ObservableObject {
                     return
                 }
                 logger.warning("Failed to deserialize stored auth state, will clear and require re-auth")
-            }
-
-            // Fallback: Check for legacy token storage (migration path)
-            if let accessToken = try keychain.get(keychainAccessTokenKey),
-               let refreshToken = try keychain.get(keychainRefreshTokenKey),
-               !accessToken.isEmpty, !refreshToken.isEmpty
-            {
-                logger.warning("Found legacy tokens without full auth state - user must re-authenticate")
-                // Clear legacy tokens since we can't use them without OIDAuthState
                 clearKeychain()
-                authorizationError = "Session expired. Please sign in again."
             }
         } catch {
             logger.error("Failed to load auth state from keychain: \(error.localizedDescription)")
@@ -449,7 +436,7 @@ final class OAuth2Service: NSObject, ObservableObject {
             let accessToken = try await getValidAccessToken()
             let email = try await fetchUserInfoFromGoogle(accessToken: accessToken)
             userEmail = email
-            logger.info("User email fetched: \(email)")
+            logger.info("User email fetched successfully")
         } catch {
             logger.error("Failed to fetch user email: \(error.localizedDescription)")
         }

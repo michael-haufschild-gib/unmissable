@@ -15,5 +15,9 @@
 	<array>
 		<string>$(AppIdentifierPrefix)com.unmissable.app.oauth</string>
 	</array>
+
+	<!-- Calendar access - Required for Apple Calendar (EventKit) integration -->
+	<key>com.apple.security.personal-information.calendars</key>
+	<true/>
 </dict>
 </plist>

@@ -71,7 +71,7 @@ final class EventScheduler: ObservableObject {
 
         // Log the first few events for debugging
         for (index, event) in events.prefix(3).enumerated() {
-            logger.info("  Event \(index + 1): '\(event.title)' at \(event.startDate)")
+            logger.debug("  Event \(index + 1): '\(event.title)' at \(event.startDate)")
         }
 
         // Store for future rescheduling when preferences change
@@ -82,16 +82,16 @@ final class EventScheduler: ObservableObject {
         scheduleAlerts(for: events)
         startMonitoring(overlayManager: overlayManager)
 
-        logger.info("Event scheduling setup completed")
+        logger.debug("Event scheduling setup completed")
     }
 
     private func rescheduleCurrentAlerts() {
         guard !currentEvents.isEmpty, let overlayManager = currentOverlayManager else {
-            logger.info("No current events to reschedule")
+            logger.debug("No current events to reschedule")
             return
         }
 
-        logger.info(
+        logger.debug(
             "Rescheduling alerts for \(self.currentEvents.count) events with updated preferences"
         )
 
@@ -104,14 +104,14 @@ final class EventScheduler: ObservableObject {
     }
 
     func stopScheduling() {
-        logger.info("STOP SCHEDULING: Starting cleanup")
+        logger.debug("Stopping event scheduling")
         stopTimers()
 
         // Clean up properly to prevent memory leaks
         currentEvents.removeAll()
         currentOverlayManager = nil
 
-        logger.info("STOP SCHEDULING: Cleanup completed")
+        logger.debug("Event scheduling stopped")
     }
 
     private func stopTimers() {
@@ -182,7 +182,7 @@ final class EventScheduler: ObservableObject {
         // Sort by trigger time
         scheduledAlerts.sort { $0.triggerDate < $1.triggerDate }
 
-        logger.info(
+        logger.debug(
             "Scheduled \(self.scheduledAlerts.count) alerts (including \(existingSnoozeAlerts.count) preserved snooze alerts)"
         )
     }
@@ -192,12 +192,12 @@ final class EventScheduler: ObservableObject {
         monitoringTask?.cancel()
 
         monitoringTask = Task { @MainActor in
-            logger.info("MONITORING: Starting smart alert monitoring")
+            logger.debug("Alert monitoring started")
 
             while !Task.isCancelled {
                 do {
                     guard let nextAlert = scheduledAlerts.first else {
-                        logger.info("MONITORING: No alerts scheduled, waiting for updates...")
+                        logger.debug("No alerts scheduled, waiting for updates")
                         // Wait indefinitely until task is cancelled (which happens on reschedule)
                         try await Task.sleep(for: .seconds(3600))
                         continue
@@ -223,10 +223,10 @@ final class EventScheduler: ObservableObject {
                 } catch {
                     // Task cancellation throws cancellation error
                     if Task.isCancelled {
-                        logger.info("MONITORING: Task cancelled")
+                        logger.debug("Alert monitoring cancelled")
                         break
                     }
-                    logger.error("MONITORING: Error in loop: \(error.localizedDescription)")
+                    logger.error("Alert monitoring error: \(error.localizedDescription)")
                     // Prevent rapid error looping
                     try? await Task.sleep(for: .seconds(5))
                 }
@@ -250,7 +250,7 @@ final class EventScheduler: ObservableObject {
         }
 
         if !triggeredAlerts.isEmpty {
-            logger.info("Found \(triggeredAlerts.count) triggered alerts at \(now)")
+            logger.debug("Found \(triggeredAlerts.count) triggered alerts at \(now)")
             for alert in triggeredAlerts {
                 let alertTypeName = switch alert.alertType {
                 case let .reminder(minutes):
@@ -260,7 +260,7 @@ final class EventScheduler: ObservableObject {
                 case .meetingStart:
                     "meetingStart"
                 }
-                logger.info(
+                logger.debug(
                     "  - \(alertTypeName) for '\(alert.event.title)' (trigger: \(alert.triggerDate))"
                 )
             }
@@ -278,8 +278,8 @@ final class EventScheduler: ObservableObject {
 
         if !triggeredAlerts.isEmpty {
             let afterCount = scheduledAlerts.count
-            logger.info(
-                "Processed \(triggeredAlerts.count) alerts, \(afterCount) remaining scheduled (was \(beforeCount))"
+            logger.debug(
+                "Processed \(triggeredAlerts.count) alerts, \(afterCount) remaining (was \(beforeCount))"
             )
         }
     }

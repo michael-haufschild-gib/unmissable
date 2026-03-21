@@ -44,9 +44,11 @@
 		</dict>
 	</array>
 	<key>NSSupportsAutomaticTermination</key>
-	<true/>
+	<false/>
 	<key>NSSupportsSuddenTermination</key>
-	<true/>
+	<false/>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Unmissable needs access to your calendars to show meeting alerts and ensure you never miss a meeting.</string>
 	<key>SMLoginItemSetEnabledDeprecationState</key>
 	<string>3</string>
 </dict>

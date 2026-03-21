@@ -30,29 +30,41 @@ struct CustomButton: View {
             HStack(spacing: design.spacing.sm) {
                 if let icon {
                     Image(systemName: icon)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 13, weight: .medium))
                 }
 
-                Text(title)
-                    .font(design.fonts.callout)
-                    .fontWeight(.medium)
+                if !title.isEmpty {
+                    Text(title)
+                        .font(.system(size: 14, weight: .medium))
+                }
             }
             .padding(.horizontal, horizontalPadding)
             .padding(.vertical, verticalPadding)
             .background(backgroundView)
             .foregroundColor(textColor)
-            .cornerRadius(design.corners.medium)
+            .clipShape(RoundedRectangle(cornerRadius: buttonRadius))
             .overlay(
-                RoundedRectangle(cornerRadius: design.corners.medium)
+                RoundedRectangle(cornerRadius: buttonRadius)
                     .stroke(borderColor, lineWidth: borderWidth)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: buttonRadius)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [Color.white.opacity(style == .primary ? 0.15 : 0), Color.clear],
+                            startPoint: .top,
+                            endPoint: .center
+                        ),
+                        lineWidth: 0.5
+                    )
             )
             .scaleEffect(isPressed ? 0.97 : 1.0)
             .shadow(
                 color: style == .primary && isEnabled
-                    ? design.colors.interactive.opacity(0.3) : Color.clear,
-                radius: isPressed ? 2 : 8,
+                    ? design.colors.interactive.opacity(isPressed ? 0.2 : 0.35) : Color.clear,
+                radius: isPressed ? 4 : 12,
                 x: 0,
-                y: isPressed ? 1 : 3
+                y: isPressed ? 2 : 4
             )
             .animation(.easeOut(duration: 0.1), value: isPressed)
         }
@@ -61,6 +73,15 @@ struct CustomButton: View {
             isPressed = $0
         }
         .disabled(!isEnabled)
+    }
+
+    private var buttonRadius: CGFloat {
+        switch style {
+        case .primary, .destructive:
+            design.corners.large
+        default:
+            design.corners.medium
+        }
     }
 
     private var horizontalPadding: CGFloat {
@@ -109,16 +130,8 @@ struct CustomButton: View {
     @ViewBuilder
     private var backgroundView: some View {
         if style == .primary, isEnabled {
-            // AI Wave inspired gradient for primary buttons
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    design.colors.interactive,
-                    design.colors.accentSecondary,
-                ]),
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-            .brightness(isPressed ? -0.2 : 0.0)
+            design.colors.interactive
+                .brightness(isPressed ? -0.1 : 0.0)
         } else {
             backgroundColor
         }
@@ -192,7 +205,6 @@ struct CustomToggleStyle: ToggleStyle {
 
             Spacer()
 
-            // Toggle track and thumb using layout-based positioning
             HStack(spacing: 0) {
                 if !configuration.isOn {
                     Spacer()
@@ -200,22 +212,26 @@ struct CustomToggleStyle: ToggleStyle {
 
                 Circle()
                     .fill(thumbColor)
-                    .frame(width: 24, height: 24)
-                    .shadow(color: Color.black.opacity(0.15), radius: 1, x: 0, y: 1)
+                    .frame(width: 22, height: 22)
+                    .shadow(color: Color.black.opacity(0.2), radius: 2, x: 0, y: 1)
 
                 if configuration.isOn {
                     Spacer()
                 }
             }
-            .padding(.horizontal, 2)
-            .frame(width: 48, height: 28)
+            .padding(.horizontal, 3)
+            .frame(width: 44, height: 26)
             .background(
                 Capsule()
                     .fill(trackColor(isOn: configuration.isOn))
+                    .shadow(
+                        color: configuration.isOn ? design.colors.accent.opacity(0.3) : Color.clear,
+                        radius: 6
+                    )
             )
             .contentShape(Rectangle())
             .onTapGesture {
-                withAnimation(.easeInOut(duration: 0.15)) {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
                     configuration.isOn.toggle()
                 }
             }
@@ -278,26 +294,25 @@ struct CustomStatusIndicator: View {
         case connecting
         case disconnected
         case error
+    }
 
-        var color: Color {
-            switch self {
-            case .connected:
-                Color(red: 0.2, green: 0.8, blue: 0.4) // Success green
-            case .connecting:
-                Color(red: 1.0, green: 0.7, blue: 0.1) // Warning orange
-            case .disconnected:
-                Color(red: 0.6, green: 0.6, blue: 0.65) // Neutral gray
-            case .error:
-                Color(red: 1.0, green: 0.35, blue: 0.3) // Error red
-            }
+    private var statusColor: Color {
+        switch status {
+        case .connected:
+            design.colors.success
+        case .connecting:
+            design.colors.warning
+        case .disconnected:
+            design.colors.textTertiary
+        case .error:
+            design.colors.error
         }
     }
 
     var body: some View {
         ZStack {
-            // Outer ring (pulse effect for connecting)
             Circle()
-                .stroke(status.color.opacity(0.3), lineWidth: 2)
+                .stroke(statusColor.opacity(0.3), lineWidth: 2)
                 .frame(width: size + 4, height: size + 4)
                 .scaleEffect(status == .connecting ? 1.3 : 1.0)
                 .opacity(status == .connecting ? 0.5 : 1.0)
@@ -305,220 +320,10 @@ struct CustomStatusIndicator: View {
                     .easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: status == .connecting
                 )
 
-            // Inner dot
             Circle()
-                .fill(status.color)
+                .fill(statusColor)
                 .frame(width: size, height: size)
         }
-    }
-}
-
-// MARK: - Custom Card Container
-
-struct CustomCard<Content: View>: View {
-    let content: Content
-    let style: CardStyle
-
-    @Environment(\.customDesign)
-    private var design
-
-    init(style: CardStyle = .standard, @ViewBuilder content: () -> Content) {
-        self.style = style
-        self.content = content()
-    }
-
-    enum CardStyle {
-        case standard
-        case elevated
-        case flat
-    }
-
-    var body: some View {
-        content
-            .background(backgroundColor)
-            .cornerRadius(cornerRadius)
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(borderColor, lineWidth: borderWidth)
-            )
-            .shadow(
-                color: shadowColor,
-                radius: shadowRadius,
-                x: 0,
-                y: shadowOffset
-            )
-    }
-
-    private var backgroundColor: Color {
-        switch style {
-        case .standard:
-            design.colors.backgroundCard
-        case .elevated:
-            design.colors.backgroundCard
-        case .flat:
-            design.colors.backgroundTertiary // Use tertiary for better contrast
-        }
-    }
-
-    private var cornerRadius: CGFloat {
-        switch style {
-        case .standard, .flat:
-            design.corners.medium
-        case .elevated:
-            design.corners.large
-        }
-    }
-
-    private var borderColor: Color {
-        switch style {
-        case .standard, .elevated:
-            design.colors.border
-        case .flat:
-            Color.clear
-        }
-    }
-
-    private var borderWidth: CGFloat {
-        switch style {
-        case .standard, .elevated:
-            0.5
-        case .flat:
-            0
-        }
-    }
-
-    private var shadowColor: Color {
-        switch style {
-        case .elevated:
-            design.shadows.color
-        default:
-            Color.clear
-        }
-    }
-
-    private var shadowRadius: CGFloat {
-        switch style {
-        case .elevated:
-            design.shadows.radius
-        default:
-            0
-        }
-    }
-
-    private var shadowOffset: CGFloat {
-        switch style {
-        case .elevated:
-            design.shadows.offset.height
-        default:
-            0
-        }
-    }
-}
-
-// MARK: - Custom Picker
-
-struct CustomPicker<SelectionValue: Hashable>: View {
-    let title: String
-    @Binding
-    var selection: SelectionValue
-    let options: [(SelectionValue, String)]
-
-    @Environment(\.customDesign)
-    private var design
-    @State
-    private var isExpanded = false
-
-    init(_ title: String, selection: Binding<SelectionValue>, options: [(SelectionValue, String)]) {
-        self.title = title
-        _selection = selection
-        self.options = options
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: design.spacing.xs) {
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isExpanded.toggle()
-                }
-            }) {
-                HStack {
-                    Text(selectedOptionText)
-                        .font(design.fonts.callout)
-                        .foregroundColor(design.colors.textPrimary)
-
-                    Spacer()
-
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(design.colors.textSecondary)
-                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                        .animation(.easeInOut(duration: 0.2), value: isExpanded)
-                }
-                .padding(.horizontal, design.spacing.md)
-                .padding(.vertical, design.spacing.md)
-                .background(design.colors.backgroundButton)
-                .cornerRadius(design.corners.medium)
-                .overlay(
-                    RoundedRectangle(cornerRadius: design.corners.medium)
-                        .stroke(design.colors.border, lineWidth: 1)
-                )
-            }
-            .buttonStyle(PlainButtonStyle())
-
-            if isExpanded {
-                VStack(spacing: 0) {
-                    ForEach(Array(options.enumerated()), id: \.offset) { index, option in
-                        Button(action: {
-                            selection = option.0
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                isExpanded = false
-                            }
-                        }) {
-                            HStack {
-                                Text(option.1)
-                                    .font(design.fonts.callout)
-                                    .foregroundColor(design.colors.textPrimary)
-
-                                Spacer()
-
-                                if selection == option.0 {
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundColor(design.colors.interactive)
-                                }
-                            }
-                            .padding(.horizontal, design.spacing.md)
-                            .padding(.vertical, design.spacing.sm)
-                            .background(
-                                selection == option.0 ? design.colors.interactive.opacity(0.1) : Color.clear
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-
-                        if index < options.count - 1 {
-                            Rectangle()
-                                .fill(design.colors.divider)
-                                .frame(height: 1)
-                                .padding(.horizontal, design.spacing.md)
-                        }
-                    }
-                }
-                .background(design.colors.backgroundCard)
-                .cornerRadius(design.corners.medium)
-                .overlay(
-                    RoundedRectangle(cornerRadius: design.corners.medium)
-                        .stroke(design.colors.border, lineWidth: 1)
-                )
-                .shadow(
-                    color: design.shadows.color, radius: design.shadows.radius, x: 0,
-                    y: design.shadows.offset.height
-                )
-            }
-        }
-    }
-
-    private var selectedOptionText: String {
-        options.first { $0.0 == selection }?.1 ?? "Select"
     }
 }
 

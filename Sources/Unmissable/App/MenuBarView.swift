@@ -109,7 +109,8 @@ struct MenuBarView: View {
             contentSection
             footerSection
         }
-        .background(design.colors.background)
+        .background(.ultraThinMaterial)
+        .background(design.colors.background.opacity(0.85))
         .frame(width: 340)
         .accessibilityIdentifier("menu-bar-view")
     }
@@ -119,27 +120,27 @@ struct MenuBarView: View {
     private var headerSection: some View {
         VStack(spacing: 0) {
             HStack {
-                HStack(spacing: design.spacing.md) {
+                HStack(spacing: design.spacing.sm) {
                     Image(systemName: "calendar.badge.clock")
                         .foregroundColor(design.colors.accent)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
 
                     Text("Unmissable")
-                        .font(design.fonts.headline)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .tracking(0.8)
                         .foregroundColor(design.colors.textPrimary)
                 }
 
                 Spacer()
 
-                CustomStatusIndicator(status: connectionStatus, size: 12)
+                CustomStatusIndicator(status: connectionStatus, size: 8)
             }
             .padding(.horizontal, design.spacing.lg)
-            .padding(.vertical, design.spacing.lg)
-            .background(design.colors.background)
+            .padding(.vertical, design.spacing.md)
 
             Rectangle()
                 .fill(design.colors.divider)
-                .frame(height: 1)
+                .frame(height: 0.5)
         }
     }
 
@@ -152,14 +153,13 @@ struct MenuBarView: View {
             }
         }
         .padding(.vertical, design.spacing.lg)
-        .background(design.colors.backgroundSecondary)
     }
 
     private var footerSection: some View {
         VStack(spacing: 0) {
             Rectangle()
                 .fill(design.colors.divider)
-                .frame(height: 1)
+                .frame(height: 0.5)
 
             HStack {
                 CustomButton("Preferences", style: .minimal) {
@@ -169,14 +169,21 @@ struct MenuBarView: View {
 
                 Spacer()
 
+                CustomButton("Check for Updates", style: .minimal) {
+                    appState.updater.checkForUpdates()
+                }
+                .disabled(!appState.updater.canCheckForUpdates)
+                .accessibilityIdentifier("check-updates-button")
+
+                Spacer()
+
                 CustomButton("Quit", style: .minimal) {
                     NSApplication.shared.terminate(nil)
                 }
                 .accessibilityIdentifier("quit-button")
             }
-            .padding(.horizontal, design.spacing.lg)
-            .padding(.vertical, design.spacing.md)
-            .background(design.colors.background)
+            .padding(.horizontal, design.spacing.md)
+            .padding(.vertical, design.spacing.sm)
         }
     }
 
@@ -215,12 +222,21 @@ struct MenuBarView: View {
                 }
             }
 
-            CustomButton("Connect Google Calendar", icon: "link", style: .primary) {
-                Task {
-                    await appState.connectToCalendar()
+            VStack(spacing: design.spacing.md) {
+                CustomButton("Connect Apple Calendar", icon: "apple.logo", style: .primary) {
+                    Task {
+                        await appState.connectToCalendar(provider: .apple)
+                    }
                 }
+                .accessibilityIdentifier("connect-apple-calendar-button")
+
+                CustomButton("Connect Google Calendar", icon: "envelope.fill", style: .secondary) {
+                    Task {
+                        await appState.connectToCalendar(provider: .google)
+                    }
+                }
+                .accessibilityIdentifier("connect-google-calendar-button")
             }
-            .accessibilityIdentifier("connect-calendar-button")
         }
         .padding(.horizontal, design.spacing.lg)
     }
@@ -306,10 +322,10 @@ struct MenuBarView: View {
     private func eventGroupView(_ group: EventGroup) -> some View {
         VStack(spacing: design.spacing.sm) {
             HStack {
-                Text(group.title)
-                    .font(design.fonts.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(design.colors.accent)
+                Text(group.title.uppercased())
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(1.5)
+                    .foregroundColor(design.colors.accentSecondary)
 
                 Spacer()
             }
@@ -394,12 +410,12 @@ struct CustomEventRow: View {
                         .lineLimit(1)
 
                     HStack(spacing: design.spacing.xs) {
-                        Image(systemName: "clock.fill")
+                        Image(systemName: "clock")
                             .foregroundColor(design.colors.accent)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
 
                         Text(event.startDate, style: .time)
-                            .font(design.fonts.caption1)
+                            .font(design.fonts.monoTimestamp)
                             .foregroundColor(design.colors.textSecondary)
                     }
                 }

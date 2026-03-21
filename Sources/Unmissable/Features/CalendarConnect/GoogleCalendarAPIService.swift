@@ -2,7 +2,7 @@ import Foundation
 import OSLog
 
 @MainActor
-final class GoogleCalendarAPIService: ObservableObject {
+final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "GoogleCalendarAPIService")
     private let oauth2Service: OAuth2Service
 
@@ -30,7 +30,7 @@ final class GoogleCalendarAPIService: ObservableObject {
     // MARK: - Calendar Operations
 
     func fetchCalendars() async throws {
-        logger.info("Fetching calendar list")
+        logger.debug("Fetching calendar list")
         isLoading = true
         lastError = nil
 
@@ -43,14 +43,9 @@ final class GoogleCalendarAPIService: ObservableObject {
                 throw GoogleCalendarAPIError.invalidURL
             }
 
-            logger.info("Making request to: \(url.absoluteString)")
-
             var request = URLRequest(url: url)
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
             request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-            // Log that we have a valid token (without exposing token content)
-            logger.info("Using valid access token for calendar request")
 
             let (data, response) = try await Self.urlSession.data(for: request)
 
@@ -58,18 +53,12 @@ final class GoogleCalendarAPIService: ObservableObject {
                 throw GoogleCalendarAPIError.invalidResponse
             }
 
-            logger.info("Response status code: \(httpResponse.statusCode)")
-
             guard httpResponse.statusCode == 200 else {
                 let errorMessage = "HTTP \(httpResponse.statusCode)"
                 if httpResponse.statusCode == 404 {
-                    logger.error(
-                        "Calendar list fetch failed: 404 - Check API is enabled and correct endpoint"
-                    )
-                    logger.error("Request URL: \(url)")
-                    // Try to get error details from response body
+                    logger.error("Calendar list 404: \(url)")
                     if let errorBody = String(data: data, encoding: .utf8) {
-                        logger.error("Error response body: \(errorBody)")
+                        logger.error("Response: \(errorBody)")
                     }
                 }
                 logger.error("Calendar list fetch failed: \(errorMessage)")
@@ -79,7 +68,7 @@ final class GoogleCalendarAPIService: ObservableObject {
             let calendarList = try parseCalendarList(from: data)
             calendars = calendarList
 
-            logger.info("Successfully fetched \(calendarList.count) calendars")
+            logger.debug("Fetched \(calendarList.count) calendars")
         } catch {
             logger.error("Failed to fetch calendars: \(error.localizedDescription)")
             lastError = error.localizedDescription
@@ -88,7 +77,7 @@ final class GoogleCalendarAPIService: ObservableObject {
     }
 
     func fetchEvents(for calendarIds: [String], from startDate: Date, to endDate: Date) async {
-        logger.info("Fetching events for \(calendarIds.count) calendars")
+        logger.debug("Fetching events for \(calendarIds.count) calendars")
         isLoading = true
         lastError = nil
 
@@ -107,34 +96,31 @@ final class GoogleCalendarAPIService: ObservableObject {
                 )
                 allEvents.append(contentsOf: calendarEvents)
                 successfulCalendars += 1
-                logger.info(
-                    "Successfully fetched \(calendarEvents.count) events from calendar \(calendarId)"
-                )
             } catch {
                 skippedCalendars += 1
                 lastError = error.localizedDescription
                 logger.warning(
-                    "Skipping calendar \(calendarId) due to error: \(error.localizedDescription)"
+                    "Skipping calendar \(calendarId): \(error.localizedDescription)"
                 )
-                // Continue with other calendars instead of failing completely
             }
         }
 
-        // Sort events by start date
         allEvents.sort { $0.startDate < $1.startDate }
         events = allEvents
 
-        // Clear error if at least one calendar succeeded (partial success is not a total failure)
         if successfulCalendars > 0 {
             lastError = nil
         }
 
-        logger.info(
-            "Successfully fetched \(allEvents.count) events from \(successfulCalendars) calendars (\(skippedCalendars) skipped)"
+        logger.debug(
+            "Fetched \(allEvents.count) events from \(successfulCalendars)/\(calendarIds.count) calendars"
         )
     }
 
     // MARK: - Private Methods
+
+    /// Maximum total events to fetch per calendar to prevent runaway pagination
+    private static let maxEventsPerCalendar = 2000
 
     private func fetchEventsForCalendar(calendarId: String, startDate: Date, endDate: Date)
         async throws -> [Event]
@@ -148,60 +134,77 @@ final class GoogleCalendarAPIService: ObservableObject {
         let encodedCalendarId =
             calendarId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? calendarId
 
-        guard var urlComponents = URLComponents(
-            string: "\(GoogleCalendarConfig.calendarAPIBaseURL)/calendars/\(encodedCalendarId)/events"
-        ) else {
-            throw GoogleCalendarAPIError.invalidURL
-        }
-        urlComponents.queryItems = [
-            URLQueryItem(name: "timeMin", value: timeMin),
-            URLQueryItem(name: "timeMax", value: timeMax),
-            URLQueryItem(name: "singleEvents", value: "true"),
-            URLQueryItem(name: "orderBy", value: "startTime"),
-            URLQueryItem(name: "maxResults", value: "250"),
-            // CRITICAL: maxAttendees required to get attendee list (defaults to truncation without this)
-            URLQueryItem(name: "maxAttendees", value: "100"),
-            // Request comprehensive event fields including description, attendees, attachments, and status
-            URLQueryItem(
-                name: "fields",
-                value: [
-                    "items(id,summary,start,end,organizer,description,",
-                    "location,attendees,attachments,hangoutLink,",
-                    "conferenceData,status),nextPageToken",
-                ].joined()
-            ),
-        ]
+        var allEvents: [Event] = []
+        var pageToken: String?
 
-        guard let url = urlComponents.url else {
-            throw GoogleCalendarAPIError.invalidURL
-        }
-
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-        let (data, response) = try await Self.urlSession.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw GoogleCalendarAPIError.invalidResponse
-        }
-
-        guard httpResponse.statusCode == 200 else {
-            if httpResponse.statusCode == 404 {
-                logger.warning("Calendar \(calendarId) not found or not accessible, skipping")
-                return []
+        repeat {
+            guard var urlComponents = URLComponents(
+                string: "\(GoogleCalendarConfig.calendarAPIBaseURL)/calendars/\(encodedCalendarId)/events"
+            ) else {
+                throw GoogleCalendarAPIError.invalidURL
             }
-            if httpResponse.statusCode == 403 {
-                logger.warning("Access denied to calendar \(calendarId), skipping")
-                return []
+            var queryItems = [
+                URLQueryItem(name: "timeMin", value: timeMin),
+                URLQueryItem(name: "timeMax", value: timeMax),
+                URLQueryItem(name: "singleEvents", value: "true"),
+                URLQueryItem(name: "orderBy", value: "startTime"),
+                URLQueryItem(name: "maxResults", value: "250"),
+                URLQueryItem(name: "maxAttendees", value: "100"),
+                URLQueryItem(
+                    name: "fields",
+                    value: [
+                        "items(id,summary,start,end,organizer,description,",
+                        "location,attendees,attachments,hangoutLink,",
+                        "conferenceData,status),nextPageToken",
+                    ].joined()
+                ),
+            ]
+            if let pageToken {
+                queryItems.append(URLQueryItem(name: "pageToken", value: pageToken))
             }
-            let errorMessage = "HTTP \(httpResponse.statusCode)"
-            logger.error("Events fetch failed for calendar \(calendarId): \(errorMessage)")
-            throw GoogleCalendarAPIError.requestFailed(httpResponse.statusCode, errorMessage)
-        }
+            urlComponents.queryItems = queryItems
 
-        let (events, _) = try parseEventList(from: data, calendarId: calendarId)
-        return events
+            guard let url = urlComponents.url else {
+                throw GoogleCalendarAPIError.invalidURL
+            }
+
+            var request = URLRequest(url: url)
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+            let (data, response) = try await Self.urlSession.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw GoogleCalendarAPIError.invalidResponse
+            }
+
+            guard httpResponse.statusCode == 200 else {
+                if httpResponse.statusCode == 404 {
+                    logger.warning("Calendar \(calendarId) not found or not accessible, skipping")
+                    return []
+                }
+                if httpResponse.statusCode == 403 {
+                    logger.warning("Access denied to calendar \(calendarId), skipping")
+                    return []
+                }
+                let errorMessage = "HTTP \(httpResponse.statusCode)"
+                logger.error("Events fetch failed for calendar \(calendarId): \(errorMessage)")
+                throw GoogleCalendarAPIError.requestFailed(httpResponse.statusCode, errorMessage)
+            }
+
+            let (events, nextToken) = try parseEventList(from: data, calendarId: calendarId)
+            allEvents.append(contentsOf: events)
+            pageToken = nextToken
+
+            if allEvents.count >= Self.maxEventsPerCalendar {
+                logger.warning(
+                    "Hit safety cap of \(Self.maxEventsPerCalendar) events for calendar \(calendarId), stopping pagination"
+                )
+                break
+            }
+        } while pageToken != nil
+
+        return allEvents
     }
 
     private func parseCalendarList(from data: Data) throws -> [CalendarInfo] {
@@ -362,21 +365,11 @@ final class GoogleCalendarAPIService: ObservableObject {
     }
 
     private func extractURL(from text: String) -> URL? {
-        let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
-        let matches = detector?.matches(
-            in: text, options: [], range: NSRange(location: 0, length: text.utf16.count)
-        )
-
-        return matches?.first?.url
+        LinkParser.shared.extractURL(from: text)
     }
 
     private func extractURLs(from text: String) -> [URL] {
-        let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
-        let matches = detector?.matches(
-            in: text, options: [], range: NSRange(location: 0, length: text.utf16.count)
-        )
-
-        return matches?.compactMap(\.url) ?? []
+        LinkParser.shared.extractURLs(from: text)
     }
 
     // MARK: - Test Compatibility

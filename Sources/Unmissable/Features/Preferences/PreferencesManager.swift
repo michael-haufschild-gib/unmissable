@@ -1,8 +1,44 @@
 import Combine
 import Foundation
 
-// Import our custom theme system
-import SwiftUI
+// MARK: - Type-safe UserDefaults Keys
+
+private enum PrefKey: String {
+    case defaultAlertMinutes
+    case useLengthBasedTiming
+    case shortMeetingAlertMinutes
+    case mediumMeetingAlertMinutes
+    case longMeetingAlertMinutes
+    case syncIntervalSeconds
+    case includeAllDayEvents
+    case appearanceTheme
+    case overlayOpacity
+    case overlayShowMinutesBefore
+    case fontSize
+    case minimalMode
+    case showOnAllDisplays
+    case playAlertSound
+    case alertVolume
+    case overrideFocusMode
+    case autoJoinEnabled
+    case allowSnooze
+    case menuBarDisplayMode
+    case showTodayOnlyInMenuBar
+}
+
+private extension UserDefaults {
+    func set(_ value: Any?, forKey key: PrefKey) {
+        set(value, forKey: key.rawValue)
+    }
+
+    func object(forKey key: PrefKey) -> Any? {
+        object(forKey: key.rawValue)
+    }
+
+    func bool(forKey key: PrefKey) -> Bool {
+        bool(forKey: key.rawValue)
+    }
+}
 
 @MainActor
 final class PreferencesManager: ObservableObject {
@@ -12,20 +48,20 @@ final class PreferencesManager: ObservableObject {
     @Published
     var defaultAlertMinutes: Int = 1 {
         didSet {
-            let v = clamped(defaultAlertMinutes, key: "defaultAlertMinutes", range: 0 ... 60)
+            let v = clamped(defaultAlertMinutes, key: .defaultAlertMinutes, range: 0 ... 60)
             if v != defaultAlertMinutes { defaultAlertMinutes = v }
         }
     }
 
     @Published
     var useLengthBasedTiming: Bool = false {
-        didSet { userDefaults.set(useLengthBasedTiming, forKey: "useLengthBasedTiming") }
+        didSet { userDefaults.set(useLengthBasedTiming, forKey: PrefKey.useLengthBasedTiming) }
     }
 
     @Published
     var shortMeetingAlertMinutes: Int = 1 {
         didSet {
-            let v = clamped(shortMeetingAlertMinutes, key: "shortMeetingAlertMinutes", range: 0 ... 60)
+            let v = clamped(shortMeetingAlertMinutes, key: .shortMeetingAlertMinutes, range: 0 ... 60)
             if v != shortMeetingAlertMinutes { shortMeetingAlertMinutes = v }
         }
     }
@@ -33,7 +69,7 @@ final class PreferencesManager: ObservableObject {
     @Published
     var mediumMeetingAlertMinutes: Int = 2 {
         didSet {
-            let v = clamped(mediumMeetingAlertMinutes, key: "mediumMeetingAlertMinutes", range: 0 ... 60)
+            let v = clamped(mediumMeetingAlertMinutes, key: .mediumMeetingAlertMinutes, range: 0 ... 60)
             if v != mediumMeetingAlertMinutes { mediumMeetingAlertMinutes = v }
         }
     }
@@ -41,7 +77,7 @@ final class PreferencesManager: ObservableObject {
     @Published
     var longMeetingAlertMinutes: Int = 5 {
         didSet {
-            let v = clamped(longMeetingAlertMinutes, key: "longMeetingAlertMinutes", range: 0 ... 60)
+            let v = clamped(longMeetingAlertMinutes, key: .longMeetingAlertMinutes, range: 0 ... 60)
             if v != longMeetingAlertMinutes { longMeetingAlertMinutes = v }
         }
     }
@@ -50,21 +86,21 @@ final class PreferencesManager: ObservableObject {
     @Published
     var syncIntervalSeconds: Int = 60 {
         didSet {
-            let v = clamped(syncIntervalSeconds, key: "syncIntervalSeconds", range: 30 ... 3600)
+            let v = clamped(syncIntervalSeconds, key: .syncIntervalSeconds, range: 30 ... 3600)
             if v != syncIntervalSeconds { syncIntervalSeconds = v }
         }
     }
 
     @Published
     var includeAllDayEvents: Bool = false {
-        didSet { userDefaults.set(includeAllDayEvents, forKey: "includeAllDayEvents") }
+        didSet { userDefaults.set(includeAllDayEvents, forKey: PrefKey.includeAllDayEvents) }
     }
 
     /// Appearance - Updated to use new custom theme system
     @Published
     var appearanceTheme: AppTheme = .system {
         didSet {
-            userDefaults.set(appearanceTheme.rawValue, forKey: "appearanceTheme")
+            userDefaults.set(appearanceTheme.rawValue, forKey: PrefKey.appearanceTheme)
             ThemeManager.shared.setTheme(appearanceTheme)
         }
     }
@@ -72,7 +108,7 @@ final class PreferencesManager: ObservableObject {
     @Published
     var overlayOpacity: Double = 0.9 {
         didSet {
-            let v = clamped(overlayOpacity, key: "overlayOpacity", range: 0.1 ... 1.0)
+            let v = clamped(overlayOpacity, key: .overlayOpacity, range: 0.1 ... 1.0)
             if v != overlayOpacity { overlayOpacity = v }
         }
     }
@@ -80,30 +116,30 @@ final class PreferencesManager: ObservableObject {
     @Published
     var overlayShowMinutesBefore: Int = 5 {
         didSet {
-            let v = clamped(overlayShowMinutesBefore, key: "overlayShowMinutesBefore", range: 1 ... 60)
+            let v = clamped(overlayShowMinutesBefore, key: .overlayShowMinutesBefore, range: 1 ... 60)
             if v != overlayShowMinutesBefore { overlayShowMinutesBefore = v }
         }
     }
 
     @Published
     var fontSize: FontSize = .medium {
-        didSet { userDefaults.set(fontSize.rawValue, forKey: "fontSize") }
+        didSet { userDefaults.set(fontSize.rawValue, forKey: PrefKey.fontSize) }
     }
 
     @Published
     var minimalMode: Bool = false {
-        didSet { userDefaults.set(minimalMode, forKey: "minimalMode") }
+        didSet { userDefaults.set(minimalMode, forKey: PrefKey.minimalMode) }
     }
 
     @Published
     var showOnAllDisplays: Bool = true {
-        didSet { userDefaults.set(showOnAllDisplays, forKey: "showOnAllDisplays") }
+        didSet { userDefaults.set(showOnAllDisplays, forKey: PrefKey.showOnAllDisplays) }
     }
 
     /// Sound
     @Published
     var playAlertSound: Bool = true {
-        didSet { userDefaults.set(playAlertSound, forKey: "playAlertSound") }
+        didSet { userDefaults.set(playAlertSound, forKey: PrefKey.playAlertSound) }
     }
 
     /// Convenience aliases for overlay scheduling
@@ -118,7 +154,7 @@ final class PreferencesManager: ObservableObject {
     @Published
     var alertVolume: Double = 0.7 {
         didSet {
-            let v = clamped(alertVolume, key: "alertVolume", range: 0.0 ... 1.0)
+            let v = clamped(alertVolume, key: .alertVolume, range: 0.0 ... 1.0)
             if v != alertVolume { alertVolume = v }
         }
     }
@@ -126,32 +162,32 @@ final class PreferencesManager: ObservableObject {
     /// Focus mode
     @Published
     var overrideFocusMode: Bool = true {
-        didSet { userDefaults.set(overrideFocusMode, forKey: "overrideFocusMode") }
+        didSet { userDefaults.set(overrideFocusMode, forKey: PrefKey.overrideFocusMode) }
     }
 
     /// Auto-join
     @Published
     var autoJoinEnabled: Bool = false {
-        didSet { userDefaults.set(autoJoinEnabled, forKey: "autoJoinEnabled") }
+        didSet { userDefaults.set(autoJoinEnabled, forKey: PrefKey.autoJoinEnabled) }
     }
 
     /// Snooze
     @Published
     var allowSnooze: Bool = true {
-        didSet { userDefaults.set(allowSnooze, forKey: "allowSnooze") }
+        didSet { userDefaults.set(allowSnooze, forKey: PrefKey.allowSnooze) }
     }
 
     /// Menu bar display
     @Published
     var menuBarDisplayMode: MenuBarDisplayMode = .icon {
         didSet {
-            userDefaults.set(menuBarDisplayMode.rawValue, forKey: "menuBarDisplayMode")
+            userDefaults.set(menuBarDisplayMode.rawValue, forKey: PrefKey.menuBarDisplayMode)
         }
     }
 
     @Published
     var showTodayOnlyInMenuBar: Bool = false {
-        didSet { userDefaults.set(showTodayOnlyInMenuBar, forKey: "showTodayOnlyInMenuBar") }
+        didSet { userDefaults.set(showTodayOnlyInMenuBar, forKey: PrefKey.showTodayOnlyInMenuBar) }
     }
 
     init() {
@@ -162,30 +198,30 @@ final class PreferencesManager: ObservableObject {
 
     /// Returns clamped value and persists to UserDefaults.
     /// Caller must check return value against current property and re-assign if different.
-    private func clamped(_ value: Int, key: String, range: ClosedRange<Int>) -> Int {
+    private func clamped(_ value: Int, key: PrefKey, range: ClosedRange<Int>) -> Int {
         let result = max(range.lowerBound, min(value, range.upperBound))
         userDefaults.set(result, forKey: key)
         return result
     }
 
-    private func clamped(_ value: Double, key: String, range: ClosedRange<Double>) -> Double {
+    private func clamped(_ value: Double, key: PrefKey, range: ClosedRange<Double>) -> Double {
         let result = max(range.lowerBound, min(value, range.upperBound))
         userDefaults.set(result, forKey: key)
         return result
     }
 
     private func loadPreferences() {
-        defaultAlertMinutes = userDefaults.object(forKey: "defaultAlertMinutes") as? Int ?? 1
-        useLengthBasedTiming = userDefaults.bool(forKey: "useLengthBasedTiming")
-        shortMeetingAlertMinutes = userDefaults.object(forKey: "shortMeetingAlertMinutes") as? Int ?? 1
+        defaultAlertMinutes = userDefaults.object(forKey: PrefKey.defaultAlertMinutes) as? Int ?? 1
+        useLengthBasedTiming = userDefaults.bool(forKey: PrefKey.useLengthBasedTiming)
+        shortMeetingAlertMinutes = userDefaults.object(forKey: PrefKey.shortMeetingAlertMinutes) as? Int ?? 1
         mediumMeetingAlertMinutes =
-            userDefaults.object(forKey: "mediumMeetingAlertMinutes") as? Int ?? 2
-        longMeetingAlertMinutes = userDefaults.object(forKey: "longMeetingAlertMinutes") as? Int ?? 5
+            userDefaults.object(forKey: PrefKey.mediumMeetingAlertMinutes) as? Int ?? 2
+        longMeetingAlertMinutes = userDefaults.object(forKey: PrefKey.longMeetingAlertMinutes) as? Int ?? 5
 
-        syncIntervalSeconds = userDefaults.object(forKey: "syncIntervalSeconds") as? Int ?? 60
-        includeAllDayEvents = userDefaults.bool(forKey: "includeAllDayEvents")
+        syncIntervalSeconds = userDefaults.object(forKey: PrefKey.syncIntervalSeconds) as? Int ?? 60
+        includeAllDayEvents = userDefaults.bool(forKey: PrefKey.includeAllDayEvents)
 
-        if let themeRawValue = userDefaults.object(forKey: "appearanceTheme") as? String,
+        if let themeRawValue = userDefaults.object(forKey: PrefKey.appearanceTheme) as? String,
            let theme = AppTheme(rawValue: themeRawValue)
         {
             appearanceTheme = theme
@@ -194,32 +230,32 @@ final class PreferencesManager: ObservableObject {
             ThemeManager.shared.setTheme(.system)
         }
 
-        overlayOpacity = userDefaults.object(forKey: "overlayOpacity") as? Double ?? 0.9
-        overlayShowMinutesBefore = userDefaults.object(forKey: "overlayShowMinutesBefore") as? Int ?? 5
+        overlayOpacity = userDefaults.object(forKey: PrefKey.overlayOpacity) as? Double ?? 0.9
+        overlayShowMinutesBefore = userDefaults.object(forKey: PrefKey.overlayShowMinutesBefore) as? Int ?? 5
 
-        if let fontSizeRawValue = userDefaults.object(forKey: "fontSize") as? String,
+        if let fontSizeRawValue = userDefaults.object(forKey: PrefKey.fontSize) as? String,
            let fontSize = FontSize(rawValue: fontSizeRawValue)
         {
             self.fontSize = fontSize
         }
 
-        minimalMode = userDefaults.bool(forKey: "minimalMode")
-        showOnAllDisplays = userDefaults.object(forKey: "showOnAllDisplays") as? Bool ?? true
+        minimalMode = userDefaults.bool(forKey: PrefKey.minimalMode)
+        showOnAllDisplays = userDefaults.object(forKey: PrefKey.showOnAllDisplays) as? Bool ?? true
 
-        playAlertSound = userDefaults.object(forKey: "playAlertSound") as? Bool ?? true
-        alertVolume = userDefaults.object(forKey: "alertVolume") as? Double ?? 0.7
+        playAlertSound = userDefaults.object(forKey: PrefKey.playAlertSound) as? Bool ?? true
+        alertVolume = userDefaults.object(forKey: PrefKey.alertVolume) as? Double ?? 0.7
 
-        overrideFocusMode = userDefaults.object(forKey: "overrideFocusMode") as? Bool ?? true
-        autoJoinEnabled = userDefaults.bool(forKey: "autoJoinEnabled")
-        allowSnooze = userDefaults.object(forKey: "allowSnooze") as? Bool ?? true
+        overrideFocusMode = userDefaults.object(forKey: PrefKey.overrideFocusMode) as? Bool ?? true
+        autoJoinEnabled = userDefaults.bool(forKey: PrefKey.autoJoinEnabled)
+        allowSnooze = userDefaults.object(forKey: PrefKey.allowSnooze) as? Bool ?? true
 
-        if let modeRawValue = userDefaults.object(forKey: "menuBarDisplayMode") as? String,
+        if let modeRawValue = userDefaults.object(forKey: PrefKey.menuBarDisplayMode) as? String,
            let mode = MenuBarDisplayMode(rawValue: modeRawValue)
         {
             menuBarDisplayMode = mode
         }
 
-        showTodayOnlyInMenuBar = userDefaults.bool(forKey: "showTodayOnlyInMenuBar")
+        showTodayOnlyInMenuBar = userDefaults.bool(forKey: PrefKey.showTodayOnlyInMenuBar)
     }
 
     func alertMinutes(for event: Event) -> Int {

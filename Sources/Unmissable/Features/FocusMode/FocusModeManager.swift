@@ -81,67 +81,121 @@ final class FocusModeManager: ObservableObject {
         }
     }
 
-    /// Runs the plutil command to check DND status. Nonisolated to allow running on background thread.
+    /// Detects Focus/DND status using the most reliable method available.
+    /// - Sandboxed: detection unavailable, defaults to "DND off" (overlays always shown)
+    /// - Non-sandboxed macOS 12+: reads ~/Library/DoNotDisturb/DB/Assertions.json
+    /// - Non-sandboxed legacy: reads ncprefs.plist via plutil
     private nonisolated static func runDNDCheck() async -> DNDCheckResult {
-        // Get home directory path safely using FileManager
+        // In sandboxed environments, filesystem-based DND detection is unavailable.
+        // Default to "DND off" (overlays always shown) — safe for a meeting reminder app.
+        let environment = ProcessInfo.processInfo.environment
+        if environment["APP_SANDBOX_CONTAINER_ID"] != nil {
+            return .success(false)
+        }
+
         let homeDirectory = FileManager.default.homeDirectoryForCurrentUser
+
+        // macOS 12+ stores Focus/DND assertions in a JSON database.
+        // This is more reliable than the legacy ncprefs.plist approach.
+        let assertionsPath = homeDirectory
+            .appendingPathComponent("Library")
+            .appendingPathComponent("DoNotDisturb")
+            .appendingPathComponent("DB")
+            .appendingPathComponent("Assertions.json")
+            .path
+
+        if FileManager.default.fileExists(atPath: assertionsPath) {
+            return await Task.detached {
+                readAssertionsFile(at: assertionsPath)
+            }.value
+        }
+
+        // Fallback: legacy ncprefs.plist (macOS 11 and earlier)
         let prefsPath = homeDirectory
             .appendingPathComponent("Library")
             .appendingPathComponent("Preferences")
             .appendingPathComponent("com.apple.ncprefs.plist")
             .path
 
-        // Validate the path exists and is within expected directory
         guard prefsPath.hasPrefix(homeDirectory.path),
               FileManager.default.fileExists(atPath: prefsPath)
         else {
             return .notFound
         }
 
-        // Run blocking Process on detached task to avoid blocking MainActor
         return await Task.detached {
-            // Check Do Not Disturb status using plutil
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/plutil")
-            process.arguments = [
-                "-extract", "dnd_prefs.dnd_manually_enabled", "raw",
-                prefsPath,
-            ]
+            readLegacyDNDPrefs(at: prefsPath)
+        }.value
+    }
 
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = pipe
+    /// Reads the modern Assertions.json to determine if any Focus mode is active.
+    /// A non-empty "data" array with "storeAssertionRecords" indicates an active Focus.
+    private nonisolated static func readAssertionsFile(at path: String) -> DNDCheckResult {
+        do {
+            let data = try Data(contentsOf: URL(fileURLWithPath: path))
+            guard data.count < 1_000_000 else {
+                // Safety: don't parse unreasonably large files
+                return .success(false)
+            }
+            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
 
-            do {
-                try process.run()
-
-                // Use a timeout to prevent indefinite blocking if plutil hangs
-                let timeoutTask = Task {
-                    try await Task.sleep(for: .seconds(3))
-                    if process.isRunning {
-                        process.terminate()
+            // The assertions file contains "data" array with active focus records.
+            // If "storeAssertionRecords" exists and is non-empty, a Focus mode is active.
+            if let dataArray = json?["data"] as? [[String: Any]] {
+                for entry in dataArray {
+                    if let records = entry["storeAssertionRecords"] as? [[String: Any]],
+                       !records.isEmpty
+                    {
+                        return .success(true)
                     }
                 }
-
-                process.waitUntilExit()
-                timeoutTask.cancel()
-
-                // Limit output size to prevent memory issues (DND status is just "0", "1", "true", or "false")
-                let maxOutputSize = 100
-                let fileHandle = pipe.fileHandleForReading
-                let data = fileHandle.readData(ofLength: maxOutputSize)
-
-                if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(
-                    in: .whitespacesAndNewlines
-                ) {
-                    let newDNDStatus = output == "1" || output == "true"
-                    return DNDCheckResult.success(newDNDStatus)
-                }
-                return .success(false)
-            } catch {
-                return .failure(error)
             }
-        }.value
+            return .success(false)
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    /// Legacy DND detection via plutil on ncprefs.plist (macOS 11 and earlier).
+    private nonisolated static func readLegacyDNDPrefs(at prefsPath: String) -> DNDCheckResult {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/plutil")
+        process.arguments = [
+            "-extract", "dnd_prefs.dnd_manually_enabled", "raw",
+            prefsPath,
+        ]
+
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+
+        do {
+            try process.run()
+
+            let timeoutTask = Task {
+                try await Task.sleep(for: .seconds(3))
+                if process.isRunning {
+                    process.terminate()
+                }
+            }
+
+            process.waitUntilExit()
+            timeoutTask.cancel()
+
+            let maxOutputSize = 100
+            let fileHandle = pipe.fileHandleForReading
+            let data = fileHandle.readData(ofLength: maxOutputSize)
+
+            if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(
+                in: .whitespacesAndNewlines
+            ) {
+                let newDNDStatus = output == "1" || output == "true"
+                return DNDCheckResult.success(newDNDStatus)
+            }
+            return .success(false)
+        } catch {
+            return .failure(error)
+        }
     }
 
     func shouldShowOverlay() -> Bool {

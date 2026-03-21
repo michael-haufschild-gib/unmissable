@@ -157,6 +157,7 @@ struct HTMLTextView: NSViewRepresentable {
     }
 
     private func createStyledHTML(content: String) -> String {
+        let safeContent = HTMLSanitizer.sanitize(content)
         let isDark = effectiveTheme == .dark
         let bodyColor = isDark ? "#CCCCCC" : "#333333"
         let headingColor = isDark ? "#FFFFFF" : "#000000"
@@ -198,7 +199,7 @@ struct HTMLTextView: NSViewRepresentable {
             </style>
         </head>
         <body>
-            \(content)
+            \(safeContent)
         </body>
         </html>
         """

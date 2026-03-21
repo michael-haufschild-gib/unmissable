@@ -6,7 +6,7 @@ struct CalendarPreferencesView: View {
     @Environment(\.customDesign)
     private var design
     @State
-    private var isConnecting = false
+    private var connectingProvider: CalendarProviderType?
 
     var body: some View {
         ScrollView {
@@ -17,15 +17,15 @@ struct CalendarPreferencesView: View {
                         .font(design.fonts.title2)
                         .foregroundColor(design.colors.textPrimary)
 
-                    Text("Connect your calendar and choose which calendars to monitor")
+                    Text("Connect your calendars and choose which ones to monitor")
                         .font(design.fonts.caption1)
                         .foregroundColor(design.colors.textSecondary)
                 }
 
+                providerConnectionSection
+
                 if appState.isConnectedToCalendar {
-                    connectedSection
-                } else {
-                    disconnectedSection
+                    calendarSelectionSection
                 }
 
                 Spacer()
@@ -35,42 +35,100 @@ struct CalendarPreferencesView: View {
         .background(design.colors.background)
     }
 
-    // MARK: - Connected State
+    // MARK: - Provider Connection
 
-    private var connectedSection: some View {
-        VStack(alignment: .leading, spacing: design.spacing.xl) {
-            CustomCard(style: .elevated) {
-                VStack(spacing: design.spacing.lg) {
-                    HStack(spacing: design.spacing.md) {
-                        CustomStatusIndicator(status: .connected, size: 16)
+    private var providerConnectionSection: some View {
+        VStack(alignment: .leading, spacing: design.spacing.lg) {
+            ForEach(CalendarProviderType.allCases, id: \.self) { providerType in
+                providerCard(for: providerType)
+            }
+        }
+    }
 
-                        VStack(alignment: .leading, spacing: design.spacing.xs) {
-                            Text("Connected to Google Calendar")
-                                .font(design.fonts.headline)
-                                .foregroundColor(design.colors.textPrimary)
+    private func providerCard(for providerType: CalendarProviderType) -> some View {
+        let isConnected = appState.connectedProviders.contains(providerType)
+        let isConnecting = connectingProvider == providerType
 
-                            if let email = appState.userEmail {
-                                Text(email)
-                                    .font(design.fonts.callout)
-                                    .foregroundColor(design.colors.textSecondary)
-                            }
+        return CustomCard(style: isConnected ? .elevated : .standard) {
+            HStack(spacing: design.spacing.md) {
+                Image(systemName: providerType.iconName)
+                    .foregroundColor(isConnected ? design.colors.accent : design.colors.textSecondary)
+                    .font(.system(size: 20, weight: .medium))
+                    .frame(width: 32)
+
+                VStack(alignment: .leading, spacing: design.spacing.xs) {
+                    HStack(spacing: design.spacing.sm) {
+                        Text(providerType.displayName)
+                            .font(design.fonts.headline)
+                            .foregroundColor(design.colors.textPrimary)
+
+                        if isConnected {
+                            CustomStatusIndicator(status: .connected, size: 10)
                         }
+                    }
 
-                        Spacer()
+                    if isConnected {
+                        providerStatusText(for: providerType)
+                    } else {
+                        Text("Not connected")
+                            .font(design.fonts.caption1)
+                            .foregroundColor(design.colors.textSecondary)
+                    }
+                }
 
-                        CustomButton("Disconnect", style: .destructive) {
-                            Task {
-                                appState.disconnectFromCalendar()
-                            }
+                Spacer()
+
+                if isConnected {
+                    CustomButton("Disconnect", style: .destructive) {
+                        appState.disconnectFromCalendar(provider: providerType)
+                    }
+                } else if isConnecting {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .tint(design.colors.accent)
+                } else {
+                    CustomButton("Connect", style: .primary) {
+                        connectingProvider = providerType
+                        Task {
+                            await appState.connectToCalendar(provider: providerType)
+                            connectingProvider = nil
                         }
                     }
                 }
-                .padding(design.spacing.lg)
             }
-
-            calendarSelectionSection
+            .padding(design.spacing.lg)
         }
     }
+
+    @ViewBuilder
+    private func providerStatusText(for providerType: CalendarProviderType) -> some View {
+        switch providerType {
+        case .google:
+            if let email = appState.userEmail {
+                Text(email)
+                    .font(design.fonts.caption1)
+                    .foregroundColor(design.colors.textSecondary)
+            } else {
+                Text("Connected")
+                    .font(design.fonts.caption1)
+                    .foregroundColor(design.colors.textSecondary)
+            }
+
+        case .apple:
+            let appleCalendarCount = appState.calendars.count(where: { $0.sourceProvider == .apple })
+            if appleCalendarCount > 0 {
+                Text("\(appleCalendarCount) calendar\(appleCalendarCount == 1 ? "" : "s") available")
+                    .font(design.fonts.caption1)
+                    .foregroundColor(design.colors.textSecondary)
+            } else {
+                Text("Connected")
+                    .font(design.fonts.caption1)
+                    .foregroundColor(design.colors.textSecondary)
+            }
+        }
+    }
+
+    // MARK: - Calendar Selection
 
     private var calendarSelectionSection: some View {
         Group {
@@ -87,86 +145,46 @@ struct CalendarPreferencesView: View {
                     .padding(design.spacing.lg)
                 }
             } else {
-                CustomCard(style: .standard) {
-                    VStack(alignment: .leading, spacing: design.spacing.lg) {
-                        Text("Calendar Selection")
-                            .font(design.fonts.headline)
-                            .foregroundColor(design.colors.textPrimary)
-
-                        VStack(alignment: .leading, spacing: design.spacing.sm) {
-                            ForEach(appState.calendars) { calendar in
-                                CalendarSelectionRow(
-                                    calendar: calendar,
-                                    onToggle: { isSelected in
-                                        appState.updateCalendarSelection(
-                                            calendar.id, isSelected: isSelected
-                                        )
-                                    }
-                                )
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .padding(design.spacing.lg)
-                }
+                calendarListByProvider
             }
         }
     }
 
-    // MARK: - Disconnected State
+    private var calendarListByProvider: some View {
+        VStack(alignment: .leading, spacing: design.spacing.lg) {
+            ForEach(CalendarProviderType.allCases, id: \.self) { providerType in
+                let providerCalendars = appState.calendars.filter { $0.sourceProvider == providerType }
+                if !providerCalendars.isEmpty {
+                    CustomCard(style: .standard) {
+                        VStack(alignment: .leading, spacing: design.spacing.lg) {
+                            HStack(spacing: design.spacing.sm) {
+                                Image(systemName: providerType.iconName)
+                                    .foregroundColor(design.colors.accent)
+                                    .font(.system(size: 14, weight: .medium))
 
-    private var disconnectedSection: some View {
-        CustomCard(style: .elevated) {
-            VStack(spacing: design.spacing.lg) {
-                HStack(spacing: design.spacing.md) {
-                    CustomStatusIndicator(status: .disconnected, size: 16)
+                                Text("\(providerType.displayName) Calendars")
+                                    .font(design.fonts.headline)
+                                    .foregroundColor(design.colors.textPrimary)
+                            }
 
-                    VStack(alignment: .leading, spacing: design.spacing.xs) {
-                        Text("Not connected to Google Calendar")
-                            .font(design.fonts.headline)
-                            .foregroundColor(design.colors.textPrimary)
-
-                        Text(
-                            "Connect your Google Calendar to receive meeting alerts and never miss important meetings."
-                        )
-                        .font(design.fonts.callout)
-                        .foregroundColor(design.colors.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-
-                VStack(spacing: design.spacing.md) {
-                    CustomButton("Connect Google Calendar", icon: "link", style: .primary) {
-                        isConnecting = true
-                        Task {
-                            await appState.connectToCalendar()
-                            isConnecting = false
+                            VStack(alignment: .leading, spacing: design.spacing.sm) {
+                                ForEach(providerCalendars) { calendar in
+                                    CalendarSelectionRow(
+                                        calendar: calendar,
+                                        onToggle: { isSelected in
+                                            appState.updateCalendarSelection(
+                                                calendar.id, isSelected: isSelected
+                                            )
+                                        }
+                                    )
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                    }
-                    .disabled(isConnecting)
-
-                    if isConnecting {
-                        HStack(spacing: design.spacing.sm) {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                                .tint(design.colors.accent)
-                            Text("Connecting...")
-                                .font(design.fonts.callout)
-                                .foregroundColor(design.colors.textSecondary)
-                        }
-                    }
-
-                    if let error = appState.authError {
-                        Text("Error: \(error)")
-                            .font(design.fonts.caption1)
-                            .foregroundColor(design.colors.error)
-                            .padding(design.spacing.sm)
-                            .background(design.colors.error.opacity(0.1))
-                            .cornerRadius(design.corners.medium)
+                        .padding(design.spacing.lg)
                     }
                 }
             }
-            .padding(design.spacing.lg)
         }
     }
 }
@@ -190,6 +208,13 @@ struct CalendarSelectionRow: View {
 
             VStack(alignment: .leading, spacing: design.spacing.xs) {
                 HStack(alignment: .top, spacing: design.spacing.sm) {
+                    if let colorHex = calendar.colorHex {
+                        Circle()
+                            .fill(Color(hex: colorHex) ?? design.colors.accent)
+                            .frame(width: 10, height: 10)
+                            .padding(.top, 4)
+                    }
+
                     Text(calendar.name)
                         .font(design.fonts.callout)
                         .foregroundColor(design.colors.textPrimary)
@@ -220,5 +245,26 @@ struct CalendarSelectionRow: View {
         .padding(design.spacing.md)
         .background(design.colors.backgroundSecondary)
         .cornerRadius(design.corners.medium)
+    }
+}
+
+// MARK: - Color Extension for Hex
+
+private extension Color {
+    init?(hex: String) {
+        var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        hexSanitized = hexSanitized.hasPrefix("#") ? String(hexSanitized.dropFirst()) : hexSanitized
+
+        guard hexSanitized.count == 6,
+              let rgb = UInt64(hexSanitized, radix: 16)
+        else {
+            return nil
+        }
+
+        self.init(
+            red: Double((rgb >> 16) & 0xFF) / 255.0,
+            green: Double((rgb >> 8) & 0xFF) / 255.0,
+            blue: Double(rgb & 0xFF) / 255.0
+        )
     }
 }

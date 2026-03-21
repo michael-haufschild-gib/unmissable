@@ -123,4 +123,24 @@ final class LinkParser: Sendable {
         // Only consider it an online meeting if there are validated meeting links
         links.contains { isValidMeetingURL($0) }
     }
+
+    // MARK: - General URL Extraction
+
+    /// Extracts all URLs from a text string using NSDataDetector
+    func extractURLs(from text: String) -> [URL] {
+        guard let detector = try? NSDataDetector(
+            types: NSTextCheckingResult.CheckingType.link.rawValue
+        ) else {
+            return []
+        }
+        let matches = detector.matches(
+            in: text, options: [], range: NSRange(location: 0, length: text.utf16.count)
+        )
+        return matches.compactMap(\.url)
+    }
+
+    /// Extracts the first URL from a text string
+    func extractURL(from text: String) -> URL? {
+        extractURLs(from: text).first
+    }
 }

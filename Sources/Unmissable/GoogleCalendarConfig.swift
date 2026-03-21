@@ -19,22 +19,6 @@ enum GoogleCalendarConfig {
 
     // MARK: - Secure Configuration Loading
 
-    /// Error message if OAuth is not configured
-    static let configurationError: String? = {
-        if clientId.isEmpty {
-            return """
-            OAuth Client ID not configured.
-
-            Setup options:
-            1. Set GOOGLE_OAUTH_CLIENT_ID environment variable
-            2. Add GoogleOAuthClientID to Config.plist in project root
-
-            Get credentials at: https://console.developers.google.com/
-            """
-        }
-        return nil
-    }()
-
     /// Whether OAuth is properly configured
     static var isConfigured: Bool {
         !clientId.isEmpty
@@ -81,23 +65,14 @@ enum GoogleCalendarConfig {
             return scheme
         }
 
-        // Safe default fallback - use unique scheme with bundle identifier hash to prevent hijacking
-        let bundleHash = abs(Bundle.main.bundleIdentifier?.hashValue ?? 0)
-        return "com.unmissable.oauth.\(bundleHash)"
+        // Deterministic fallback matching the bundle ID
+        return "com.unmissable.app"
     }()
 
     static let redirectURI = "\(redirectScheme):/"
 
     /// API Base URLs
     static let calendarAPIBaseURL = "https://www.googleapis.com/calendar/v3"
-
-    // MARK: - Environment Detection
-
-    static let environment: String = ProcessInfo.processInfo.environment["UNMISSABLE_ENV"] ?? "production"
-
-    static var isDevelopment: Bool {
-        environment == "development"
-    }
 
     // MARK: - Sandbox Detection
 
@@ -136,23 +111,6 @@ enum GoogleCalendarConfig {
             return plist
         }
 
-        // Fallback paths for different build contexts (non-sandboxed only)
-        let possiblePaths = [
-            "Config.plist", // Direct in working directory
-            "../Config.plist", // One level up
-            "../../Config.plist", // Two levels up (for .build directory)
-            "../../../Config.plist", // Three levels up
-        ]
-
-        for relativePath in possiblePaths {
-            let expandedPath = NSString(string: relativePath).expandingTildeInPath
-            if FileManager.default.fileExists(atPath: expandedPath),
-               let plist = NSDictionary(contentsOfFile: expandedPath) as? [String: Any]
-            {
-                return plist
-            }
-        }
-
         return nil
     }
 }
@@ -168,34 +126,5 @@ extension GoogleCalendarConfig {
             return false
         }
         return true
-    }
-
-    /// Returns configuration status for debugging
-    static func configurationStatus() -> String {
-        """
-        OAUTH CONFIGURATION STATUS:
-        • Client ID: \(clientId.isEmpty ? "Missing" : "Configured (\(clientId.prefix(20))...)")
-        • Redirect Scheme: \(redirectScheme)
-        • Environment: \(environment)
-        • Configuration Source: \(configurationSource())
-        • Scopes: \(scopes.count) configured
-        """
-    }
-
-    private static func configurationSource() -> String {
-        if ProcessInfo.processInfo.environment["GOOGLE_OAUTH_CLIENT_ID"] != nil {
-            "Environment Variable"
-        } else if Bundle.main.path(forResource: "Config", ofType: "plist") != nil {
-            "App Bundle Resources"
-        } else if loadConfigFromProjectRoot() != nil {
-            "Config.plist (project root)"
-        } else {
-            "Default/Fallback"
-        }
-    }
-
-    /// Whether the app is running sandboxed (exposed for debugging)
-    static var isSandboxedEnvironment: Bool {
-        isSandboxed
     }
 }

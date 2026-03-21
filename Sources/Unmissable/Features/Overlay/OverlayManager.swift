@@ -252,7 +252,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
             isFromSnooze: isSnoozedAlert
         )
         .environmentObject(preferencesManager)
-        // FIXED: Retain cycle resolved by moving timer to OverlayContentView
+        .customThemedEnvironment()
 
         let hostingView = NSHostingView(rootView: overlayContent)
         window.contentView = hostingView

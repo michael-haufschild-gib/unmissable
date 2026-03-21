@@ -153,6 +153,7 @@ extension CalendarInfo: FetchableRecord, PersistableRecord {
         static let isSelected = Column("isSelected")
         static let isPrimary = Column("isPrimary")
         static let colorHex = Column("colorHex")
+        static let sourceProvider = Column("sourceProvider")
         static let lastSyncAt = Column("lastSyncAt")
         static let createdAt = Column("createdAt")
         static let updatedAt = Column("updatedAt")
@@ -165,6 +166,13 @@ extension CalendarInfo: FetchableRecord, PersistableRecord {
         isSelected = row[Columns.isSelected]
         isPrimary = row[Columns.isPrimary]
         colorHex = row[Columns.colorHex]
+        if let providerRaw = row[Columns.sourceProvider] as? String,
+           let provider = CalendarProviderType(rawValue: providerRaw)
+        {
+            sourceProvider = provider
+        } else {
+            sourceProvider = .google
+        }
         lastSyncAt = row[Columns.lastSyncAt]
         createdAt = row[Columns.createdAt]
         updatedAt = row[Columns.updatedAt]
@@ -177,6 +185,7 @@ extension CalendarInfo: FetchableRecord, PersistableRecord {
         container[Columns.isSelected] = isSelected
         container[Columns.isPrimary] = isPrimary
         container[Columns.colorHex] = colorHex
+        container[Columns.sourceProvider] = sourceProvider.rawValue
         container[Columns.lastSyncAt] = lastSyncAt
         container[Columns.createdAt] = createdAt
         container[Columns.updatedAt] = updatedAt

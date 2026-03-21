@@ -7,6 +7,7 @@ struct CalendarInfo: Identifiable, Codable {
     let isSelected: Bool
     let isPrimary: Bool
     let colorHex: String?
+    let sourceProvider: CalendarProviderType
     let lastSyncAt: Date?
     let createdAt: Date
     let updatedAt: Date
@@ -18,6 +19,7 @@ struct CalendarInfo: Identifiable, Codable {
         isSelected: Bool = false,
         isPrimary: Bool = false,
         colorHex: String? = nil,
+        sourceProvider: CalendarProviderType = .google,
         lastSyncAt: Date? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
@@ -28,6 +30,7 @@ struct CalendarInfo: Identifiable, Codable {
         self.isSelected = isSelected
         self.isPrimary = isPrimary
         self.colorHex = colorHex
+        self.sourceProvider = sourceProvider
         self.lastSyncAt = lastSyncAt
         self.createdAt = createdAt
         self.updatedAt = updatedAt
@@ -42,6 +45,7 @@ struct CalendarInfo: Identifiable, Codable {
             isSelected: isSelected,
             isPrimary: isPrimary,
             colorHex: colorHex,
+            sourceProvider: sourceProvider,
             lastSyncAt: lastSyncAt,
             createdAt: createdAt,
             updatedAt: Date()

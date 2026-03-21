@@ -6,6 +6,16 @@ enum SyncStatus: Equatable {
     case offline
     case error(String)
 
+    var isSyncing: Bool {
+        if case .syncing = self { return true }
+        return false
+    }
+
+    var isError: Bool {
+        if case .error = self { return true }
+        return false
+    }
+
     var description: String {
         switch self {
         case .idle:

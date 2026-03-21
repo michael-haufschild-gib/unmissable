@@ -65,26 +65,6 @@ final class TestSafeOverlayManager: OverlayManaging {
     }
 }
 
-// MARK: - Factory for Environment-Specific Implementations
-
-enum OverlayManagerFactory {
-    @MainActor
-    static func create(
-        preferencesManager: PreferencesManager,
-        focusModeManager: FocusModeManager? = nil,
-        isTestEnvironment: Bool = false
-    ) -> any OverlayManaging {
-        if isTestEnvironment {
-            TestSafeOverlayManager(isTestEnvironment: true)
-        } else {
-            OverlayManager(
-                preferencesManager: preferencesManager,
-                focusModeManager: focusModeManager
-            )
-        }
-    }
-}
-
 // MARK: - Test-Safe Meeting Details Popup
 
 @MainActor
@@ -112,18 +92,5 @@ final class TestSafeMeetingDetailsPopupManager: MeetingDetailsPopupManaging {
         logger.debug("TEST-SAFE HIDE: Popup")
         lastShownEvent = nil
         isPopupVisible = false
-    }
-}
-
-// MARK: - Factory for Meeting Details Popup
-
-enum MeetingDetailsPopupManagerFactory {
-    @MainActor
-    static func create(isTestEnvironment: Bool = false) -> any MeetingDetailsPopupManaging {
-        if isTestEnvironment {
-            TestSafeMeetingDetailsPopupManager()
-        } else {
-            MeetingDetailsPopupManager()
-        }
     }
 }

@@ -1,4 +1,3 @@
-import Combine
 import SwiftUI
 
 struct OverlayContentView: View {
@@ -10,12 +9,10 @@ struct OverlayContentView: View {
 
     @EnvironmentObject
     private var preferences: PreferencesManager
+    @Environment(\.customDesign)
+    private var design
     @State
     private var timeUntilMeeting: TimeInterval = 0
-    @State
-    private var timerCancellable: AnyCancellable?
-    @State
-    private var currentTimerInterval: TimeInterval = 1.0
 
     init(
         event: Event,
@@ -33,8 +30,22 @@ struct OverlayContentView: View {
 
     var body: some View {
         ZStack {
+            // User-preference-driven background (respects theme + opacity slider)
             backgroundColor
                 .ignoresSafeArea()
+
+            // Radial glow behind content — the "beacon" effect
+            RadialGradient(
+                gradient: Gradient(colors: [
+                    countdownColor.opacity(glowIntensity),
+                    Color.clear,
+                ]),
+                center: .center,
+                startRadius: 40,
+                endRadius: 500 * fontScale
+            )
+            .ignoresSafeArea()
+            .animation(.easeInOut(duration: 1.5), value: timeUntilMeeting < 60)
 
             VStack(spacing: 40 * fontScale) {
                 overlayHeader
@@ -44,21 +55,19 @@ struct OverlayContentView: View {
 
                 if !preferences.minimalMode {
                     Text("Press ESC to dismiss")
-                        .font(.caption)
-                        .foregroundColor(.gray.opacity(0.7))
+                        .font(design.fonts.caption1)
+                        .foregroundColor(subtleTextColor)
+                        .tracking(1.5)
+                        .textCase(.uppercase)
                         .padding(.top, 20)
                 }
             }
             .padding(40)
             .accessibilityIdentifier("overlay-content")
         }
-        .onAppear {
+        .task {
             timeUntilMeeting = event.startDate.timeIntervalSinceNow
-            startAdaptiveTimer()
-        }
-        .onDisappear {
-            timerCancellable?.cancel()
-            timerCancellable = nil
+            await runAdaptiveTimer()
         }
         .onKeyPress(.escape) {
             onDismiss()
@@ -74,12 +83,18 @@ struct OverlayContentView: View {
                 systemName: timeUntilMeeting > 0
                     ? "calendar.badge.clock" : "calendar.badge.exclamationmark"
             )
-            .font(.system(size: 48 * fontScale))
-            .foregroundColor(timeUntilMeeting > 0 ? .blue : .orange)
+            .font(.system(size: 48 * fontScale, weight: .medium))
+            .foregroundColor(timeUntilMeeting > 0 ? design.colors.accent : design.colors.warning)
+            .shadow(
+                color: (timeUntilMeeting > 0 ? design.colors.accent : design.colors.warning).opacity(0.4),
+                radius: 20
+            )
 
             Text(headerText)
-                .font(.system(size: 36 * fontScale, weight: .bold))
-                .foregroundColor(textColor)
+                .font(.system(size: 28 * fontScale, weight: .medium))
+                .tracking(3)
+                .textCase(.uppercase)
+                .foregroundColor(subtleTextColor)
                 .accessibilityIdentifier("overlay-header-text")
                 .accessibilityLabel(headerText)
         }
@@ -88,7 +103,7 @@ struct OverlayContentView: View {
     private var meetingDetails: some View {
         VStack(spacing: 20 * fontScale) {
             Text(event.title)
-                .font(.system(size: 48 * fontScale, weight: .semibold))
+                .font(.system(size: 48 * fontScale, weight: .semibold, design: .rounded))
                 .foregroundColor(textColor)
                 .multilineTextAlignment(.center)
                 .lineLimit(3)
@@ -99,17 +114,17 @@ struct OverlayContentView: View {
                 if let organizer = event.organizer {
                     Text("with \(organizer)")
                         .font(.system(size: 24 * fontScale))
-                        .foregroundColor(.gray)
+                        .foregroundColor(subtleTextColor)
                         .accessibilityLabel("Meeting organizer: \(organizer)")
                 }
             }
 
             HStack(spacing: 16) {
                 Image(systemName: "clock")
-                    .foregroundColor(.blue)
+                    .foregroundColor(design.colors.accent)
                     .accessibilityHidden(true)
                 Text(event.startDate, style: .time)
-                    .font(.system(size: 28 * fontScale, weight: .medium))
+                    .font(.system(size: 28 * fontScale, weight: .medium, design: .monospaced))
                     .foregroundColor(textColor)
                     .accessibilityLabel(
                         "Meeting time: \(event.startDate.formatted(date: .omitted, time: .shortened))"
@@ -123,39 +138,40 @@ struct OverlayContentView: View {
             if timeUntilMeeting > 0 {
                 Text("Starting in")
                     .font(.system(size: 24 * fontScale))
-                    .foregroundColor(.gray)
+                    .foregroundColor(subtleTextColor)
                     .accessibilityHidden(true)
 
                 Text(formatTimeRemaining(timeUntilMeeting))
                     .font(.system(size: 88 * fontScale, weight: .bold, design: .monospaced))
-                    .foregroundColor(timeUntilMeeting < 60 ? .red : .blue)
-                    .animation(.easeInOut(duration: 0.3), value: timeUntilMeeting < 60)
+                    .foregroundColor(countdownColor)
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.3), value: formatTimeRemaining(timeUntilMeeting))
                     .accessibilityIdentifier("overlay-countdown")
                     .accessibilityLabel(
                         "Meeting starts in \(formatTimeRemainingForAccessibility(timeUntilMeeting))"
                     )
             } else if timeUntilMeeting > -300 {
                 Text("Meeting Started")
-                    .font(.system(size: 36 * fontScale, weight: .bold))
-                    .foregroundColor(.red)
+                    .font(.system(size: 36 * fontScale, weight: .bold, design: .rounded))
+                    .foregroundColor(design.colors.error)
                     .accessibilityIdentifier("overlay-meeting-started")
                     .accessibilityLabel("Meeting has started")
 
                 Text("\(Int(-timeUntilMeeting / 60)) minutes ago")
-                    .font(.system(size: 24 * fontScale))
-                    .foregroundColor(.orange)
+                    .font(.system(size: 24 * fontScale, weight: .medium))
+                    .foregroundColor(design.colors.warning)
                     .accessibilityLabel(
                         "Started \(Int(-timeUntilMeeting / 60)) minutes ago"
                     )
             } else {
                 Text("Running for")
                     .font(.system(size: 24 * fontScale))
-                    .foregroundColor(.gray)
+                    .foregroundColor(subtleTextColor)
                     .accessibilityHidden(true)
 
                 Text(formatTimeRunning(-timeUntilMeeting))
-                    .font(.system(size: 48 * fontScale, weight: .bold))
-                    .foregroundColor(.orange)
+                    .font(.system(size: 48 * fontScale, weight: .bold, design: .monospaced))
+                    .foregroundColor(design.colors.warning)
                     .accessibilityLabel(
                         "Meeting has been running for \(formatTimeRunningForAccessibility(-timeUntilMeeting))"
                     )
@@ -165,21 +181,23 @@ struct OverlayContentView: View {
     }
 
     private var actionButtons: some View {
-        HStack(spacing: 24) {
+        HStack(spacing: 20) {
             if event.isOnlineMeeting {
                 Button(action: onJoin) {
-                    HStack {
+                    HStack(spacing: 10) {
                         Image(systemName: "video.fill")
                             .accessibilityHidden(true)
                         Text("Join Meeting")
                     }
-                    .font(.system(size: 24 * fontScale, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 32)
+                    .font(.system(size: 22 * fontScale, weight: .semibold, design: .rounded))
+                    .tracking(0.5)
+                    .foregroundColor(design.colors.textInverse)
+                    .padding(.horizontal, 36)
                     .padding(.vertical, 16)
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.blue)
+                        Capsule()
+                            .fill(design.colors.accent)
+                            .shadow(color: design.colors.accent.opacity(0.5), radius: 20, y: 8)
                     )
                 }
                 .buttonStyle(ScaleButtonStyle())
@@ -193,13 +211,14 @@ struct OverlayContentView: View {
             Button("Dismiss") {
                 onDismiss()
             }
-            .font(.system(size: 20 * fontScale, weight: .medium))
-            .foregroundColor(textColor)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
+            .font(.system(size: 18 * fontScale, weight: .medium))
+            .tracking(0.5)
+            .foregroundColor(subtleTextColor)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 14)
             .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.gray, lineWidth: 2)
+                Capsule()
+                    .stroke(subtleTextColor.opacity(0.3), lineWidth: 1)
             )
             .buttonStyle(ScaleButtonStyle())
             .accessibilityIdentifier("overlay-dismiss-button")
@@ -224,18 +243,19 @@ struct OverlayContentView: View {
                 .accessibilityIdentifier("overlay-snooze-15")
                 .accessibilityLabel("Snooze for 15 minutes")
         } label: {
-            HStack {
+            HStack(spacing: 8) {
                 Image(systemName: "clock.badge")
                     .accessibilityHidden(true)
                 Text("Snooze")
             }
-            .font(.system(size: 20 * fontScale, weight: .medium))
-            .foregroundColor(textColor)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
+            .font(.system(size: 18 * fontScale, weight: .medium))
+            .tracking(0.5)
+            .foregroundColor(subtleTextColor)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 14)
             .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(textColor, lineWidth: 2)
+                Capsule()
+                    .stroke(subtleTextColor.opacity(0.3), lineWidth: 1)
             )
         }
         .buttonStyle(ScaleButtonStyle())
@@ -260,6 +280,7 @@ struct OverlayContentView: View {
         }
     }
 
+    /// Background respects user's theme and opacity preferences
     private var backgroundColor: Color {
         switch preferences.appearanceTheme {
         case .light:
@@ -271,6 +292,7 @@ struct OverlayContentView: View {
         }
     }
 
+    /// Primary text color driven by user's theme preference
     private var textColor: Color {
         switch preferences.appearanceTheme {
         case .light:
@@ -282,35 +304,57 @@ struct OverlayContentView: View {
         }
     }
 
+    /// Subtle/secondary text color for hints and labels
+    private var subtleTextColor: Color {
+        switch preferences.appearanceTheme {
+        case .light:
+            Color(red: 0.4, green: 0.4, blue: 0.42)
+        case .dark:
+            Color(red: 0.6, green: 0.6, blue: 0.63)
+        case .system:
+            Color(.secondaryLabelColor)
+        }
+    }
+
+    /// Countdown color shifts from accent to error as meeting approaches
+    private var countdownColor: Color {
+        if timeUntilMeeting < 60 {
+            design.colors.error
+        } else {
+            design.colors.accent
+        }
+    }
+
+    /// Glow intensifies as meeting approaches — subtle ambient, not animated loop
+    private var glowIntensity: Double {
+        if timeUntilMeeting <= 0 { return 0.15 }
+        if timeUntilMeeting < 60 { return 0.12 }
+        if timeUntilMeeting < 300 { return 0.08 }
+        return 0.05
+    }
+
     // MARK: - Timer Management
 
-    /// Calculates the optimal timer interval based on time until meeting
-    private func optimalTimerInterval() -> TimeInterval {
+    private func optimalTimerInterval() -> UInt64 {
         let absTime = abs(timeUntilMeeting)
-        if absTime < 60 { return 1.0 }
-        if absTime < 300 { return 5.0 }
-        return 30.0
+        if absTime < 60 { return 1_000_000_000 }
+        if absTime < 300 { return 5_000_000_000 }
+        return 30_000_000_000
     }
 
-    /// Starts or restarts the timer with an adaptive interval
-    private func startAdaptiveTimer() {
-        timerCancellable?.cancel()
-        let interval = optimalTimerInterval()
-        currentTimerInterval = interval
-
-        timerCancellable = Timer.publish(every: interval, on: .main, in: .common)
-            .autoconnect()
-            .sink { [self] _ in
-                timeUntilMeeting = event.startDate.timeIntervalSinceNow
-                // Check if we need to switch to a different timer interval
-                let newInterval = optimalTimerInterval()
-                if newInterval != currentTimerInterval {
-                    startAdaptiveTimer()
-                }
+    private func runAdaptiveTimer() async {
+        while !Task.isCancelled {
+            let interval = optimalTimerInterval()
+            do {
+                try await Task.sleep(nanoseconds: interval)
+            } catch {
+                break
             }
+            timeUntilMeeting = event.startDate.timeIntervalSinceNow
+        }
     }
 
-    // MARK: - Private Methods
+    // MARK: - Formatting
 
     private func formatTimeRemaining(_ interval: TimeInterval) -> String {
         let totalSeconds = Int(abs(interval))
@@ -372,7 +416,7 @@ struct ScaleButtonStyle: ButtonStyle {
     let sampleEvent = Event(
         id: "preview-1",
         title: "Daily Team Standup with Engineering Team",
-        startDate: Date().addingTimeInterval(300), // 5 minutes from now
+        startDate: Date().addingTimeInterval(300),
         endDate: Date().addingTimeInterval(1200),
         organizer: "team-lead@company.com",
         calendarId: "primary",
@@ -386,6 +430,8 @@ struct ScaleButtonStyle: ButtonStyle {
         onSnooze: { _ in },
         isFromSnooze: false
     )
+    .environmentObject(PreferencesManager())
+    .customThemedEnvironment()
 }
 
 #Preview("Overlay Content - Meeting Started") {
@@ -406,13 +452,15 @@ struct ScaleButtonStyle: ButtonStyle {
         onSnooze: { _ in },
         isFromSnooze: false
     )
+    .environmentObject(PreferencesManager())
+    .customThemedEnvironment()
 }
 
 #Preview("Overlay Content - Snoozed Meeting Running") {
     let sampleEvent = Event(
         id: "preview-3",
         title: "Snoozed Team Meeting",
-        startDate: Date().addingTimeInterval(-900), // Started 15 minutes ago
+        startDate: Date().addingTimeInterval(-900),
         endDate: Date().addingTimeInterval(1800),
         organizer: "team@company.com",
         calendarId: "primary",
@@ -426,4 +474,6 @@ struct ScaleButtonStyle: ButtonStyle {
         onSnooze: { _ in },
         isFromSnooze: true
     )
+    .environmentObject(PreferencesManager())
+    .customThemedEnvironment()
 }
