@@ -26,7 +26,7 @@ final class TestSafeOverlayManager: OverlayManaging {
         self.isTestEnvironment = isTestEnvironment
     }
 
-    func showOverlay(for event: Event, minutesBeforeMeeting _: Int, fromSnooze: Bool = false) {
+    func showOverlay(for event: Event, fromSnooze: Bool = false) {
         logger.debug("TEST-SAFE SHOW: Overlay for \(event.title), fromSnooze: \(fromSnooze)")
 
         // Auto-dismiss for meetings that started too long ago

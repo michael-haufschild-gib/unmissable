@@ -14,6 +14,8 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     var isLoading = false
     @Published
     var lastError: String?
+    @Published
+    var calendarErrors: [String: String] = [:]
 
     /// URLSession with timeout configuration to prevent indefinite hangs
     private static let urlSession: URLSession = {
@@ -29,7 +31,8 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
 
     // MARK: - Calendar Operations
 
-    func fetchCalendars() async {
+    @discardableResult
+    func fetchCalendars() async -> [CalendarInfo] {
         logger.debug("Fetching calendar list")
         isLoading = true
         lastError = nil
@@ -41,7 +44,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
             guard let url = URL(string: "\(GoogleCalendarConfig.calendarAPIBaseURL)/users/me/calendarList")
             else {
                 lastError = GoogleCalendarAPIError.invalidURL.localizedDescription
-                return
+                return calendars
             }
 
             var request = URLRequest(url: url)
@@ -52,7 +55,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
 
             guard let httpResponse = response as? HTTPURLResponse else {
                 lastError = GoogleCalendarAPIError.invalidResponse.localizedDescription
-                return
+                return calendars
             }
 
             guard httpResponse.statusCode == 200 else {
@@ -67,7 +70,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
                 lastError = GoogleCalendarAPIError.requestFailed(
                     httpResponse.statusCode, errorMessage
                 ).localizedDescription
-                return
+                return calendars
             }
 
             let calendarList = try parseCalendarList(from: data)
@@ -78,18 +81,21 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
             logger.error("Failed to fetch calendars: \(error.localizedDescription)")
             lastError = error.localizedDescription
         }
+
+        return calendars
     }
 
-    func fetchEvents(for calendarIds: [String], from startDate: Date, to endDate: Date) async {
+    @discardableResult
+    func fetchEvents(for calendarIds: [String], from startDate: Date, to endDate: Date) async -> [Event] {
         logger.debug("Fetching events for \(calendarIds.count) calendars")
         isLoading = true
         lastError = nil
+        calendarErrors = [:]
 
         defer { isLoading = false }
 
         var allEvents: [Event] = []
         var successfulCalendars = 0
-        var skippedCalendars = 0
 
         for calendarId in calendarIds {
             do {
@@ -101,8 +107,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
                 allEvents.append(contentsOf: calendarEvents)
                 successfulCalendars += 1
             } catch {
-                skippedCalendars += 1
-                lastError = error.localizedDescription
+                calendarErrors[calendarId] = error.localizedDescription
                 logger.warning(
                     "Skipping calendar \(calendarId): \(error.localizedDescription)"
                 )
@@ -112,13 +117,16 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         allEvents.sort { $0.startDate < $1.startDate }
         events = allEvents
 
-        if successfulCalendars > 0 {
-            lastError = nil
+        if !calendarErrors.isEmpty {
+            let failedIds = calendarErrors.keys.sorted().joined(separator: ", ")
+            lastError = "Failed to fetch \(calendarErrors.count) calendar(s): \(failedIds)"
         }
 
         logger.debug(
             "Fetched \(allEvents.count) events from \(successfulCalendars)/\(calendarIds.count) calendars"
         )
+
+        return events
     }
 
     // MARK: - Private Methods
@@ -385,36 +393,6 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
 
     private func extractURLs(from text: String) -> [URL] {
         LinkParser.shared.extractURLs(from: text)
-    }
-
-    // MARK: - Test Compatibility
-
-    /// Converts a raw dictionary to GCalEventEntry for parsing. Used by existing tests.
-    func parseEvent(from item: [String: Any], calendarId: String) -> Event? {
-        guard let data = try? JSONSerialization.data(withJSONObject: item),
-              let entry = try? JSONDecoder().decode(GCalEventEntry.self, from: data)
-        else {
-            return nil
-        }
-        return convertToEvent(from: entry, calendarId: calendarId)
-    }
-
-    /// Converts raw attendee dictionaries. Used by existing tests.
-    func parseAttendees(from attendeesData: [[String: Any]]) -> [Attendee] {
-        attendeesData.compactMap { dict in
-            guard let data = try? JSONSerialization.data(withJSONObject: dict),
-                  let parsed = try? JSONDecoder().decode(GCalAttendee.self, from: data),
-                  let email = parsed.email
-            else { return nil }
-            return Attendee(
-                name: parsed.displayName,
-                email: email,
-                status: AttendeeStatus(rawValue: parsed.responseStatus ?? "needsAction"),
-                isOptional: parsed.isOptional ?? false,
-                isOrganizer: parsed.isOrganizer ?? false,
-                isSelf: parsed.isSelf ?? false
-            )
-        }
     }
 }
 

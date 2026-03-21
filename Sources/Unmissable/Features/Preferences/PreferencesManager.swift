@@ -43,7 +43,7 @@ private extension UserDefaults {
 
 @MainActor
 final class PreferencesManager: ObservableObject {
-    private let userDefaults = UserDefaults.standard
+    private let userDefaults: UserDefaults
 
     // MARK: - Clamped Properties
 
@@ -189,7 +189,8 @@ final class PreferencesManager: ObservableObject {
         didSet { userDefaults.set(showTodayOnlyInMenuBar, forKey: PrefKey.showTodayOnlyInMenuBar) }
     }
 
-    init() {
+    init(userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
         loadPreferences()
     }
 

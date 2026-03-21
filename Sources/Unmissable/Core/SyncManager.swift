@@ -208,13 +208,11 @@ final class SyncManager: ObservableObject {
             let startOfDay = Calendar.current.startOfDay(for: now)
             let endDate = Calendar.current.date(byAdding: .day, value: self.eventLookAheadDays, to: now) ?? now
 
-            await apiService.fetchEvents(
+            let fetchedEvents = await apiService.fetchEvents(
                 for: selectedCalendarIds,
                 from: startOfDay,
                 to: endDate
             )
-
-            let fetchedEvents = apiService.events
 
             if fetchedEvents.isEmpty, let apiError = apiService.lastError {
                 throw SyncError.apiFetchFailed(apiError)
@@ -331,14 +329,14 @@ final class SyncManager: ObservableObject {
     func syncCalendarList() async throws {
         logger.debug("Syncing calendar list")
 
-        await apiService.fetchCalendars()
+        let fetchedCalendars = await apiService.fetchCalendars()
         guard apiService.lastError == nil else {
             logger.error("Calendar list fetch failed, skipping save")
             return
         }
 
         // Convert API calendars to database models, preserving sourceProvider
-        let dbCalendars = apiService.calendars.map { calendar in
+        let dbCalendars = fetchedCalendars.map { calendar in
             CalendarInfo(
                 id: calendar.id,
                 name: calendar.name,

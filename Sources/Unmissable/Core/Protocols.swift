@@ -11,7 +11,7 @@ protocol OverlayManaging: ObservableObject {
     /// Computed time until meeting starts (negative if meeting has started)
     var timeUntilMeeting: TimeInterval { get }
 
-    func showOverlay(for event: Event, minutesBeforeMeeting: Int, fromSnooze: Bool)
+    func showOverlay(for event: Event, fromSnooze: Bool)
     func hideOverlay()
     func snoozeOverlay(for minutes: Int)
     func setEventScheduler(_ scheduler: EventScheduler)
@@ -20,9 +20,9 @@ protocol OverlayManaging: ObservableObject {
 // MARK: - OverlayManaging Convenience Overloads
 
 extension OverlayManaging {
-    /// Show overlay immediately (minutesBefore = 0), used in tests
+    /// Show overlay with default fromSnooze = false, used in tests
     func showOverlayImmediately(for event: Event, fromSnooze: Bool = false) {
-        showOverlay(for: event, minutesBeforeMeeting: 0, fromSnooze: fromSnooze)
+        showOverlay(for: event, fromSnooze: fromSnooze)
     }
 }
 
@@ -52,8 +52,11 @@ protocol CalendarAPIProviding: ObservableObject {
     var events: [Event] { get }
     var lastError: String? { get }
 
-    func fetchCalendars() async
+    @discardableResult
+    func fetchCalendars() async -> [CalendarInfo]
+    @discardableResult
     func fetchEvents(for calendarIds: [String], from startDate: Date, to endDate: Date) async
+        -> [Event]
 }
 
 /// Protocol for calendar authentication, abstracting the auth mechanism (OAuth, EventKit, etc.)

@@ -27,8 +27,8 @@ private func decodeJSONURLColumn(_ row: Row, _ column: Column) -> [URL] {
 }
 
 /// Encodes an Encodable value as a JSON string into a persistence container column.
-private func encodeJSONColumn<T: Encodable>(
-    _ value: T, into container: inout PersistenceContainer, _ column: Column
+private func encodeJSONColumn(
+    _ value: some Encodable, into container: inout PersistenceContainer, _ column: Column
 ) {
     do {
         let data = try JSONEncoder().encode(value)

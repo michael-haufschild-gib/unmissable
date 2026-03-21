@@ -31,10 +31,10 @@ enum HTMLSanitizer {
         options: [.caseInsensitive]
     )
 
-    /// Matches javascript: and data: URIs in href/src attributes
+    /// Matches javascript: and data: URIs in href/src attributes (through closing quote)
     // swiftlint:disable:next force_try
     private static let jsURIPattern = try! NSRegularExpression(
-        pattern: "(href|src)\\s*=\\s*([\"'])\\s*(javascript|data):",
+        pattern: "(href|src)\\s*=\\s*([\"'])\\s*(javascript|data):[^\"']*\\2",
         options: [.caseInsensitive]
     )
 
@@ -63,7 +63,7 @@ enum HTMLSanitizer {
         sanitized = jsURIPattern.stringByReplacingMatches(
             in: sanitized,
             range: NSRange(sanitized.startIndex..., in: sanitized),
-            withTemplate: "$1=$2about:blank"
+            withTemplate: "$1=$2about:blank$2"
         )
 
         return sanitized

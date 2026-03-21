@@ -35,7 +35,7 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
         XCTAssertTrue(meetingHasStarted, "Meeting should have started by now")
 
         // Show overlay from snooze after meeting started
-        overlayManager.showOverlay(for: testEvent, minutesBeforeMeeting: 0, fromSnooze: true)
+        overlayManager.showOverlay(for: testEvent, fromSnooze: true)
 
         XCTAssertTrue(
             overlayManager.isOverlayVisible,
@@ -81,7 +81,7 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
         )
 
         // Snoozed overlay should be more lenient (30 minute threshold)
-        overlayManager.showOverlay(for: testEvent, minutesBeforeMeeting: 0, fromSnooze: true)
+        overlayManager.showOverlay(for: testEvent, fromSnooze: true)
 
         try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
             overlayManager.isOverlayVisible

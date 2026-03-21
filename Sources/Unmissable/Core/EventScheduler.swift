@@ -145,7 +145,7 @@ final class EventScheduler: ObservableObject {
                 // Show overlay immediately if we have a manager
                 if let manager = currentOverlayManager {
                     logger.info("Missed alert time for \(event.title), triggering immediately")
-                    manager.showOverlay(for: event, minutesBeforeMeeting: overlayTiming, fromSnooze: false)
+                    manager.showOverlay(for: event, fromSnooze: false)
                 }
             }
 
@@ -302,9 +302,9 @@ final class EventScheduler: ObservableObject {
 
     private func handleTriggeredAlert(_ alert: ScheduledAlert, overlayManager: any OverlayManaging) {
         switch alert.alertType {
-        case let .reminder(minutesBefore):
+        case .reminder:
             logger.info("REMINDER: Showing overlay for \(alert.event.title)")
-            overlayManager.showOverlay(for: alert.event, minutesBeforeMeeting: minutesBefore, fromSnooze: false)
+            overlayManager.showOverlay(for: alert.event, fromSnooze: false)
 
         case .meetingStart:
             if preferencesManager.autoJoinEnabled, let url = alert.event.primaryLink {
@@ -314,11 +314,7 @@ final class EventScheduler: ObservableObject {
 
         case .snooze:
             logger.info("SNOOZE: Re-showing overlay for \(alert.event.title)")
-            overlayManager.showOverlay(
-                for: alert.event,
-                minutesBeforeMeeting: preferencesManager.overlayShowMinutesBefore,
-                fromSnooze: true
-            )
+            overlayManager.showOverlay(for: alert.event, fromSnooze: true)
         }
     }
 

@@ -5,6 +5,9 @@ extension Notification.Name {
     /// Posted when OAuth callback is received from the system
     static let oauthCallback = Notification.Name("com.unmissable.oauthCallback")
 
+    /// Posted when the app is reopened to show the preferences window
+    static let showPreferences = Notification.Name("com.unmissable.showPreferences")
+
     /// Posted by macOS when Do Not Disturb preferences change
     static let dndPrefsChanged = Notification.Name("com.apple.notificationcenterui.dndprefs_changed")
 

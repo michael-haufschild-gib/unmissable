@@ -128,10 +128,12 @@ enum TestUtilities {
     /// PreferencesManager is final, so we use the real class with test extensions
     typealias MockPreferencesManager = PreferencesManager
 
-    /// Factory to create a PreferencesManager with test defaults
+    /// Factory to create a PreferencesManager with an isolated UserDefaults suite
     @MainActor
     static func createTestPreferencesManager() -> PreferencesManager {
-        let prefs = PreferencesManager()
+        let suiteName = "com.unmissable.test.\(UUID().uuidString)"
+        let testDefaults = UserDefaults(suiteName: suiteName)! // swiftlint:disable:this force_unwrapping
+        let prefs = PreferencesManager(userDefaults: testDefaults)
         // Set test-specific defaults
         prefs.setDefaultAlertMinutes(1)
         prefs.useLengthBasedTiming = false
@@ -153,7 +155,7 @@ extension PreferencesManager {
     /// Test accessors for easy modification in tests
     var testDefaultAlertMinutes: Int {
         get { defaultAlertMinutes }
-        set { defaultAlertMinutes = newValue }
+        set { setDefaultAlertMinutes(newValue) }
     }
 
     var testUseLengthBasedTiming: Bool {
@@ -163,7 +165,7 @@ extension PreferencesManager {
 
     var testOverlayShowMinutesBefore: Int {
         get { overlayShowMinutesBefore }
-        set { overlayShowMinutesBefore = newValue }
+        set { setOverlayShowMinutesBefore(newValue) }
     }
 
     var testSoundEnabled: Bool {

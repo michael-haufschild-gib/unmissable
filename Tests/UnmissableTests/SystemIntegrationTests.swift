@@ -199,10 +199,10 @@ final class SystemIntegrationTests: XCTestCase {
         XCTAssertEqual(eventScheduler.scheduledAlerts.count, 2)
 
         // Test that overlays can be shown for overlapping events
-        overlayManager.showOverlay(for: overlappingEvents[0], minutesBeforeMeeting: 60)
+        overlayManager.showOverlay(for: overlappingEvents[0])
         XCTAssertEqual(overlayManager.activeEvent?.id, "overlap1")
 
-        overlayManager.showOverlay(for: overlappingEvents[1], minutesBeforeMeeting: 60)
+        overlayManager.showOverlay(for: overlappingEvents[1])
         XCTAssertEqual(overlayManager.activeEvent?.id, "overlap2") // Should replace first overlay
     }
 
@@ -302,7 +302,7 @@ final class SystemIntegrationTests: XCTestCase {
         async let schedulingTask: Void = scheduler.startScheduling(
             events: events, overlayManager: overlay
         )
-        async let overlayTask: Void = overlay.showOverlay(for: events[0], minutesBeforeMeeting: 15)
+        async let overlayTask: Void = overlay.showOverlay(for: events[0])
         async let preferencesTask: Void = await MainActor.run {
             prefs.testOverlayShowMinutesBefore = 8
         }

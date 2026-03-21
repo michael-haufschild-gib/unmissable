@@ -49,6 +49,13 @@ final class AppState: ObservableObject {
             }
             .store(in: &cancellables)
 
+        // Show preferences when app is reopened with no visible windows
+        NotificationCenter.default.publisher(for: .showPreferences)
+            .sink { [weak self] _ in
+                self?.showPreferences()
+            }
+            .store(in: &cancellables)
+
         // Set up callback to reschedule events after sync updates
         setupEventReschedulingCallback()
     }

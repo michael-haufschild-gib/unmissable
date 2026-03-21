@@ -34,9 +34,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        // Show preferences when app is reopened
+        // Show preferences when app is reopened with no visible windows
         if !flag {
-            NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+            NotificationCenter.default.post(name: .showPreferences, object: nil)
         }
         return true
     }

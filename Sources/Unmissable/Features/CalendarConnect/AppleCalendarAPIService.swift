@@ -20,7 +20,8 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         self.eventStore = eventStore
     }
 
-    func fetchCalendars() async {
+    @discardableResult
+    func fetchCalendars() async -> [CalendarInfo] {
         logger.debug("Fetching Apple Calendar list")
         lastError = nil
 
@@ -28,9 +29,11 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         calendars = ekCalendars.map { convertToCalendarInfo($0) }
 
         logger.debug("Fetched \(self.calendars.count) Apple calendars")
+        return calendars
     }
 
-    func fetchEvents(for calendarIds: [String], from startDate: Date, to endDate: Date) async {
+    @discardableResult
+    func fetchEvents(for calendarIds: [String], from startDate: Date, to endDate: Date) async -> [Event] {
         logger.debug("Fetching Apple Calendar events for \(calendarIds.count) calendars")
         lastError = nil
 
@@ -39,7 +42,7 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         guard !ekCalendars.isEmpty else {
             logger.warning("No matching Apple calendars found for provided IDs")
             events = []
-            return
+            return events
         }
 
         let predicate = eventStore.predicateForEvents(
@@ -54,6 +57,7 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
             .sorted { $0.startDate < $1.startDate }
 
         logger.debug("Fetched \(self.events.count) Apple Calendar events")
+        return events
     }
 
     // MARK: - Conversion
@@ -158,11 +162,10 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
             links.append(contentsOf: extractURLs(from: notes))
         }
 
-        // Filter to only meeting-relevant URLs
-        let meetingDomains = ["meet.google.com", "zoom.us", "teams.microsoft.com", "teams.live.com", "webex.com"]
+        // Filter to only meeting-relevant URLs using the shared trusted domain list
+        let linkParser = LinkParser.shared
         let meetingLinks = links.filter { url in
-            let host = url.host?.lowercased() ?? ""
-            return meetingDomains.contains(where: { host.contains($0) })
+            linkParser.isValidMeetingURL(url)
                 || url.scheme == "zoommtg"
                 || url.scheme == "msteams"
                 || url.scheme == "webex"

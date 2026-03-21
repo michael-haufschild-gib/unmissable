@@ -16,6 +16,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
     @Published
     var authorizationError: String?
 
+    private nonisolated(unsafe) var notificationToken: (any NSObjectProtocol)?
     private var authState: OIDAuthState?
     private let keychainAccessTokenKey = "google_access_token"
     private let keychainRefreshTokenKey = "google_refresh_token"
@@ -34,26 +35,29 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
         super.init()
         loadAuthStateFromKeychain()
 
-        // Listen for OAuth callback notifications
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleOAuthCallback(_:)),
-            name: .oauthCallback,
-            object: nil
-        )
+        // Listen for OAuth callback notifications using block-based API
+        // to avoid use-after-free risk from the legacy selector pattern
+        notificationToken = NotificationCenter.default.addObserver(
+            forName: .oauthCallback,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            // Extract the URL before crossing isolation boundary to avoid
+            // sending non-Sendable Notification into MainActor-isolated closure
+            guard let url = notification.object as? URL else { return }
+            MainActor.assumeIsolated {
+                self?.handleOAuthCallback(url: url)
+            }
+        }
     }
 
     deinit {
-        NotificationCenter.default.removeObserver(self)
+        if let token = notificationToken {
+            NotificationCenter.default.removeObserver(token)
+        }
     }
 
-    @objc
-    private func handleOAuthCallback(_ notification: Notification) {
-        guard let url = notification.object as? URL else {
-            logger.error("OAuth callback notification missing URL")
-            return
-        }
-
+    private func handleOAuthCallback(url: URL) {
         logger.info("Handling OAuth callback (scheme: \(url.scheme ?? "nil", privacy: .public))")
 
         // Handle the callback URL with AppAuth
