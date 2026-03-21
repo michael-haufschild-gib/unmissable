@@ -36,6 +36,8 @@ final class CalendarService: ObservableObject {
     @Published
     var authError: String?
     @Published
+    var calendarUpdateError: String?
+    @Published
     var connectedProviders: Set<CalendarProviderType> = []
 
     // MARK: - Private State
@@ -51,7 +53,7 @@ final class CalendarService: ObservableObject {
     private var needsUIRefresh = false
 
     /// Shared EKEventStore for Apple Calendar (reused across auth + API services)
-    private lazy var sharedEventStore = EKEventStore()
+    private let sharedEventStore: EKEventStore
 
     /// Publisher that fires after events are updated from a sync cycle.
     /// Supports multiple observers without retain-cycle risk.
@@ -64,10 +66,12 @@ final class CalendarService: ObservableObject {
 
     init(
         preferencesManager: PreferencesManager,
-        databaseManager: any DatabaseManaging
+        databaseManager: any DatabaseManaging,
+        eventStore: EKEventStore = EKEventStore()
     ) {
         self.preferencesManager = preferencesManager
         self.databaseManager = databaseManager
+        self.sharedEventStore = eventStore
         setupTimezoneObserver()
         startUIRefreshTimer()
         Task {
@@ -169,13 +173,16 @@ final class CalendarService: ObservableObject {
     func updateCalendarSelection(_ calendarId: String, isSelected: Bool) {
         if let index = calendars.firstIndex(where: { $0.id == calendarId }) {
             calendars[index] = calendars[index].withSelection(isSelected)
+            calendarUpdateError = nil
 
             logger.debug("Updated calendar \(calendarId) selection to \(isSelected)")
 
+            let updatedCalendar = calendars[index]
             Task {
                 do {
-                    try await databaseManager.saveCalendars([calendars[index]])
+                    try await databaseManager.saveCalendars([updatedCalendar])
                 } catch {
+                    calendarUpdateError = "Failed to save calendar selection: \(error.localizedDescription)"
                     logger.error("Failed to save calendar selection: \(error.localizedDescription)")
                 }
             }

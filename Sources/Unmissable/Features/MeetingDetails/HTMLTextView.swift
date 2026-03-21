@@ -98,7 +98,7 @@ struct HTMLTextView: NSViewRepresentable {
             let attributes: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 13),
                 .foregroundColor: effectiveTheme == .dark
-                    ? NSColor.secondaryLabelColor : NSColor.secondaryLabelColor,
+                    ? NSColor.lightGray : NSColor.darkGray,
             ]
             return NSAttributedString(string: placeholder, attributes: attributes)
         }
@@ -115,7 +115,7 @@ struct HTMLTextView: NSViewRepresentable {
             // Plain text - create simple attributed string
             let attributes: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 13),
-                .foregroundColor: effectiveTheme == .dark ? NSColor.labelColor : NSColor.labelColor,
+                .foregroundColor: effectiveTheme == .dark ? NSColor.white : NSColor.black,
             ]
             return NSAttributedString(string: htmlContent, attributes: attributes)
         }
@@ -152,7 +152,7 @@ struct HTMLTextView: NSViewRepresentable {
         )
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 13),
-            .foregroundColor: effectiveTheme == .dark ? NSColor.labelColor : NSColor.labelColor,
+            .foregroundColor: effectiveTheme == .dark ? NSColor.white : NSColor.black,
         ]
         return NSAttributedString(string: plainText, attributes: attributes)
     }

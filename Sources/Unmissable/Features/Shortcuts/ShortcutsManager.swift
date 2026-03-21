@@ -14,6 +14,13 @@ final class ShortcutsManager: ObservableObject {
 
     private weak var overlayManager: (any OverlayManaging)?
 
+    init(overlayManager: (any OverlayManaging)? = nil) {
+        self.overlayManager = overlayManager
+        if overlayManager != nil {
+            setupDefaultShortcuts()
+        }
+    }
+
     func setup(overlayManager: any OverlayManaging) {
         self.overlayManager = overlayManager
         setupDefaultShortcuts()

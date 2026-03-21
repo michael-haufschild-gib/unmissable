@@ -34,16 +34,12 @@ final class ServiceContainer {
             focusModeManager: focusModeManager
         )
         menuBarPreviewManager = MenuBarPreviewManager(preferencesManager: preferencesManager)
-        shortcutsManager = ShortcutsManager()
-        healthMonitor = HealthMonitor()
-        meetingDetailsPopupManager = MeetingDetailsPopupManager()
-        updateManager = UpdateManager()
-
-        // Wire cross-service dependencies
-        shortcutsManager.setup(overlayManager: overlayManager)
-        healthMonitor.setup(
+        shortcutsManager = ShortcutsManager(overlayManager: overlayManager)
+        healthMonitor = HealthMonitor(
             calendarService: calendarService,
             overlayManager: overlayManager
         )
+        meetingDetailsPopupManager = MeetingDetailsPopupManager()
+        updateManager = UpdateManager()
     }
 }

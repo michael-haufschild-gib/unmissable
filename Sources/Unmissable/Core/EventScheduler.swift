@@ -68,7 +68,11 @@ final class EventScheduler: ObservableObject {
         currentOverlayManager = overlayManager
 
         stopTimers()
-        scheduleAlerts(for: events)
+        let missedEvents = scheduleAlerts(for: events)
+        for event in missedEvents {
+            logger.info("Missed alert time for \(event.title), triggering immediately")
+            overlayManager.showOverlay(for: event, fromSnooze: false)
+        }
         startMonitoring(overlayManager: overlayManager)
 
         logger.debug("Event scheduling setup completed")
@@ -88,7 +92,11 @@ final class EventScheduler: ObservableObject {
         // preserves existing snooze alerts before rebuilding the alert list
         monitoringTask?.cancel()
         monitoringTask = nil
-        scheduleAlerts(for: currentEvents)
+        let missedEvents = scheduleAlerts(for: currentEvents)
+        for event in missedEvents {
+            logger.info("Missed alert time for \(event.title), triggering immediately")
+            overlayManager.showOverlay(for: event, fromSnooze: false)
+        }
         startMonitoring(overlayManager: overlayManager)
     }
 
@@ -110,7 +118,9 @@ final class EventScheduler: ObservableObject {
         scheduledAlerts.removeAll()
     }
 
-    private func scheduleAlerts(for events: [Event]) {
+    /// Returns events whose alert time has already passed but whose meeting has not yet started.
+    /// The caller is responsible for showing overlays for these events.
+    private func scheduleAlerts(for events: [Event]) -> [Event] {
         // Preserve existing snooze alerts before clearing
         let existingSnoozeAlerts = scheduledAlerts.filter { alert in
             if case .snooze = alert.alertType {
@@ -122,6 +132,7 @@ final class EventScheduler: ObservableObject {
         scheduledAlerts.removeAll()
 
         let currentTime = Date()
+        var missedAlertEvents: [Event] = []
 
         for event in events {
             // Skip events that have already ended
@@ -142,11 +153,7 @@ final class EventScheduler: ObservableObject {
                 scheduledAlerts.append(overlayAlert)
             } else if event.startDate > currentTime {
                 // Alert time has passed but meeting hasn't started (e.g. app started late)
-                // Show overlay immediately if we have a manager
-                if let manager = currentOverlayManager {
-                    logger.info("Missed alert time for \(event.title), triggering immediately")
-                    manager.showOverlay(for: event, fromSnooze: false)
-                }
+                missedAlertEvents.append(event)
             }
 
             // Schedule sound alerts if enabled (using event-specific timing)
@@ -174,6 +181,8 @@ final class EventScheduler: ObservableObject {
         logger.debug(
             "Scheduled \(self.scheduledAlerts.count) alerts (including \(existingSnoozeAlerts.count) preserved snooze alerts)"
         )
+
+        return missedAlertEvents
     }
 
     /// Maximum acceptable drift between expected and actual wake time before

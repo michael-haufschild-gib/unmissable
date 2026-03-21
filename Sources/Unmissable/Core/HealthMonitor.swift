@@ -18,8 +18,16 @@ final class HealthMonitor: ObservableObject {
     private weak var calendarService: CalendarService?
     private weak var overlayManager: (any OverlayManaging)?
 
-    init() {
-        startHealthMonitoring()
+    init(
+        calendarService: CalendarService? = nil,
+        overlayManager: (any OverlayManaging)? = nil,
+        startImmediately: Bool = true
+    ) {
+        self.calendarService = calendarService
+        self.overlayManager = overlayManager
+        if startImmediately {
+            startHealthMonitoring()
+        }
     }
 
     deinit {
