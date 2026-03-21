@@ -23,6 +23,8 @@ let package = Package(
         .package(url: "https://github.com/Clipy/Magnet.git", from: "3.4.0"),
         // Snapshot testing
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing.git", from: "1.18.3"),
+        // Auto-updates
+        .package(url: "https://github.com/sparkle-project/Sparkle.git", from: "2.6.0"),
         // Note: SwiftFormat and SwiftLint installed via Homebrew (brew install swiftformat swiftlint)
     ],
     targets: [
@@ -33,6 +35,7 @@ let package = Package(
                 .product(name: "GRDB", package: "GRDB.swift"),
                 .product(name: "KeychainAccess", package: "KeychainAccess"),
                 .product(name: "Magnet", package: "Magnet"),
+                .product(name: "Sparkle", package: "Sparkle"),
             ],
             path: "Sources/Unmissable",
             exclude: [
