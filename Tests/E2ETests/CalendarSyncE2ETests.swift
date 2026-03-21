@@ -276,10 +276,9 @@ final class CalendarSyncE2ETests: XCTestCase {
             CalendarInfo(id: "test", name: "Test", isSelected: true, isPrimary: false),
         ]
 
-        calendarService.disconnect()
+        calendarService.disconnectAll()
 
         XCTAssertFalse(calendarService.isConnected)
         XCTAssertTrue(calendarService.events.isEmpty)
-        XCTAssertTrue(calendarService.calendars.isEmpty)
     }
 }

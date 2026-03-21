@@ -44,8 +44,8 @@ final class MultiEventE2ETests: XCTestCase {
 
         // Both overlapping events should be scheduled
         let alertIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
-        XCTAssertTrue(alertIds.contains("e2e-overlap-1"))
-        XCTAssertTrue(alertIds.contains("e2e-overlap-2"))
+        XCTAssert(alertIds.isSuperset(of: ["e2e-overlap-1", "e2e-overlap-2"]))
+        XCTAssertEqual(alertIds.count, 2)
     }
 
     func testOverlayReplacementForOverlappingEvents() async throws {
@@ -90,12 +90,8 @@ final class MultiEventE2ETests: XCTestCase {
 
         // All events should have alerts
         let alertIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
-        for event in events {
-            XCTAssertTrue(
-                alertIds.contains(event.id),
-                "Event \(event.id) should have a scheduled alert"
-            )
-        }
+        let expectedIds = Set(events.map(\.id))
+        XCTAssertEqual(alertIds.intersection(expectedIds), expectedIds)
     }
 
     // MARK: - Multiple Calendars

@@ -100,9 +100,9 @@ final class EventLifecycleE2ETests: XCTestCase {
         await env.eventScheduler.startScheduling(
             events: upcoming, overlayManager: env.overlayManager
         )
-        let alertEventIds = env.eventScheduler.scheduledAlerts.map(\.event.id)
-        XCTAssertTrue(alertEventIds.contains(futureEvent.id))
-        XCTAssertFalse(alertEventIds.contains(pastEvent.id))
+        let alertEventIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
+        XCTAssert(alertEventIds.isSuperset(of: [futureEvent.id]))
+        XCTAssert(alertEventIds.isDisjoint(with: [pastEvent.id]))
     }
 
     // MARK: - Started Meetings
@@ -214,7 +214,8 @@ final class EventLifecycleE2ETests: XCTestCase {
         let roundTripped = try XCTUnwrap(fetched.first)
         XCTAssertEqual(roundTripped.id, meetEvent.id)
         XCTAssertTrue(roundTripped.isOnlineMeeting)
-        XCTAssertNotNil(roundTripped.primaryLink)
+        let link = try XCTUnwrap(roundTripped.primaryLink)
+        XCTAssertEqual(link.host, "meet.google.com")
         XCTAssertEqual(roundTripped.provider, .meet)
     }
 

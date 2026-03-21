@@ -4,7 +4,6 @@ import XCTest
 final class GoogleCalendarModelsTests: XCTestCase {
     private let decoder = JSONDecoder()
 
-    // swiftlint:disable:next identifier_name
     private static let fullEventEntryJSON = Data("""
     {
         "id": "abc123xyz",

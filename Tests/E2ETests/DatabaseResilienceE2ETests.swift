@@ -233,8 +233,8 @@ final class DatabaseResilienceE2ETests: XCTestCase {
             to: Date().addingTimeInterval(86_400)
         )
 
-        let ids = remaining.map(\.id)
-        XCTAssertTrue(ids.contains("e2e-recent"), "Recent event should be preserved")
-        XCTAssertFalse(ids.contains("e2e-old-event"), "Old event should be deleted")
+        let ids = Set(remaining.map(\.id))
+        XCTAssert(ids.isSuperset(of: ["e2e-recent"]), "Recent event should be preserved")
+        XCTAssert(ids.isDisjoint(with: ["e2e-old-event"]), "Old event should be deleted")
     }
 }

@@ -21,19 +21,11 @@ final class HealthMonitorTests: XCTestCase {
         let calendarService = CalendarService(
             preferencesManager: preferences, databaseManager: .shared
         )
-        let oauth2Service = OAuth2Service()
-        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
-        let syncManager = SyncManager(
-            apiService: apiService,
-            databaseManager: DatabaseManager.shared,
-            preferencesManager: preferences
-        )
         let overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         let monitor = HealthMonitor()
 
         monitor.setup(
             calendarService: calendarService,
-            syncManager: syncManager,
             overlayManager: overlayManager
         )
 
@@ -48,13 +40,6 @@ final class HealthMonitorTests: XCTestCase {
         let calendarService = CalendarService(
             preferencesManager: preferences, databaseManager: .shared
         )
-        let oauth2Service = OAuth2Service()
-        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
-        let syncManager = SyncManager(
-            apiService: apiService,
-            databaseManager: DatabaseManager.shared,
-            preferencesManager: preferences
-        )
         let overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         let monitor = HealthMonitor()
 
@@ -65,7 +50,6 @@ final class HealthMonitorTests: XCTestCase {
 
         monitor.setup(
             calendarService: calendarService,
-            syncManager: syncManager,
             overlayManager: overlayManager
         )
 

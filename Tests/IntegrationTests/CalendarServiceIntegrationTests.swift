@@ -4,12 +4,21 @@ import XCTest
 final class CalendarServiceIntegrationTests: XCTestCase {
     private var calendarService: CalendarService!
     private var preferencesManager: PreferencesManager!
+    private var databaseManager: DatabaseManager!
+    private var tempDatabaseURL: URL!
 
     @MainActor
     override func setUp() async throws {
+        // Use isolated temp database to avoid polluting production data
+        let tempDir = FileManager.default.temporaryDirectory
+        tempDatabaseURL = tempDir.appendingPathComponent(
+            "unmissable-integration-\(UUID().uuidString).db"
+        )
+        databaseManager = DatabaseManager(databaseURL: tempDatabaseURL)
+
         preferencesManager = PreferencesManager()
         calendarService = CalendarService(
-            preferencesManager: preferencesManager, databaseManager: .shared
+            preferencesManager: preferencesManager, databaseManager: databaseManager
         )
         try await super.setUp()
     }
@@ -17,6 +26,11 @@ final class CalendarServiceIntegrationTests: XCTestCase {
     override func tearDown() async throws {
         calendarService = nil
         preferencesManager = nil
+        databaseManager = nil
+        if let url = tempDatabaseURL {
+            try? FileManager.default.removeItem(at: url)
+        }
+        tempDatabaseURL = nil
         try await super.tearDown()
     }
 
@@ -37,7 +51,6 @@ final class CalendarServiceIntegrationTests: XCTestCase {
 
     @MainActor
     func testCalendarSelectionUpdate() throws {
-        // Add a mock calendar to test selection updates
         let mockCalendar = CalendarInfo(
             id: "test-calendar",
             name: "Test Calendar",
@@ -45,34 +58,27 @@ final class CalendarServiceIntegrationTests: XCTestCase {
             isPrimary: false
         )
 
-        // Manually add calendar for testing
         calendarService.calendars = [mockCalendar]
-
-        // Test updating selection
         calendarService.updateCalendarSelection("test-calendar", isSelected: true)
 
-        // Verify selection was updated
-        let updatedCalendar = try XCTUnwrap(calendarService.calendars.first { $0.id == "test-calendar" })
+        let updatedCalendar = try XCTUnwrap(
+            calendarService.calendars.first { $0.id == "test-calendar" }
+        )
         XCTAssertTrue(updatedCalendar.isSelected)
     }
 
     @MainActor
     func testSyncWithoutConnection() async {
-        // Sync without being connected should not change the sync status to error anymore
-        // since we have offline capability with database caching
         await calendarService.syncEvents()
 
-        // Should remain idle, offline, or error (auth-related)
         XCTAssertTrue(
             calendarService.syncStatus == .idle || calendarService.syncStatus == .offline
-                || calendarService.syncStatus == .error("User not authenticated")
-                || calendarService.syncStatus == .error("Calendar sync failed: User not authenticated")
         )
     }
 
     @MainActor
-    func testDisconnect() {
-        calendarService.disconnect()
+    func testDisconnectAll() {
+        calendarService.disconnectAll()
 
         XCTAssertFalse(calendarService.isConnected)
         XCTAssertTrue(calendarService.events.isEmpty)

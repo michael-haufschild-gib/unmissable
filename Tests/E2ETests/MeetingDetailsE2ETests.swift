@@ -72,7 +72,8 @@ final class MeetingDetailsE2ETests: XCTestCase {
 
         let shownEvent = try XCTUnwrap(env.meetingDetailsPopupManager.lastShownEvent)
         XCTAssertTrue(shownEvent.isOnlineMeeting)
-        XCTAssertNotNil(shownEvent.primaryLink)
+        let link = try XCTUnwrap(shownEvent.primaryLink)
+        XCTAssertEqual(link.host, "meet.google.com")
         XCTAssertEqual(shownEvent.provider, .meet)
     }
 

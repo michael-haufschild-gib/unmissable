@@ -266,7 +266,9 @@ extension XCTestCase {
                 XCTFail("E2E wait timed out: \(description)")
                 return
             }
-            try await Task.sleep(nanoseconds: 100_000_000) // 0.1s
+            // E2E polling utility (equivalent to TestUtilities.waitForAsync)
+            // swiftlint:disable:next no_raw_task_sleep_in_tests
+            try await Task.sleep(nanoseconds: 100_000_000)
         }
     }
 }

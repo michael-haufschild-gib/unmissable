@@ -95,7 +95,7 @@ final class LinkParserTests: XCTestCase {
 
     @MainActor
     func testEventWithParsedGoogleMeetLinks() {
-        let event = Event.withParsedLinks(
+        let event = Event.withParsedMeetLinks(
             id: "test",
             title: "Team Meeting",
             startDate: Date(),
