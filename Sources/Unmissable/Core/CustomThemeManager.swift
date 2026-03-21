@@ -304,6 +304,7 @@ struct CustomThemeModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .environment(\.customDesign, CustomDesign.design(for: themeManager.effectiveTheme))
+            .environmentObject(themeManager)
     }
 }
 

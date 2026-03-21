@@ -6,7 +6,7 @@ import XCTest
 @MainActor
 class TestDataCleanup {
     static let shared = TestDataCleanup()
-    private let databaseManager = DatabaseManager.shared
+    private let databaseManager = DatabaseManager()
 
     private init() {}
 

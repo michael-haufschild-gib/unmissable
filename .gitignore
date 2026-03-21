@@ -63,7 +63,10 @@ resource_bundle_accessor*
 # Agent exploration logs
 ci-explore-log*.md
 task_state.md
+task_*.md
 market-readiness*.md
+market_readiness*.md
+godmode_*.md
 
 # Build artifacts and review reports
 release/

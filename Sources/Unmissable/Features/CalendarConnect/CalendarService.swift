@@ -46,6 +46,9 @@ final class CalendarService: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var providerCancellables: [CalendarProviderType: Set<AnyCancellable>] = [:]
     private var uiRefreshTask: Task<Void, Never>?
+    /// Dirty flag: set when sync or timezone changes require a UI refresh.
+    /// The timer checks this alongside time-based staleness to avoid unnecessary DB reads.
+    private var needsUIRefresh = false
 
     /// Shared EKEventStore for Apple Calendar (reused across auth + API services)
     private lazy var sharedEventStore = EKEventStore()
@@ -53,7 +56,9 @@ final class CalendarService: ObservableObject {
     /// Publisher that fires after events are updated from a sync cycle.
     /// Supports multiple observers without retain-cycle risk.
     private let eventsUpdatedSubject = PassthroughSubject<Void, Never>()
-    var eventsUpdated: AnyPublisher<Void, Never> { eventsUpdatedSubject.eraseToAnyPublisher() }
+    var eventsUpdated: AnyPublisher<Void, Never> {
+        eventsUpdatedSubject.eraseToAnyPublisher()
+    }
 
     // MARK: - Initialization
 
@@ -271,6 +276,7 @@ final class CalendarService: ObservableObject {
     private func setupSyncCallback(for backend: ProviderBackend) {
         backend.sync.onSyncCompleted = { [weak self] in
             await self?.loadCachedData()
+            self?.needsUIRefresh = true
             self?.eventsUpdatedSubject.send()
             self?.logger.debug("UI refreshed after \(backend.type.rawValue) sync")
         }
@@ -280,6 +286,7 @@ final class CalendarService: ObservableObject {
         NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)
             .sink { [weak self] _ in
                 Task { @MainActor in
+                    self?.needsUIRefresh = true
                     await self?.loadCachedData()
                 }
             }
@@ -337,12 +344,27 @@ final class CalendarService: ObservableObject {
 
     // MARK: - UI Refresh Timer
 
+    /// Whether any event crossed a time boundary (started or ended) since the arrays were last loaded.
+    private func hasTimeBoundaryChange() -> Bool {
+        let now = Date()
+        // An upcoming event has started since last refresh
+        if events.contains(where: { $0.startDate <= now }) {
+            return true
+        }
+        // A started event has ended since last refresh
+        if startedEvents.contains(where: { $0.endDate <= now }) {
+            return true
+        }
+        return false
+    }
+
     private func startUIRefreshTimer() {
         uiRefreshTask = Task { @MainActor in
             while !Task.isCancelled {
                 do {
                     try await Task.sleep(for: .seconds(30))
-                    if !Task.isCancelled {
+                    if !Task.isCancelled, needsUIRefresh || hasTimeBoundaryChange() {
+                        needsUIRefresh = false
                         await loadCachedData()
                     }
                 } catch {

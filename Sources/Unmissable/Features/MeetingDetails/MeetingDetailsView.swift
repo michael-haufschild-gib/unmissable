@@ -6,8 +6,8 @@ struct MeetingDetailsView: View {
     private var design
     @Environment(\.dismiss)
     private var dismiss
-    @ObservedObject
-    private var themeManager = ThemeManager.shared
+    @EnvironmentObject
+    private var themeManager: ThemeManager
 
     var body: some View {
         VStack(spacing: 0) {

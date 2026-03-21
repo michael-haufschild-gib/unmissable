@@ -2,16 +2,15 @@ import Foundation
 import GRDB
 import OSLog
 
-final class DatabaseManager: @unchecked Sendable {
+actor DatabaseManager {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "DatabaseManager")
-    private(set) var dbQueue: DatabaseQueue?
 
-    /// Indicates whether the database was successfully initialized
-    private(set) var isInitialized: Bool = false
-    /// Contains error message if database initialization failed
-    private(set) var initializationError: String?
-
-    static let shared = DatabaseManager()
+    /// All three properties below are write-once-during-init, never mutated after the initializer
+    /// returns. `nonisolated(unsafe)` allows synchronous access from non-isolated contexts
+    /// (e.g. test assertions checking `isInitialized` without `await`).
+    private(set) nonisolated(unsafe) var dbQueue: DatabaseQueue?
+    private(set) nonisolated(unsafe) var isInitialized: Bool = false
+    private(set) nonisolated(unsafe) var initializationError: String?
 
     /// Production convenience initializer using Application Support directory.
     init() {
@@ -33,29 +32,35 @@ final class DatabaseManager: @unchecked Sendable {
             initializationError = "Database path resolution failed: \(error.localizedDescription)"
             return
         }
-        setupDatabase(at: dbURL)
+        do {
+            let queue = try DatabaseQueue(path: dbURL.path)
+            dbQueue = queue
+            try Self.migrator.migrate(queue)
+            try queue.write { db in
+                try db.execute(sql: "DROP TABLE IF EXISTS schema_version")
+            }
+            isInitialized = true
+            initializationError = nil
+            logger.info("Database initialized at: \(dbURL.path)")
+        } catch {
+            logger.error("Failed to setup database: \(error.localizedDescription)")
+            isInitialized = false
+            initializationError = "Database setup failed: \(error.localizedDescription)"
+        }
     }
 
     /// Testable initializer with explicit database path.
     init(databaseURL: URL) {
-        setupDatabase(at: databaseURL)
-    }
-
-    private func setupDatabase(at dbURL: URL) {
         do {
-            let queue = try DatabaseQueue(path: dbURL.path)
+            let queue = try DatabaseQueue(path: databaseURL.path)
             dbQueue = queue
-
             try Self.migrator.migrate(queue)
-
-            // Drop legacy schema_version table left by the old hand-rolled migration system
             try queue.write { db in
                 try db.execute(sql: "DROP TABLE IF EXISTS schema_version")
             }
-
             isInitialized = true
             initializationError = nil
-            logger.info("Database initialized at: \(dbURL.path)")
+            logger.info("Database initialized at: \(databaseURL.path)")
         } catch {
             logger.error("Failed to setup database: \(error.localizedDescription)")
             isInitialized = false

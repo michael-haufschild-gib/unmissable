@@ -17,7 +17,7 @@ final class ServiceContainer {
     let updateManager: UpdateManager
 
     init(
-        databaseManager: DatabaseManager = .shared,
+        databaseManager: DatabaseManager = DatabaseManager(),
         preferencesManager: PreferencesManager = PreferencesManager()
     ) {
         self.databaseManager = databaseManager
@@ -27,10 +27,12 @@ final class ServiceContainer {
         calendarService = CalendarService(
             preferencesManager: preferencesManager, databaseManager: databaseManager
         )
-        overlayManager = OverlayManager(
-            preferencesManager: preferencesManager, focusModeManager: focusModeManager
-        )
         eventScheduler = EventScheduler(preferencesManager: preferencesManager)
+        overlayManager = OverlayManager(
+            preferencesManager: preferencesManager,
+            eventScheduler: eventScheduler,
+            focusModeManager: focusModeManager
+        )
         menuBarPreviewManager = MenuBarPreviewManager(preferencesManager: preferencesManager)
         shortcutsManager = ShortcutsManager()
         healthMonitor = HealthMonitor()
@@ -38,7 +40,6 @@ final class ServiceContainer {
         updateManager = UpdateManager()
 
         // Wire cross-service dependencies
-        overlayManager.setEventScheduler(eventScheduler)
         shortcutsManager.setup(overlayManager: overlayManager)
         healthMonitor.setup(
             calendarService: calendarService,

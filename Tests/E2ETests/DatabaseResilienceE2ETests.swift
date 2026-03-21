@@ -30,7 +30,7 @@ final class DatabaseResilienceE2ETests: XCTestCase {
         XCTAssertEqual(beforeReset.count, 5)
 
         // Reset database
-        try env.databaseManager.resetDatabase()
+        try await env.databaseManager.resetDatabase()
 
         // All events should be gone
         let afterReset = try await env.fetchUpcomingEvents()

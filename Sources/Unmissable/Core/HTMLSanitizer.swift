@@ -14,7 +14,7 @@ enum HTMLSanitizer {
         sanitized = sanitized.replacing(#/<style[^>]*>[\s\S]*?<\/style>/#.ignoresCase(), with: "")
         sanitized = sanitized.replacing(#/<iframe[^>]*>[\s\S]*?<\/iframe>/#.ignoresCase(), with: "")
         sanitized = sanitized.replacing(#/<object[^>]*>[\s\S]*?<\/object>/#.ignoresCase(), with: "")
-        sanitized = sanitized.replacing(#/<embed[^>]*>[\s\S]*?\/?>/# .ignoresCase(), with: "")
+        sanitized = sanitized.replacing(#/<embed[^>]*\/?>/#.ignoresCase(), with: "")
         sanitized = sanitized.replacing(#/<form[^>]*>[\s\S]*?<\/form>/#.ignoresCase(), with: "")
         sanitized = sanitized.replacing(#/<link[^>]*>/#.ignoresCase(), with: "")
         sanitized = sanitized.replacing(#/<meta[^>]*>/#.ignoresCase(), with: "")

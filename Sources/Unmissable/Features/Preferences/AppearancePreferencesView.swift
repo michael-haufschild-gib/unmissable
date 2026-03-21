@@ -5,8 +5,8 @@ struct AppearancePreferencesView: View {
     var preferences: PreferencesManager
     @Environment(\.customDesign)
     private var design
-    @ObservedObject
-    private var themeManager = ThemeManager.shared
+    @EnvironmentObject
+    private var themeManager: ThemeManager
 
     var body: some View {
         ScrollView {

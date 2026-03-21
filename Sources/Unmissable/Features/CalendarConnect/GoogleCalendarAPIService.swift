@@ -97,20 +97,34 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         var allEvents: [Event] = []
         var successfulCalendars = 0
 
-        for calendarId in calendarIds {
-            do {
-                let calendarEvents = try await fetchEventsForCalendar(
-                    calendarId: calendarId,
-                    startDate: startDate,
-                    endDate: endDate
-                )
-                allEvents.append(contentsOf: calendarEvents)
-                successfulCalendars += 1
-            } catch {
-                calendarErrors[calendarId] = error.localizedDescription
-                logger.warning(
-                    "Skipping calendar \(calendarId): \(error.localizedDescription)"
-                )
+        await withTaskGroup(of: (String, Result<[Event], Error>).self) { group in
+            for calendarId in calendarIds {
+                group.addTask {
+                    do {
+                        let calendarEvents = try await self.fetchEventsForCalendar(
+                            calendarId: calendarId,
+                            startDate: startDate,
+                            endDate: endDate
+                        )
+                        return (calendarId, .success(calendarEvents))
+                    } catch {
+                        return (calendarId, .failure(error))
+                    }
+                }
+            }
+
+            for await (calendarId, result) in group {
+                switch result {
+                case let .success(calendarEvents):
+                    allEvents.append(contentsOf: calendarEvents)
+                    successfulCalendars += 1
+
+                case let .failure(error):
+                    calendarErrors[calendarId] = error.localizedDescription
+                    logger.warning(
+                        "Skipping calendar \(calendarId): \(error.localizedDescription)"
+                    )
+                }
             }
         }
 

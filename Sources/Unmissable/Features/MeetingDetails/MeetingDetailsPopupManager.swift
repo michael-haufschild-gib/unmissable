@@ -157,17 +157,17 @@ private class PopupWindowDelegate: NSObject, NSWindowDelegate {
         // Close popup when it loses focus to another window, but not when a child
         // menu or context menu is active (those don't become key windows).
         guard let window = notification.object as? NSWindow else { return }
-        Task {
-            try? await Task.sleep(for: .milliseconds(100))
-            await MainActor.run {
-                // Don't close if the popup regained focus or no window is key
-                // (a menu/popover is likely open above the popup)
-                let keyWindow = NSApp.keyWindow
-                if keyWindow === window || keyWindow == nil {
-                    return
-                }
-                self.onClose()
+
+        // Defer to the next run loop iteration so the key window state is settled.
+        // This replaces the previous Task.sleep race with a deterministic dispatch.
+        DispatchQueue.main.async { [weak self] in
+            // Don't close if the popup regained focus or no window is key
+            // (a menu/popover is likely open above the popup)
+            let keyWindow = NSApp.keyWindow
+            if keyWindow === window || keyWindow == nil {
+                return
             }
+            self?.onClose()
         }
     }
 }

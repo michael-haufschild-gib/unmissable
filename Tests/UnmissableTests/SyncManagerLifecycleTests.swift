@@ -12,7 +12,7 @@ final class SyncManagerLifecycleTests: XCTestCase {
         let preferences = PreferencesManager()
         let oauth2Service = OAuth2Service()
         let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
-        databaseManager = DatabaseManager.shared
+        databaseManager = DatabaseManager()
         manager = SyncManager(
             apiService: apiService,
             databaseManager: databaseManager,

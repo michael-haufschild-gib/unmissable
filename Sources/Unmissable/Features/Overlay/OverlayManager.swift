@@ -23,7 +23,6 @@ final class OverlayManager: ObservableObject, OverlayManaging {
     }
 
     private var overlayWindows: [NSWindow] = []
-    private var snoozeTask: Task<Void, Never>?
     private let preferencesManager: PreferencesManager
     private let soundManager: SoundManager
     private let focusModeManager: FocusModeManager
@@ -34,31 +33,26 @@ final class OverlayManager: ObservableObject, OverlayManaging {
     /// Test mode to prevent UI creation in tests
     private let isTestMode: Bool
 
-    /// Reference to EventScheduler for proper snooze scheduling
-    /// Note: Weak reference requires validation before use
-    private weak var eventScheduler: EventScheduler?
+    /// Required dependency for snooze scheduling — must be provided at init.
+    private let eventScheduler: EventScheduler
 
     init(
-        preferencesManager: PreferencesManager, focusModeManager: FocusModeManager? = nil,
+        preferencesManager: PreferencesManager,
+        eventScheduler: EventScheduler,
+        focusModeManager: FocusModeManager? = nil,
         isTestMode: Bool = false
     ) {
         self.preferencesManager = preferencesManager
+        self.eventScheduler = eventScheduler
         soundManager = SoundManager(preferencesManager: preferencesManager)
         self.focusModeManager =
             focusModeManager ?? FocusModeManager(preferencesManager: preferencesManager)
         self.isTestMode = isTestMode
     }
 
-    convenience init() {
-        let prefs = PreferencesManager()
-        self.init(
-            preferencesManager: prefs, focusModeManager: FocusModeManager(preferencesManager: prefs),
-            isTestMode: false
-        )
-    }
-
-    func setEventScheduler(_ scheduler: EventScheduler) {
-        eventScheduler = scheduler
+    func setEventScheduler(_: EventScheduler) {
+        // No-op: eventScheduler is now a required init dependency.
+        // Retained for OverlayManaging protocol conformance during migration.
     }
 
     func showOverlay(for event: Event, fromSnooze: Bool = false) {
@@ -119,8 +113,6 @@ final class OverlayManager: ObservableObject, OverlayManaging {
     func hideOverlay() {
         logger.info("HIDE OVERLAY: Starting cleanup")
 
-        // Clean up scheduled timers and stop sound
-        invalidateAllScheduledTimers()
         soundManager.stopSound()
 
         // Clear state immediately to prevent any race conditions
@@ -159,31 +151,8 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         let eventToSnooze = event
         hideOverlay()
 
-        // Use EventScheduler for proper snooze scheduling
-        if let scheduler = eventScheduler {
-            scheduler.scheduleSnooze(for: eventToSnooze, minutes: minutes)
-            logger.info("Snooze scheduled through EventScheduler")
-        } else {
-            // Fallback to Task-based method if EventScheduler not available
-            logger.warning("EventScheduler not available, using fallback Task-based snooze")
-
-            snoozeTask = Task { @MainActor in
-                do {
-                    let snoozeSeconds = TimeInterval(minutes * 60)
-                    logger.info("SNOOZE: Starting \(snoozeSeconds)s delay")
-                    try await Task.sleep(for: .seconds(snoozeSeconds))
-
-                    if !Task.isCancelled {
-                        logger.info("SNOOZE: Delay complete, showing overlay")
-                        showOverlay(for: eventToSnooze, fromSnooze: true)
-                    }
-                } catch is CancellationError {
-                    logger.info("SNOOZE: Task cancelled")
-                } catch {
-                    logger.error("SNOOZE: Unexpected error: \(error.localizedDescription)")
-                }
-            }
-        }
+        eventScheduler.scheduleSnooze(for: eventToSnooze, minutes: minutes)
+        logger.info("Snooze scheduled through EventScheduler")
     }
 
     private func createOverlayWindows(for event: Event) {
@@ -257,16 +226,4 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         return window
     }
 
-    // MARK: - Timer Cleanup
-
-    private func invalidateAllScheduledTimers() {
-        logger.info("CLEANUP: Stopping all scheduled tasks")
-
-        // Cancel snooze task
-        if let snoozeTask {
-            snoozeTask.cancel()
-            self.snoozeTask = nil
-            logger.debug("CLEANUP: Cancelled snooze task")
-        }
-    }
 }

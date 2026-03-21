@@ -53,17 +53,60 @@ struct Event: Identifiable, Codable, Equatable {
         self.calendarId = calendarId
         self.timezone = timezone
         self.links = links
-        if let provider {
-            self.provider = provider
-        } else if links.isEmpty {
-            self.provider = nil
-        } else {
-            self.provider = LinkParser.shared.detectPrimaryLink(from: links).map { Provider.detect(from: $0) }
-        }
+        self.provider = provider
         self.snoozeUntil = snoozeUntil
         self.autoJoinEnabled = autoJoinEnabled
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    /// Creates an Event, auto-detecting the provider from `links` when no explicit provider is given.
+    /// Use this when constructing events from raw data where the provider is not already known.
+    static func withAutoDetectedProvider(
+        id: String,
+        title: String,
+        startDate: Date,
+        endDate: Date,
+        organizer: String? = nil,
+        description: String? = nil,
+        location: String? = nil,
+        attendees: [Attendee] = [],
+        attachments: [EventAttachment] = [],
+        isAllDay: Bool = false,
+        calendarId: String,
+        timezone: String = TimeZone.current.identifier,
+        links: [URL] = [],
+        snoozeUntil: Date? = nil,
+        autoJoinEnabled: Bool = false,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) -> Self {
+        let detectedProvider: Provider? = if links.isEmpty {
+            nil
+        } else {
+            LinkParser.shared.detectPrimaryLink(from: links).map { Provider.detect(from: $0) }
+        }
+
+        return Self(
+            id: id,
+            title: title,
+            startDate: startDate,
+            endDate: endDate,
+            organizer: organizer,
+            description: description,
+            location: location,
+            attendees: attendees,
+            attachments: attachments,
+            isAllDay: isAllDay,
+            calendarId: calendarId,
+            timezone: timezone,
+            links: links,
+            provider: detectedProvider,
+            snoozeUntil: snoozeUntil,
+            autoJoinEnabled: autoJoinEnabled,
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
     }
 
     var duration: TimeInterval {

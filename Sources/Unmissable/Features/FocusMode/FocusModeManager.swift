@@ -157,74 +157,44 @@ final class FocusModeManager: ObservableObject {
         }
     }
 
-    /// Legacy DND detection via plutil on ncprefs.plist (macOS 11 and earlier).
-    /// Runs the process asynchronously to avoid blocking a cooperative thread.
+    /// Legacy DND detection via native plist parsing of ncprefs.plist (macOS 11 and earlier).
+    /// Reads the binary plist directly with PropertyListSerialization instead of shelling out to plutil.
+    ///
+    /// Fragility note: The `dnd_prefs` key structure is an undocumented Apple implementation detail.
+    /// It may change or disappear in future macOS versions. This path is only reached on macOS 11
+    /// and earlier (macOS 12+ uses Assertions.json above), so the risk is bounded.
     private nonisolated static func readLegacyDNDPrefs(at prefsPath: String) async -> DNDCheckResult {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/plutil")
-        process.arguments = [
-            "-extract", "dnd_prefs.dnd_manually_enabled", "raw",
-            prefsPath,
-        ]
-
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-
-        do {
-            try process.run()
-        } catch {
-            return .failure(error)
-        }
-
-        // Use a Sendable box for exactly-once continuation resumption.
-        // Both the terminationHandler and the timeout task may attempt to resume.
-        final class OnceBox: @unchecked Sendable {
-            private var continuation: CheckedContinuation<Void, Never>?
-            private let lock = NSLock()
-
-            init(_ continuation: CheckedContinuation<Void, Never>) {
-                self.continuation = continuation
-            }
-
-            func resume() {
-                lock.lock()
-                let c = continuation
-                continuation = nil
-                lock.unlock()
-                c?.resume()
-            }
-        }
-
-        // Wait for termination asynchronously (or timeout after 3 seconds)
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            let box = OnceBox(continuation)
-
-            process.terminationHandler = { _ in
-                box.resume()
-            }
-
-            // Timeout: terminate the process if it hasn't finished within 3 seconds
-            Task {
-                try? await Task.sleep(for: .seconds(3))
-                if process.isRunning {
-                    process.terminate()
+        return await Task.detached {
+            do {
+                let data = try Data(contentsOf: URL(fileURLWithPath: prefsPath))
+                guard data.count < 5_000_000 else {
+                    // Safety: don't parse unreasonably large files
+                    return DNDCheckResult.success(false)
                 }
-                box.resume()
+                guard let plist = try PropertyListSerialization.propertyList(
+                    from: data, options: [], format: nil
+                ) as? [String: Any] else {
+                    return .success(false)
+                }
+
+                // The dnd_prefs value is itself a nested plist (binary data blob)
+                if let dndPrefsData = plist["dnd_prefs"] as? Data {
+                    guard let dndPrefs = try PropertyListSerialization.propertyList(
+                        from: dndPrefsData, options: [], format: nil
+                    ) as? [String: Any] else {
+                        return .success(false)
+                    }
+                    if let manuallyEnabled = dndPrefs["userPref"] as? [String: Any],
+                       let enabled = manuallyEnabled["enabled"] as? Bool
+                    {
+                        return .success(enabled)
+                    }
+                }
+                return .success(false)
+            } catch {
+                return .failure(error)
             }
-        }
-
-        let maxOutputSize = 100
-        let fileHandle = pipe.fileHandleForReading
-        let data = fileHandle.readData(ofLength: maxOutputSize)
-
-        if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(
-            in: .whitespacesAndNewlines
-        ) {
-            let newDNDStatus = output == "1" || output == "true"
-            return DNDCheckResult.success(newDNDStatus)
-        }
-        return .success(false)
+        }.value
     }
 
     func shouldShowOverlay() -> Bool {
