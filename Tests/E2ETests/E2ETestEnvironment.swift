@@ -14,16 +14,16 @@ final class E2ETestEnvironment {
 
     private let tempDatabaseURL: URL
 
-    init() throws {
+    init() async throws {
         // Create an isolated temporary database for each test environment
         let tempDir = FileManager.default.temporaryDirectory
         let dbName = "unmissable-e2e-\(UUID().uuidString).db"
         tempDatabaseURL = tempDir.appendingPathComponent(dbName)
 
         databaseManager = DatabaseManager(databaseURL: tempDatabaseURL)
-        guard databaseManager.isInitialized else {
+        guard await databaseManager.isInitialized else {
             throw E2EError.databaseInitFailed(
-                databaseManager.initializationError ?? "Unknown error"
+                await databaseManager.initializationError ?? "Unknown error"
             )
         }
 

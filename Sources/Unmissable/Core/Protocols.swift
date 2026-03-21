@@ -14,7 +14,6 @@ protocol OverlayManaging: ObservableObject {
     func showOverlay(for event: Event, fromSnooze: Bool)
     func hideOverlay()
     func snoozeOverlay(for minutes: Int)
-    func setEventScheduler(_ scheduler: EventScheduler)
 }
 
 // MARK: - OverlayManaging Convenience Overloads

@@ -50,11 +50,6 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         self.isTestMode = isTestMode
     }
 
-    func setEventScheduler(_: EventScheduler) {
-        // No-op: eventScheduler is now a required init dependency.
-        // Retained for OverlayManaging protocol conformance during migration.
-    }
-
     func showOverlay(for event: Event, fromSnooze: Bool = false) {
         let startTime = Date()
         logger.info("SHOW OVERLAY: Starting for event: \(event.title), fromSnooze: \(fromSnooze)")

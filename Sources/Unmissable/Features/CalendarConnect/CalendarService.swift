@@ -41,7 +41,7 @@ final class CalendarService: ObservableObject {
     // MARK: - Private State
 
     private var providers: [CalendarProviderType: ProviderBackend] = [:]
-    private let databaseManager: DatabaseManager
+    private let databaseManager: any DatabaseManaging
     private let preferencesManager: PreferencesManager
     private var cancellables = Set<AnyCancellable>()
     private var providerCancellables: [CalendarProviderType: Set<AnyCancellable>] = [:]
@@ -64,7 +64,7 @@ final class CalendarService: ObservableObject {
 
     init(
         preferencesManager: PreferencesManager,
-        databaseManager: DatabaseManager
+        databaseManager: any DatabaseManaging
     ) {
         self.preferencesManager = preferencesManager
         self.databaseManager = databaseManager

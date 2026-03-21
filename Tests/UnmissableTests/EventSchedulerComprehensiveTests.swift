@@ -58,8 +58,9 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
     }
 
     func testStartScheduling_acceptsOverlayManagingExistential() async {
-        let protocolOverlayManager: any OverlayManaging = TestSafeOverlayManager(isTestEnvironment: true)
-        protocolOverlayManager.setEventScheduler(eventScheduler)
+        let testOverlay = TestSafeOverlayManager(isTestEnvironment: true)
+        testOverlay.setEventScheduler(eventScheduler)
+        let protocolOverlayManager: any OverlayManaging = testOverlay
 
         let upcomingEvent = TestUtilities.createTestEvent(
             id: "protocol-overlay-event",

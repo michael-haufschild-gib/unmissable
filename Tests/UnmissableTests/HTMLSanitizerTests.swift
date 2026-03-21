@@ -90,7 +90,7 @@ final class HTMLSanitizerTests: XCTestCase {
         let result = HTMLSanitizer.sanitize(input)
 
         XCTAssertFalse(result.contains("javascript:"))
-        XCTAssertEqual(result, "<a href=\"about:blankalert(document.cookie)\">Click</a>")
+        XCTAssertEqual(result, "<a href=\"about:blank\">Click</a>")
     }
 
     func testNeutralizesDataURIs() {

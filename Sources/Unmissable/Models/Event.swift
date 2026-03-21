@@ -133,16 +133,6 @@ struct Event: Identifiable, Codable, Equatable {
         return now >= tenMinutesBeforeStart && now < endDate
     }
 
-    var localStartDate: Date {
-        // Keep absolute instant; use DateFormatter with desired timeZone for display
-        startDate
-    }
-
-    var localEndDate: Date {
-        // Keep absolute instant; use DateFormatter with desired timeZone for display
-        endDate
-    }
-
     /// Creates an event by extracting Google Meet links from text fields (title, description, location).
     /// For events from calendar APIs, use the API service's conversion methods which handle all providers.
     static func withParsedMeetLinks(

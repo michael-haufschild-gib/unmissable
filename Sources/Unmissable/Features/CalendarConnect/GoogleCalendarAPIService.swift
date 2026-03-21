@@ -97,6 +97,18 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         var allEvents: [Event] = []
         var successfulCalendars = 0
 
+        // Pre-fetch a valid access token before spawning concurrent tasks.
+        // Each child task reuses this token, avoiding redundant token refreshes
+        // and potential OAuth races from concurrent getValidAccessToken() calls.
+        let prefetchedToken: String
+        do {
+            prefetchedToken = try await oauth2Service.getValidAccessToken()
+        } catch {
+            logger.error("Failed to get access token: \(error.localizedDescription)")
+            lastError = error.localizedDescription
+            return events
+        }
+
         await withTaskGroup(of: (String, Result<[Event], Error>).self) { group in
             for calendarId in calendarIds {
                 group.addTask {
@@ -104,7 +116,8 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
                         let calendarEvents = try await self.fetchEventsForCalendar(
                             calendarId: calendarId,
                             startDate: startDate,
-                            endDate: endDate
+                            endDate: endDate,
+                            accessToken: prefetchedToken
                         )
                         return (calendarId, .success(calendarEvents))
                     } catch {
@@ -158,10 +171,12 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     /// Maximum total events to fetch per calendar to prevent runaway pagination
     private static let maxEventsPerCalendar = 2000
 
-    private func fetchEventsForCalendar(calendarId: String, startDate: Date, endDate: Date)
-        async throws -> [Event]
-    {
-        let accessToken = try await oauth2Service.getValidAccessToken()
+    private func fetchEventsForCalendar(
+        calendarId: String,
+        startDate: Date,
+        endDate: Date,
+        accessToken: String
+    ) async throws -> [Event] {
 
         let dateFormatter = ISO8601DateFormatter()
         let timeMin = dateFormatter.string(from: startDate)

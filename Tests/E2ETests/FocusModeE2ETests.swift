@@ -11,7 +11,7 @@ final class FocusModeE2ETests: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
-        env = try E2ETestEnvironment()
+        env = try await E2ETestEnvironment()
         focusModeManager = FocusModeManager(
             preferencesManager: env.preferencesManager,
             isTestMode: true

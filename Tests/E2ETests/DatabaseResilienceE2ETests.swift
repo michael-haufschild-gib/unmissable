@@ -10,7 +10,7 @@ final class DatabaseResilienceE2ETests: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
-        env = try E2ETestEnvironment()
+        env = try await E2ETestEnvironment()
     }
 
     override func tearDown() async throws {
@@ -197,14 +197,16 @@ final class DatabaseResilienceE2ETests: XCTestCase {
 
     // MARK: - Database Initialization Edge Cases
 
-    func testFreshDatabaseCreatedSuccessfully() {
+    func testFreshDatabaseCreatedSuccessfully() async {
         let tempURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("e2e-fresh-\(UUID().uuidString).db")
         defer { try? FileManager.default.removeItem(at: tempURL) }
 
         let freshDB = DatabaseManager(databaseURL: tempURL)
-        XCTAssertTrue(freshDB.isInitialized)
-        XCTAssertNil(freshDB.initializationError)
+        let initialized = await freshDB.isInitialized
+        let error = await freshDB.initializationError
+        XCTAssertTrue(initialized)
+        XCTAssertNil(error)
     }
 
     func testDatabaseDeleteOldEventsPreservesRecent() async throws {

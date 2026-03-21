@@ -105,8 +105,11 @@ struct HTMLTextView: NSViewRepresentable {
 
         logger.debug("HTMLTextView: Processing content (\(htmlContent.count) chars)")
 
-        // Check if content is HTML or plain text
-        let isHTML = htmlContent.contains("<") && htmlContent.contains(">")
+        // Check if content contains actual HTML tags (not just comparison operators like `x < 5`)
+        let isHTML = htmlContent.range(
+            of: "</?[a-zA-Z][a-zA-Z0-9]*[\\s>/]",
+            options: .regularExpression
+        ) != nil
 
         if !isHTML {
             // Plain text - create simple attributed string

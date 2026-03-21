@@ -19,7 +19,7 @@ final class SyncManager: ObservableObject {
     var retryCount: Int = 0
 
     private let apiService: any CalendarAPIProviding
-    private let databaseManager: DatabaseManager
+    private let databaseManager: any DatabaseManaging
     private let preferencesManager: PreferencesManager
     private var syncTask: Task<Void, Never>?
     private var networkMonitor: NWPathMonitor?
@@ -44,7 +44,7 @@ final class SyncManager: ObservableObject {
     private let networkDebounceDelay: TimeInterval = 0.5 // 500ms debounce
 
     init(
-        apiService: any CalendarAPIProviding, databaseManager: DatabaseManager,
+        apiService: any CalendarAPIProviding, databaseManager: any DatabaseManaging,
         preferencesManager: PreferencesManager
     ) {
         self.apiService = apiService

@@ -2,15 +2,44 @@ import Foundation
 import GRDB
 import OSLog
 
-actor DatabaseManager {
+/// Protocol enabling dependency injection for database operations.
+/// Covers all methods consumed by CalendarService, SyncManager, and ServiceContainer.
+protocol DatabaseManaging: Sendable {
+    // MARK: - Event Operations
+
+    func saveEvents(_ events: [Event]) async throws
+    func replaceEvents(for calendarId: String, with events: [Event]) async throws
+    func fetchEvents(from startDate: Date, to endDate: Date) async throws -> [Event]
+    func fetchUpcomingEvents(limit: Int) async throws -> [Event]
+    func fetchStartedMeetings(limit: Int) async throws -> [Event]
+    func deleteEventsForCalendar(_ calendarId: String) async throws
+    func deleteOldEvents(before date: Date) async throws
+
+    // MARK: - Calendar Operations
+
+    func saveCalendars(_ calendars: [CalendarInfo]) async throws
+    func fetchCalendars() async throws -> [CalendarInfo]
+    func updateCalendarSyncTime(_ calendarId: String) async throws
+
+    // MARK: - Provider-Scoped Operations
+
+    func fetchCalendars(for provider: CalendarProviderType) async throws -> [CalendarInfo]
+    func deleteCalendarsForProvider(_ provider: CalendarProviderType) async throws
+    func deleteEventsForProvider(_ provider: CalendarProviderType) async throws
+    func deleteAllDataForProvider(_ provider: CalendarProviderType) async throws
+
+    // MARK: - Search & Maintenance
+
+    func searchEvents(query: String) async throws -> [Event]
+    func performMaintenance() async throws
+}
+
+actor DatabaseManager: DatabaseManaging {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "DatabaseManager")
 
-    /// All three properties below are write-once-during-init, never mutated after the initializer
-    /// returns. `nonisolated(unsafe)` allows synchronous access from non-isolated contexts
-    /// (e.g. test assertions checking `isInitialized` without `await`).
-    private(set) nonisolated(unsafe) var dbQueue: DatabaseQueue?
-    private(set) nonisolated(unsafe) var isInitialized: Bool = false
-    private(set) nonisolated(unsafe) var initializationError: String?
+    private(set) var dbQueue: DatabaseQueue?
+    private(set) var isInitialized: Bool = false
+    private(set) var initializationError: String?
 
     /// Production convenience initializer using Application Support directory.
     init() {

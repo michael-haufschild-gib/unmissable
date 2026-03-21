@@ -4,19 +4,22 @@ import XCTest
 @MainActor
 final class PreferencesManagerTests: XCTestCase {
     private var preferencesManager: PreferencesManager!
+    private var testSuiteName: String!
 
     override func setUp() async throws {
-        // Clear UserDefaults for testing
-        if let domain = Bundle.main.bundleIdentifier {
-            UserDefaults.standard.removePersistentDomain(forName: domain)
-        }
-
-        preferencesManager = PreferencesManager()
+        testSuiteName = "com.unmissable.test.\(UUID().uuidString)"
+        // swiftlint:disable:next force_unwrapping
+        let testDefaults = UserDefaults(suiteName: testSuiteName)!
+        preferencesManager = PreferencesManager(userDefaults: testDefaults)
         try await super.setUp()
     }
 
     override func tearDown() async throws {
         preferencesManager = nil
+        if let suite = testSuiteName {
+            UserDefaults.standard.removePersistentDomain(forName: suite)
+        }
+        testSuiteName = nil
         try await super.tearDown()
     }
 
@@ -89,8 +92,9 @@ final class PreferencesManagerTests: XCTestCase {
         preferencesManager.appearanceTheme = .dark
         preferencesManager.setOverlayOpacity(0.7)
 
-        // Create new instance to test persistence
-        let newPreferencesManager = PreferencesManager()
+        // Create new instance backed by the same test suite to verify persistence
+        // swiftlint:disable:next force_unwrapping
+        let newPreferencesManager = PreferencesManager(userDefaults: UserDefaults(suiteName: testSuiteName)!)
 
         XCTAssertEqual(newPreferencesManager.defaultAlertMinutes, 5)
         XCTAssertTrue(newPreferencesManager.useLengthBasedTiming)

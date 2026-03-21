@@ -4,7 +4,7 @@ import Foundation
 /// AppState reads from this container instead of constructing services directly.
 @MainActor
 final class ServiceContainer {
-    let databaseManager: DatabaseManager
+    let databaseManager: any DatabaseManaging
     let preferencesManager: PreferencesManager
     let focusModeManager: FocusModeManager
     let calendarService: CalendarService
@@ -17,7 +17,7 @@ final class ServiceContainer {
     let updateManager: UpdateManager
 
     init(
-        databaseManager: DatabaseManager = DatabaseManager(),
+        databaseManager: any DatabaseManaging = DatabaseManager(),
         preferencesManager: PreferencesManager = PreferencesManager()
     ) {
         self.databaseManager = databaseManager
