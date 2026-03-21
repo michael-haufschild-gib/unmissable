@@ -28,7 +28,7 @@ final class EventSchedulerSnoozePreservationTests: XCTestCase {
             }
         )
 
-        preferences.overlayShowMinutesBefore = 3
+        preferences.setOverlayShowMinutesBefore(3)
         try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
             scheduler.scheduledAlerts.contains { alert in
                 if case .snooze = alert.alertType { return alert.event.id == event.id }

@@ -34,10 +34,10 @@ final class PreferencesManagerTests: XCTestCase {
     }
 
     func testSyncIntervalSeconds_whenOutOfBounds_clampsToHardcodedBounds() {
-        preferencesManager.syncIntervalSeconds = 10 // below min (30)
+        preferencesManager.setSyncIntervalSeconds(10) // below min (30)
         XCTAssertEqual(preferencesManager.syncIntervalSeconds, 30)
 
-        preferencesManager.syncIntervalSeconds = 5000 // above max (3600)
+        preferencesManager.setSyncIntervalSeconds(5000) // above max (3600)
         XCTAssertEqual(preferencesManager.syncIntervalSeconds, 3600)
     }
 
@@ -73,9 +73,9 @@ final class PreferencesManagerTests: XCTestCase {
 
         // Enable length-based timing
         preferencesManager.useLengthBasedTiming = true
-        preferencesManager.shortMeetingAlertMinutes = 1
-        preferencesManager.mediumMeetingAlertMinutes = 3
-        preferencesManager.longMeetingAlertMinutes = 5
+        preferencesManager.setShortMeetingAlertMinutes(1)
+        preferencesManager.setMediumMeetingAlertMinutes(3)
+        preferencesManager.setLongMeetingAlertMinutes(5)
 
         XCTAssertEqual(preferencesManager.alertMinutes(for: shortEvent), 1)
         XCTAssertEqual(preferencesManager.alertMinutes(for: mediumEvent), 3)
@@ -84,10 +84,10 @@ final class PreferencesManagerTests: XCTestCase {
 
     func testPreferencePersistence() {
         // Change some preferences
-        preferencesManager.defaultAlertMinutes = 5
+        preferencesManager.setDefaultAlertMinutes(5)
         preferencesManager.useLengthBasedTiming = true
         preferencesManager.appearanceTheme = .dark
-        preferencesManager.overlayOpacity = 0.7
+        preferencesManager.setOverlayOpacity(0.7)
 
         // Create new instance to test persistence
         let newPreferencesManager = PreferencesManager()

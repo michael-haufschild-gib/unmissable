@@ -24,7 +24,7 @@ final class OverlayFlowE2ETests: XCTestCase {
     func testSchedulerTriggersOverlayForImminentEvent() async throws {
         // Event starting very soon with overlayShowMinutesBefore = 0
         // This makes the scheduler show the overlay immediately
-        env.preferencesManager.overlayShowMinutesBefore = 0
+        env.preferencesManager.setOverlayShowMinutesBefore(0)
 
         let imminentEvent = E2EEventBuilder.futureEvent(
             id: "e2e-imminent",

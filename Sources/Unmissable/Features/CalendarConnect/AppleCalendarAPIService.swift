@@ -116,9 +116,13 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     }
 
     private func convertAttendee(_ participant: EKParticipant) -> Attendee? {
-        // EKParticipant.emailAddress is available but may be nil for some participants
+        // EKParticipant.url can have non-mailto schemes (e.g. tel:, sip:) which are not valid emails
+        guard participant.url.scheme?.caseInsensitiveCompare("mailto") == .orderedSame else {
+            return nil
+        }
+
         let email = participant.url.absoluteString
-            .replacingOccurrences(of: "mailto:", with: "")
+            .replacingOccurrences(of: "mailto:", with: "", options: .caseInsensitive)
 
         guard !email.isEmpty else { return nil }
 

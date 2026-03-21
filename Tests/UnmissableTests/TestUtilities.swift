@@ -133,12 +133,12 @@ enum TestUtilities {
     static func createTestPreferencesManager() -> PreferencesManager {
         let prefs = PreferencesManager()
         // Set test-specific defaults
-        prefs.defaultAlertMinutes = 1
+        prefs.setDefaultAlertMinutes(1)
         prefs.useLengthBasedTiming = false
-        prefs.shortMeetingAlertMinutes = 1
-        prefs.mediumMeetingAlertMinutes = 2
-        prefs.longMeetingAlertMinutes = 5
-        prefs.overlayShowMinutesBefore = 2
+        prefs.setShortMeetingAlertMinutes(1)
+        prefs.setMediumMeetingAlertMinutes(2)
+        prefs.setLongMeetingAlertMinutes(5)
+        prefs.setOverlayShowMinutesBefore(2)
         prefs.playAlertSound = true
         prefs.autoJoinEnabled = false
         prefs.showOnAllDisplays = true

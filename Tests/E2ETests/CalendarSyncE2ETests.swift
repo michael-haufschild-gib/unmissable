@@ -265,7 +265,7 @@ final class CalendarSyncE2ETests: XCTestCase {
         XCTAssertNil(calendarService.userEmail)
     }
 
-    func testCalendarServiceDisconnectClearsState() {
+    func testCalendarServiceDisconnectClearsState() async {
         let calendarService = CalendarService(
             preferencesManager: env.preferencesManager,
             databaseManager: env.databaseManager
@@ -276,7 +276,7 @@ final class CalendarSyncE2ETests: XCTestCase {
             CalendarInfo(id: "test", name: "Test", isSelected: true, isPrimary: false),
         ]
 
-        calendarService.disconnectAll()
+        await calendarService.disconnectAll()
 
         XCTAssertFalse(calendarService.isConnected)
         XCTAssertTrue(calendarService.events.isEmpty)

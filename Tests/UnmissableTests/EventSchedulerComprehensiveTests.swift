@@ -116,11 +116,11 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
 
         // Create a test preferences with specific values
         let testPreferences = PreferencesManager()
-        testPreferences.overlayShowMinutesBefore = 10
-        testPreferences.defaultAlertMinutes = 10
-        testPreferences.shortMeetingAlertMinutes = 10
-        testPreferences.mediumMeetingAlertMinutes = 10
-        testPreferences.longMeetingAlertMinutes = 10
+        testPreferences.setOverlayShowMinutesBefore(10)
+        testPreferences.setDefaultAlertMinutes(10)
+        testPreferences.setShortMeetingAlertMinutes(10)
+        testPreferences.setMediumMeetingAlertMinutes(10)
+        testPreferences.setLongMeetingAlertMinutes(10)
 
         // Verify the preference returns the correct value
         XCTAssertEqual(
@@ -176,8 +176,8 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
 
         // Enable length-based timing
         mockPreferences.testUseLengthBasedTiming = true
-        mockPreferences.shortMeetingAlertMinutes = 2
-        mockPreferences.longMeetingAlertMinutes = 10
+        mockPreferences.setShortMeetingAlertMinutes(2)
+        mockPreferences.setLongMeetingAlertMinutes(10)
 
         await eventScheduler.startScheduling(
             events: [shortEvent, longEvent], overlayManager: overlayManager

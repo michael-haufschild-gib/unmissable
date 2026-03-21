@@ -335,18 +335,18 @@ struct OverlayContentView: View {
 
     // MARK: - Timer Management
 
-    private func optimalTimerInterval() -> UInt64 {
+    private func optimalTimerInterval() -> Duration {
         let absTime = abs(timeUntilMeeting)
-        if absTime < 60 { return 1_000_000_000 }
-        if absTime < 300 { return 5_000_000_000 }
-        return 30_000_000_000
+        if absTime < 60 { return .seconds(1) }
+        if absTime < 300 { return .seconds(5) }
+        return .seconds(30)
     }
 
     private func runAdaptiveTimer() async {
         while !Task.isCancelled {
             let interval = optimalTimerInterval()
             do {
-                try await Task.sleep(nanoseconds: interval)
+                try await Task.sleep(for: interval)
             } catch {
                 break
             }

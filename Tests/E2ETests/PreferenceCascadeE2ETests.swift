@@ -22,7 +22,7 @@ final class PreferenceCascadeE2ETests: XCTestCase {
     // MARK: - Default Alert Minutes
 
     func testDefaultAlertMinutesAffectsScheduledAlertTiming() async throws {
-        env.preferencesManager.overlayShowMinutesBefore = 5
+        env.preferencesManager.setOverlayShowMinutesBefore(5)
         env.preferencesManager.playAlertSound = false
 
         let event = E2EEventBuilder.futureEvent(
@@ -40,7 +40,7 @@ final class PreferenceCascadeE2ETests: XCTestCase {
         }
 
         // Change to 10 minutes before
-        env.preferencesManager.overlayShowMinutesBefore = 10
+        env.preferencesManager.setOverlayShowMinutesBefore(10)
 
         // Create new scheduler with updated prefs to verify the preference is read correctly
         let freshScheduler = EventScheduler(preferencesManager: env.preferencesManager)
@@ -64,9 +64,9 @@ final class PreferenceCascadeE2ETests: XCTestCase {
 
     func testLengthBasedTimingDifferentiatesEventDurations() async throws {
         env.preferencesManager.useLengthBasedTiming = true
-        env.preferencesManager.shortMeetingAlertMinutes = 1
-        env.preferencesManager.mediumMeetingAlertMinutes = 5
-        env.preferencesManager.longMeetingAlertMinutes = 10
+        env.preferencesManager.setShortMeetingAlertMinutes(1)
+        env.preferencesManager.setMediumMeetingAlertMinutes(5)
+        env.preferencesManager.setLongMeetingAlertMinutes(10)
         env.preferencesManager.playAlertSound = false
 
         // Short meeting: 15 minutes
@@ -113,9 +113,9 @@ final class PreferenceCascadeE2ETests: XCTestCase {
         // Length-based timing affects SOUND alerts (via alertMinutes(for:)),
         // not OVERLAY alerts (which use overlayShowMinutesBefore).
         env.preferencesManager.useLengthBasedTiming = true
-        env.preferencesManager.shortMeetingAlertMinutes = 1
-        env.preferencesManager.longMeetingAlertMinutes = 10
-        env.preferencesManager.overlayShowMinutesBefore = 5
+        env.preferencesManager.setShortMeetingAlertMinutes(1)
+        env.preferencesManager.setLongMeetingAlertMinutes(10)
+        env.preferencesManager.setOverlayShowMinutesBefore(5)
         env.preferencesManager.playAlertSound = true
 
         let shortEvent = E2EEventBuilder.futureEvent(
@@ -137,7 +137,7 @@ final class PreferenceCascadeE2ETests: XCTestCase {
 
         // Toggle LB off — both should use defaultAlertMinutes
         env.preferencesManager.useLengthBasedTiming = false
-        env.preferencesManager.defaultAlertMinutes = 3
+        env.preferencesManager.setDefaultAlertMinutes(3)
 
         let shortAlertMinutesOff = env.preferencesManager.alertMinutes(for: shortEvent)
         let longAlertMinutesOff = env.preferencesManager.alertMinutes(for: longEvent)
@@ -149,8 +149,8 @@ final class PreferenceCascadeE2ETests: XCTestCase {
 
     func testSoundAlertToggleAffectsAlertCount() async throws {
         env.preferencesManager.playAlertSound = false
-        env.preferencesManager.overlayShowMinutesBefore = 5
-        env.preferencesManager.defaultAlertMinutes = 3
+        env.preferencesManager.setOverlayShowMinutesBefore(5)
+        env.preferencesManager.setDefaultAlertMinutes(3)
 
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-sound-toggle",
@@ -192,7 +192,7 @@ final class PreferenceCascadeE2ETests: XCTestCase {
         )
 
         // Schedule with 2 minutes before
-        env.preferencesManager.overlayShowMinutesBefore = 2
+        env.preferencesManager.setOverlayShowMinutesBefore(2)
         try await env.seedAndSchedule([event])
 
         let alert2Min = try XCTUnwrap(env.eventScheduler.scheduledAlerts.first)
@@ -200,7 +200,7 @@ final class PreferenceCascadeE2ETests: XCTestCase {
 
         // Re-schedule with 8 minutes before
         env.eventScheduler.stopScheduling()
-        env.preferencesManager.overlayShowMinutesBefore = 8
+        env.preferencesManager.setOverlayShowMinutesBefore(8)
 
         let fetched = try await env.fetchUpcomingEvents()
         await env.eventScheduler.startScheduling(

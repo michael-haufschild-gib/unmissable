@@ -164,7 +164,7 @@ struct GeneralPreferencesView: View {
 
             CustomPicker(
                 "Minutes",
-                selection: $preferences.defaultAlertMinutes,
+                selection: preferences.defaultAlertMinutesBinding,
                 options: [
                     (1, "1 minute"),
                     (2, "2 minutes"),
@@ -207,7 +207,7 @@ struct GeneralPreferencesView: View {
 
                     CustomPicker(
                         "Short",
-                        selection: $preferences.shortMeetingAlertMinutes,
+                        selection: preferences.shortMeetingAlertMinutesBinding,
                         options: [(1, "1 min"), (2, "2 min"), (5, "5 min")]
                     )
                     .frame(width: 80)
@@ -222,7 +222,7 @@ struct GeneralPreferencesView: View {
 
                     CustomPicker(
                         "Medium",
-                        selection: $preferences.mediumMeetingAlertMinutes,
+                        selection: preferences.mediumMeetingAlertMinutesBinding,
                         options: [(2, "2 min"), (5, "5 min"), (10, "10 min")]
                     )
                     .frame(width: 80)
@@ -237,7 +237,7 @@ struct GeneralPreferencesView: View {
 
                     CustomPicker(
                         "Long",
-                        selection: $preferences.longMeetingAlertMinutes,
+                        selection: preferences.longMeetingAlertMinutesBinding,
                         options: [(5, "5 min"), (10, "10 min"), (15, "15 min")]
                     )
                     .frame(width: 80)
@@ -278,7 +278,7 @@ struct GeneralPreferencesView: View {
 
                         CustomPicker(
                             "Interval",
-                            selection: $preferences.syncIntervalSeconds,
+                            selection: preferences.syncIntervalSecondsBinding,
                             options: [
                                 (30, "30 seconds"),
                                 (60, "1 minute"),

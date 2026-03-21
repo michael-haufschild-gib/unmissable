@@ -156,18 +156,18 @@ final class AppState: ObservableObject {
         }
     }
 
-    func disconnectFromCalendar(provider: CalendarProviderType) {
+    func disconnectFromCalendar(provider: CalendarProviderType) async {
         logger.info("Disconnecting from \(provider.rawValue) calendar")
-        services.calendarService.disconnect(provider: provider)
+        await services.calendarService.disconnect(provider: provider)
 
         if !isConnectedToCalendar {
             services.eventScheduler.stopScheduling()
         }
     }
 
-    func disconnectAll() {
+    func disconnectAll() async {
         logger.info("Disconnecting from all calendars")
-        services.calendarService.disconnectAll()
+        await services.calendarService.disconnectAll()
         services.eventScheduler.stopScheduling()
     }
 

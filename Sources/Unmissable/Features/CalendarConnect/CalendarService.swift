@@ -94,7 +94,7 @@ final class CalendarService: ObservableObject {
         }
     }
 
-    func disconnect(provider providerType: CalendarProviderType) {
+    func disconnect(provider providerType: CalendarProviderType) async {
         logger.info("Disconnecting provider: \(providerType.rawValue)")
 
         guard let backend = providers[providerType] else { return }
@@ -102,15 +102,13 @@ final class CalendarService: ObservableObject {
         backend.sync.stopPeriodicSync()
         backend.auth.signOut()
 
-        // Clean up provider data from database
-        Task {
-            do {
-                try await databaseManager.deleteAllDataForProvider(providerType)
-            } catch {
-                logger.error("Failed to delete data for \(providerType.rawValue): \(error.localizedDescription)")
-            }
-            await loadCachedData()
+        // Clean up provider data from database before removing provider references
+        do {
+            try await databaseManager.deleteAllDataForProvider(providerType)
+        } catch {
+            logger.error("Failed to delete data for \(providerType.rawValue): \(error.localizedDescription)")
         }
+        await loadCachedData()
 
         // Remove bindings for this provider
         providerCancellables[providerType] = nil
@@ -124,9 +122,9 @@ final class CalendarService: ObservableObject {
         }
     }
 
-    func disconnectAll() {
+    func disconnectAll() async {
         for providerType in Array(providers.keys) {
-            disconnect(provider: providerType)
+            await disconnect(provider: providerType)
         }
     }
 

@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import SwiftUI
 
 // MARK: - Type-safe UserDefaults Keys
 
@@ -44,13 +45,18 @@ private extension UserDefaults {
 final class PreferencesManager: ObservableObject {
     private let userDefaults = UserDefaults.standard
 
+    // MARK: - Clamped Properties
+
+    // These use a private @Published backing store with a computed public property
+    // so that values are clamped before assignment, producing exactly one notification.
+    // Combine subscribers use the $_name projection; SwiftUI Bindings use the computed property.
+
     /// Alert timing (validated to 0-60 minutes)
     @Published
-    var defaultAlertMinutes: Int = 1 {
-        didSet {
-            let v = clamped(defaultAlertMinutes, key: .defaultAlertMinutes, range: 0 ... 60)
-            if v != defaultAlertMinutes { defaultAlertMinutes = v }
-        }
+    private(set) var defaultAlertMinutes: Int = 1
+    func setDefaultAlertMinutes(_ value: Int) {
+        defaultAlertMinutes = Self.clamp(value, to: 0 ... 60)
+        userDefaults.set(defaultAlertMinutes, forKey: PrefKey.defaultAlertMinutes)
     }
 
     @Published
@@ -59,36 +65,32 @@ final class PreferencesManager: ObservableObject {
     }
 
     @Published
-    var shortMeetingAlertMinutes: Int = 1 {
-        didSet {
-            let v = clamped(shortMeetingAlertMinutes, key: .shortMeetingAlertMinutes, range: 0 ... 60)
-            if v != shortMeetingAlertMinutes { shortMeetingAlertMinutes = v }
-        }
+    private(set) var shortMeetingAlertMinutes: Int = 1
+    func setShortMeetingAlertMinutes(_ value: Int) {
+        shortMeetingAlertMinutes = Self.clamp(value, to: 0 ... 60)
+        userDefaults.set(shortMeetingAlertMinutes, forKey: PrefKey.shortMeetingAlertMinutes)
     }
 
     @Published
-    var mediumMeetingAlertMinutes: Int = 2 {
-        didSet {
-            let v = clamped(mediumMeetingAlertMinutes, key: .mediumMeetingAlertMinutes, range: 0 ... 60)
-            if v != mediumMeetingAlertMinutes { mediumMeetingAlertMinutes = v }
-        }
+    private(set) var mediumMeetingAlertMinutes: Int = 2
+    func setMediumMeetingAlertMinutes(_ value: Int) {
+        mediumMeetingAlertMinutes = Self.clamp(value, to: 0 ... 60)
+        userDefaults.set(mediumMeetingAlertMinutes, forKey: PrefKey.mediumMeetingAlertMinutes)
     }
 
     @Published
-    var longMeetingAlertMinutes: Int = 5 {
-        didSet {
-            let v = clamped(longMeetingAlertMinutes, key: .longMeetingAlertMinutes, range: 0 ... 60)
-            if v != longMeetingAlertMinutes { longMeetingAlertMinutes = v }
-        }
+    private(set) var longMeetingAlertMinutes: Int = 5
+    func setLongMeetingAlertMinutes(_ value: Int) {
+        longMeetingAlertMinutes = Self.clamp(value, to: 0 ... 60)
+        userDefaults.set(longMeetingAlertMinutes, forKey: PrefKey.longMeetingAlertMinutes)
     }
 
     /// Sync settings (validated to 30-3600 seconds)
     @Published
-    var syncIntervalSeconds: Int = 60 {
-        didSet {
-            let v = clamped(syncIntervalSeconds, key: .syncIntervalSeconds, range: 30 ... 3600)
-            if v != syncIntervalSeconds { syncIntervalSeconds = v }
-        }
+    private(set) var syncIntervalSeconds: Int = 60
+    func setSyncIntervalSeconds(_ value: Int) {
+        syncIntervalSeconds = Self.clamp(value, to: 30 ... 3600)
+        userDefaults.set(syncIntervalSeconds, forKey: PrefKey.syncIntervalSeconds)
     }
 
     @Published
@@ -106,19 +108,17 @@ final class PreferencesManager: ObservableObject {
     }
 
     @Published
-    var overlayOpacity: Double = 0.9 {
-        didSet {
-            let v = clamped(overlayOpacity, key: .overlayOpacity, range: 0.1 ... 1.0)
-            if v != overlayOpacity { overlayOpacity = v }
-        }
+    private(set) var overlayOpacity: Double = 0.9
+    func setOverlayOpacity(_ value: Double) {
+        overlayOpacity = Self.clamp(value, to: 0.1 ... 1.0)
+        userDefaults.set(overlayOpacity, forKey: PrefKey.overlayOpacity)
     }
 
     @Published
-    var overlayShowMinutesBefore: Int = 5 {
-        didSet {
-            let v = clamped(overlayShowMinutesBefore, key: .overlayShowMinutesBefore, range: 1 ... 60)
-            if v != overlayShowMinutesBefore { overlayShowMinutesBefore = v }
-        }
+    private(set) var overlayShowMinutesBefore: Int = 5
+    func setOverlayShowMinutesBefore(_ value: Int) {
+        overlayShowMinutesBefore = Self.clamp(value, to: 1 ... 60)
+        userDefaults.set(overlayShowMinutesBefore, forKey: PrefKey.overlayShowMinutesBefore)
     }
 
     @Published
@@ -152,11 +152,10 @@ final class PreferencesManager: ObservableObject {
     }
 
     @Published
-    var alertVolume: Double = 0.7 {
-        didSet {
-            let v = clamped(alertVolume, key: .alertVolume, range: 0.0 ... 1.0)
-            if v != alertVolume { alertVolume = v }
-        }
+    private(set) var alertVolume: Double = 0.7
+    func setAlertVolume(_ value: Double) {
+        alertVolume = Self.clamp(value, to: 0.0 ... 1.0)
+        userDefaults.set(alertVolume, forKey: PrefKey.alertVolume)
     }
 
     /// Focus mode
@@ -194,31 +193,30 @@ final class PreferencesManager: ObservableObject {
         loadPreferences()
     }
 
-    // MARK: - Clamped Persistence
+    // MARK: - Clamping
 
-    /// Returns clamped value and persists to UserDefaults.
-    /// Caller must check return value against current property and re-assign if different.
-    private func clamped(_ value: Int, key: PrefKey, range: ClosedRange<Int>) -> Int {
-        let result = max(range.lowerBound, min(value, range.upperBound))
-        userDefaults.set(result, forKey: key)
-        return result
-    }
-
-    private func clamped(_ value: Double, key: PrefKey, range: ClosedRange<Double>) -> Double {
-        let result = max(range.lowerBound, min(value, range.upperBound))
-        userDefaults.set(result, forKey: key)
-        return result
+    private static func clamp<T: Comparable>(_ value: T, to range: ClosedRange<T>) -> T {
+        max(range.lowerBound, min(value, range.upperBound))
     }
 
     private func loadPreferences() {
-        defaultAlertMinutes = userDefaults.object(forKey: PrefKey.defaultAlertMinutes) as? Int ?? 1
+        defaultAlertMinutes = Self.clamp(
+            userDefaults.object(forKey: PrefKey.defaultAlertMinutes) as? Int ?? 1, to: 0 ... 60
+        )
         useLengthBasedTiming = userDefaults.bool(forKey: PrefKey.useLengthBasedTiming)
-        shortMeetingAlertMinutes = userDefaults.object(forKey: PrefKey.shortMeetingAlertMinutes) as? Int ?? 1
-        mediumMeetingAlertMinutes =
-            userDefaults.object(forKey: PrefKey.mediumMeetingAlertMinutes) as? Int ?? 2
-        longMeetingAlertMinutes = userDefaults.object(forKey: PrefKey.longMeetingAlertMinutes) as? Int ?? 5
+        shortMeetingAlertMinutes = Self.clamp(
+            userDefaults.object(forKey: PrefKey.shortMeetingAlertMinutes) as? Int ?? 1, to: 0 ... 60
+        )
+        mediumMeetingAlertMinutes = Self.clamp(
+            userDefaults.object(forKey: PrefKey.mediumMeetingAlertMinutes) as? Int ?? 2, to: 0 ... 60
+        )
+        longMeetingAlertMinutes = Self.clamp(
+            userDefaults.object(forKey: PrefKey.longMeetingAlertMinutes) as? Int ?? 5, to: 0 ... 60
+        )
 
-        syncIntervalSeconds = userDefaults.object(forKey: PrefKey.syncIntervalSeconds) as? Int ?? 60
+        syncIntervalSeconds = Self.clamp(
+            userDefaults.object(forKey: PrefKey.syncIntervalSeconds) as? Int ?? 60, to: 30 ... 3600
+        )
         includeAllDayEvents = userDefaults.bool(forKey: PrefKey.includeAllDayEvents)
 
         if let themeRawValue = userDefaults.object(forKey: PrefKey.appearanceTheme) as? String,
@@ -230,8 +228,12 @@ final class PreferencesManager: ObservableObject {
             ThemeManager.shared.setTheme(.system)
         }
 
-        overlayOpacity = userDefaults.object(forKey: PrefKey.overlayOpacity) as? Double ?? 0.9
-        overlayShowMinutesBefore = userDefaults.object(forKey: PrefKey.overlayShowMinutesBefore) as? Int ?? 5
+        overlayOpacity = Self.clamp(
+            userDefaults.object(forKey: PrefKey.overlayOpacity) as? Double ?? 0.9, to: 0.1 ... 1.0
+        )
+        overlayShowMinutesBefore = Self.clamp(
+            userDefaults.object(forKey: PrefKey.overlayShowMinutesBefore) as? Int ?? 5, to: 1 ... 60
+        )
 
         if let fontSizeRawValue = userDefaults.object(forKey: PrefKey.fontSize) as? String,
            let fontSize = FontSize(rawValue: fontSizeRawValue)
@@ -243,7 +245,9 @@ final class PreferencesManager: ObservableObject {
         showOnAllDisplays = userDefaults.object(forKey: PrefKey.showOnAllDisplays) as? Bool ?? true
 
         playAlertSound = userDefaults.object(forKey: PrefKey.playAlertSound) as? Bool ?? true
-        alertVolume = userDefaults.object(forKey: PrefKey.alertVolume) as? Double ?? 0.7
+        alertVolume = Self.clamp(
+            userDefaults.object(forKey: PrefKey.alertVolume) as? Double ?? 0.7, to: 0.0 ... 1.0
+        )
 
         overrideFocusMode = userDefaults.object(forKey: PrefKey.overrideFocusMode) as? Bool ?? true
         autoJoinEnabled = userDefaults.bool(forKey: PrefKey.autoJoinEnabled)
@@ -256,6 +260,65 @@ final class PreferencesManager: ObservableObject {
         }
 
         showTodayOnlyInMenuBar = userDefaults.bool(forKey: PrefKey.showTodayOnlyInMenuBar)
+    }
+
+    // MARK: - Clamped Bindings for SwiftUI
+
+    /// Bindings that clamp values on write, for use in SwiftUI Pickers/Sliders.
+    var defaultAlertMinutesBinding: Binding<Int> {
+        Binding(
+            get: { self.defaultAlertMinutes },
+            set: { self.setDefaultAlertMinutes($0) }
+        )
+    }
+
+    var shortMeetingAlertMinutesBinding: Binding<Int> {
+        Binding(
+            get: { self.shortMeetingAlertMinutes },
+            set: { self.setShortMeetingAlertMinutes($0) }
+        )
+    }
+
+    var mediumMeetingAlertMinutesBinding: Binding<Int> {
+        Binding(
+            get: { self.mediumMeetingAlertMinutes },
+            set: { self.setMediumMeetingAlertMinutes($0) }
+        )
+    }
+
+    var longMeetingAlertMinutesBinding: Binding<Int> {
+        Binding(
+            get: { self.longMeetingAlertMinutes },
+            set: { self.setLongMeetingAlertMinutes($0) }
+        )
+    }
+
+    var syncIntervalSecondsBinding: Binding<Int> {
+        Binding(
+            get: { self.syncIntervalSeconds },
+            set: { self.setSyncIntervalSeconds($0) }
+        )
+    }
+
+    var overlayOpacityBinding: Binding<Double> {
+        Binding(
+            get: { self.overlayOpacity },
+            set: { self.setOverlayOpacity($0) }
+        )
+    }
+
+    var overlayShowMinutesBeforeBinding: Binding<Int> {
+        Binding(
+            get: { self.overlayShowMinutesBefore },
+            set: { self.setOverlayShowMinutesBefore($0) }
+        )
+    }
+
+    var alertVolumeBinding: Binding<Double> {
+        Binding(
+            get: { self.alertVolume },
+            set: { self.setAlertVolume($0) }
+        )
     }
 
     func alertMinutes(for event: Event) -> Int {

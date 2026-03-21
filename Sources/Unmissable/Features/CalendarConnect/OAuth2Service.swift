@@ -457,13 +457,19 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
             throw OAuth2Error.userInfoFetchFailed
         }
 
-        let userInfo = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        guard let email = userInfo?["email"] as? String else {
+        do {
+            let userInfo = try JSONDecoder().decode(GoogleUserInfo.self, from: data)
+            return userInfo.email
+        } catch {
             throw OAuth2Error.userInfoFetchFailed
         }
-
-        return email
     }
+}
+
+/// Minimal Codable representation of Google's userinfo response.
+/// Only the fields we need are decoded; extra fields are ignored.
+private struct GoogleUserInfo: Codable {
+    let email: String
 }
 
 enum OAuth2Error: LocalizedError {

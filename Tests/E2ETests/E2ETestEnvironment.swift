@@ -29,8 +29,8 @@ final class E2ETestEnvironment {
 
         preferencesManager = PreferencesManager()
         // Set deterministic test defaults
-        preferencesManager.defaultAlertMinutes = 5
-        preferencesManager.overlayShowMinutesBefore = 2
+        preferencesManager.setDefaultAlertMinutes(5)
+        preferencesManager.setOverlayShowMinutesBefore(2)
         preferencesManager.playAlertSound = false
         preferencesManager.useLengthBasedTiming = false
         preferencesManager.showOnAllDisplays = false

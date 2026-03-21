@@ -116,7 +116,7 @@ final class SyncManager: ObservableObject {
         pendingNetworkUpdate = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                try await Task.sleep(for: .milliseconds(Int(networkDebounceDelay * 1000)))
+                try await Task.sleep(for: .milliseconds(networkDebounceDelay * 1000))
             } catch is CancellationError {
                 return // Debounced - a newer update superseded this one
             } catch {
@@ -155,7 +155,7 @@ final class SyncManager: ObservableObject {
             // Then repeat every interval
             while !Task.isCancelled {
                 do {
-                    try await Task.sleep(for: .seconds(Int(intervalSeconds)))
+                    try await Task.sleep(for: .seconds(intervalSeconds))
                     if !Task.isCancelled {
                         await performSync()
                     }
@@ -302,7 +302,7 @@ final class SyncManager: ObservableObject {
         retryTask?.cancel()
         retryTask = Task { @MainActor in
             do {
-                try await Task.sleep(for: .seconds(Int(retryDelay)))
+                try await Task.sleep(for: .seconds(retryDelay))
                 if !Task.isCancelled {
                     await performSync()
                 }

@@ -10,9 +10,9 @@ final class EventScheduler: ObservableObject {
     @Published
     var scheduledAlerts: [ScheduledAlert] = []
 
-    private nonisolated(unsafe) var monitoringTask: Task<Void, Never>?
+    private var monitoringTask: Task<Void, Never>?
     private let preferencesManager: PreferencesManager
-    private nonisolated(unsafe) var cancellables = Set<AnyCancellable>()
+    private var cancellables = Set<AnyCancellable>()
 
     // Store current events to allow rescheduling
     private var currentEvents: [Event] = []
@@ -21,17 +21,6 @@ final class EventScheduler: ObservableObject {
     init(preferencesManager: PreferencesManager) {
         self.preferencesManager = preferencesManager
         setupPreferencesObserver()
-    }
-
-    deinit {
-        // Capture nonisolated(unsafe) properties to local constants to avoid data race.
-        // The capture itself is atomic (reading a reference), avoiding the race condition.
-        // Task.cancel() and AnyCancellable.cancel() are both thread-safe operations,
-        // so we can safely call them synchronously from any thread.
-        let task = monitoringTask
-        let subs = cancellables
-        task?.cancel()
-        subs.forEach { $0.cancel() }
     }
 
     private func setupPreferencesObserver() {
@@ -191,10 +180,11 @@ final class EventScheduler: ObservableObject {
         // Cancel existing task if any
         monitoringTask?.cancel()
 
-        monitoringTask = Task { @MainActor in
-            logger.debug("Alert monitoring started")
+        monitoringTask = Task { @MainActor [weak self] in
+            self?.logger.debug("Alert monitoring started")
 
             while !Task.isCancelled {
+                guard let self else { break }
                 do {
                     guard let nextAlert = scheduledAlerts.first else {
                         logger.debug("No alerts scheduled, waiting for updates")
@@ -223,7 +213,6 @@ final class EventScheduler: ObservableObject {
                 } catch {
                     // Task cancellation throws cancellation error
                     if Task.isCancelled {
-                        logger.debug("Alert monitoring cancelled")
                         break
                     }
                     logger.error("Alert monitoring error: \(error.localizedDescription)")

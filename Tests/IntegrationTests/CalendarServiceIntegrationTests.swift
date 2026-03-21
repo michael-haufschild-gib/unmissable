@@ -77,8 +77,8 @@ final class CalendarServiceIntegrationTests: XCTestCase {
     }
 
     @MainActor
-    func testDisconnectAll() {
-        calendarService.disconnectAll()
+    func testDisconnectAll() async {
+        await calendarService.disconnectAll()
 
         XCTAssertFalse(calendarService.isConnected)
         XCTAssertTrue(calendarService.events.isEmpty)

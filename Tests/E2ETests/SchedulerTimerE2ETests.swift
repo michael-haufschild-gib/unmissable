@@ -25,7 +25,7 @@ final class SchedulerTimerE2ETests: XCTestCase {
         // Set overlay to show 0 minutes before — this means "show at event start time"
         // For a very-near event, the scheduler should trigger via the
         // "missed alert time" path immediately
-        env.preferencesManager.overlayShowMinutesBefore = 0
+        env.preferencesManager.setOverlayShowMinutesBefore(0)
 
         let nearEvent = E2EEventBuilder.futureEvent(
             id: "e2e-timer-trigger",
@@ -96,7 +96,7 @@ final class SchedulerTimerE2ETests: XCTestCase {
         XCTAssertEqual(initialSnoozeCount, 1)
 
         // Change preference to trigger rescheduling
-        env.preferencesManager.overlayShowMinutesBefore = 8
+        env.preferencesManager.setOverlayShowMinutesBefore(8)
 
         // Wait for rescheduling to complete
         try await e2eWait(timeout: 3.0, description: "Snooze should survive rescheduling") {
@@ -121,7 +121,7 @@ final class SchedulerTimerE2ETests: XCTestCase {
     func testSchedulerShowsOverlayImmediatelyForMissedAlertTime() async throws {
         // Simulate: app started late, event overlay alert time already passed
         // but meeting hasn't started yet
-        env.preferencesManager.overlayShowMinutesBefore = 10
+        env.preferencesManager.setOverlayShowMinutesBefore(10)
 
         // Event starts in 5 minutes — the 10-minute alert window already passed
         let event = E2EEventBuilder.futureEvent(
@@ -241,8 +241,8 @@ final class SchedulerTimerE2ETests: XCTestCase {
 
         // Length-based timing should work with DB-fetched events
         env.preferencesManager.useLengthBasedTiming = true
-        env.preferencesManager.shortMeetingAlertMinutes = 2
-        env.preferencesManager.longMeetingAlertMinutes = 10
+        env.preferencesManager.setShortMeetingAlertMinutes(2)
+        env.preferencesManager.setLongMeetingAlertMinutes(10)
 
         let shortAlertMin = env.preferencesManager.alertMinutes(for: fetchedShort)
         let longAlertMin = env.preferencesManager.alertMinutes(for: fetchedLong)

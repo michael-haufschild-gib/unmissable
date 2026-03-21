@@ -123,9 +123,7 @@ final class FocusModeManager: ObservableObject {
             return .notFound
         }
 
-        return await Task.detached {
-            readLegacyDNDPrefs(at: prefsPath)
-        }.value
+        return await readLegacyDNDPrefs(at: prefsPath)
     }
 
     /// Reads the modern Assertions.json to determine if any Focus mode is active.
@@ -157,7 +155,8 @@ final class FocusModeManager: ObservableObject {
     }
 
     /// Legacy DND detection via plutil on ncprefs.plist (macOS 11 and earlier).
-    private nonisolated static func readLegacyDNDPrefs(at prefsPath: String) -> DNDCheckResult {
+    /// Runs the process asynchronously to avoid blocking a cooperative thread.
+    private nonisolated static func readLegacyDNDPrefs(at prefsPath: String) async -> DNDCheckResult {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/plutil")
         process.arguments = [
@@ -171,31 +170,58 @@ final class FocusModeManager: ObservableObject {
 
         do {
             try process.run()
-
-            let timeoutTask = Task {
-                try await Task.sleep(for: .seconds(3))
-                if process.isRunning {
-                    process.terminate()
-                }
-            }
-
-            process.waitUntilExit()
-            timeoutTask.cancel()
-
-            let maxOutputSize = 100
-            let fileHandle = pipe.fileHandleForReading
-            let data = fileHandle.readData(ofLength: maxOutputSize)
-
-            if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(
-                in: .whitespacesAndNewlines
-            ) {
-                let newDNDStatus = output == "1" || output == "true"
-                return DNDCheckResult.success(newDNDStatus)
-            }
-            return .success(false)
         } catch {
             return .failure(error)
         }
+
+        // Use a Sendable box for exactly-once continuation resumption.
+        // Both the terminationHandler and the timeout task may attempt to resume.
+        final class OnceBox: @unchecked Sendable {
+            private var continuation: CheckedContinuation<Void, Never>?
+            private let lock = NSLock()
+
+            init(_ continuation: CheckedContinuation<Void, Never>) {
+                self.continuation = continuation
+            }
+
+            func resume() {
+                lock.lock()
+                let c = continuation
+                continuation = nil
+                lock.unlock()
+                c?.resume()
+            }
+        }
+
+        // Wait for termination asynchronously (or timeout after 3 seconds)
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let box = OnceBox(continuation)
+
+            process.terminationHandler = { _ in
+                box.resume()
+            }
+
+            // Timeout: terminate the process if it hasn't finished within 3 seconds
+            Task {
+                try? await Task.sleep(for: .seconds(3))
+                if process.isRunning {
+                    process.terminate()
+                }
+                box.resume()
+            }
+        }
+
+        let maxOutputSize = 100
+        let fileHandle = pipe.fileHandleForReading
+        let data = fileHandle.readData(ofLength: maxOutputSize)
+
+        if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        ) {
+            let newDNDStatus = output == "1" || output == "true"
+            return DNDCheckResult.success(newDNDStatus)
+        }
+        return .success(false)
     }
 
     func shouldShowOverlay() -> Bool {

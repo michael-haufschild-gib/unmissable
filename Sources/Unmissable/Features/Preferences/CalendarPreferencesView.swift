@@ -80,7 +80,9 @@ struct CalendarPreferencesView: View {
 
                 if isConnected {
                     CustomButton("Disconnect", style: .destructive) {
-                        appState.disconnectFromCalendar(provider: providerType)
+                        Task {
+                            await appState.disconnectFromCalendar(provider: providerType)
+                        }
                     }
                 } else if isConnecting {
                     ProgressView()
