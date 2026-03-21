@@ -164,7 +164,7 @@ final class MeetingDetailsE2ETests: XCTestCase {
         let dbEvent = try XCTUnwrap(fetched.first)
 
         // Show overlay
-        env.overlayManager.showOverlay(for: dbEvent)
+        env.overlayManager.showOverlayImmediately(for: dbEvent)
         XCTAssertTrue(env.overlayManager.isOverlayVisible)
 
         // Show popup simultaneously

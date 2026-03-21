@@ -56,7 +56,7 @@ final class SchedulerTimerE2ETests: XCTestCase {
         try await env.seedAndSchedule([event])
 
         // Show overlay and snooze
-        env.overlayManager.showOverlay(for: event)
+        env.overlayManager.showOverlayImmediately(for: event)
         XCTAssertTrue(env.overlayManager.isOverlayVisible)
 
         let snoozeMinutes = 5

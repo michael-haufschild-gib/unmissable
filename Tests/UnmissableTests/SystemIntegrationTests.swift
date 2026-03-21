@@ -119,7 +119,7 @@ final class SystemIntegrationTests: XCTestCase {
         await eventScheduler.startScheduling(events: [event], overlayManager: overlayManager)
 
         // Simulate overlay being shown
-        overlayManager.showOverlay(for: event)
+        overlayManager.showOverlayImmediately(for: event)
         XCTAssertTrue(overlayManager.isOverlayVisible)
 
         // Snooze the overlay
@@ -146,7 +146,7 @@ final class SystemIntegrationTests: XCTestCase {
     func testOverlayShowAndHideIntegration() {
         let event = TestUtilities.createTestEvent()
 
-        overlayManager.showOverlay(for: event)
+        overlayManager.showOverlayImmediately(for: event)
         XCTAssertTrue(overlayManager.isOverlayVisible)
         XCTAssertEqual(overlayManager.activeEvent?.id, event.id)
 
@@ -246,7 +246,7 @@ final class SystemIntegrationTests: XCTestCase {
 
         // Test that the system remains responsive
         let testEvent = TestUtilities.createTestEvent(id: "responsiveness-test")
-        overlayManager.showOverlay(for: testEvent)
+        overlayManager.showOverlayImmediately(for: testEvent)
         XCTAssertTrue(overlayManager.isOverlayVisible)
 
         overlayManager.hideOverlay()
@@ -269,7 +269,7 @@ final class SystemIntegrationTests: XCTestCase {
         XCTAssertFalse(eventScheduler.scheduledAlerts.isEmpty)
 
         // Show overlay
-        overlayManager.showOverlay(for: event)
+        overlayManager.showOverlayImmediately(for: event)
         XCTAssertTrue(overlayManager.isOverlayVisible)
         XCTAssertEqual(overlayManager.activeEvent?.id, event.id)
 
@@ -337,7 +337,7 @@ final class SystemIntegrationTests: XCTestCase {
 
             // Show and hide overlays for first few events
             for event in events.prefix(5) {
-                overlay.showOverlay(for: event)
+                overlay.showOverlayImmediately(for: event)
                 overlay.hideOverlay()
             }
 

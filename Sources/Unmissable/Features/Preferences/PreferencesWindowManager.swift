@@ -31,6 +31,7 @@ final class PreferencesWindowManager: NSObject, ObservableObject {
     private func createPreferencesWindow() {
         let contentView = PreferencesView()
             .environmentObject(appState)
+            .environmentObject(appState.calendar)
             .customThemedEnvironment()
             .frame(minWidth: 650, minHeight: 450)
 

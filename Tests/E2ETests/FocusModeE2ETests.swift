@@ -44,7 +44,7 @@ final class FocusModeE2ETests: XCTestCase {
         let event = E2EEventBuilder.futureEvent(id: "e2e-dnd-off", minutesFromNow: 10)
         try await env.seedAndSchedule([event])
 
-        env.overlayManager.showOverlay(for: event)
+        env.overlayManager.showOverlayImmediately(for: event)
         XCTAssertTrue(env.overlayManager.isOverlayVisible)
     }
 
@@ -126,7 +126,7 @@ final class FocusModeE2ETests: XCTestCase {
         // Check focus mode BEFORE showing overlay (production behavior)
         let shouldShow = focusModeManager.shouldShowOverlay()
         if shouldShow {
-            env.overlayManager.showOverlay(for: event)
+            env.overlayManager.showOverlayImmediately(for: event)
         }
 
         XCTAssertFalse(shouldShow)
@@ -136,7 +136,7 @@ final class FocusModeE2ETests: XCTestCase {
         env.preferencesManager.overrideFocusMode = true
         let shouldShowNow = focusModeManager.shouldShowOverlay()
         if shouldShowNow {
-            env.overlayManager.showOverlay(for: event)
+            env.overlayManager.showOverlayImmediately(for: event)
         }
 
         XCTAssertTrue(shouldShowNow)

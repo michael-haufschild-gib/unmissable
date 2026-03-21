@@ -20,11 +20,6 @@ protocol OverlayManaging: ObservableObject {
 // MARK: - OverlayManaging Convenience Overloads
 
 extension OverlayManaging {
-    /// Show overlay with default minutesBefore (5) and optional fromSnooze
-    func showOverlay(for event: Event, fromSnooze: Bool = false) {
-        showOverlay(for: event, minutesBeforeMeeting: 5, fromSnooze: fromSnooze)
-    }
-
     /// Show overlay immediately (minutesBefore = 0), used in tests
     func showOverlayImmediately(for event: Event, fromSnooze: Bool = false) {
         showOverlay(for: event, minutesBeforeMeeting: 0, fromSnooze: fromSnooze)

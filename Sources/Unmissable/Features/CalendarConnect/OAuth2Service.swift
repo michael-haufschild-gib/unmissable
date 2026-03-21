@@ -295,9 +295,24 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
             throw OAuth2Error.notAuthenticated
         }
 
+        let coordinator = ContinuationCoordinator<String>()
+
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
+            coordinator.setContinuation(continuation)
+            coordinator.startTimeout(seconds: 30) { [weak self] in
+                self?.logger.error("Token refresh timed out after 30 seconds")
+                self?.authorizationError = "Token refresh timed out. Please try again."
+                return OAuth2Error.timeout
+            }
+
             authState.performAction { [weak self] accessToken, _, error in
                 Task { @MainActor in
+                    // Guard against processing after timeout already completed
+                    guard !coordinator.isCompleted else {
+                        self?.logger.info("Token refresh callback ignored — already completed/timed out")
+                        return
+                    }
+
                     if let error {
                         self?.logger.error("Token refresh failed: \(error.localizedDescription)")
                         // Check if this is an auth error that requires re-authentication
@@ -310,13 +325,13 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
                             self?.userEmail = nil
                             self?.clearKeychain()
                         }
-                        continuation.resume(throwing: OAuth2Error.tokenRefreshFailed(error))
+                        coordinator.resume(throwing: OAuth2Error.tokenRefreshFailed(error))
                     } else if let accessToken {
                         // Note: No need to save here - OIDAuthStateChangeDelegate.didChange handles it
-                        continuation.resume(returning: accessToken)
+                        coordinator.resume(returning: accessToken)
                     } else {
                         self?.authorizationError = "Unable to get access token. Please sign in again."
-                        continuation.resume(
+                        coordinator.resume(
                             throwing: OAuth2Error.tokenRefreshFailed(
                                 NSError(
                                     domain: "OAuth2Service", code: -1,

@@ -61,7 +61,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         eventScheduler = scheduler
     }
 
-    func showOverlay(for event: Event, minutesBeforeMeeting _: Int = 5, fromSnooze: Bool = false) {
+    func showOverlay(for event: Event, minutesBeforeMeeting _: Int, fromSnooze: Bool = false) {
         let startTime = Date()
         logger.info("SHOW OVERLAY: Starting for event: \(event.title), fromSnooze: \(fromSnooze)")
 
@@ -206,7 +206,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
 
         // Force app activation to ensure windows receive input immediately
         // Since this is an LSUIElement (menu bar) app, windows don't steal focus automatically
-        NSApplication.shared.activate(ignoringOtherApps: true)
+        NSApplication.shared.activate()
     }
 
     private func createOverlayWindow(for screen: NSScreen, event: Event) -> NSWindow {

@@ -56,7 +56,7 @@ final class OverlayFlowE2ETests: XCTestCase {
         try await env.seedAndSchedule([event])
 
         // Manually show overlay (simulating scheduler trigger)
-        env.overlayManager.showOverlay(for: event)
+        env.overlayManager.showOverlayImmediately(for: event)
         XCTAssertTrue(env.overlayManager.isOverlayVisible)
         XCTAssertEqual(env.overlayManager.activeEvent?.id, event.id)
 
@@ -98,7 +98,7 @@ final class OverlayFlowE2ETests: XCTestCase {
         for duration in [1, 5, 10, 15] {
             env.eventScheduler.scheduledAlerts.removeAll()
 
-            env.overlayManager.showOverlay(for: event)
+            env.overlayManager.showOverlayImmediately(for: event)
             XCTAssertTrue(env.overlayManager.isOverlayVisible)
 
             env.overlayManager.snoozeOverlay(for: duration)
@@ -134,7 +134,7 @@ final class OverlayFlowE2ETests: XCTestCase {
         try await env.seedAndSchedule([event])
 
         // Show and dismiss
-        env.overlayManager.showOverlay(for: event)
+        env.overlayManager.showOverlayImmediately(for: event)
         XCTAssertTrue(env.overlayManager.isOverlayVisible)
 
         env.overlayManager.hideOverlay()
@@ -163,7 +163,7 @@ final class OverlayFlowE2ETests: XCTestCase {
         try await env.seedEvents([oldEvent])
 
         // Try to show overlay for this old meeting — should auto-dismiss
-        env.overlayManager.showOverlay(for: oldEvent)
+        env.overlayManager.showOverlayImmediately(for: oldEvent)
 
         XCTAssertFalse(
             env.overlayManager.isOverlayVisible,
@@ -181,7 +181,7 @@ final class OverlayFlowE2ETests: XCTestCase {
 
         try await env.seedEvents([recentEvent])
 
-        env.overlayManager.showOverlay(for: recentEvent)
+        env.overlayManager.showOverlayImmediately(for: recentEvent)
 
         XCTAssertTrue(
             env.overlayManager.isOverlayVisible,
@@ -202,7 +202,7 @@ final class OverlayFlowE2ETests: XCTestCase {
         try await env.seedEvents([snoozedEvent])
 
         // Show as if from snooze
-        env.overlayManager.showOverlay(for: snoozedEvent, fromSnooze: true)
+        env.overlayManager.showOverlayImmediately(for: snoozedEvent, fromSnooze: true)
 
         XCTAssertTrue(
             env.overlayManager.isOverlayVisible,
@@ -226,11 +226,11 @@ final class OverlayFlowE2ETests: XCTestCase {
 
         try await env.seedAndSchedule([event1, event2])
 
-        env.overlayManager.showOverlay(for: event1)
+        env.overlayManager.showOverlayImmediately(for: event1)
         XCTAssertEqual(env.overlayManager.activeEvent?.id, event1.id)
 
         // Second event overlay replaces first
-        env.overlayManager.showOverlay(for: event2)
+        env.overlayManager.showOverlayImmediately(for: event2)
         XCTAssertEqual(env.overlayManager.activeEvent?.id, event2.id)
         XCTAssertTrue(env.overlayManager.isOverlayVisible)
     }
@@ -245,7 +245,7 @@ final class OverlayFlowE2ETests: XCTestCase {
         try await env.seedAndSchedule([event])
 
         // Show → snooze → show again → dismiss
-        env.overlayManager.showOverlay(for: event)
+        env.overlayManager.showOverlayImmediately(for: event)
         XCTAssertTrue(env.overlayManager.isOverlayVisible)
 
         env.overlayManager.snoozeOverlay(for: 5)
@@ -253,7 +253,7 @@ final class OverlayFlowE2ETests: XCTestCase {
         XCTAssertNil(env.overlayManager.activeEvent)
 
         // Simulate snooze firing — show again
-        env.overlayManager.showOverlay(for: event, fromSnooze: true)
+        env.overlayManager.showOverlayImmediately(for: event, fromSnooze: true)
         XCTAssertTrue(env.overlayManager.isOverlayVisible)
         XCTAssertEqual(env.overlayManager.activeEvent?.id, event.id)
 
@@ -271,7 +271,7 @@ final class OverlayFlowE2ETests: XCTestCase {
         try await env.seedAndSchedule([event])
 
         for _ in 0 ..< 20 {
-            env.overlayManager.showOverlay(for: event)
+            env.overlayManager.showOverlayImmediately(for: event)
             env.overlayManager.hideOverlay()
         }
 
@@ -289,7 +289,7 @@ final class OverlayFlowE2ETests: XCTestCase {
 
         // Show and snooze rapidly — only the first snooze should register
         // because subsequent snoozes have no activeEvent
-        env.overlayManager.showOverlay(for: event)
+        env.overlayManager.showOverlayImmediately(for: event)
         env.overlayManager.snoozeOverlay(for: 1)
         env.overlayManager.snoozeOverlay(for: 2) // No-op — no active event
         env.overlayManager.snoozeOverlay(for: 3) // No-op — no active event
@@ -336,7 +336,7 @@ final class OverlayFlowE2ETests: XCTestCase {
         let fetched = try await env.fetchUpcomingEvents()
         let dbEvent = try XCTUnwrap(fetched.first)
 
-        env.overlayManager.showOverlay(for: dbEvent)
+        env.overlayManager.showOverlayImmediately(for: dbEvent)
 
         let activeEvent = try XCTUnwrap(env.overlayManager.activeEvent)
         XCTAssertTrue(activeEvent.isOnlineMeeting)

@@ -123,6 +123,16 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
 
     // MARK: - Private Methods
 
+    /// Characters allowed in percent-encoded calendar IDs.
+    /// Based on `.urlPathAllowed` with `#` explicitly removed — calendar IDs like
+    /// `#contacts@group.v.calendar.google.com` must have `#` encoded to `%23`
+    /// so it isn't misinterpreted as a URL fragment delimiter.
+    private static let calendarIdAllowedCharacters: CharacterSet = {
+        var set = CharacterSet.urlPathAllowed
+        set.remove("#")
+        return set
+    }()
+
     /// Maximum total events to fetch per calendar to prevent runaway pagination
     private static let maxEventsPerCalendar = 2000
 
@@ -136,7 +146,8 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         let timeMax = dateFormatter.string(from: endDate)
 
         let encodedCalendarId =
-            calendarId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? calendarId
+            calendarId.addingPercentEncoding(withAllowedCharacters: Self.calendarIdAllowedCharacters)
+                ?? calendarId
 
         var allEvents: [Event] = []
         var pageToken: String?

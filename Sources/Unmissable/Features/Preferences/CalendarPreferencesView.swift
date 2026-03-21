@@ -3,6 +3,8 @@ import SwiftUI
 struct CalendarPreferencesView: View {
     @EnvironmentObject
     var appState: AppState
+    @EnvironmentObject
+    var calendarService: CalendarService
     @Environment(\.customDesign)
     private var design
     @State
@@ -24,7 +26,7 @@ struct CalendarPreferencesView: View {
 
                 providerConnectionSection
 
-                if appState.calendar.isConnected {
+                if calendarService.isConnected {
                     calendarSelectionSection
                 }
 
@@ -46,7 +48,7 @@ struct CalendarPreferencesView: View {
     }
 
     private func providerCard(for providerType: CalendarProviderType) -> some View {
-        let isConnected = appState.connectedProviders.contains(providerType)
+        let isConnected = calendarService.connectedProviders.contains(providerType)
         let isConnecting = connectingProvider == providerType
 
         return CustomCard(style: isConnected ? .elevated : .standard) {
@@ -106,7 +108,7 @@ struct CalendarPreferencesView: View {
     private func providerStatusText(for providerType: CalendarProviderType) -> some View {
         switch providerType {
         case .google:
-            if let email = appState.calendar.userEmail {
+            if let email = calendarService.userEmail {
                 Text(email)
                     .font(design.fonts.caption1)
                     .foregroundColor(design.colors.textSecondary)
@@ -117,7 +119,7 @@ struct CalendarPreferencesView: View {
             }
 
         case .apple:
-            let appleCalendarCount = appState.calendar.calendars.count(where: { $0.sourceProvider == .apple })
+            let appleCalendarCount = calendarService.calendars.count(where: { $0.sourceProvider == .apple })
             if appleCalendarCount > 0 {
                 Text("\(appleCalendarCount) calendar\(appleCalendarCount == 1 ? "" : "s") available")
                     .font(design.fonts.caption1)
@@ -134,7 +136,7 @@ struct CalendarPreferencesView: View {
 
     private var calendarSelectionSection: some View {
         Group {
-            if appState.calendar.calendars.isEmpty {
+            if calendarService.calendars.isEmpty {
                 CustomCard(style: .standard) {
                     HStack(spacing: design.spacing.sm) {
                         ProgressView()
@@ -155,7 +157,7 @@ struct CalendarPreferencesView: View {
     private var calendarListByProvider: some View {
         VStack(alignment: .leading, spacing: design.spacing.lg) {
             ForEach(CalendarProviderType.allCases, id: \.self) { providerType in
-                let providerCalendars = appState.calendar.calendars.filter { $0.sourceProvider == providerType }
+                let providerCalendars = calendarService.calendars.filter { $0.sourceProvider == providerType }
                 if !providerCalendars.isEmpty {
                     CustomCard(style: .standard) {
                         VStack(alignment: .leading, spacing: design.spacing.lg) {

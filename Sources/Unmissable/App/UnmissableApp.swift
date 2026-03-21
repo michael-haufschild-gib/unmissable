@@ -11,10 +11,11 @@ struct UnmissableApp: App {
         MenuBarExtra {
             MenuBarView()
                 .environmentObject(appState)
+                .environmentObject(appState.calendar)
                 .customThemedEnvironment()
         } label: {
             MenuBarLabelView()
-                .environmentObject(appState)
+                .environmentObject(appState.menuBarPreview)
         }
         .menuBarExtraStyle(.window)
     }
@@ -22,13 +23,13 @@ struct UnmissableApp: App {
 
 struct MenuBarLabelView: View {
     @EnvironmentObject
-    var appState: AppState
+    var menuBarPreview: MenuBarPreviewManager
 
     var body: some View {
         Group {
-            if appState.menuBarPreview.shouldShowIcon {
+            if menuBarPreview.shouldShowIcon {
                 Image(systemName: "calendar.badge.clock")
-            } else if let text = appState.menuBarPreview.menuBarText {
+            } else if let text = menuBarPreview.menuBarText {
                 Text(text)
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
             } else {

@@ -118,7 +118,7 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
             }, "Snooze alert should be scheduled"
         )
 
-        overlayManager.showOverlay(for: testEvent, fromSnooze: true)
+        overlayManager.showOverlayImmediately(for: testEvent, fromSnooze: true)
         XCTAssertTrue(overlayManager.isOverlayVisible, "Snoozed overlay should be visible")
 
         overlayManager.hideOverlay()

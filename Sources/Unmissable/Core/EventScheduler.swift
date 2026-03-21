@@ -176,6 +176,10 @@ final class EventScheduler: ObservableObject {
         )
     }
 
+    /// Maximum acceptable drift between expected and actual wake time before
+    /// treating the gap as a system sleep/wake event (seconds).
+    private static let wakeDriftThreshold: TimeInterval = 2.0
+
     private func startMonitoring(overlayManager: any OverlayManaging) {
         // Cancel existing task if any
         monitoringTask?.cancel()
@@ -190,7 +194,20 @@ final class EventScheduler: ObservableObject {
                         logger.debug("No alerts scheduled, waiting for updates")
                         // Short sleep so newly-added events are picked up promptly
                         // if a reschedule doesn't cancel this task first.
+                        let idleSleepStart = Date()
                         try await Task.sleep(for: .seconds(30))
+
+                        // Detect system sleep/wake: if wall clock advanced far beyond 30s,
+                        // the system likely slept. Process any due alerts immediately
+                        // instead of looping back to re-check.
+                        let idleDrift = Date().timeIntervalSince(idleSleepStart) - 30
+                        if idleDrift > Self.wakeDriftThreshold {
+                            logger.info(
+                                "WAKE DETECTED: Idle sleep overran by \(String(format: "%.1f", idleDrift))s — processing due alerts"
+                            )
+                            guard !Task.isCancelled else { break }
+                            checkForTriggeredAlerts(overlayManager: overlayManager)
+                        }
                         continue
                     }
 
@@ -202,8 +219,17 @@ final class EventScheduler: ObservableObject {
                             .debug(
                                 "MONITORING: Sleeping for \(String(format: "%.2f", timeUntilTrigger))s until next alert for '\(nextAlert.event.title)'"
                             )
+                        let sleepStart = Date()
                         // Sleep exactly until the next alert (plus a tiny buffer)
                         try await Task.sleep(for: .seconds(timeUntilTrigger))
+
+                        // Detect system sleep/wake: wall clock advanced far beyond expected
+                        let sleepDrift = Date().timeIntervalSince(sleepStart) - timeUntilTrigger
+                        if sleepDrift > Self.wakeDriftThreshold {
+                            logger.info(
+                                "WAKE DETECTED: Alert sleep overran by \(String(format: "%.1f", sleepDrift))s — processing all due alerts"
+                            )
+                        }
                     }
 
                     // Double check cancellation before processing
@@ -276,9 +302,9 @@ final class EventScheduler: ObservableObject {
 
     private func handleTriggeredAlert(_ alert: ScheduledAlert, overlayManager: any OverlayManaging) {
         switch alert.alertType {
-        case .reminder:
+        case let .reminder(minutesBefore):
             logger.info("REMINDER: Showing overlay for \(alert.event.title)")
-            overlayManager.showOverlay(for: alert.event, fromSnooze: false)
+            overlayManager.showOverlay(for: alert.event, minutesBeforeMeeting: minutesBefore, fromSnooze: false)
 
         case .meetingStart:
             if preferencesManager.autoJoinEnabled, let url = alert.event.primaryLink {
@@ -288,7 +314,11 @@ final class EventScheduler: ObservableObject {
 
         case .snooze:
             logger.info("SNOOZE: Re-showing overlay for \(alert.event.title)")
-            overlayManager.showOverlay(for: alert.event, fromSnooze: true)
+            overlayManager.showOverlay(
+                for: alert.event,
+                minutesBeforeMeeting: preferencesManager.overlayShowMinutesBefore,
+                fromSnooze: true
+            )
         }
     }
 

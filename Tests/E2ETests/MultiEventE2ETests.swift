@@ -63,11 +63,11 @@ final class MultiEventE2ETests: XCTestCase {
         try await env.seedAndSchedule([event1, event2])
 
         // Show first event's overlay
-        env.overlayManager.showOverlay(for: event1)
+        env.overlayManager.showOverlayImmediately(for: event1)
         XCTAssertEqual(env.overlayManager.activeEvent?.id, event1.id)
 
         // Show second event's overlay — should replace first
-        env.overlayManager.showOverlay(for: event2)
+        env.overlayManager.showOverlayImmediately(for: event2)
         XCTAssertEqual(env.overlayManager.activeEvent?.id, event2.id)
         XCTAssertTrue(env.overlayManager.isOverlayVisible)
     }
@@ -161,7 +161,7 @@ final class MultiEventE2ETests: XCTestCase {
 
         // Simulate sequential overlay flow: show → dismiss for each event
         for event in events {
-            env.overlayManager.showOverlay(for: event)
+            env.overlayManager.showOverlayImmediately(for: event)
             XCTAssertTrue(env.overlayManager.isOverlayVisible)
             XCTAssertEqual(env.overlayManager.activeEvent?.id, event.id)
 
@@ -183,7 +183,7 @@ final class MultiEventE2ETests: XCTestCase {
         try await env.seedAndSchedule(events)
 
         for (index, event) in events.enumerated() {
-            env.overlayManager.showOverlay(for: event)
+            env.overlayManager.showOverlayImmediately(for: event)
             env.overlayManager.snoozeOverlay(for: 5)
 
             let snoozeAlerts = env.eventScheduler.scheduledAlerts.filter { alert in

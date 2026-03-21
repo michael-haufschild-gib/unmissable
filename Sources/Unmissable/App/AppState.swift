@@ -23,18 +23,7 @@ final class AppState: ObservableObject {
 
     private func setupBindings() {
         let calendarService = services.calendarService
-        let menuBarPreviewManager = services.menuBarPreviewManager
         let preferencesManager = services.preferencesManager
-
-        // Forward child service changes so SwiftUI views observing AppState re-render
-        // when reading through appState.calendar.X or appState.menuBarPreview.X
-        calendarService.objectWillChange
-            .sink { [weak self] _ in self?.objectWillChange.send() }
-            .store(in: &cancellables)
-
-        menuBarPreviewManager.objectWillChange
-            .sink { [weak self] _ in self?.objectWillChange.send() }
-            .store(in: &cancellables)
 
         // Update menu bar preview when events change
         calendarService.$events
