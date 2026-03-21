@@ -13,6 +13,10 @@ Unmissable is a macOS desktop application that helps you manage calendar events 
 - **Meeting links** (Google Meet, Zoom, etc.)
 - **Account email** for identification purposes
 
+### Apple Calendar Data (via EventKit)
+- **Calendar events** from calendars configured in macOS (iCloud, Exchange, CalDAV)
+- No account credentials are accessed — authorization is handled by macOS system permissions
+
 ### Local Data Storage
 - Calendar data is stored locally on your Mac
 - Meeting preferences and app settings
@@ -37,7 +41,7 @@ Unmissable is a macOS desktop application that helps you manage calendar events 
 - OAuth tokens stored securely in macOS Keychain
 - Direct encrypted connections to Google APIs
 - No data transmission to external servers
-- Local database encryption
+- Calendar data stored in a local SQLite database within Application Support
 
 ## Your Rights
 
@@ -51,8 +55,10 @@ Unmissable is a macOS desktop application that helps you manage calendar events 
 Unmissable connects to:
 - **Google Calendar API** (to read your calendar events)
 - **Google OAuth 2.0** (for secure authentication)
+- **Apple EventKit** (to read calendars configured in macOS System Settings)
+- **Sparkle** (to check for application updates)
 
-These connections are governed by Google's privacy policies.
+Google connections are governed by Google's privacy policies. Apple Calendar access uses macOS system permissions.
 
 ## Contact
 

@@ -6,10 +6,12 @@ A macOS menu bar app that ensures you never miss meetings with full-screen overl
 
 - **Full-Screen Alerts** — Blocking overlay with countdown timer
 - **Google Calendar Sync** — Secure OAuth 2.0 integration
+- **Apple Calendar Sync** — Native EventKit integration (iCloud, Exchange, CalDAV)
 - **Smart Link Detection** — Meet, Zoom, Teams, Webex
 - **Multi-Display Support** — Alerts on all screens
 - **Global Shortcuts** — Join/dismiss via keyboard
 - **Snooze & Focus Mode** — Override Do Not Disturb
+- **Auto-Updates** — Sparkle-powered update checks
 
 ## Requirements
 
@@ -22,7 +24,7 @@ A macOS menu bar app that ensures you never miss meetings with full-screen overl
 # Install dev tools
 brew install swiftlint swiftformat
 
-# Configure Google OAuth (required)
+# Configure Google OAuth (optional — Apple Calendar works without it)
 cp Config.plist.example Config.plist
 # Edit Config.plist with your Google OAuth Client ID
 
@@ -30,13 +32,13 @@ cp Config.plist.example Config.plist
 swift build && swift run
 ```
 
-Get OAuth credentials from [Google Cloud Console](https://console.developers.google.com/) → Enable Calendar API → Create OAuth 2.0 credentials.
+Get OAuth credentials from [Google Cloud Console](https://console.developers.google.com/) — Enable Calendar API — Create OAuth 2.0 credentials.
 
 ## Development
 
 ```bash
 swift build          # Build
-xcodebuild -scheme Unmissable -destination 'platform=macOS' test  # Run XCTest suites
+swift test           # Run unit tests via SPM
 ./Scripts/build.sh   # Full build + lint + test
 ./Scripts/format.sh  # Format code
 ```
@@ -54,6 +56,7 @@ GitHub Actions workflows run automatically on push/PR:
 - [GRDB.swift](https://github.com/groue/GRDB.swift) — SQLite
 - [KeychainAccess](https://github.com/kishikawakatsumi/KeychainAccess) — Keychain
 - [Magnet](https://github.com/Clipy/Magnet) — Global shortcuts
+- [Sparkle](https://github.com/sparkle-project/Sparkle) — Auto-updates
 - [SnapshotTesting](https://github.com/pointfreeco/swift-snapshot-testing) — UI tests
 
 ## Privacy

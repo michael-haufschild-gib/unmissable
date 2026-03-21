@@ -32,7 +32,7 @@ Sources/Unmissable/
 | Type | Pattern | Example |
 |------|---------|---------|
 | Class/Struct | PascalCase matching content | `EventScheduler.swift` |
-| Protocol | PascalCase + `-ing` suffix | `OverlayManaging`, `EventScheduling` |
+| Protocol | PascalCase + `-ing` suffix | `OverlayManaging`, `CalendarAPIProviding` |
 | Manager class | `[Domain]Manager` | `DatabaseManager`, `SyncManager` |
 | View file | `[Name]View.swift` | `OverlayContentView.swift` |
 | Test file | `[ClassName]Tests.swift` | `EventTests.swift`, `LinkParserTests.swift` |
@@ -134,8 +134,8 @@ protocol [Name]Managing: ObservableObject {
 ```
 
 **Naming rules**:
-- Use `-Managing` suffix for manager protocols: `OverlayManaging`, `EventScheduling`
-- Use `-ing` suffix for capability protocols: `SoundManaging`, `FocusModeManaging`
+- Use `-Managing` suffix for manager protocols: `OverlayManaging`, `MeetingDetailsPopupManaging`
+- Use `-Providing` suffix for data provider protocols: `CalendarAPIProviding`, `CalendarAuthProviding`
 - Add `@MainActor` if protocol methods touch UI
 
 ---
@@ -249,9 +249,11 @@ func startScheduling(events: [Event]) async {
 - Semicolons: never
 
 **Linting** (enforced by `.swiftlint.yml`):
-- Function body: max 50 lines (warning), 100 (error)
-- Type body: max 200 lines (warning), 300 (error)
-- Cyclomatic complexity: max 10 (warning), 20 (error)
+- Function body: max 80 lines
+- File length: max 500 lines
+- Type body: max 500 lines
+- Cyclomatic complexity: max 12
+- Line length: max 120 characters
 
 **Run before committing**:
 ```bash

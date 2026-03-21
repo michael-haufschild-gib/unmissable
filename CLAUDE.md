@@ -1,7 +1,7 @@
 # Unmissable - Project Context
 
 ## Overview
-**Unmissable** is a macOS menu bar application designed to ensure users never miss meetings. It features a full-screen blocking overlay with a countdown timer, Google Calendar integration, and smart meeting detection.
+**Unmissable** is a macOS menu bar application designed to ensure users never miss meetings. It features a full-screen blocking overlay with a countdown timer, Google and Apple Calendar integration, smart meeting link detection, and one-click join.
 
 ## Tech Stack
 - **Platform**: macOS 14.0+ (Sonoma)
@@ -24,6 +24,7 @@ The project follows a modular architecture within `Sources/Unmissable/`:
 - **GRDB.swift**: Local SQLite database.
 - **KeychainAccess**: Secure token storage.
 - **Magnet**: Global keyboard shortcuts.
+- **Sparkle**: Auto-updates.
 - **SnapshotTesting**: UI visual regression testing.
 
 ## Development Workflow

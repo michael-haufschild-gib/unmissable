@@ -9,7 +9,7 @@ By using Unmissable, you agree to these Terms of Service.
 ## Description of Service
 
 Unmissable is a macOS desktop application that:
-- Connects to your Google Calendar
+- Connects to your Google Calendar and Apple Calendar
 - Displays meeting reminders
 - Provides quick access to online meetings
 - Manages calendar event notifications
@@ -34,9 +34,10 @@ Your privacy is protected according to our Privacy Policy. We do not collect or 
 
 ## Intellectual Property
 
-- Unmissable is open source software
+- Unmissable and its source code are copyright of its authors
 - You retain rights to your calendar data
 - Google Calendar data subject to Google's terms
+- Apple Calendar data subject to Apple's terms
 
 ## Liability
 
@@ -61,7 +62,7 @@ We may update these terms as needed. Continued use constitutes acceptance of cha
 
 Questions about these terms:
 
-- **Project**: <https://github.com/michael-haufschild-gib/unmissable>
+- **Project**: <https://github.com/michael-h-patrianna/unmissable>
 - **Issues**: Submit via GitHub Issues
 
 ---

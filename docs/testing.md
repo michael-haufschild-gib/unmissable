@@ -11,6 +11,7 @@
 |-----------|----------|----------------|
 | Unit tests | `Tests/UnmissableTests/` | `[ClassName]Tests.swift` |
 | Integration tests | `Tests/IntegrationTests/` | `[Feature]IntegrationTests.swift` |
+| E2E tests | `Tests/E2ETests/` | `[Flow]E2ETests.swift` |
 | Snapshot tests | `Tests/SnapshotTests/` | `[View]SnapshotTests.swift` |
 
 ---

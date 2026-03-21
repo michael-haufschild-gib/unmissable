@@ -27,7 +27,7 @@ cd /path/to/unmissable
 brew install swiftformat swiftlint
 
 # 3. Configure OAuth (required for Google Calendar)
-cp Sources/Unmissable/Config/Config.plist.example Sources/Unmissable/Config/Config.plist
+cp Config.plist.example Config.plist
 # Edit Config.plist and add your Google OAuth credentials
 
 # 4. Build
@@ -67,7 +67,7 @@ swift run
 **For CI/Production**:
 - Set environment variable: `GOOGLE_OAUTH_CLIENT_ID`
 
-**File location**: `Sources/Unmissable/Config/Config.plist`
+**File location**: `Config.plist` (project root, gitignored)
 
 ---
 
