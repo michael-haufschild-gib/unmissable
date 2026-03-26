@@ -12,7 +12,7 @@ struct UnmissableApp: App {
             MenuBarView()
                 .environmentObject(appState)
                 .environmentObject(appState.calendar)
-                .customThemedEnvironment()
+                .customThemedEnvironment(themeManager: appState.themeManager)
         } label: {
             MenuBarLabelView()
                 .environmentObject(appState.menuBarPreview)

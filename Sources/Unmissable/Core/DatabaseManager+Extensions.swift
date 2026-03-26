@@ -7,10 +7,28 @@ private let extensionLogger = Logger(subsystem: "com.unmissable.app", category: 
 // MARK: - Search & Maintenance
 
 extension DatabaseManager {
+    /// Sanitizes user input for FTS5 MATCH by quoting each token.
+    /// Prevents FTS syntax injection (e.g., `OR`, `AND`, `*`, `"`, parentheses).
+    private func sanitizeFTSQuery(_ query: String) -> String {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+
+        // Split into whitespace-delimited tokens, wrap each in double quotes
+        // (escaping any embedded double quotes), and join with spaces for AND semantics.
+        return trimmed
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .map { "\"\($0.replacingOccurrences(of: "\"", with: "\"\""))\"" }
+            .joined(separator: " ")
+    }
+
     func searchEvents(query: String) async throws -> [Event] {
         guard let dbQueue else {
             throw DatabaseError.notInitialized
         }
+
+        let sanitized = sanitizeFTSQuery(query)
+        guard !sanitized.isEmpty else { return [] }
 
         return try await withTimeout(defaultTimeout) {
             try await dbQueue.read { db in
@@ -21,7 +39,7 @@ extension DatabaseManager {
                     JOIN events_fts ON events.rowid = events_fts.rowid
                     WHERE events_fts MATCH ?
                     ORDER BY events_fts.rank
-                    """, arguments: [query]
+                    """, arguments: [sanitized]
                 )
             }
         }

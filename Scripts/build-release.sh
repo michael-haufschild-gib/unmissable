@@ -3,7 +3,7 @@
 # Release build script for Unmissable
 # Creates a distributable .app bundle without requiring Apple Developer account
 
-set -e
+set -euo pipefail
 
 # Configuration
 APP_NAME="Unmissable"

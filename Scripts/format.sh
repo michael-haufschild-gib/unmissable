@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 # Format code with SwiftFormat
 
 echo "✨  Formatting code with SwiftFormat..."

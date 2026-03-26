@@ -3,7 +3,7 @@
 # Simple Portable Installer Creator
 # Creates a ready-to-use app package with OAuth already configured
 
-set -e
+set -euo pipefail
 
 echo "📦  Creating portable app package..."
 echo "===================================="
@@ -57,8 +57,8 @@ cat > "${PACKAGE_DIR}/README.md" << 'EOF'
 ## ✅ What's Included
 
 - **Complete App**: Unmissable.app with all dependencies
-- **OAuth Pre-configured**: Google Calendar integration ready
-- **No Setup Required**: Works immediately after copying to Applications
+- **Apple Calendar**: Works immediately — connect via system permissions
+- **Google Calendar**: Requires OAuth sign-in on first launch
 
 ## 🔒 Security
 

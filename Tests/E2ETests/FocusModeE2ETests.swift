@@ -29,7 +29,7 @@ final class FocusModeE2ETests: XCTestCase {
 
     func testOverlayShowsWhenDNDIsOff() async throws {
         focusModeManager.isDoNotDisturbEnabled = false
-        env.preferencesManager.overrideFocusMode = false
+        env.preferencesManager.setOverrideFocusMode(false)
 
         XCTAssertTrue(
             focusModeManager.shouldShowOverlay(),
@@ -52,7 +52,7 @@ final class FocusModeE2ETests: XCTestCase {
 
     func testOverlaySuppressedWhenDNDOnAndOverrideDisabled() {
         focusModeManager.isDoNotDisturbEnabled = true
-        env.preferencesManager.overrideFocusMode = false
+        env.preferencesManager.setOverrideFocusMode(false)
 
         XCTAssertFalse(
             focusModeManager.shouldShowOverlay(),
@@ -68,7 +68,7 @@ final class FocusModeE2ETests: XCTestCase {
 
     func testOverlayShowsWhenDNDOnAndOverrideEnabled() {
         focusModeManager.isDoNotDisturbEnabled = true
-        env.preferencesManager.overrideFocusMode = true
+        env.preferencesManager.setOverrideFocusMode(true)
 
         XCTAssertTrue(
             focusModeManager.shouldShowOverlay(),
@@ -83,7 +83,7 @@ final class FocusModeE2ETests: XCTestCase {
     // MARK: - Toggle DND During Active State
 
     func testTogglingDNDChangesOverlayDecision() {
-        env.preferencesManager.overrideFocusMode = false
+        env.preferencesManager.setOverrideFocusMode(false)
 
         // Start with DND off
         focusModeManager.isDoNotDisturbEnabled = false
@@ -102,15 +102,15 @@ final class FocusModeE2ETests: XCTestCase {
         focusModeManager.isDoNotDisturbEnabled = true
 
         // Override disabled — suppressed
-        env.preferencesManager.overrideFocusMode = false
+        env.preferencesManager.setOverrideFocusMode(false)
         XCTAssertFalse(focusModeManager.shouldShowOverlay())
 
         // Enable override — shows
-        env.preferencesManager.overrideFocusMode = true
+        env.preferencesManager.setOverrideFocusMode(true)
         XCTAssertTrue(focusModeManager.shouldShowOverlay())
 
         // Disable override again — suppressed
-        env.preferencesManager.overrideFocusMode = false
+        env.preferencesManager.setOverrideFocusMode(false)
         XCTAssertFalse(focusModeManager.shouldShowOverlay())
     }
 
@@ -118,7 +118,7 @@ final class FocusModeE2ETests: XCTestCase {
 
     func testFocusModeDecisionUsedBeforeOverlayShow() async throws {
         focusModeManager.isDoNotDisturbEnabled = true
-        env.preferencesManager.overrideFocusMode = false
+        env.preferencesManager.setOverrideFocusMode(false)
 
         let event = E2EEventBuilder.futureEvent(id: "e2e-focus-gate", minutesFromNow: 10)
         try await env.seedAndSchedule([event])
@@ -133,7 +133,7 @@ final class FocusModeE2ETests: XCTestCase {
         XCTAssertFalse(env.overlayManager.isOverlayVisible)
 
         // Now enable override — overlay should be showable
-        env.preferencesManager.overrideFocusMode = true
+        env.preferencesManager.setOverrideFocusMode(true)
         let shouldShowNow = focusModeManager.shouldShowOverlay()
         if shouldShowNow {
             env.overlayManager.showOverlayImmediately(for: event)
@@ -156,7 +156,7 @@ final class FocusModeE2ETests: XCTestCase {
 
         // DND on, no override
         focusModeManager.isDoNotDisturbEnabled = true
-        env.preferencesManager.overrideFocusMode = false
+        env.preferencesManager.setOverrideFocusMode(false)
         XCTAssertEqual(
             focusModeManager.shouldShowOverlay(),
             focusModeManager.shouldPlaySound(),
@@ -164,7 +164,7 @@ final class FocusModeE2ETests: XCTestCase {
         )
 
         // DND on, with override
-        env.preferencesManager.overrideFocusMode = true
+        env.preferencesManager.setOverrideFocusMode(true)
         XCTAssertEqual(
             focusModeManager.shouldShowOverlay(),
             focusModeManager.shouldPlaySound(),

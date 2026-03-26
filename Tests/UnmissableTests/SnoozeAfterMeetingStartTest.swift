@@ -1,3 +1,4 @@
+import TestSupport
 @testable import Unmissable
 import XCTest
 
@@ -6,9 +7,9 @@ import XCTest
 @MainActor
 final class SnoozeAfterMeetingStartTest: XCTestCase {
     func testSnoozeTimerExpiresAfterMeetingStarted() async throws {
-        let preferencesManager = PreferencesManager()
+        let preferencesManager = PreferencesManager(themeManager: ThemeManager())
         let overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
-        let eventScheduler = EventScheduler(preferencesManager: preferencesManager)
+        let eventScheduler = EventScheduler(preferencesManager: preferencesManager, linkParser: LinkParser())
         overlayManager.setEventScheduler(eventScheduler)
 
         let meetingStartTime = Date().addingTimeInterval(2)
@@ -96,9 +97,9 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
     }
 
     func testSnoozeLoggingAndDebugInfo() {
-        let preferencesManager = PreferencesManager()
+        let preferencesManager = PreferencesManager(themeManager: ThemeManager())
         let overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
-        let eventScheduler = EventScheduler(preferencesManager: preferencesManager)
+        let eventScheduler = EventScheduler(preferencesManager: preferencesManager, linkParser: LinkParser())
         overlayManager.setEventScheduler(eventScheduler)
 
         let testEvent = TestUtilities.createTestEvent(
@@ -133,6 +134,7 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
                 title: "Future Snoozed Meeting",
                 startDate: Date().addingTimeInterval(300)
             ),
+            linkParser: LinkParser(),
             onDismiss: {},
             onJoin: {},
             onSnooze: { _ in },
@@ -145,6 +147,7 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
                 title: "Recently Started Snoozed Meeting",
                 startDate: Date().addingTimeInterval(-120)
             ),
+            linkParser: LinkParser(),
             onDismiss: {},
             onJoin: {},
             onSnooze: { _ in },
@@ -157,6 +160,7 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
                 title: "Long Running Snoozed Meeting",
                 startDate: Date().addingTimeInterval(-900)
             ),
+            linkParser: LinkParser(),
             onDismiss: {},
             onJoin: {},
             onSnooze: { _ in },

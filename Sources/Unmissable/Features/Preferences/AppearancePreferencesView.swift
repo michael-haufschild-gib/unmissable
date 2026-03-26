@@ -50,7 +50,7 @@ struct AppearancePreferencesView: View {
 
                             CustomPicker(
                                 "Theme",
-                                selection: $preferences.appearanceTheme,
+                                selection: preferences.appearanceThemeBinding,
                                 options: AppTheme.allCases.map { ($0, $0.displayName) }
                             )
                             .frame(width: 160)
@@ -88,7 +88,7 @@ struct AppearancePreferencesView: View {
 
                                 CustomPicker(
                                     "Mode",
-                                    selection: $preferences.menuBarDisplayMode,
+                                    selection: preferences.menuBarDisplayModeBinding,
                                     options: MenuBarDisplayMode.allCases.map { ($0, $0.displayName) }
                                 )
                                 .frame(width: 140)

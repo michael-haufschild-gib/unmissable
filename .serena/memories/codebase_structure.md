@@ -18,7 +18,6 @@ Sources/Unmissable/
 │   ├── SyncManager.swift          # Calendar synchronization
 │   ├── LinkParser.swift           # Meeting link extraction
 │   ├── SoundManager.swift         # Audio alerts
-│   ├── TimezoneManager.swift      # Timezone handling
 │   ├── HealthMonitor.swift        # App health monitoring
 │   ├── ProductionMonitor.swift    # Production metrics
 │   ├── Protocols.swift            # Shared protocols

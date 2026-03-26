@@ -32,7 +32,7 @@ final class PreferencesWindowManager: NSObject, ObservableObject {
         let contentView = PreferencesView()
             .environmentObject(appState)
             .environmentObject(appState.calendar)
-            .customThemedEnvironment()
+            .customThemedEnvironment(themeManager: appState.themeManager)
             .frame(minWidth: 650, minHeight: 450)
 
         let hostingController = NSHostingController(rootView: contentView)

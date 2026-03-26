@@ -2,6 +2,8 @@
 
 A macOS menu bar app that ensures you never miss meetings with full-screen overlay alerts and one-click join.
 
+Vibecoded with [Claude Code](https://claude.ai/code).
+
 ## Features
 
 - **Full-Screen Alerts** — Blocking overlay with countdown timer
@@ -45,10 +47,13 @@ swift test           # Run unit tests via SPM
 
 ## CI/CD
 
-GitHub Actions workflows run automatically on push/PR:
-- Code quality (SwiftLint, SwiftFormat)
-- Unit, integration, performance, and memory tests
-- Security scan and production readiness report
+GitHub Actions runs on push/PR to `main`:
+- Build verification (`swift build`)
+- Code quality (SwiftLint strict, SwiftFormat lint)
+- Unit tests (`swift test --filter UnmissableTests`)
+- Integration tests (`swift test --filter IntegrationTests`)
+- E2E tests (`swift test --filter E2ETests`)
+- Snapshot tests (non-blocking — `continue-on-error`)
 
 ## Dependencies
 
@@ -65,4 +70,4 @@ All data stays on your device. OAuth tokens in Keychain, events cached in SQLite
 
 ## License
 
-Copyright © 2025 Unmissable. All rights reserved.
+MIT — see [LICENSE](LICENSE).

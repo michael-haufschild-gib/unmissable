@@ -16,11 +16,11 @@ echo "🧹  Running SwiftLint..."
 
 echo ""
 echo "✨  Checking SwiftFormat..."
-if command -v swiftformat >/dev/null 2>&1; then
-    swiftformat Sources Tests --lint
-else
-    echo "⚠️  SwiftFormat not installed. Run: brew install swiftformat"
+if ! command -v swiftformat >/dev/null 2>&1; then
+    echo "❌  SwiftFormat not installed. Run: brew install swiftformat"
+    exit 1
 fi
+swiftformat Sources Tests --lint
 
 echo ""
 echo "🧪  Running tests..."

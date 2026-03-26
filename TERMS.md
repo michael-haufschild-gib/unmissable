@@ -16,7 +16,6 @@ Unmissable is a macOS desktop application that:
 
 ## User Responsibilities
 
-- Provide accurate Google account information
 - Use the service in compliance with applicable laws
 - Respect meeting privacy and confidentiality
 - Maintain security of your device and accounts

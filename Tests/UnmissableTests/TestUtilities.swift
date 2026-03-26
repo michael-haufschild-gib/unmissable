@@ -133,18 +133,18 @@ enum TestUtilities {
     static func createTestPreferencesManager() -> PreferencesManager {
         let suiteName = "com.unmissable.test.\(UUID().uuidString)"
         let testDefaults = UserDefaults(suiteName: suiteName)! // swiftlint:disable:this force_unwrapping
-        let prefs = PreferencesManager(userDefaults: testDefaults)
+        let prefs = PreferencesManager(userDefaults: testDefaults, themeManager: ThemeManager())
         // Set test-specific defaults
         prefs.setDefaultAlertMinutes(1)
-        prefs.useLengthBasedTiming = false
+        prefs.setUseLengthBasedTiming(false)
         prefs.setShortMeetingAlertMinutes(1)
         prefs.setMediumMeetingAlertMinutes(2)
         prefs.setLongMeetingAlertMinutes(5)
         prefs.setOverlayShowMinutesBefore(2)
-        prefs.playAlertSound = true
-        prefs.autoJoinEnabled = false
-        prefs.showOnAllDisplays = true
-        prefs.overrideFocusMode = true
+        prefs.setPlayAlertSound(true)
+        prefs.setAutoJoinEnabled(false)
+        prefs.setShowOnAllDisplays(true)
+        prefs.setOverrideFocusMode(true)
         return prefs
     }
 }
@@ -160,7 +160,7 @@ extension PreferencesManager {
 
     var testUseLengthBasedTiming: Bool {
         get { useLengthBasedTiming }
-        set { useLengthBasedTiming = newValue }
+        set { setUseLengthBasedTiming(newValue) }
     }
 
     var testOverlayShowMinutesBefore: Int {
@@ -170,22 +170,22 @@ extension PreferencesManager {
 
     var testSoundEnabled: Bool {
         get { soundEnabled }
-        set { playAlertSound = newValue }
+        set { setPlayAlertSound(newValue) }
     }
 
     var testAutoJoinEnabled: Bool {
         get { autoJoinEnabled }
-        set { autoJoinEnabled = newValue }
+        set { setAutoJoinEnabled(newValue) }
     }
 
     var testShowOnAllDisplays: Bool {
         get { showOnAllDisplays }
-        set { showOnAllDisplays = newValue }
+        set { setShowOnAllDisplays(newValue) }
     }
 
     var testOverrideFocusMode: Bool {
         get { overrideFocusMode }
-        set { overrideFocusMode = newValue }
+        set { setOverrideFocusMode(newValue) }
     }
 }
 
@@ -356,31 +356,3 @@ extension XCTestCase {
     }
 }
 
-// MARK: - Timeout Utility
-
-private func withTimeout<T: Sendable>(
-    _ timeout: TimeInterval,
-    operation: @escaping @Sendable () async throws -> T
-) async throws -> T {
-    try await withThrowingTaskGroup(of: T.self) { group in
-        group.addTask {
-            try await operation()
-        }
-
-        group.addTask {
-            // swiftlint:disable:next no_raw_task_sleep_in_tests - timeout implementation
-            try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-            throw XCTestError(.timeoutWhileWaiting)
-        }
-
-        guard let result = try await group.next() else {
-            throw NSError(
-                domain: "TestUtilities", code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "Unexpected nil value during timeout operation"]
-            )
-        }
-
-        group.cancelAll()
-        return result
-    }
-}

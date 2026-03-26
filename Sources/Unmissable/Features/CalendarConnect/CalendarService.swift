@@ -3,8 +3,8 @@ import EventKit
 import Foundation
 import OSLog
 
-/// Internal representation of a connected calendar provider backend.
-private struct ProviderBackend {
+/// Representation of a connected calendar provider backend.
+struct ProviderBackend {
     let type: CalendarProviderType
     let auth: any CalendarAuthProviding
     let api: any CalendarAPIProviding
@@ -45,6 +45,7 @@ final class CalendarService: ObservableObject {
     private var providers: [CalendarProviderType: ProviderBackend] = [:]
     private let databaseManager: any DatabaseManaging
     private let preferencesManager: PreferencesManager
+    private let linkParser: LinkParser
     private var cancellables = Set<AnyCancellable>()
     private var providerCancellables: [CalendarProviderType: Set<AnyCancellable>] = [:]
     private var uiRefreshTask: Task<Void, Never>?
@@ -67,10 +68,12 @@ final class CalendarService: ObservableObject {
     init(
         preferencesManager: PreferencesManager,
         databaseManager: any DatabaseManaging,
+        linkParser: LinkParser,
         eventStore: EKEventStore = EKEventStore()
     ) {
         self.preferencesManager = preferencesManager
         self.databaseManager = databaseManager
+        self.linkParser = linkParser
         self.sharedEventStore = eventStore
         setupTimezoneObserver()
         startUIRefreshTimer()
@@ -159,11 +162,35 @@ final class CalendarService: ObservableObject {
         }
     }
 
+    // MARK: - Test Injection
+
+    /// Injects a pre-built backend for testing multi-provider aggregation.
+    /// Internal access — visible to tests via @testable import but not to external consumers.
+    func injectTestBackend(
+        type: CalendarProviderType,
+        auth: any CalendarAuthProviding,
+        api: any CalendarAPIProviding,
+        sync: SyncManager
+    ) {
+        let backend = ProviderBackend(type: type, auth: auth, api: api, sync: sync)
+        providers[type] = backend
+        setupProviderBindings(for: backend)
+        syncAggregatedAuthState()
+    }
+
+    /// Removes a previously injected backend and updates aggregated state.
+    /// Internal access — visible to tests via @testable import.
+    func removeTestBackend(type: CalendarProviderType) {
+        providerCancellables[type] = nil
+        providers[type] = nil
+        syncAggregatedAuthState()
+    }
+
     // MARK: - Sync
 
     func syncEvents() async {
         for (_, backend) in providers where backend.auth.isAuthenticated {
-            await backend.sync.performSync()
+            await backend.sync.forceSyncNow()
         }
         await loadCachedData()
     }
@@ -214,8 +241,9 @@ final class CalendarService: ObservableObject {
 
     // MARK: - Service Access
 
-    /// Returns the SyncManager for the first available provider, or nil if none connected.
-    var sync: SyncManager? {
+    /// Returns the SyncManager for the primary provider (Google preferred), or nil if none connected.
+    /// Used by HealthMonitor and AppState — not for per-provider sync control.
+    var primarySync: SyncManager? {
         providers[.google]?.sync ?? providers.values.first?.sync
     }
 
@@ -233,12 +261,12 @@ final class CalendarService: ObservableObject {
         case .google:
             let oauthService = OAuth2Service()
             auth = oauthService
-            api = GoogleCalendarAPIService(oauth2Service: oauthService)
+            api = GoogleCalendarAPIService(oauth2Service: oauthService, linkParser: linkParser)
 
         case .apple:
             let appleAuth = AppleCalendarAuthService(eventStore: sharedEventStore)
             auth = appleAuth
-            api = AppleCalendarAPIService(eventStore: sharedEventStore)
+            api = AppleCalendarAPIService(eventStore: sharedEventStore, linkParser: linkParser)
         }
 
         let sync = SyncManager(

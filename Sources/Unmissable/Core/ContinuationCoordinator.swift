@@ -2,16 +2,23 @@ import Foundation
 
 /// Coordinates a CheckedContinuation with timeout support, ensuring exactly-once resumption.
 ///
-/// Guarantees:
+/// ## Guarantees
 /// 1. Exactly-once continuation resumption (prevents crashes from double-resume)
 /// 2. Timeout handling (prevents continuation leaks if callback never fires)
 /// 3. Thread safety via @MainActor isolation — all mutable state accessed only on MainActor
 /// 4. Proper cleanup of timeout tasks
 ///
-/// Sendable conformance: Marked `@unchecked Sendable` because @MainActor provides
-/// the actual isolation. The Sendable marker is required to pass this object into
-/// AppAuth's non-Sendable callback closures that execute on arbitrary threads, where
-/// it is then dispatched back to MainActor before any state access.
+/// ## Design Decisions
+///
+/// **`@unchecked Sendable`**: Required because this object is passed into AppAuth's
+/// non-Sendable callback closures that execute on arbitrary threads. The closure dispatches
+/// back to MainActor before any state access, so @MainActor provides the real isolation.
+///
+/// **`preconditionFailure` in `resumeInternal`**: Deliberately chosen over `assertionFailure`.
+/// If resume is called before setContinuation, the continuation would be permanently leaked
+/// (never resumed), causing the caller's `withCheckedThrowingContinuation` to hang forever.
+/// A crash is preferable to a silent hang in this case, and the condition indicates a
+/// programming error that must be fixed — not a recoverable runtime state.
 @MainActor
 final class ContinuationCoordinator<T: Sendable>: @unchecked Sendable {
     private var continuation: CheckedContinuation<T, Error>?

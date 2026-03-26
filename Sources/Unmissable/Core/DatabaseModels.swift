@@ -4,6 +4,15 @@ import OSLog
 
 private let logger = Logger(subsystem: "com.unmissable.app", category: "DatabaseModels")
 
+// MARK: - Cached JSON Coders
+
+/// Shared coders for all row encode/decode operations. JSONEncoder and JSONDecoder
+/// are thread-safe when their configuration is not mutated between calls — no custom
+/// strategies are set here, so sharing a single instance avoids hundreds of allocations
+/// per sync cycle.
+private let cachedDecoder = JSONDecoder()
+private let cachedEncoder = JSONEncoder()
+
 // MARK: - JSON Column Helpers
 
 /// Decodes a JSON-encoded string column into a Decodable value, returning `defaultValue` on failure.
@@ -13,7 +22,7 @@ private func decodeJSONColumn<T: Decodable>(
     let raw = row[column] as? String ?? "[]"
     guard let data = raw.data(using: .utf8) else { return defaultValue }
     do {
-        return try JSONDecoder().decode(T.self, from: data)
+        return try cachedDecoder.decode(T.self, from: data)
     } catch {
         logger.error("Failed to decode \(column.name): \(error.localizedDescription)")
         return defaultValue
@@ -31,7 +40,7 @@ private func encodeJSONColumn(
     _ value: some Encodable, into container: inout PersistenceContainer, _ column: Column
 ) {
     do {
-        let data = try JSONEncoder().encode(value)
+        let data = try cachedEncoder.encode(value)
         container[column] = String(data: data, encoding: .utf8) ?? "[]"
     } catch {
         logger.error("Failed to encode \(column.name): \(error.localizedDescription)")
@@ -155,6 +164,12 @@ extension CalendarInfo: FetchableRecord, PersistableRecord {
         {
             sourceProvider = provider
         } else {
+            // Legacy rows from before multi-provider support lack a provider column.
+            // Default to .google since that was the only provider at the time.
+            let rawValue = row[Columns.sourceProvider] as? String
+            if rawValue != nil {
+                logger.warning("Unknown calendar provider '\(rawValue!)' — defaulting to .google")
+            }
             sourceProvider = .google
         }
         lastSyncAt = row[Columns.lastSyncAt]

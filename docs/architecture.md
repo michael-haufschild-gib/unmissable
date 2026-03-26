@@ -1,6 +1,6 @@
-# Architecture Guide for LLM Coding Agents
+# Architecture Guide
 
-**Purpose**: Instructions for where to put code and what patterns to follow in Unmissable.
+**Purpose**: Where to put code and what patterns to follow in Unmissable.
 **Tech Stack**: Swift 6.0 with StrictConcurrency | macOS 14.0+ | SwiftUI + AppKit | GRDB.swift | Swift Package Manager
 
 ---

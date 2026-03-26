@@ -8,7 +8,7 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         let oauth2Service = OAuth2Service()
-        apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
+        apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
     }
 
     override func tearDown() async throws {

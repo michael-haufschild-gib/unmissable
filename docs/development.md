@@ -1,6 +1,6 @@
-# Development Guide for LLM Coding Agents
+# Development Guide
 
-**Purpose**: Instructions for setup, building, running, and deploying Unmissable.
+**Purpose**: Setup, building, running, and deploying Unmissable.
 **Platform**: macOS 14.0+ (Sonoma) | Swift 6.0 with StrictConcurrency | SPM
 
 ---

@@ -6,7 +6,7 @@ final class LinkParserTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        linkParser = LinkParser.shared
+        linkParser = LinkParser()
     }
 
     override func tearDown() {
@@ -102,12 +102,16 @@ final class LinkParserTests: XCTestCase {
             endDate: Date().addingTimeInterval(3600),
             description: "Join us at https://meet.google.com/abc-defg-hij",
             location: "Google Meet",
-            calendarId: "primary"
+            calendarId: "primary",
+            linkParser: LinkParser()
         )
 
-        XCTAssertTrue(LinkParser.shared.isOnlineMeeting(event))
+        XCTAssertTrue(LinkParser().isOnlineMeeting(event))
         XCTAssertEqual(event.links.count, 1)
         XCTAssertEqual(event.provider, Provider.meet)
-        XCTAssertEqual(LinkParser.shared.primaryLink(for: event)?.absoluteString, "https://meet.google.com/abc-defg-hij")
+        XCTAssertEqual(
+            LinkParser().primaryLink(for: event)?.absoluteString,
+            "https://meet.google.com/abc-defg-hij"
+        )
     }
 }

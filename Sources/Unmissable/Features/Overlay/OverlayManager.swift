@@ -12,9 +12,6 @@ final class OverlayManager: ObservableObject, OverlayManaging {
     var activeEvent: Event?
     @Published
     var isOverlayVisible = false
-    /// Error message if snooze fails due to scheduler unavailability
-    @Published
-    var snoozeError: String?
 
     /// Computed time until meeting starts (negative if meeting has started)
     /// Note: This is a computed property - the View manages its own timer for UI updates
@@ -26,6 +23,8 @@ final class OverlayManager: ObservableObject, OverlayManaging {
     private let preferencesManager: PreferencesManager
     private let soundManager: SoundManager
     private let focusModeManager: FocusModeManager
+    private let linkParser: LinkParser
+    private let themeManager: ThemeManager
 
     /// SNOOZE FIX: Track when overlay is shown from snooze alert
     private var isSnoozedAlert = false
@@ -39,12 +38,17 @@ final class OverlayManager: ObservableObject, OverlayManaging {
     init(
         preferencesManager: PreferencesManager,
         eventScheduler: EventScheduler,
+        soundManager: SoundManager,
         focusModeManager: FocusModeManager? = nil,
+        linkParser: LinkParser = LinkParser(),
+        themeManager: ThemeManager,
         isTestMode: Bool = false
     ) {
         self.preferencesManager = preferencesManager
         self.eventScheduler = eventScheduler
-        soundManager = SoundManager(preferencesManager: preferencesManager)
+        self.soundManager = soundManager
+        self.linkParser = linkParser
+        self.themeManager = themeManager
         self.focusModeManager =
             focusModeManager ?? FocusModeManager(preferencesManager: preferencesManager)
         self.isTestMode = isTestMode
@@ -52,7 +56,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
 
     func showOverlay(for event: Event, fromSnooze: Bool = false) {
         let startTime = Date()
-        logger.info("SHOW OVERLAY: Starting for event: \(event.title), fromSnooze: \(fromSnooze)")
+        logger.info("SHOW OVERLAY: Starting for event \(event.id), fromSnooze: \(fromSnooze)")
 
         // Prevent overlapping overlay operations
         if isOverlayVisible, activeEvent?.id == event.id {
@@ -71,7 +75,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         let maxAge: TimeInterval = fromSnooze ? 30 * 60 : 5 * 60
         if timeSinceStart > maxAge {
             logger.info(
-                "SKIP: Meeting '\(event.title)' started \(Int(timeSinceStart / 60))min ago (max \(Int(maxAge / 60))min)"
+                "SKIP: Meeting \(event.id) started \(Int(timeSinceStart / 60))min ago (max \(Int(maxAge / 60))min)"
             )
             return
         }
@@ -85,10 +89,9 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         // Set state atomically to prevent race conditions
         activeEvent = event
         isOverlayVisible = true
-        snoozeError = nil // Clear any previous snooze error
 
         logger.info(
-            "OVERLAY STATE: Set isOverlayVisible = true for \(event.title), isSnoozed = \(self.isSnoozedAlert)"
+            "OVERLAY STATE: Set isOverlayVisible = true for event \(event.id), isSnoozed = \(self.isSnoozedAlert)"
         )
 
         // Play alert sound if enabled and allowed by focus mode
@@ -101,7 +104,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
 
         let responseTime = Date().timeIntervalSince(startTime)
         logger.info(
-            "SHOW OVERLAY: Completed for event: \(event.title) in \(responseTime)s"
+            "SHOW OVERLAY: Completed for event \(event.id) in \(responseTime)s"
         )
     }
 
@@ -114,20 +117,23 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         activeEvent = nil
         isOverlayVisible = false
         isSnoozedAlert = false // Reset snooze flag
-        snoozeError = nil
 
-        // Close windows on background queue to avoid Window Server deadlock
-        // This is the one place where we intentionally detach, as Window Server operations can be slow
+        // Capture and detach windows from the manager immediately so no further
+        // operations reference them, then close on the next run-loop iteration.
+        // Deferring via Task breaks re-entrancy when hideOverlay() is triggered
+        // from a button action running inside the window's own view hierarchy —
+        // close() would otherwise re-enter the responder chain and deadlock the
+        // Window Server.
         let windowsToClose = overlayWindows
         overlayWindows.removeAll()
 
         if !windowsToClose.isEmpty {
             logger.info("Hiding \(windowsToClose.count) overlay windows...")
 
-            // Use orderOut instead of close to avoid Window Server deadlock
-            // orderOut removes window from screen without complex cleanup that can deadlock
-            for window in windowsToClose {
-                window.orderOut(nil)
+            Task { @MainActor in
+                for window in windowsToClose {
+                    window.close()
+                }
             }
         }
 
@@ -152,7 +158,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
 
     private func createOverlayWindows(for event: Event) {
         if isTestMode {
-            logger.debug("TEST MODE: Skipping actual window creation for \(event.title)")
+            logger.debug("TEST MODE: Skipping actual window creation for event \(event.id)")
             return
         }
 
@@ -189,8 +195,10 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         // Button callbacks run on MainActor since OverlayManager is @MainActor
+        let linkParser = self.linkParser
         let overlayContent = OverlayContentView(
             event: event,
+            linkParser: linkParser,
             onDismiss: { [weak self] in
                 // Simple Task to break out of button action context, already on MainActor
                 Task { @MainActor in
@@ -199,7 +207,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
             },
             onJoin: { [weak self] in
                 Task { @MainActor in
-                    if let url = LinkParser.shared.primaryLink(for: event) {
+                    if let url = linkParser.primaryLink(for: event) {
                         NSWorkspace.shared.open(url)
                         self?.hideOverlay()
                     }
@@ -213,12 +221,11 @@ final class OverlayManager: ObservableObject, OverlayManaging {
             isFromSnooze: isSnoozedAlert
         )
         .environmentObject(preferencesManager)
-        .customThemedEnvironment()
+        .customThemedEnvironment(themeManager: themeManager)
 
         let hostingView = NSHostingView(rootView: overlayContent)
         window.contentView = hostingView
 
         return window
     }
-
 }

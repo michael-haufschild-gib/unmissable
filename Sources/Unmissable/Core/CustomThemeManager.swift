@@ -6,7 +6,6 @@ import SwiftUI
 
 @MainActor
 final class ThemeManager: ObservableObject {
-    static let shared = ThemeManager()
 
     @Published
     var currentTheme: AppTheme = .system
@@ -27,10 +26,9 @@ final class ThemeManager: ObservableObject {
     }
 
     private func setupSystemAppearanceObserver() {
-        // Skip setting up observer when NSApp isn't fully initialized (e.g. during tests)
-        guard NSApplication.shared.delegate != nil
-        else { return }
-
+        // NSApp.effectiveAppearance is observable regardless of delegate state.
+        // Previous guard on delegate != nil caused the observer to never be set up
+        // when ThemeManager was created before the app delegate (common at startup).
         systemAppearanceObserver = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
             Task { @MainActor in
                 self?.updateEffectiveTheme()
@@ -45,14 +43,9 @@ final class ThemeManager: ObservableObject {
         case .dark:
             effectiveTheme = .dark
         case .system:
-            // When NSApp isn't fully initialized (e.g. tests), default to dark
-            if NSApplication.shared.delegate == nil {
-                effectiveTheme = .dark
-            } else {
-                effectiveTheme =
-                    NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-                        ? .dark : .light
-            }
+            effectiveTheme =
+                NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                    ? .dark : .light
         }
     }
 
@@ -298,11 +291,11 @@ extension EnvironmentValues {
 // MARK: - Custom Theme Modifier
 
 struct CustomThemeModifier: ViewModifier {
-    @StateObject
+    @ObservedObject
     private var themeManager: ThemeManager
 
-    init(themeManager: ThemeManager = .shared) {
-        _themeManager = StateObject(wrappedValue: themeManager)
+    init(themeManager: ThemeManager) {
+        self.themeManager = themeManager
     }
 
     func body(content: Content) -> some View {
@@ -313,7 +306,7 @@ struct CustomThemeModifier: ViewModifier {
 }
 
 extension View {
-    func customThemedEnvironment(themeManager: ThemeManager = .shared) -> some View {
+    func customThemedEnvironment(themeManager: ThemeManager) -> some View {
         modifier(CustomThemeModifier(themeManager: themeManager))
     }
 }

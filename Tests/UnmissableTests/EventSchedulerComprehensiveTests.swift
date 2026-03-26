@@ -1,4 +1,5 @@
 import Combine
+import TestSupport
 @testable import Unmissable
 import XCTest
 
@@ -14,7 +15,7 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
 
         mockPreferences = TestUtilities.createTestPreferencesManager()
         mockPreferences.testOverlayShowMinutesBefore = 2
-        eventScheduler = EventScheduler(preferencesManager: mockPreferences)
+        eventScheduler = EventScheduler(preferencesManager: mockPreferences, linkParser: LinkParser())
         overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         cancellables.removeAll()
     }
@@ -116,7 +117,7 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         // when scheduling alerts, which is critical for avoiding notification spam
 
         // Create a test preferences with specific values
-        let testPreferences = PreferencesManager()
+        let testPreferences = PreferencesManager(themeManager: ThemeManager())
         testPreferences.setOverlayShowMinutesBefore(10)
         testPreferences.setDefaultAlertMinutes(10)
         testPreferences.setShortMeetingAlertMinutes(10)
@@ -129,7 +130,7 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         )
 
         // Create a new EventScheduler with our test preferences
-        let testScheduler = EventScheduler(preferencesManager: testPreferences)
+        let testScheduler = EventScheduler(preferencesManager: testPreferences, linkParser: LinkParser())
 
         let futureEvent = TestUtilities.createTestEvent(
             startDate: Date().addingTimeInterval(1200) // 20 minutes from now (enough for 10-minute alert)
@@ -309,9 +310,9 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         XCTAssertNil(weakSimple, "Simple object should be deallocated")
 
         // Now test EventScheduler with minimal setup
-        let testPreferences = PreferencesManager()
+        let testPreferences = PreferencesManager(themeManager: ThemeManager())
 
-        var scheduler: EventScheduler? = EventScheduler(preferencesManager: testPreferences)
+        var scheduler: EventScheduler? = EventScheduler(preferencesManager: testPreferences, linkParser: LinkParser())
         weak var weakScheduler: EventScheduler?
         weakScheduler = scheduler
 
@@ -321,11 +322,6 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         // Give longer time for cleanup
         try await TestUtilities.waitForAsync(timeout: 2.0) { @MainActor @Sendable in
             weakScheduler == nil
-        }
-
-        // Log what we see for debugging
-        if weakScheduler != nil {
-            print("EventScheduler still exists after cleanup - investigating retain cycle")
         }
 
         XCTAssertNil(weakScheduler, "EventScheduler should be deallocated after cleanup")

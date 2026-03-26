@@ -12,6 +12,9 @@ final class AppState: ObservableObject {
     private let services: ServiceContainer
     private lazy var preferencesWindowManager = PreferencesWindowManager(appState: self)
 
+    @Published
+    var databaseError: String?
+
     private var cancellables = Set<AnyCancellable>()
 
     init(services: ServiceContainer = ServiceContainer(databaseManager: DatabaseManager())) {
@@ -77,6 +80,11 @@ final class AppState: ObservableObject {
     private func checkInitialState() {
         logger.debug("Checking initial state")
         Task {
+            if let dbError = await services.databaseManager.initializationError {
+                logger.error("Database initialization failed: \(dbError)")
+                databaseError = dbError
+            }
+
             await services.calendarService.checkConnectionStatus()
             if services.calendarService.isConnected {
                 logger.info("Calendar connected, starting sync")
@@ -117,6 +125,22 @@ final class AppState: ObservableObject {
         services.calendarService.connectedProviders
     }
 
+    func retryDatabaseInitialization() async {
+        logger.info("Retrying database initialization")
+        let error = await services.databaseManager.reinitialize()
+        if let error {
+            logger.error("Database retry failed: \(error)")
+            databaseError = error
+        } else {
+            logger.info("Database retry succeeded")
+            databaseError = nil
+            await services.calendarService.checkConnectionStatus()
+            if services.calendarService.isConnected {
+                await startPeriodicSync()
+            }
+        }
+    }
+
     func syncNow() async {
         logger.debug("Manual sync requested")
         await services.calendarService.syncEvents()
@@ -130,6 +154,14 @@ final class AppState: ObservableObject {
 
     var preferences: PreferencesManager {
         services.preferencesManager
+    }
+
+    var linkParser: LinkParser {
+        services.linkParser
+    }
+
+    var themeManager: ThemeManager {
+        services.themeManager
     }
 
     var menuBarPreview: MenuBarPreviewManager {
@@ -167,7 +199,7 @@ final class AppState: ObservableObject {
         )
 
         if services.calendarService.isConnected {
-            services.calendarService.sync?.startPeriodicSync()
+            services.calendarService.primarySync?.startPeriodicSync()
         }
     }
 }

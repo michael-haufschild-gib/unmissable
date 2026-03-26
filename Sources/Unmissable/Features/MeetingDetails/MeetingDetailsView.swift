@@ -2,10 +2,9 @@ import SwiftUI
 
 struct MeetingDetailsView: View {
     let event: Event
+    let onClose: () -> Void
     @Environment(\.customDesign)
     private var design
-    @Environment(\.dismiss)
-    private var dismiss
     @EnvironmentObject
     private var themeManager: ThemeManager
 
@@ -71,7 +70,7 @@ struct MeetingDetailsView: View {
             Spacer()
 
             CustomButton("", icon: "xmark", style: .minimal) {
-                dismiss()
+                onClose()
             }
         }
         .padding(design.spacing.lg)
@@ -320,7 +319,7 @@ struct MeetingDetailsView: View {
             }
 
             VStack(spacing: design.spacing.sm) {
-                ForEach(Array(event.links.enumerated()), id: \.offset) { _, link in
+                ForEach(event.links, id: \.absoluteString) { link in
                     CustomButton(
                         "Join via \(event.provider?.displayName ?? "Link")",
                         icon: event.provider?.iconName ?? "link",
@@ -388,6 +387,6 @@ struct MeetingDetailsView: View {
         links: [URL(string: "https://meet.google.com/abc-defg-hij")].compactMap(\.self)
     )
 
-    MeetingDetailsView(event: sampleEvent)
-        .customThemedEnvironment()
+    MeetingDetailsView(event: sampleEvent, onClose: {})
+        .customThemedEnvironment(themeManager: ThemeManager())
 }

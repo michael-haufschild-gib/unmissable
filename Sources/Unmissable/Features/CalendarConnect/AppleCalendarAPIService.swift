@@ -8,6 +8,7 @@ import OSLog
 final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "AppleCalendarAPI")
     private let eventStore: EKEventStore
+    private let linkParser: LinkParser
 
     @Published
     var calendars: [CalendarInfo] = []
@@ -16,8 +17,9 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     @Published
     var lastError: String?
 
-    init(eventStore: EKEventStore = EKEventStore()) {
+    init(eventStore: EKEventStore = EKEventStore(), linkParser: LinkParser) {
         self.eventStore = eventStore
+        self.linkParser = linkParser
     }
 
     @discardableResult
@@ -74,6 +76,12 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         )
     }
 
+    /// Truncates a string to a maximum length. Defense-in-depth against oversized calendar data.
+    private static func truncate(_ string: String?, maxLength: Int) -> String? {
+        guard let string, string.count > maxLength else { return string }
+        return String(string.prefix(maxLength))
+    }
+
     private func convertToEvent(_ ekEvent: EKEvent) -> Event? {
         guard let startDate = ekEvent.startDate,
               let endDate = ekEvent.endDate
@@ -97,14 +105,20 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         let links = extractMeetingLinks(from: ekEvent)
         let provider = links.first.map { Provider.detect(from: $0) }
 
+        // Truncate fields to defend against oversized calendar data
+        let truncatedTitle = Self.truncate(ekEvent.title, maxLength: 500) ?? "Untitled Event"
+        let truncatedDescription = Self.truncate(ekEvent.notes, maxLength: 10_000)
+        let truncatedLocation = Self.truncate(ekEvent.location, maxLength: 1000)
+        let truncatedOrganizer = Self.truncate(ekEvent.organizer?.name, maxLength: 320)
+
         return Event(
             id: ekEvent.eventIdentifier,
-            title: ekEvent.title ?? "Untitled Event",
+            title: truncatedTitle,
             startDate: startDate,
             endDate: endDate,
-            organizer: ekEvent.organizer?.name,
-            description: ekEvent.notes,
-            location: ekEvent.location,
+            organizer: truncatedOrganizer,
+            description: truncatedDescription,
+            location: truncatedLocation,
             attendees: attendees,
             attachments: [],
             isAllDay: ekEvent.isAllDay,
@@ -162,10 +176,9 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
             links.append(contentsOf: extractURLs(from: notes))
         }
 
-        // Filter to only meeting-relevant URLs using the shared trusted domain list
-        let linkParser = LinkParser.shared
+        // Filter to only meeting-relevant URLs using the trusted domain list
         let meetingLinks = links.filter { url in
-            linkParser.isValidMeetingURL(url)
+            self.linkParser.isValidMeetingURL(url)
                 || url.scheme == "zoommtg"
                 || url.scheme == "msteams"
                 || url.scheme == "webex"
@@ -177,7 +190,7 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     }
 
     private func extractURLs(from text: String) -> [URL] {
-        LinkParser.shared.extractURLs(from: text)
+        linkParser.extractURLs(from: text)
     }
 
     private func sourceDescription(for calendar: EKCalendar) -> String {

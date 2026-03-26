@@ -62,7 +62,7 @@ final class HealthMonitor: ObservableObject {
         }
     }
 
-    private func stopHealthMonitoring() {
+    func stopHealthMonitoring() {
         healthCheckTask?.cancel()
         healthCheckTask = nil
     }
@@ -78,7 +78,7 @@ final class HealthMonitor: ObservableObject {
         }
 
         // Check sync manager health
-        if let syncManager = calendarService?.sync {
+        if let syncManager = calendarService?.primarySync {
             issues.append(contentsOf: checkSyncManagerHealth(syncManager))
         }
 
@@ -162,7 +162,7 @@ final class HealthMonitor: ObservableObject {
            Date().timeIntervalSince(activeEvent.endDate) > 1800
         {
             logger.warning(
-                "Stuck overlay detected for '\(activeEvent.title)' — meeting ended 30+ minutes ago"
+                "Stuck overlay detected for event \(activeEvent.id) — meeting ended 30+ minutes ago"
             )
             issues.append(
                 HealthIssue(

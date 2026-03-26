@@ -6,7 +6,7 @@ final class FocusModeManagerTests: XCTestCase {
     // MARK: - shouldShowOverlay
 
     func testShouldShowOverlay_dndOff_returnsTrue() {
-        let preferences = PreferencesManager()
+        let preferences = TestUtilities.createTestPreferencesManager()
         let manager = FocusModeManager(preferencesManager: preferences, isTestMode: true)
         manager.isDoNotDisturbEnabled = false
 
@@ -14,19 +14,19 @@ final class FocusModeManagerTests: XCTestCase {
     }
 
     func testShouldShowOverlay_dndOn_overrideEnabled_returnsTrue() {
-        let preferences = PreferencesManager()
+        let preferences = TestUtilities.createTestPreferencesManager()
         let manager = FocusModeManager(preferencesManager: preferences, isTestMode: true)
         manager.isDoNotDisturbEnabled = true
-        preferences.overrideFocusMode = true
+        preferences.setOverrideFocusMode(true)
 
         XCTAssertTrue(manager.shouldShowOverlay())
     }
 
     func testShouldShowOverlay_dndOn_overrideDisabled_returnsFalse() {
-        let preferences = PreferencesManager()
+        let preferences = TestUtilities.createTestPreferencesManager()
         let manager = FocusModeManager(preferencesManager: preferences, isTestMode: true)
         manager.isDoNotDisturbEnabled = true
-        preferences.overrideFocusMode = false
+        preferences.setOverrideFocusMode(false)
 
         XCTAssertFalse(manager.shouldShowOverlay())
     }
@@ -34,7 +34,7 @@ final class FocusModeManagerTests: XCTestCase {
     // MARK: - shouldPlaySound
 
     func testShouldPlaySound_dndOff_returnsTrue() {
-        let preferences = PreferencesManager()
+        let preferences = TestUtilities.createTestPreferencesManager()
         let manager = FocusModeManager(preferencesManager: preferences, isTestMode: true)
         manager.isDoNotDisturbEnabled = false
 
@@ -42,19 +42,19 @@ final class FocusModeManagerTests: XCTestCase {
     }
 
     func testShouldPlaySound_dndOn_overrideDisabled_returnsFalse() {
-        let preferences = PreferencesManager()
+        let preferences = TestUtilities.createTestPreferencesManager()
         let manager = FocusModeManager(preferencesManager: preferences, isTestMode: true)
         manager.isDoNotDisturbEnabled = true
-        preferences.overrideFocusMode = false
+        preferences.setOverrideFocusMode(false)
 
         XCTAssertFalse(manager.shouldPlaySound())
     }
 
     func testShouldPlaySound_delegatesToShouldShowOverlay() {
-        let preferences = PreferencesManager()
+        let preferences = TestUtilities.createTestPreferencesManager()
         let manager = FocusModeManager(preferencesManager: preferences, isTestMode: true)
         manager.isDoNotDisturbEnabled = true
-        preferences.overrideFocusMode = true
+        preferences.setOverrideFocusMode(true)
 
         XCTAssertEqual(
             manager.shouldPlaySound(), manager.shouldShowOverlay(),

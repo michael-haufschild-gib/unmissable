@@ -16,9 +16,10 @@ final class CalendarServiceIntegrationTests: XCTestCase {
         )
         databaseManager = DatabaseManager(databaseURL: tempDatabaseURL)
 
-        preferencesManager = PreferencesManager()
+        preferencesManager = PreferencesManager(themeManager: ThemeManager())
         calendarService = CalendarService(
-            preferencesManager: preferencesManager, databaseManager: databaseManager
+            preferencesManager: preferencesManager, databaseManager: databaseManager,
+            linkParser: LinkParser()
         )
         try await super.setUp()
     }

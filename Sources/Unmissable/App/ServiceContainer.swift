@@ -5,7 +5,10 @@ import Foundation
 @MainActor
 final class ServiceContainer {
     let databaseManager: any DatabaseManaging
+    let linkParser: LinkParser
+    let themeManager: ThemeManager
     let preferencesManager: PreferencesManager
+    let soundManager: SoundManager
     let focusModeManager: FocusModeManager
     let calendarService: CalendarService
     let overlayManager: OverlayManager
@@ -18,28 +21,40 @@ final class ServiceContainer {
 
     init(
         databaseManager: any DatabaseManaging,
-        preferencesManager: PreferencesManager = PreferencesManager()
+        linkParser: LinkParser = LinkParser(),
+        themeManager: ThemeManager = ThemeManager()
     ) {
         self.databaseManager = databaseManager
-        self.preferencesManager = preferencesManager
+        self.linkParser = linkParser
+        self.themeManager = themeManager
 
+        preferencesManager = PreferencesManager(themeManager: themeManager)
+        soundManager = SoundManager(preferencesManager: preferencesManager)
         focusModeManager = FocusModeManager(preferencesManager: preferencesManager)
         calendarService = CalendarService(
-            preferencesManager: preferencesManager, databaseManager: databaseManager
+            preferencesManager: preferencesManager, databaseManager: databaseManager,
+            linkParser: linkParser
         )
-        eventScheduler = EventScheduler(preferencesManager: preferencesManager)
+        eventScheduler = EventScheduler(
+            preferencesManager: preferencesManager, linkParser: linkParser
+        )
         overlayManager = OverlayManager(
             preferencesManager: preferencesManager,
             eventScheduler: eventScheduler,
-            focusModeManager: focusModeManager
+            soundManager: soundManager,
+            focusModeManager: focusModeManager,
+            linkParser: linkParser,
+            themeManager: themeManager
         )
         menuBarPreviewManager = MenuBarPreviewManager(preferencesManager: preferencesManager)
-        shortcutsManager = ShortcutsManager(overlayManager: overlayManager)
+        shortcutsManager = ShortcutsManager(
+            overlayManager: overlayManager, linkParser: linkParser
+        )
         healthMonitor = HealthMonitor(
             calendarService: calendarService,
             overlayManager: overlayManager
         )
-        meetingDetailsPopupManager = MeetingDetailsPopupManager()
+        meetingDetailsPopupManager = MeetingDetailsPopupManager(themeManager: themeManager)
         updateManager = UpdateManager()
     }
 }

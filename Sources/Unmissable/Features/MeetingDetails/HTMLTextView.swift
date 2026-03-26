@@ -219,10 +219,19 @@ struct HTMLTextView: NSViewRepresentable {
             self.logger = logger
         }
 
+        private static let allowedLinkSchemes: Set<String> = ["https", "http", "mailto"]
+
         func textView(_: NSTextView, clickedOnLink link: Any, at _: Int) -> Bool {
             guard let url = link as? URL else { return false }
 
-            logger.info("HTMLTextView: Link tapped - \(url.absoluteString)")
+            guard let scheme = url.scheme?.lowercased(),
+                  Self.allowedLinkSchemes.contains(scheme)
+            else {
+                logger.warning("HTMLTextView: Blocked link with disallowed scheme")
+                return true
+            }
+
+            logger.info("HTMLTextView: Link tapped (scheme: \(scheme))")
 
             if let onLinkTap {
                 onLinkTap(url)

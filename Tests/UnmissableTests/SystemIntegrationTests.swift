@@ -1,4 +1,5 @@
 import Combine
+import TestSupport
 @testable import Unmissable
 import XCTest
 
@@ -18,7 +19,7 @@ final class SystemIntegrationTests: XCTestCase {
         mockPreferences = TestUtilities.createTestPreferencesManager()
         mockPreferences.testSoundEnabled = false // Disable sound to simplify alert counting
         overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
-        eventScheduler = EventScheduler(preferencesManager: mockPreferences)
+        eventScheduler = EventScheduler(preferencesManager: mockPreferences, linkParser: LinkParser())
         cancellables = Set<AnyCancellable>()
 
         // Connect the components

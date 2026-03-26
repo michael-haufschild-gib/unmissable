@@ -5,47 +5,64 @@ import XCTest
 
 @MainActor
 final class OverlaySnapshotTests: XCTestCase {
-    func testOverlayContentBeforeMeeting_recursiveDescriptionSnapshot() {
-        let hostingController = makeHostingController(event: createSampleEvent())
-        assertSnapshot(of: hostingController, as: .recursiveDescription)
+    // Snapshot tests use `.dump` strategy to capture the full SwiftUI view tree
+    // including text content and modifier chains. This catches meaningful UI regressions
+    // (missing text, wrong modifiers, structural changes) unlike `.recursiveDescription`
+    // which only shows the NSHostingView shell.
+    //
+    // To record new baselines: set `isRecording = true` below and run once.
+    // Then set it back to `false` for CI.
+
+    override func invokeTest() {
+        // Set `isRecording = true` to regenerate reference snapshots
+        // isRecording = true
+        super.invokeTest()
     }
 
-    func testOverlayContentWithoutMeetingLink_recursiveDescriptionSnapshot() {
-        let hostingController = makeHostingController(event: createSampleEventWithoutLink())
-        assertSnapshot(of: hostingController, as: .recursiveDescription)
+    func testOverlayContentBeforeMeeting() {
+        let view = makeOverlayView(event: createSampleEvent())
+        assertSnapshot(of: view, as: .dump)
     }
 
-    func testOverlayContentWithLongTitle_recursiveDescriptionSnapshot() {
-        let hostingController = makeHostingController(event: createSampleEventWithLongTitle())
-        assertSnapshot(of: hostingController, as: .recursiveDescription)
+    func testOverlayContentWithoutMeetingLink() {
+        let view = makeOverlayView(event: createSampleEventWithoutLink())
+        assertSnapshot(of: view, as: .dump)
     }
 
-    private func makeHostingController(event: Event) -> NSHostingController<AnyView> {
-        let preferencesManager = PreferencesManager()
-        let fullView = AnyView(
-            OverlayContentView(
-                event: event,
-                onDismiss: {},
-                onJoin: {},
-                onSnooze: { _ in }
-            )
-            .environmentObject(preferencesManager)
-            .frame(width: 1200, height: 800)
-            .preferredColorScheme(.light)
+    func testOverlayContentWithLongTitle() {
+        let view = makeOverlayView(event: createSampleEventWithLongTitle())
+        assertSnapshot(of: view, as: .dump)
+    }
+
+    func testOverlayContentFromSnooze() {
+        let view = makeOverlayView(event: createSampleEvent(), isFromSnooze: true)
+        assertSnapshot(of: view, as: .dump)
+    }
+
+    // MARK: - Helpers
+
+    private func makeOverlayView(event: Event, isFromSnooze: Bool = false) -> some View {
+        let themeManager = ThemeManager()
+        let preferencesManager = PreferencesManager(themeManager: themeManager)
+        return OverlayContentView(
+            event: event,
+            linkParser: LinkParser(),
+            onDismiss: {},
+            onJoin: {},
+            onSnooze: { _ in },
+            isFromSnooze: isFromSnooze
         )
-
-        let hostingController = NSHostingController(rootView: fullView)
-        _ = hostingController.view
-        hostingController.view.frame = CGRect(x: 0, y: 0, width: 1200, height: 800)
-        return hostingController
+        .environmentObject(preferencesManager)
+        .customThemedEnvironment(themeManager: themeManager)
+        .frame(width: 1200, height: 800)
     }
 
     private func createSampleEvent() -> Event {
         Event(
             id: "snapshot-test",
             title: "Important Team Meeting",
-            startDate: Date().addingTimeInterval(300), // 5 minutes from now
-            endDate: Date().addingTimeInterval(1800), // 30 minutes from now
+            startDate: Date(timeIntervalSince1970: 2_000_000_000), // Fixed date for determinism
+            endDate: Date(timeIntervalSince1970: 2_000_001_800),
             organizer: "john.doe@company.com",
             calendarId: "primary",
             // swiftlint:disable:next force_unwrapping
@@ -58,8 +75,8 @@ final class OverlaySnapshotTests: XCTestCase {
         Event(
             id: "snapshot-test-no-link",
             title: "In-Person Meeting",
-            startDate: Date().addingTimeInterval(300),
-            endDate: Date().addingTimeInterval(1800),
+            startDate: Date(timeIntervalSince1970: 2_000_000_000),
+            endDate: Date(timeIntervalSince1970: 2_000_001_800),
             organizer: "jane.smith@company.com",
             calendarId: "primary"
         )
@@ -70,8 +87,8 @@ final class OverlaySnapshotTests: XCTestCase {
             id: "snapshot-test-long",
             title:
             "Very Important Cross-Functional Strategic Planning Meeting with Multiple Stakeholders",
-            startDate: Date().addingTimeInterval(300),
-            endDate: Date().addingTimeInterval(1800),
+            startDate: Date(timeIntervalSince1970: 2_000_000_000),
+            endDate: Date(timeIntervalSince1970: 2_000_001_800),
             organizer: "strategic.planner@company.com",
             calendarId: "primary",
             // swiftlint:disable:next force_unwrapping

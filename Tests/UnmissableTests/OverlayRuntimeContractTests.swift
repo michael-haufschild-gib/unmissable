@@ -1,4 +1,5 @@
 import Foundation
+import TestSupport
 @testable import Unmissable
 import XCTest
 
@@ -29,7 +30,6 @@ final class OverlayRuntimeContractTests: XCTestCase {
 
         overlayManager.showOverlay(
             for: event,
-            minutesBeforeMeeting: 5,
             fromSnooze: false
         )
 
@@ -44,7 +44,6 @@ final class OverlayRuntimeContractTests: XCTestCase {
 
         overlayManager.showOverlay(
             for: event,
-            minutesBeforeMeeting: 5,
             fromSnooze: false
         )
         overlayManager.hideOverlay()
@@ -59,12 +58,10 @@ final class OverlayRuntimeContractTests: XCTestCase {
 
         overlayManager.showOverlay(
             for: event1,
-            minutesBeforeMeeting: 5,
             fromSnooze: false
         )
         overlayManager.showOverlay(
             for: event2,
-            minutesBeforeMeeting: 5,
             fromSnooze: false
         )
 
@@ -93,7 +90,6 @@ final class OverlayRuntimeContractTests: XCTestCase {
 
         overlayManager.showOverlay(
             for: event,
-            minutesBeforeMeeting: 5,
             fromSnooze: false
         )
         overlayManager.snoozeOverlay(for: 5)
@@ -121,7 +117,6 @@ final class OverlayRuntimeContractTests: XCTestCase {
         for _ in 0 ..< 25 {
             overlayManager.showOverlay(
                 for: event,
-                minutesBeforeMeeting: 5,
                 fromSnooze: false
             )
             overlayManager.hideOverlay()
@@ -146,7 +141,6 @@ final class OverlayRuntimeContractTests: XCTestCase {
                         )
                         self.overlayManager.showOverlay(
                             for: event,
-                            minutesBeforeMeeting: 5,
                             fromSnooze: false
                         )
                     } else {
@@ -177,7 +171,6 @@ final class OverlayRuntimeContractTests: XCTestCase {
 
         overlayManager.showOverlay(
             for: malformedEvent,
-            minutesBeforeMeeting: 5,
             fromSnooze: false
         )
 
@@ -204,7 +197,6 @@ final class OverlayRuntimeContractTests: XCTestCase {
 
         overlayManager.showOverlay(
             for: futureEvent,
-            minutesBeforeMeeting: 5,
             fromSnooze: false
         )
 

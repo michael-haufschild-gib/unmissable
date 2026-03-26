@@ -1,7 +1,9 @@
+import Accessibility
 import SwiftUI
 
 struct OverlayContentView: View {
     let event: Event
+    let linkParser: LinkParser
     let onDismiss: () -> Void
     let onJoin: () -> Void
     let onSnooze: (Int) -> Void
@@ -16,12 +18,14 @@ struct OverlayContentView: View {
 
     init(
         event: Event,
+        linkParser: LinkParser,
         onDismiss: @escaping () -> Void,
         onJoin: @escaping () -> Void,
         onSnooze: @escaping (Int) -> Void,
         isFromSnooze: Bool = false
     ) {
         self.event = event
+        self.linkParser = linkParser
         self.onDismiss = onDismiss
         self.onJoin = onJoin
         self.onSnooze = onSnooze
@@ -72,6 +76,11 @@ struct OverlayContentView: View {
         .onKeyPress(.escape) {
             onDismiss()
             return .handled
+        }
+        .onAppear {
+            AccessibilityNotification.Announcement(
+                "Meeting reminder overlay appeared for \(event.title)"
+            ).post()
         }
     }
 
@@ -180,7 +189,7 @@ struct OverlayContentView: View {
 
     private var actionButtons: some View {
         HStack(spacing: 20) {
-            if LinkParser.shared.isOnlineMeeting(event) {
+            if linkParser.isOnlineMeeting(event) {
                 Button(action: onJoin) {
                     HStack(spacing: 10) {
                         Image(systemName: "video.fill")
@@ -431,15 +440,18 @@ struct ScaleButtonStyle: ButtonStyle {
         links: [URL(string: "https://meet.google.com/abc-defg-hij")].compactMap(\.self)
     )
 
+    let themeManager = ThemeManager()
+
     OverlayContentView(
         event: sampleEvent,
+        linkParser: LinkParser(),
         onDismiss: {},
         onJoin: {},
         onSnooze: { _ in },
         isFromSnooze: false
     )
-    .environmentObject(PreferencesManager())
-    .customThemedEnvironment()
+    .environmentObject(PreferencesManager(themeManager: themeManager))
+    .customThemedEnvironment(themeManager: themeManager)
 }
 
 #Preview("Overlay Content - Meeting Started") {
@@ -453,15 +465,18 @@ struct ScaleButtonStyle: ButtonStyle {
         links: [URL(string: "https://meet.google.com/xyz-uvwx-stu")].compactMap(\.self)
     )
 
+    let themeManager = ThemeManager()
+
     OverlayContentView(
         event: sampleEvent,
+        linkParser: LinkParser(),
         onDismiss: {},
         onJoin: {},
         onSnooze: { _ in },
         isFromSnooze: false
     )
-    .environmentObject(PreferencesManager())
-    .customThemedEnvironment()
+    .environmentObject(PreferencesManager(themeManager: themeManager))
+    .customThemedEnvironment(themeManager: themeManager)
 }
 
 #Preview("Overlay Content - Snoozed Meeting Running") {
@@ -475,13 +490,16 @@ struct ScaleButtonStyle: ButtonStyle {
         links: [URL(string: "https://meet.google.com/xyz-uvwx-stu")].compactMap(\.self)
     )
 
+    let themeManager = ThemeManager()
+
     OverlayContentView(
         event: sampleEvent,
+        linkParser: LinkParser(),
         onDismiss: {},
         onJoin: {},
         onSnooze: { _ in },
         isFromSnooze: true
     )
-    .environmentObject(PreferencesManager())
-    .customThemedEnvironment()
+    .environmentObject(PreferencesManager(themeManager: themeManager))
+    .customThemedEnvironment(themeManager: themeManager)
 }

@@ -1,9 +1,11 @@
 import SwiftUI
 
 /// Event grouping structure for date-based organization
-struct EventGroup {
+struct EventGroup: Identifiable {
     let title: String
     let events: [Event]
+
+    var id: String { title }
 }
 
 struct MenuBarView: View {
@@ -148,6 +150,10 @@ struct MenuBarView: View {
 
     private var contentSection: some View {
         VStack(spacing: design.spacing.lg) {
+            if let dbError = appState.databaseError {
+                databaseErrorCard(dbError)
+            }
+
             if !calendarService.isConnected {
                 disconnectedContent
             } else {
@@ -155,6 +161,56 @@ struct MenuBarView: View {
             }
         }
         .padding(.vertical, design.spacing.lg)
+    }
+
+    @State
+    private var isRetryingDatabase = false
+
+    private func databaseErrorCard(_ message: String) -> some View {
+        CustomCard(style: .flat) {
+            VStack(alignment: .leading, spacing: design.spacing.sm) {
+                HStack(spacing: design.spacing.sm) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(design.colors.error)
+                        .font(.system(size: 16, weight: .medium))
+
+                    Text("Database Error")
+                        .font(design.fonts.subheadline)
+                        .foregroundColor(design.colors.error)
+                }
+
+                Text(message)
+                    .font(design.fonts.caption1)
+                    .foregroundColor(design.colors.textSecondary)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
+
+                HStack(spacing: design.spacing.sm) {
+                    CustomButton(
+                        isRetryingDatabase ? "Retrying…" : "Retry",
+                        icon: "arrow.clockwise",
+                        style: .secondary
+                    ) {
+                        Task {
+                            isRetryingDatabase = true
+                            await appState.retryDatabaseInitialization()
+                            isRetryingDatabase = false
+                        }
+                    }
+                    .disabled(isRetryingDatabase)
+                    .accessibilityIdentifier("retry-database-button")
+                    .accessibilityLabel("Retry database initialization")
+
+                    if !isRetryingDatabase {
+                        Text("or restart the app")
+                            .font(design.fonts.caption2)
+                            .foregroundColor(design.colors.textTertiary)
+                    }
+                }
+            }
+            .padding(design.spacing.md)
+        }
+        .padding(.horizontal, design.spacing.lg)
     }
 
     private var footerSection: some View {
@@ -232,7 +288,7 @@ struct MenuBarView: View {
                 }
                 .accessibilityIdentifier("connect-apple-calendar-button")
 
-                CustomButton("Connect Google Calendar", icon: "envelope.fill", style: .secondary) {
+                CustomButton("Connect Google Calendar", icon: "calendar", style: .secondary) {
                     Task {
                         await appState.connectToCalendar(provider: .google)
                     }
@@ -305,16 +361,13 @@ struct MenuBarView: View {
                         Spacer()
 
                         CustomToggle(
-                            isOn: Binding(
-                                get: { appState.preferences.showTodayOnlyInMenuBar },
-                                set: { appState.preferences.showTodayOnlyInMenuBar = $0 }
-                            )
+                            isOn: appState.preferences.showTodayOnlyInMenuBarBinding
                         )
                     }
                     .padding(.horizontal, design.spacing.lg)
 
-                    ForEach(groupedEvents.indices, id: \.self) { groupIndex in
-                        eventGroupView(groupedEvents[groupIndex])
+                    ForEach(groupedEvents) { group in
+                        eventGroupView(group)
                     }
                 }
             }
@@ -336,6 +389,7 @@ struct MenuBarView: View {
             ForEach(group.events.prefix(3)) { event in
                 CustomEventRow(
                     event: event,
+                    linkParser: appState.linkParser,
                     onEventTap: {
                         appState.showMeetingDetails(for: event)
                     }
@@ -398,14 +452,16 @@ struct MenuBarView: View {
 
 struct CustomEventRow: View {
     let event: Event
+    let linkParser: LinkParser
     let onEventTap: (() -> Void)?
     @Environment(\.customDesign)
     private var design
     @State
     private var isHovered = false
 
-    init(event: Event, onEventTap: (() -> Void)? = nil) {
+    init(event: Event, linkParser: LinkParser, onEventTap: (() -> Void)? = nil) {
         self.event = event
+        self.linkParser = linkParser
         self.onEventTap = onEventTap
     }
 
@@ -433,13 +489,15 @@ struct CustomEventRow: View {
                 Spacer()
 
                 HStack(spacing: design.spacing.md) {
-                    if LinkParser.shared.isOnlineMeeting(event) {
+                    if linkParser.isOnlineMeeting(event) {
                         Image(systemName: event.provider?.iconName ?? "link")
                             .foregroundColor(design.colors.accent)
                             .font(.system(size: 14, weight: .medium))
                     }
 
-                    if LinkParser.shared.shouldShowJoinButton(for: event), let primaryLink = LinkParser.shared.primaryLink(for: event) {
+                    if linkParser.shouldShowJoinButton(for: event),
+                       let primaryLink = linkParser.primaryLink(for: event)
+                    {
                         CustomButton("Join", icon: "video.fill", style: .secondary) {
                             NSWorkspace.shared.open(primaryLink)
                         }

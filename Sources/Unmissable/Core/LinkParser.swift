@@ -4,7 +4,6 @@ import OSLog
 final class LinkParser: Sendable {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "LinkParser")
 
-    static let shared = LinkParser()
 
     /// Trusted domains for meeting links — only these are considered valid meeting URLs
     private static let trustedMeetingDomains = [
@@ -51,9 +50,9 @@ final class LinkParser: Sendable {
     }
 
     func isGoogleMeetURL(_ url: URL) -> Bool {
-        let host = url.host?.lowercased() ?? ""
+        guard let host = url.host?.lowercased() else { return false }
 
-        if host.contains("meet.google.com") { return true }
+        if host == "meet.google.com" || host.hasSuffix(".meet.google.com") { return true }
         if host == "g.co", url.path.lowercased().hasPrefix("/meet/") { return true }
         return false
     }
@@ -105,13 +104,13 @@ final class LinkParser: Sendable {
             return meetLink
         }
 
-        // Priority 2: Other major video providers
+        // Priority 2: Other major video providers (exact domain matching)
         if let videoLink = validLinks.first(where: { url in
-            let host = url.host?.lowercased() ?? ""
-            return host.contains("zoom.us")
-                || host.contains("teams.microsoft.com")
-                || host.contains("teams.live.com")
-                || host.contains("webex.com")
+            guard let host = url.host?.lowercased() else { return false }
+            return host == "zoom.us" || host.hasSuffix(".zoom.us")
+                || host == "teams.microsoft.com" || host.hasSuffix(".teams.microsoft.com")
+                || host == "teams.live.com" || host.hasSuffix(".teams.live.com")
+                || host == "webex.com" || host.hasSuffix(".webex.com")
         }) {
             return videoLink
         }

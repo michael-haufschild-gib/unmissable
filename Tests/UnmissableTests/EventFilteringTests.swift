@@ -5,7 +5,7 @@ import XCTest
 final class EventFilteringTests: XCTestCase {
     func testCancelledEventFiltering() {
         let oauth2Service = OAuth2Service()
-        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
+        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
 
         let entry = GCalEventEntry(
             id: "cancelled-event-123",
@@ -28,7 +28,7 @@ final class EventFilteringTests: XCTestCase {
 
     func testDeclinedEventFiltering() {
         let oauth2Service = OAuth2Service()
-        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
+        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
 
         let entry = GCalEventEntry(
             id: "declined-event-123",
@@ -68,7 +68,7 @@ final class EventFilteringTests: XCTestCase {
 
     func testAcceptedEventNotFiltered() throws {
         let oauth2Service = OAuth2Service()
-        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
+        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
 
         let entry = GCalEventEntry(
             id: "accepted-event-123",
@@ -105,7 +105,7 @@ final class EventFilteringTests: XCTestCase {
 
     func testTentativeEventNotFiltered() throws {
         let oauth2Service = OAuth2Service()
-        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
+        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
 
         let entry = GCalEventEntry(
             id: "tentative-event-123",
@@ -141,7 +141,7 @@ final class EventFilteringTests: XCTestCase {
 
     func testEventWithoutCurrentUserNotFiltered() throws {
         let oauth2Service = OAuth2Service()
-        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
+        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
 
         let entry = GCalEventEntry(
             id: "other-event-123",
@@ -185,7 +185,7 @@ final class EventFilteringTests: XCTestCase {
 
     func testEventWithMissingStatusDefaultsToConfirmed() throws {
         let oauth2Service = OAuth2Service()
-        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
+        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
 
         let entry = GCalEventEntry(
             id: "no-status-event-123",
@@ -211,7 +211,7 @@ final class EventFilteringTests: XCTestCase {
 
     func testAttendeeSelfFieldParsing() throws {
         let oauth2Service = OAuth2Service()
-        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
+        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
 
         let entry = GCalEventEntry(
             id: "attendee-test-123",

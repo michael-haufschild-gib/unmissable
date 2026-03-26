@@ -17,7 +17,7 @@ enum CalendarProviderType: String, Codable, CaseIterable {
     var iconName: String {
         switch self {
         case .google:
-            "envelope.fill"
+            "calendar"
         case .apple:
             "apple.logo"
         }

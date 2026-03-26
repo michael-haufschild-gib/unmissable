@@ -1,11 +1,12 @@
+import TestSupport
 @testable import Unmissable
 import XCTest
 
 @MainActor
 final class EventSchedulerSnoozePreservationTests: XCTestCase {
     func testPreferenceReschedule_preservesExistingFutureSnoozeAlerts() async throws {
-        let preferences = PreferencesManager()
-        let scheduler = EventScheduler(preferencesManager: preferences)
+        let preferences = PreferencesManager(themeManager: ThemeManager())
+        let scheduler = EventScheduler(preferencesManager: preferences, linkParser: LinkParser())
         let overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
 
         let event = Event(

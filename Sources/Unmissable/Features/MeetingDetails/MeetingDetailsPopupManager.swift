@@ -11,24 +11,30 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
     @Published
     private(set) var isPopupVisible = false
     private var popupWindow: NSWindow?
+    private var currentEventId: String?
     private weak var parentWindow: NSWindow?
     // Intentionally strong: sole owner of the delegate (NSWindow.delegate is weak)
     // swiftlint:disable:next weak_delegate
     private var windowDelegate: PopupWindowDelegate?
+    private let themeManager: ThemeManager
+
+    init(themeManager: ThemeManager) {
+        self.themeManager = themeManager
+    }
 
     // MARK: - Popup Management
 
     func showPopup(for event: Event, relativeTo parentWindow: NSWindow? = nil) {
-        logger.info("POPUP: Showing details for event '\(event.title)'")
+        logger.info("POPUP: Showing details for event \(event.id)")
 
-        // Prevent multiple popups for the same event
-        if isPopupVisible, let currentWindow = popupWindow {
-            logger.info("POPUP: Popup already visible, bringing to front")
+        // If already showing the same event, just bring to front
+        if isPopupVisible, currentEventId == event.id, let currentWindow = popupWindow {
+            logger.info("POPUP: Same event already visible, bringing to front")
             currentWindow.makeKeyAndOrderFront(nil)
             return
         }
 
-        // Hide any existing popup first
+        // Close any existing popup (may be a different event)
         hidePopup()
 
         // Store parent window reference
@@ -37,11 +43,12 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
         // Create popup window
         let popup = createPopupWindow(for: event, relativeTo: parentWindow)
         popupWindow = popup
+        currentEventId = event.id
         isPopupVisible = true
 
         popup.makeKeyAndOrderFront(nil)
 
-        logger.info("POPUP: Displayed popup for event '\(event.title)'")
+        logger.info("POPUP: Displayed popup for event \(event.id)")
     }
 
     func hidePopup() {
@@ -54,6 +61,7 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
 
         // Clean up state
         popupWindow = nil
+        currentEventId = nil
         windowDelegate = nil
         isPopupVisible = false
         parentWindow = nil
@@ -65,8 +73,8 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
 
     private func createPopupWindow(for event: Event, relativeTo parentWindow: NSWindow?) -> NSWindow {
         // Create the SwiftUI content view
-        let contentView = MeetingDetailsView(event: event)
-            .customThemedEnvironment()
+        let contentView = MeetingDetailsView(event: event, onClose: { [weak self] in self?.hidePopup() })
+            .customThemedEnvironment(themeManager: themeManager)
             .onDisappear {
                 // Clean up when view disappears
                 Task { @MainActor in

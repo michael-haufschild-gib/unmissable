@@ -233,16 +233,16 @@ final class MultiEventE2ETests: XCTestCase {
 
         // Online meetings should preserve their provider info
         let fetchedMeet = try XCTUnwrap(upcoming.first { $0.id == "e2e-mixed-meet" })
-        XCTAssertTrue(LinkParser.shared.isOnlineMeeting(fetchedMeet))
+        XCTAssertTrue(LinkParser().isOnlineMeeting(fetchedMeet))
         XCTAssertEqual(fetchedMeet.provider, .meet)
 
         let fetchedZoom = try XCTUnwrap(upcoming.first { $0.id == "e2e-mixed-zoom" })
-        XCTAssertTrue(LinkParser.shared.isOnlineMeeting(fetchedZoom))
+        XCTAssertTrue(LinkParser().isOnlineMeeting(fetchedZoom))
         XCTAssertEqual(fetchedZoom.provider, .zoom)
 
         // In-person meeting has no meeting link
         let fetchedInPerson = try XCTUnwrap(upcoming.first { $0.id == "e2e-mixed-inperson" })
-        XCTAssertFalse(LinkParser.shared.isOnlineMeeting(fetchedInPerson))
+        XCTAssertFalse(LinkParser().isOnlineMeeting(fetchedInPerson))
     }
 
     // MARK: - Stop and Restart Scheduling

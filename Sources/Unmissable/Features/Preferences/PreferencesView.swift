@@ -81,7 +81,6 @@ struct PreferencesView: View {
                 }
             }
             .environmentObject(appState.preferences)
-            .customThemedEnvironment()
         }
         .background(design.colors.background)
         .frame(width: 650, height: 450)
@@ -191,7 +190,7 @@ struct GeneralPreferencesView: View {
 
             Spacer()
 
-            CustomToggle(isOn: $preferences.useLengthBasedTiming)
+            CustomToggle(isOn: preferences.useLengthBasedTimingBinding)
         }
     }
 
@@ -302,7 +301,7 @@ struct GeneralPreferencesView: View {
 
                         Spacer()
 
-                        CustomToggle(isOn: $preferences.includeAllDayEvents)
+                        CustomToggle(isOn: preferences.includeAllDayEventsBinding)
                     }
                 }
             }

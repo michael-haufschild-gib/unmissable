@@ -80,7 +80,7 @@ struct Event: Identifiable, Codable, Equatable {
         autoJoinEnabled: Bool = false,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
-        linkParser: LinkParser = .shared
+        linkParser: LinkParser
     ) -> Self {
         let detectedProvider: Provider? = if links.isEmpty {
             nil
@@ -133,7 +133,7 @@ struct Event: Identifiable, Codable, Equatable {
         autoJoinEnabled: Bool = false,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
-        linkParser: LinkParser = .shared
+        linkParser: LinkParser
     ) -> Self {
         // Combine all text fields that might contain meeting links
         let allText = [title, description, location]

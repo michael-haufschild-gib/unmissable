@@ -1,4 +1,5 @@
 import Combine
+import TestSupport
 @testable import Unmissable
 import XCTest
 
@@ -13,7 +14,7 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
     override func setUp() async throws {
         let prefs = TestUtilities.createTestPreferencesManager()
         let om = TestSafeOverlayManager(isTestEnvironment: true)
-        let es = EventScheduler(preferencesManager: prefs)
+        let es = EventScheduler(preferencesManager: prefs, linkParser: LinkParser())
         om.setEventScheduler(es)
         mockPreferences = prefs
         overlayManager = om

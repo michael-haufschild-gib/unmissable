@@ -1,3 +1,4 @@
+import TestSupport
 @testable import Unmissable
 import XCTest
 
@@ -18,8 +19,11 @@ final class HealthMonitorTests: XCTestCase {
 
     func testSetup_triggersImmediateHealthEvaluationWithDependencies() async throws {
         let preferences = TestUtilities.createTestPreferencesManager()
+        let dbURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("health-test-\(UUID().uuidString).db")
         let calendarService = CalendarService(
-            preferencesManager: preferences, databaseManager: .shared
+            preferencesManager: preferences, databaseManager: DatabaseManager(databaseURL: dbURL),
+            linkParser: LinkParser()
         )
         let overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         let monitor = HealthMonitor()
@@ -37,8 +41,11 @@ final class HealthMonitorTests: XCTestCase {
 
     func testSetup_afterInitialCheck_refreshesHealthWithoutWaitingFullInterval() async throws {
         let preferences = TestUtilities.createTestPreferencesManager()
+        let dbURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("health-test-\(UUID().uuidString).db")
         let calendarService = CalendarService(
-            preferencesManager: preferences, databaseManager: .shared
+            preferencesManager: preferences, databaseManager: DatabaseManager(databaseURL: dbURL),
+            linkParser: LinkParser()
         )
         let overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         let monitor = HealthMonitor()

@@ -1,4 +1,5 @@
 import Magnet
+import TestSupport
 @testable import Unmissable
 import XCTest
 
@@ -10,7 +11,7 @@ final class ShortcutsManagerTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         cleanupHotKeys()
-        sut = ShortcutsManager()
+        sut = ShortcutsManager(linkParser: LinkParser())
 
         overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
     }

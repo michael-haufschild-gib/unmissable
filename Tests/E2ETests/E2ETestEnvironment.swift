@@ -1,4 +1,5 @@
 import Foundation
+import TestSupport
 @testable import Unmissable
 import XCTest
 
@@ -22,23 +23,27 @@ final class E2ETestEnvironment {
 
         databaseManager = DatabaseManager(databaseURL: tempDatabaseURL)
         guard await databaseManager.isInitialized else {
-            throw E2EError.databaseInitFailed(
-                await databaseManager.initializationError ?? "Unknown error"
+            throw await E2EError.databaseInitFailed(
+                databaseManager.initializationError ?? "Unknown error"
             )
         }
 
-        preferencesManager = PreferencesManager()
+        // Use isolated UserDefaults to avoid cross-test pollution
+        let suiteName = "com.unmissable.e2e.\(UUID().uuidString)"
+        // swiftlint:disable:next force_unwrapping
+        let testDefaults = UserDefaults(suiteName: suiteName)!
+        preferencesManager = PreferencesManager(userDefaults: testDefaults, themeManager: ThemeManager())
         // Set deterministic test defaults
         preferencesManager.setDefaultAlertMinutes(5)
         preferencesManager.setOverlayShowMinutesBefore(2)
-        preferencesManager.playAlertSound = false
-        preferencesManager.useLengthBasedTiming = false
-        preferencesManager.showOnAllDisplays = false
-        preferencesManager.overrideFocusMode = false
-        preferencesManager.autoJoinEnabled = false
-        preferencesManager.includeAllDayEvents = false
+        preferencesManager.setPlayAlertSound(false)
+        preferencesManager.setUseLengthBasedTiming(false)
+        preferencesManager.setShowOnAllDisplays(false)
+        preferencesManager.setOverrideFocusMode(false)
+        preferencesManager.setAutoJoinEnabled(false)
+        preferencesManager.setIncludeAllDayEvents(false)
 
-        eventScheduler = EventScheduler(preferencesManager: preferencesManager)
+        eventScheduler = EventScheduler(preferencesManager: preferencesManager, linkParser: LinkParser())
         overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         meetingDetailsPopupManager = TestSafeMeetingDetailsPopupManager()
 

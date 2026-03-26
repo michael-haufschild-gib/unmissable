@@ -124,15 +124,23 @@ struct AttachmentRow: View {
 
     // MARK: - Actions
 
+    /// Schemes safe to open from calendar attachment links.
+    private static let allowedSchemes: Set<String> = ["https", "http"]
+
     private func openAttachment() {
         guard let url = URL(string: attachment.fileUrl) else {
-            logger.error("AttachmentRow: Invalid URL for attachment - \(attachment.fileUrl)")
+            logger.error("AttachmentRow: Invalid URL for attachment")
             return
         }
 
-        logger.info(
-            "AttachmentRow: Opening attachment - \(attachment.title) at \(url.absoluteString)"
-        )
+        guard let scheme = url.scheme?.lowercased(),
+              Self.allowedSchemes.contains(scheme)
+        else {
+            logger.warning("AttachmentRow: Blocked attachment with disallowed scheme")
+            return
+        }
+
+        logger.info("AttachmentRow: Opening attachment (id: \(attachment.fileId ?? "unknown"))")
 
         NSWorkspace.shared.open(url)
     }
@@ -174,7 +182,7 @@ struct AttachmentRow: View {
             AttachmentsView(attachments: sampleAttachments)
                 .padding()
                 .frame(width: 400)
-                .customThemedEnvironment()
+                .customThemedEnvironment(themeManager: ThemeManager())
         }
     }
 #endif

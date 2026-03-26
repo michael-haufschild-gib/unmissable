@@ -110,11 +110,10 @@ enum HTMLSanitizer {
         }
 
         // Move past '>'
-        let tagEnd: String.Index
-        if i < html.endIndex {
-            tagEnd = html.index(after: i)
+        let tagEnd: String.Index = if i < html.endIndex {
+            html.index(after: i)
         } else {
-            tagEnd = i
+            i
         }
 
         let fullTag = String(html[from ..< tagEnd])

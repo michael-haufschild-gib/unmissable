@@ -9,9 +9,9 @@ final class SyncManagerLifecycleTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
 
-        let preferences = PreferencesManager()
+        let preferences = PreferencesManager(themeManager: ThemeManager())
         let oauth2Service = OAuth2Service()
-        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
+        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
         databaseManager = DatabaseManager()
         manager = SyncManager(
             apiService: apiService,
@@ -80,8 +80,8 @@ final class SyncManagerLifecycleTests: XCTestCase {
         // authenticated flag true, but no valid OAuth token/state available.
         let oauth2Service = OAuth2Service()
         oauth2Service.isAuthenticated = true
-        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service)
-        let preferences = PreferencesManager()
+        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
+        let preferences = PreferencesManager(themeManager: ThemeManager())
         manager.stopPeriodicSync()
         manager = SyncManager(
             apiService: apiService,

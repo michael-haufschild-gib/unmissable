@@ -171,8 +171,11 @@ final class SchedulerTimerE2ETests: XCTestCase {
                 "Should find event for provider \(provider.rawValue)"
             )
             XCTAssertEqual(event.provider, provider)
-            XCTAssertTrue(LinkParser.shared.isOnlineMeeting(event), "\(provider.rawValue) should be online meeting")
-            XCTAssertNotNil(LinkParser.shared.primaryLink(for: event), "\(provider.rawValue) should have a primary link")
+            XCTAssertTrue(LinkParser().isOnlineMeeting(event), "\(provider.rawValue) should be online meeting")
+            XCTAssertNotNil(
+                LinkParser().primaryLink(for: event),
+                "\(provider.rawValue) should have a primary link"
+            )
         }
 
         // Generic provider may or may not be detected as online meeting depending on
@@ -240,7 +243,7 @@ final class SchedulerTimerE2ETests: XCTestCase {
         XCTAssertEqual(fetchedLong.duration, 120 * 60, accuracy: 1.0)
 
         // Length-based timing should work with DB-fetched events
-        env.preferencesManager.useLengthBasedTiming = true
+        env.preferencesManager.setUseLengthBasedTiming(true)
         env.preferencesManager.setShortMeetingAlertMinutes(2)
         env.preferencesManager.setLongMeetingAlertMinutes(10)
 

@@ -255,7 +255,8 @@ final class CalendarSyncE2ETests: XCTestCase {
     func testCalendarServiceInitializesDisconnected() {
         let calendarService = CalendarService(
             preferencesManager: env.preferencesManager,
-            databaseManager: env.databaseManager
+            databaseManager: env.databaseManager,
+            linkParser: LinkParser()
         )
 
         XCTAssertFalse(calendarService.isConnected)
@@ -268,7 +269,8 @@ final class CalendarSyncE2ETests: XCTestCase {
     func testCalendarServiceDisconnectClearsState() async {
         let calendarService = CalendarService(
             preferencesManager: env.preferencesManager,
-            databaseManager: env.databaseManager
+            databaseManager: env.databaseManager,
+            linkParser: LinkParser()
         )
 
         // Manually set some state

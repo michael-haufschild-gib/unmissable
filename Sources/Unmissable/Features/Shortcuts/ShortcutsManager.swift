@@ -13,9 +13,11 @@ final class ShortcutsManager: ObservableObject {
     var joinShortcut: HotKey?
 
     private weak var overlayManager: (any OverlayManaging)?
+    private let linkParser: LinkParser
 
-    init(overlayManager: (any OverlayManaging)? = nil) {
+    init(overlayManager: (any OverlayManaging)? = nil, linkParser: LinkParser) {
         self.overlayManager = overlayManager
+        self.linkParser = linkParser
         if overlayManager != nil {
             setupDefaultShortcuts()
         }
@@ -88,7 +90,7 @@ final class ShortcutsManager: ObservableObject {
         guard let overlayManager,
               overlayManager.isOverlayVisible,
               let event = overlayManager.activeEvent,
-              let url = LinkParser.shared.primaryLink(for: event)
+              let url = linkParser.primaryLink(for: event)
         else {
             logger.info("Join shortcut pressed but no active meeting to join")
             return

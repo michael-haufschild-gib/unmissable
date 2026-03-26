@@ -41,10 +41,10 @@ log_error() {
     echo -e "${RED}❌ $1${NC}"
 }
 
-# Cleanup function
+# Cleanup function — only removes generated reports, never .build (SPM cache)
 cleanup() {
-    log_info "Cleaning up temporary files..."
-    rm -rf "$BUILD_DIR"
+    log_info "Cleaning up temporary report files..."
+    rm -rf "$REPORTS_DIR"/*.xcresult
 }
 
 # Set up cleanup on exit

@@ -27,6 +27,8 @@ final class FocusModeManager: ObservableObject {
 
     @Published
     var isDoNotDisturbEnabled: Bool = false
+    @Published
+    private(set) var dndDetectionAvailable: Bool = true
 
     private let preferencesManager: PreferencesManager
     private let notificationTokens = NotificationTokenBag()
@@ -70,16 +72,28 @@ final class FocusModeManager: ObservableObject {
             // Already on MainActor here - safe to update state directly
             switch result {
             case let .success(newDNDStatus):
+                if !self.dndDetectionAvailable {
+                    self.logger.info("DND detection recovered")
+                }
+                self.dndDetectionAvailable = true
                 if newDNDStatus != self.isDoNotDisturbEnabled {
                     self.isDoNotDisturbEnabled = newDNDStatus
                     self.logger.info("Do Not Disturb status changed: \(newDNDStatus)")
                 }
 
             case let .failure(error):
-                self.logger.error("Failed to check Do Not Disturb status: \(error.localizedDescription)")
+                self.logger.warning(
+                    "DND detection unavailable (parse failure): \(error.localizedDescription)"
+                )
+                self.dndDetectionAvailable = false
+                self.isDoNotDisturbEnabled = false
 
             case .notFound:
-                self.logger.warning("DND preferences file not found at expected path")
+                self.logger.warning(
+                    "DND detection unavailable: preferences files not found at expected paths"
+                )
+                self.dndDetectionAvailable = false
+                self.isDoNotDisturbEnabled = false
             }
         }
     }
@@ -164,7 +178,7 @@ final class FocusModeManager: ObservableObject {
     /// It may change or disappear in future macOS versions. This path is only reached on macOS 11
     /// and earlier (macOS 12+ uses Assertions.json above), so the risk is bounded.
     private nonisolated static func readLegacyDNDPrefs(at prefsPath: String) async -> DNDCheckResult {
-        return await Task.detached {
+        await Task.detached {
             do {
                 let data = try Data(contentsOf: URL(fileURLWithPath: prefsPath))
                 guard data.count < 5_000_000 else {
@@ -198,6 +212,11 @@ final class FocusModeManager: ObservableObject {
     }
 
     func shouldShowOverlay() -> Bool {
+        // When DND detection is unavailable, always show (safe default for meeting reminders)
+        guard dndDetectionAvailable else {
+            return true
+        }
+
         // If Do Not Disturb is off, always show overlay
         guard isDoNotDisturbEnabled else {
             return true

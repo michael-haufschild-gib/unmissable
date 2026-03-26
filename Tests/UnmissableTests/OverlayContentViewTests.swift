@@ -13,6 +13,7 @@ final class OverlayContentViewTests: XCTestCase {
 
         let view = OverlayContentView(
             event: event,
+            linkParser: LinkParser(),
             onDismiss: {
                 XCTFail("Dismiss should not be called during snooze test")
             },
@@ -45,6 +46,7 @@ final class OverlayContentViewTests: XCTestCase {
 
         let view = OverlayContentView(
             event: event,
+            linkParser: LinkParser(),
             onDismiss: {
                 dismissCalled = true
                 expectation.fulfill()
@@ -78,6 +80,7 @@ final class OverlayContentViewTests: XCTestCase {
 
         let view = OverlayContentView(
             event: event,
+            linkParser: LinkParser(),
             onDismiss: {
                 XCTFail("Dismiss should not be called during join test")
             },
@@ -105,6 +108,7 @@ final class OverlayContentViewTests: XCTestCase {
 
         var view: OverlayContentView? = OverlayContentView(
             event: event,
+            linkParser: LinkParser(),
             onDismiss: {},
             onJoin: {},
             onSnooze: { _ in }
@@ -154,6 +158,7 @@ final class OverlayContentViewTests: XCTestCase {
 
             let view = OverlayContentView(
                 event: event,
+                linkParser: LinkParser(),
                 onDismiss: {
                     dismissCalls += 1
                 },

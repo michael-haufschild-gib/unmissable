@@ -46,11 +46,11 @@ final class PreferencesManager: ObservableObject {
     private let userDefaults: UserDefaults
     private let themeManager: ThemeManager
 
-    // MARK: - Clamped Properties
+    // MARK: - Properties
 
-    // These use a private @Published backing store with a computed public property
-    // so that values are clamped before assignment, producing exactly one notification.
-    // Combine subscribers use the $_name projection; SwiftUI Bindings use the computed property.
+    // All properties use `private(set)` with explicit setter methods that persist to
+    // UserDefaults. This eliminates the fragile `didSet`/`isLoading` guard pattern.
+    // `loadPreferences()` assigns directly to the backing stores without triggering persistence.
 
     /// Alert timing (validated to 0-60 minutes)
     @Published
@@ -61,8 +61,10 @@ final class PreferencesManager: ObservableObject {
     }
 
     @Published
-    var useLengthBasedTiming: Bool = false {
-        didSet { userDefaults.set(useLengthBasedTiming, forKey: PrefKey.useLengthBasedTiming) }
+    private(set) var useLengthBasedTiming: Bool = false
+    func setUseLengthBasedTiming(_ value: Bool) {
+        useLengthBasedTiming = value
+        userDefaults.set(value, forKey: PrefKey.useLengthBasedTiming)
     }
 
     @Published
@@ -95,17 +97,19 @@ final class PreferencesManager: ObservableObject {
     }
 
     @Published
-    var includeAllDayEvents: Bool = false {
-        didSet { userDefaults.set(includeAllDayEvents, forKey: PrefKey.includeAllDayEvents) }
+    private(set) var includeAllDayEvents: Bool = false
+    func setIncludeAllDayEvents(_ value: Bool) {
+        includeAllDayEvents = value
+        userDefaults.set(value, forKey: PrefKey.includeAllDayEvents)
     }
 
     /// Appearance - Updated to use new custom theme system
     @Published
-    var appearanceTheme: AppTheme = .system {
-        didSet {
-            userDefaults.set(appearanceTheme.rawValue, forKey: PrefKey.appearanceTheme)
-            themeManager.setTheme(appearanceTheme)
-        }
+    private(set) var appearanceTheme: AppTheme = .system
+    func setAppearanceTheme(_ value: AppTheme) {
+        appearanceTheme = value
+        userDefaults.set(value.rawValue, forKey: PrefKey.appearanceTheme)
+        themeManager.setTheme(value)
     }
 
     @Published
@@ -123,24 +127,32 @@ final class PreferencesManager: ObservableObject {
     }
 
     @Published
-    var fontSize: FontSize = .medium {
-        didSet { userDefaults.set(fontSize.rawValue, forKey: PrefKey.fontSize) }
+    private(set) var fontSize: FontSize = .medium
+    func setFontSize(_ value: FontSize) {
+        fontSize = value
+        userDefaults.set(value.rawValue, forKey: PrefKey.fontSize)
     }
 
     @Published
-    var minimalMode: Bool = false {
-        didSet { userDefaults.set(minimalMode, forKey: PrefKey.minimalMode) }
+    private(set) var minimalMode: Bool = false
+    func setMinimalMode(_ value: Bool) {
+        minimalMode = value
+        userDefaults.set(value, forKey: PrefKey.minimalMode)
     }
 
     @Published
-    var showOnAllDisplays: Bool = true {
-        didSet { userDefaults.set(showOnAllDisplays, forKey: PrefKey.showOnAllDisplays) }
+    private(set) var showOnAllDisplays: Bool = true
+    func setShowOnAllDisplays(_ value: Bool) {
+        showOnAllDisplays = value
+        userDefaults.set(value, forKey: PrefKey.showOnAllDisplays)
     }
 
     /// Sound
     @Published
-    var playAlertSound: Bool = true {
-        didSet { userDefaults.set(playAlertSound, forKey: PrefKey.playAlertSound) }
+    private(set) var playAlertSound: Bool = true
+    func setPlayAlertSound(_ value: Bool) {
+        playAlertSound = value
+        userDefaults.set(value, forKey: PrefKey.playAlertSound)
     }
 
     /// Convenience aliases for overlay scheduling
@@ -161,36 +173,44 @@ final class PreferencesManager: ObservableObject {
 
     /// Focus mode
     @Published
-    var overrideFocusMode: Bool = true {
-        didSet { userDefaults.set(overrideFocusMode, forKey: PrefKey.overrideFocusMode) }
+    private(set) var overrideFocusMode: Bool = true
+    func setOverrideFocusMode(_ value: Bool) {
+        overrideFocusMode = value
+        userDefaults.set(value, forKey: PrefKey.overrideFocusMode)
     }
 
     /// Auto-join
     @Published
-    var autoJoinEnabled: Bool = false {
-        didSet { userDefaults.set(autoJoinEnabled, forKey: PrefKey.autoJoinEnabled) }
+    private(set) var autoJoinEnabled: Bool = false
+    func setAutoJoinEnabled(_ value: Bool) {
+        autoJoinEnabled = value
+        userDefaults.set(value, forKey: PrefKey.autoJoinEnabled)
     }
 
     /// Snooze
     @Published
-    var allowSnooze: Bool = true {
-        didSet { userDefaults.set(allowSnooze, forKey: PrefKey.allowSnooze) }
+    private(set) var allowSnooze: Bool = true
+    func setAllowSnooze(_ value: Bool) {
+        allowSnooze = value
+        userDefaults.set(value, forKey: PrefKey.allowSnooze)
     }
 
     /// Menu bar display
     @Published
-    var menuBarDisplayMode: MenuBarDisplayMode = .icon {
-        didSet {
-            userDefaults.set(menuBarDisplayMode.rawValue, forKey: PrefKey.menuBarDisplayMode)
-        }
+    private(set) var menuBarDisplayMode: MenuBarDisplayMode = .icon
+    func setMenuBarDisplayMode(_ value: MenuBarDisplayMode) {
+        menuBarDisplayMode = value
+        userDefaults.set(value.rawValue, forKey: PrefKey.menuBarDisplayMode)
     }
 
     @Published
-    var showTodayOnlyInMenuBar: Bool = false {
-        didSet { userDefaults.set(showTodayOnlyInMenuBar, forKey: PrefKey.showTodayOnlyInMenuBar) }
+    private(set) var showTodayOnlyInMenuBar: Bool = false
+    func setShowTodayOnlyInMenuBar(_ value: Bool) {
+        showTodayOnlyInMenuBar = value
+        userDefaults.set(value, forKey: PrefKey.showTodayOnlyInMenuBar)
     }
 
-    init(userDefaults: UserDefaults = .standard, themeManager: ThemeManager = .shared) {
+    init(userDefaults: UserDefaults = .standard, themeManager: ThemeManager) {
         self.userDefaults = userDefaults
         self.themeManager = themeManager
         loadPreferences()
@@ -265,13 +285,20 @@ final class PreferencesManager: ObservableObject {
         showTodayOnlyInMenuBar = userDefaults.bool(forKey: PrefKey.showTodayOnlyInMenuBar)
     }
 
-    // MARK: - Clamped Bindings for SwiftUI
+    // MARK: - Bindings for SwiftUI
 
-    /// Bindings that clamp values on write, for use in SwiftUI Pickers/Sliders.
+    /// Bindings that route through setter methods, for use in SwiftUI Pickers/Toggles/Sliders.
     var defaultAlertMinutesBinding: Binding<Int> {
         Binding(
             get: { self.defaultAlertMinutes },
             set: { self.setDefaultAlertMinutes($0) }
+        )
+    }
+
+    var useLengthBasedTimingBinding: Binding<Bool> {
+        Binding(
+            get: { self.useLengthBasedTiming },
+            set: { self.setUseLengthBasedTiming($0) }
         )
     }
 
@@ -303,6 +330,20 @@ final class PreferencesManager: ObservableObject {
         )
     }
 
+    var includeAllDayEventsBinding: Binding<Bool> {
+        Binding(
+            get: { self.includeAllDayEvents },
+            set: { self.setIncludeAllDayEvents($0) }
+        )
+    }
+
+    var appearanceThemeBinding: Binding<AppTheme> {
+        Binding(
+            get: { self.appearanceTheme },
+            set: { self.setAppearanceTheme($0) }
+        )
+    }
+
     var overlayOpacityBinding: Binding<Double> {
         Binding(
             get: { self.overlayOpacity },
@@ -314,6 +355,20 @@ final class PreferencesManager: ObservableObject {
         Binding(
             get: { self.overlayShowMinutesBefore },
             set: { self.setOverlayShowMinutesBefore($0) }
+        )
+    }
+
+    var menuBarDisplayModeBinding: Binding<MenuBarDisplayMode> {
+        Binding(
+            get: { self.menuBarDisplayMode },
+            set: { self.setMenuBarDisplayMode($0) }
+        )
+    }
+
+    var showTodayOnlyInMenuBarBinding: Binding<Bool> {
+        Binding(
+            get: { self.showTodayOnlyInMenuBar },
+            set: { self.setShowTodayOnlyInMenuBar($0) }
         )
     }
 

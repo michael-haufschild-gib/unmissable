@@ -12,14 +12,16 @@ final class EventScheduler: ObservableObject {
 
     private var monitoringTask: Task<Void, Never>?
     private let preferencesManager: PreferencesManager
+    private let linkParser: LinkParser
     private var cancellables = Set<AnyCancellable>()
 
     // Store current events to allow rescheduling
     private var currentEvents: [Event] = []
     private weak var currentOverlayManager: (any OverlayManaging)?
 
-    init(preferencesManager: PreferencesManager) {
+    init(preferencesManager: PreferencesManager, linkParser: LinkParser) {
         self.preferencesManager = preferencesManager
+        self.linkParser = linkParser
         setupPreferencesObserver()
     }
 
@@ -58,9 +60,9 @@ final class EventScheduler: ObservableObject {
     func startScheduling(events: [Event], overlayManager: any OverlayManaging) {
         logger.info("Starting event scheduling for \(events.count) events")
 
-        // Log the first few events for debugging
+        // Log the first few events for debugging (titles redacted for privacy)
         for (index, event) in events.prefix(3).enumerated() {
-            logger.debug("  Event \(index + 1): '\(event.title)' at \(event.startDate)")
+            logger.debug("  Event \(index + 1): id=\(event.id) at \(event.startDate)")
         }
 
         // Store for future rescheduling when preferences change
@@ -70,7 +72,7 @@ final class EventScheduler: ObservableObject {
         stopTimers()
         let missedEvents = scheduleAlerts(for: events)
         for event in missedEvents {
-            logger.info("Missed alert time for \(event.title), triggering immediately")
+            logger.info("Missed alert time for event \(event.id), triggering immediately")
             overlayManager.showOverlay(for: event, fromSnooze: false)
         }
         startMonitoring(overlayManager: overlayManager)
@@ -94,7 +96,7 @@ final class EventScheduler: ObservableObject {
         monitoringTask = nil
         let missedEvents = scheduleAlerts(for: currentEvents)
         for event in missedEvents {
-            logger.info("Missed alert time for \(event.title), triggering immediately")
+            logger.info("Missed alert time for event \(event.id), triggering immediately")
             overlayManager.showOverlay(for: event, fromSnooze: false)
         }
         startMonitoring(overlayManager: overlayManager)
@@ -226,7 +228,7 @@ final class EventScheduler: ObservableObject {
                     if timeUntilTrigger > 0.1 {
                         logger
                             .debug(
-                                "MONITORING: Sleeping for \(String(format: "%.2f", timeUntilTrigger))s until next alert for '\(nextAlert.event.title)'"
+                                "MONITORING: Sleeping for \(String(format: "%.2f", timeUntilTrigger))s until next alert for event \(nextAlert.event.id)"
                             )
                         let sleepStart = Date()
                         // Sleep exactly until the next alert (plus a tiny buffer)
@@ -286,7 +288,7 @@ final class EventScheduler: ObservableObject {
                     "meetingStart"
                 }
                 logger.debug(
-                    "  - \(alertTypeName) for '\(alert.event.title)' (trigger: \(alert.triggerDate))"
+                    "  - \(alertTypeName) for event \(alert.event.id) (trigger: \(alert.triggerDate))"
                 )
             }
         }
@@ -312,17 +314,17 @@ final class EventScheduler: ObservableObject {
     private func handleTriggeredAlert(_ alert: ScheduledAlert, overlayManager: any OverlayManaging) {
         switch alert.alertType {
         case .reminder:
-            logger.info("REMINDER: Showing overlay for \(alert.event.title)")
+            logger.info("REMINDER: Showing overlay for event \(alert.event.id)")
             overlayManager.showOverlay(for: alert.event, fromSnooze: false)
 
         case .meetingStart:
-            if preferencesManager.autoJoinEnabled, let url = LinkParser.shared.primaryLink(for: alert.event) {
-                logger.info("AUTO-JOIN: Opening meeting for \(alert.event.title)")
+            if preferencesManager.autoJoinEnabled, let url = linkParser.primaryLink(for: alert.event) {
+                logger.info("AUTO-JOIN: Opening meeting for event \(alert.event.id)")
                 NSWorkspace.shared.open(url)
             }
 
         case .snooze:
-            logger.info("SNOOZE: Re-showing overlay for \(alert.event.title)")
+            logger.info("SNOOZE: Re-showing overlay for event \(alert.event.id)")
             overlayManager.showOverlay(for: alert.event, fromSnooze: true)
         }
     }
@@ -348,11 +350,11 @@ final class EventScheduler: ObservableObject {
 
         if meetingStarted {
             logger.info(
-                "Scheduled snooze for \(minutes) minutes for event '\(event.title)' (meeting already started). Will trigger at \(formatter.string(from: snoozeDate))"
+                "Scheduled snooze for \(minutes) minutes for event \(event.id) (meeting already started). Will trigger at \(formatter.string(from: snoozeDate))"
             )
         } else {
             logger.info(
-                "Scheduled snooze for \(minutes) minutes for event '\(event.title)' (meeting starts later). Will trigger at \(formatter.string(from: snoozeDate))"
+                "Scheduled snooze for \(minutes) minutes for event \(event.id) (meeting starts later). Will trigger at \(formatter.string(from: snoozeDate))"
             )
         }
 

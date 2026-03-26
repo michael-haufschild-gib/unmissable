@@ -1,5 +1,5 @@
-# SwiftLint Configuration - Strict rules for vibecoded project
-# Zero tolerance for complexity, length, and shallow code
+# SwiftLint Configuration — vibecoded with Claude Code
+# Strict rules for complexity, length, and code quality
 
 disabled_rules:
   - trailing_whitespace

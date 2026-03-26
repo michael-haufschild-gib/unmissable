@@ -32,6 +32,24 @@ protocol DatabaseManaging: Sendable {
 
     func searchEvents(query: String) async throws -> [Event]
     func performMaintenance() async throws
+
+    // MARK: - Initialization Status
+
+    var initializationError: String? { get async }
+
+    /// Re-run database initialization. Returns `nil` on success or the error description on failure.
+    @discardableResult
+    func reinitialize() async -> String?
+}
+
+extension DatabaseManaging {
+    var initializationError: String? {
+        nil
+    }
+
+    func reinitialize() async -> String? {
+        nil
+    }
 }
 
 actor DatabaseManager: DatabaseManaging {
@@ -88,6 +106,48 @@ actor DatabaseManager: DatabaseManaging {
             logger.error("Failed to setup database: \(error.localizedDescription)")
             isInitialized = false
             initializationError = "Database setup failed: \(error.localizedDescription)"
+        }
+    }
+
+    // MARK: - Reinitialization
+
+    /// Re-runs the production initialization logic (path resolution, queue creation, migrations).
+    /// Returns `nil` on success or the error description on failure.
+    @discardableResult
+    func reinitialize() -> String? {
+        let fileManager = FileManager.default
+        let dbURL: URL
+        do {
+            let appSupportURL = try fileManager.url(
+                for: .applicationSupportDirectory,
+                in: .userDomainMask,
+                appropriateFor: nil,
+                create: true
+            )
+            let unmissableURL = appSupportURL.appendingPathComponent("Unmissable")
+            try fileManager.createDirectory(at: unmissableURL, withIntermediateDirectories: true)
+            dbURL = unmissableURL.appendingPathComponent("unmissable.db")
+        } catch {
+            let message = "Database path resolution failed: \(error.localizedDescription)"
+            logger.error("\(message)")
+            isInitialized = false
+            initializationError = message
+            return message
+        }
+        do {
+            let queue = try DatabaseQueue(path: dbURL.path)
+            dbQueue = queue
+            try Self.migrator.migrate(queue)
+            isInitialized = true
+            initializationError = nil
+            logger.info("Database reinitialized at: \(dbURL.path)")
+            return nil
+        } catch {
+            let message = "Database setup failed: \(error.localizedDescription)"
+            logger.error("\(message)")
+            isInitialized = false
+            initializationError = message
+            return message
         }
     }
 

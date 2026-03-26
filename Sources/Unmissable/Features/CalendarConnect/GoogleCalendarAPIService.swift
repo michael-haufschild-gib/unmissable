@@ -5,6 +5,7 @@ import OSLog
 final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "GoogleCalendarAPIService")
     private let oauth2Service: OAuth2Service
+    private let linkParser: LinkParser
 
     @Published
     var calendars: [CalendarInfo] = []
@@ -17,6 +18,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     @Published
     var calendarErrors: [String: String] = [:]
 
+    /// URLSession with timeout configuration to prevent indefinite hangs.
     /// URLSession with timeout configuration to prevent indefinite hangs
     private static let urlSession: URLSession = {
         let config = URLSessionConfiguration.default
@@ -25,8 +27,9 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         return URLSession(configuration: config)
     }()
 
-    init(oauth2Service: OAuth2Service) {
+    init(oauth2Service: OAuth2Service, linkParser: LinkParser) {
         self.oauth2Service = oauth2Service
+        self.linkParser = linkParser
     }
 
     // MARK: - Calendar Operations
@@ -162,22 +165,22 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     /// Based on `.urlPathAllowed` with `#` explicitly removed — calendar IDs like
     /// `#contacts@group.v.calendar.google.com` must have `#` encoded to `%23`
     /// so it isn't misinterpreted as a URL fragment delimiter.
-    private static let calendarIdAllowedCharacters: CharacterSet = {
+    /// Characters allowed in percent-encoded calendar IDs.
+    private nonisolated(unsafe) static let calendarIdAllowedCharacters: CharacterSet = {
         var set = CharacterSet.urlPathAllowed
         set.remove("#")
         return set
     }()
 
-    /// Maximum total events to fetch per calendar to prevent runaway pagination
-    private static let maxEventsPerCalendar = 2000
-
-    private func fetchEventsForCalendar(
+    /// Fetches events for a single calendar, handling pagination. Marked `nonisolated` so that
+    /// concurrent task group children can execute HTTP requests off the main actor.
+    private nonisolated func fetchEventsForCalendar(
         calendarId: String,
         startDate: Date,
         endDate: Date,
         accessToken: String
     ) async throws -> [Event] {
-
+        let maxEvents = 2000
         let dateFormatter = ISO8601DateFormatter()
         let timeMin = dateFormatter.string(from: startDate)
         let timeMax = dateFormatter.string(from: endDate)
@@ -248,9 +251,9 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
             allEvents.append(contentsOf: events)
             pageToken = nextToken
 
-            if allEvents.count >= Self.maxEventsPerCalendar {
+            if allEvents.count >= maxEvents {
                 logger.warning(
-                    "Hit safety cap of \(Self.maxEventsPerCalendar) events for calendar \(calendarId), stopping pagination"
+                    "Hit safety cap of \(maxEvents) events for calendar \(calendarId), stopping pagination"
                 )
                 break
             }
@@ -275,12 +278,14 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
                 description: entry.description,
                 isSelected: isPrimary,
                 isPrimary: isPrimary,
-                colorHex: entry.colorId
+                colorHex: entry.colorHex
             )
         }
     }
 
-    private func parseEventList(from data: Data, calendarId: String) throws -> ([Event], String?) {
+    private nonisolated func parseEventList(from data: Data, calendarId: String) throws
+        -> ([Event], String?)
+    {
         let response = try JSONDecoder().decode(GCalEventListResponse.self, from: data)
         guard let items = response.items else {
             throw GoogleCalendarAPIError.parseError
@@ -295,14 +300,26 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
 
     // MARK: - Codable Event Conversion
 
-    private static let isoFormatter = ISO8601DateFormatter()
-    private static let dayFormatter: DateFormatter = {
+    /// Creates a new ISO8601DateFormatter per call. These formatters are not thread-safe,
+    /// so sharing a static instance across concurrent task group children is unsound.
+    /// ISO8601DateFormatter is lightweight — allocation cost is negligible vs. network I/O.
+    private nonisolated static func makeISOFormatter() -> ISO8601DateFormatter {
+        ISO8601DateFormatter()
+    }
+
+    private nonisolated static func makeDayFormatter() -> DateFormatter {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter
-    }()
+    }
 
-    func convertToEvent(from entry: GCalEventEntry, calendarId: String) -> Event? {
+    /// Truncates a string to a maximum length. Defense-in-depth against oversized API responses.
+    private nonisolated static func truncate(_ string: String?, maxLength: Int) -> String? {
+        guard let string, string.count > maxLength else { return string }
+        return String(string.prefix(maxLength))
+    }
+
+    nonisolated func convertToEvent(from entry: GCalEventEntry, calendarId: String) -> Event? {
         guard let id = entry.id,
               let summary = entry.summary,
               let start = entry.start,
@@ -360,14 +377,20 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         let provider = links.first.map { Provider.detect(from: $0) }
         let timezone = start.timeZone ?? TimeZone.current.identifier
 
+        // Truncate API response fields to defend against oversized payloads
+        let truncatedTitle = Self.truncate(summary, maxLength: 500) ?? summary
+        let truncatedDescription = Self.truncate(entry.description, maxLength: 10_000)
+        let truncatedLocation = Self.truncate(entry.location, maxLength: 1000)
+        let truncatedOrganizer = Self.truncate(entry.organizer?.email, maxLength: 320)
+
         return Event(
             id: id,
-            title: summary,
+            title: truncatedTitle,
             startDate: startDate,
             endDate: endDate,
-            organizer: entry.organizer?.email,
-            description: entry.description,
-            location: entry.location,
+            organizer: truncatedOrganizer,
+            description: truncatedDescription,
+            location: truncatedLocation,
             attendees: attendees,
             attachments: attachments,
             isAllDay: isAllDay,
@@ -378,22 +401,27 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         )
     }
 
-    private func parseDate(from dt: GCalDateTime) -> (Date, Bool)? {
+    private nonisolated func parseDate(from dt: GCalDateTime) -> (Date, Bool)? {
         if let dateTimeString = dt.dateTime,
-           let date = Self.isoFormatter.date(from: dateTimeString)
+           let date = Self.makeISOFormatter().date(from: dateTimeString)
         {
             return (date, false)
         }
         if let dateString = dt.date,
-           let date = Self.dayFormatter.date(from: dateString)
+           let date = Self.makeDayFormatter().date(from: dateString)
         {
             return (date, true)
         }
         return nil
     }
 
-    private func extractMeetingLinks(from entry: GCalEventEntry) -> [URL] {
+    private nonisolated func extractMeetingLinks(from entry: GCalEventEntry) -> [URL] {
         var links: [URL] = []
+
+        // hangoutLink is the legacy Google Meet link — check first as a reliable source
+        if let hangoutLink = entry.hangoutLink, let url = URL(string: hangoutLink) {
+            links.append(url)
+        }
 
         if let location = entry.location, let url = extractURL(from: location) {
             links.append(url)
@@ -416,12 +444,12 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         return links.filter { seen.insert($0.absoluteString.lowercased()).inserted }
     }
 
-    private func extractURL(from text: String) -> URL? {
-        LinkParser.shared.extractURL(from: text)
+    private nonisolated func extractURL(from text: String) -> URL? {
+        linkParser.extractURL(from: text)
     }
 
-    private func extractURLs(from text: String) -> [URL] {
-        LinkParser.shared.extractURLs(from: text)
+    private nonisolated func extractURLs(from text: String) -> [URL] {
+        linkParser.extractURLs(from: text)
     }
 }
 

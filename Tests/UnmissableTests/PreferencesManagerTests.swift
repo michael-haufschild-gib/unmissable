@@ -10,7 +10,7 @@ final class PreferencesManagerTests: XCTestCase {
         testSuiteName = "com.unmissable.test.\(UUID().uuidString)"
         // swiftlint:disable:next force_unwrapping
         let testDefaults = UserDefaults(suiteName: testSuiteName)!
-        preferencesManager = PreferencesManager(userDefaults: testDefaults)
+        preferencesManager = PreferencesManager(userDefaults: testDefaults, themeManager: ThemeManager())
         try await super.setUp()
     }
 
@@ -75,7 +75,7 @@ final class PreferencesManagerTests: XCTestCase {
         XCTAssertEqual(preferencesManager.alertMinutes(for: longEvent), 1)
 
         // Enable length-based timing
-        preferencesManager.useLengthBasedTiming = true
+        preferencesManager.setUseLengthBasedTiming(true)
         preferencesManager.setShortMeetingAlertMinutes(1)
         preferencesManager.setMediumMeetingAlertMinutes(3)
         preferencesManager.setLongMeetingAlertMinutes(5)
@@ -85,16 +85,16 @@ final class PreferencesManagerTests: XCTestCase {
         XCTAssertEqual(preferencesManager.alertMinutes(for: longEvent), 5)
     }
 
-    func testPreferencePersistence() {
+    func testPreferencePersistence() throws {
         // Change some preferences
         preferencesManager.setDefaultAlertMinutes(5)
-        preferencesManager.useLengthBasedTiming = true
-        preferencesManager.appearanceTheme = .dark
+        preferencesManager.setUseLengthBasedTiming(true)
+        preferencesManager.setAppearanceTheme(.dark)
         preferencesManager.setOverlayOpacity(0.7)
 
         // Create new instance backed by the same test suite to verify persistence
-        // swiftlint:disable:next force_unwrapping
-        let newPreferencesManager = PreferencesManager(userDefaults: UserDefaults(suiteName: testSuiteName)!)
+        let newPreferencesManager =
+            try PreferencesManager(userDefaults: XCTUnwrap(UserDefaults(suiteName: testSuiteName)), themeManager: ThemeManager())
 
         XCTAssertEqual(newPreferencesManager.defaultAlertMinutes, 5)
         XCTAssertTrue(newPreferencesManager.useLengthBasedTiming)

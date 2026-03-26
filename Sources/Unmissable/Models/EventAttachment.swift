@@ -115,49 +115,6 @@ struct EventAttachment: Codable, Equatable, Identifiable {
     // Codable and Equatable are auto-synthesized from stored properties.
 }
 
-// MARK: - Factory Methods
-
-extension EventAttachment {
-    /// Creates an EventAttachment from Google Calendar API response data
-    static func from(googleCalendarData: [String: Any]) -> EventAttachment? {
-        guard let fileUrl = googleCalendarData["fileUrl"] as? String,
-              let title = googleCalendarData["title"] as? String,
-              let mimeType = googleCalendarData["mimeType"] as? String
-        else {
-            return nil
-        }
-
-        let iconLink = googleCalendarData["iconLink"] as? String
-        let fileId = googleCalendarData["fileId"] as? String
-
-        // Parse fileSize from either Int64 or String representation
-        let fileSize: Int64? = if let size = googleCalendarData["fileSize"] as? Int64 {
-            size
-        } else if let sizeStr = googleCalendarData["fileSize"] as? String {
-            Int64(sizeStr)
-        } else {
-            nil
-        }
-
-        // Parse lastModified from ISO8601 string
-        let lastModified: Date? = if let dateStr = googleCalendarData["lastModified"] as? String {
-            ISO8601DateFormatter().date(from: dateStr)
-        } else {
-            nil
-        }
-
-        return EventAttachment(
-            fileUrl: fileUrl,
-            title: title,
-            mimeType: mimeType,
-            iconLink: iconLink,
-            fileId: fileId,
-            fileSize: fileSize,
-            lastModified: lastModified
-        )
-    }
-}
-
 // MARK: - Debug Description
 
 extension EventAttachment: CustomStringConvertible {

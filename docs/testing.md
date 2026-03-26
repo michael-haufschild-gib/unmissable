@@ -1,6 +1,6 @@
-# Testing Guide for LLM Coding Agents
+# Testing Guide
 
-**Purpose**: Instructions for writing and running tests in Unmissable.
+**Purpose**: Writing and running tests in Unmissable.
 **Test Stack**: XCTest | SnapshotTesting (swift-snapshot-testing) | xcodebuild
 
 ---

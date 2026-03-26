@@ -56,9 +56,17 @@ Unmissable connects to:
 - **Google Calendar API** (to read your calendar events)
 - **Google OAuth 2.0** (for secure authentication)
 - **Apple EventKit** (to read calendars configured in macOS System Settings)
-- **Sparkle** (to check for application updates)
+- **Sparkle** (to check for application updates — see below)
 
 Google connections are governed by Google's privacy policies. Apple Calendar access uses macOS system permissions.
+
+### Sparkle (Auto-Updates)
+
+Unmissable uses [Sparkle](https://sparkle-project.org/) to check for new versions. When checking for updates, Sparkle sends:
+- Your macOS version and architecture (e.g., `macOS 14.0, arm64`)
+- The current app version
+
+Sparkle does **not** send: calendar data, personal information, or any app usage data. Update checks can be disabled in Preferences. No data is collected if update checks are turned off.
 
 ## Contact
 
