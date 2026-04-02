@@ -64,6 +64,7 @@ resource_bundle_accessor*
 ci-explore-log*.md
 task_state.md
 task_*.md
+logs/
 market-readiness*.md
 market_readiness*.md
 godmode_*.md

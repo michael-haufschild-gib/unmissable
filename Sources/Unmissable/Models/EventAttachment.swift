@@ -81,12 +81,29 @@ struct EventAttachment: Codable, Equatable, Identifiable {
         mimeType.hasPrefix("image/")
     }
 
-    /// Determines if this is a document file
+    /// Known document MIME type prefixes and exact types.
+    /// Excludes binary containers like application/octet-stream, application/zip.
+    private static let documentMimeTypes: Set<String> = [
+        "application/pdf",
+        "application/rtf",
+        "application/msword",
+        "application/vnd.google-apps.document",
+        "application/vnd.google-apps.spreadsheet",
+        "application/vnd.google-apps.presentation",
+    ]
+
+    private static let documentMimePrefixes: [String] = [
+        "application/vnd.openxmlformats-officedocument.",
+        "application/vnd.ms-",
+        "text/",
+    ]
+
+    /// Determines if this is a document file (text, PDF, office docs, Google Workspace).
     var isDocument: Bool {
-        mimeType.hasPrefix("application/") || mimeType.hasPrefix("text/")
-            || mimeType == "application/vnd.google-apps.document"
-            || mimeType == "application/vnd.google-apps.spreadsheet"
-            || mimeType == "application/vnd.google-apps.presentation"
+        if Self.documentMimeTypes.contains(mimeType) {
+            return true
+        }
+        return Self.documentMimePrefixes.contains { mimeType.hasPrefix($0) }
     }
 
     /// System icon name based on file type

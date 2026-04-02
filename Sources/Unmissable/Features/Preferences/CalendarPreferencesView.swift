@@ -30,6 +30,20 @@ struct CalendarPreferencesView: View {
                     calendarSelectionSection
                 }
 
+                if let updateError = calendarService.calendarUpdateError {
+                    HStack(spacing: design.spacing.sm) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundColor(design.colors.warning)
+                            .font(.system(size: 12))
+
+                        Text(updateError)
+                            .font(design.fonts.caption1)
+                            .foregroundColor(design.colors.warning)
+                            .lineLimit(2)
+                    }
+                    .padding(.horizontal, design.spacing.lg)
+                }
+
                 Spacer()
             }
             .padding(design.spacing.xl)

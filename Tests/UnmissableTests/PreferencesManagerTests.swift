@@ -195,10 +195,11 @@ final class PreferencesManagerTests: XCTestCase {
     }
 
     func testMenuBarDisplayModeEnum() {
-        XCTAssertEqual(MenuBarDisplayMode.allCases.count, 3)
-        XCTAssertTrue(MenuBarDisplayMode.allCases.contains(.icon))
-        XCTAssertTrue(MenuBarDisplayMode.allCases.contains(.timer))
-        XCTAssertTrue(MenuBarDisplayMode.allCases.contains(.nameTimer))
+        XCTAssertEqual(
+            MenuBarDisplayMode.allCases,
+            [.icon, .timer, .nameTimer],
+            "MenuBarDisplayMode should have exactly icon, timer, nameTimer in order"
+        )
     }
 
     // MARK: - Alert Minutes for Event (Length-Based Boundary)

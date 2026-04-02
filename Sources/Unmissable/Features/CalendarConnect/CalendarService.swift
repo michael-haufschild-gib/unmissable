@@ -249,6 +249,13 @@ final class CalendarService: ObservableObject {
 
     // MARK: - Private Implementation
 
+    /// Creates a fresh backend for the given provider type.
+    ///
+    /// **Design note:** Services (OAuth2Service, API services, SyncManager) are constructed
+    /// directly rather than injected, because backends are disposable — created on connect,
+    /// destroyed on disconnect. A fresh OAuth2Service after reconnect is correct behavior
+    /// (the old one's auth state was cleared on disconnect). For testing, use
+    /// `injectTestBackend` which bypasses this factory entirely.
     private func getOrCreateBackend(for providerType: CalendarProviderType) -> ProviderBackend {
         if let existing = providers[providerType] {
             return existing

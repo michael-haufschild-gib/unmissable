@@ -245,7 +245,7 @@ final class DatabaseResilienceE2ETests: XCTestCase {
 
         // Only recent event should have alert
         let alertIds = env.eventScheduler.scheduledAlerts.map(\.event.id)
-        XCTAssertTrue(alertIds.contains("e2e-maint-recent"))
+        XCTAssert(alertIds.contains("e2e-maint-recent"))
         XCTAssertFalse(alertIds.contains("e2e-maint-old"))
     }
 

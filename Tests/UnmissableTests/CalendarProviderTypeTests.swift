@@ -26,10 +26,11 @@ final class CalendarProviderTypeTests: XCTestCase {
     // MARK: - CaseIterable
 
     func testAllCasesContainsBothProviders() {
-        let allCases = CalendarProviderType.allCases
-        XCTAssertEqual(allCases.count, 2)
-        XCTAssertTrue(allCases.contains(.google))
-        XCTAssertTrue(allCases.contains(.apple))
+        XCTAssertEqual(
+            CalendarProviderType.allCases,
+            [.google, .apple],
+            "allCases should contain exactly google and apple in order"
+        )
     }
 
     // MARK: - Codable

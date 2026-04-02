@@ -7,6 +7,13 @@ import OSLog
 final class ShortcutsManager: ObservableObject {
     private let logger = Logger(category: "ShortcutsManager")
 
+    // MARK: - Display Constants
+
+    /// Human-readable shortcut labels for the preferences UI.
+    /// Keep in sync with the KeyCombo definitions in setupDefaultShortcuts().
+    static let dismissShortcutDisplay = "⌘⎋"
+    static let joinShortcutDisplay = "⌘⏎"
+
     @Published
     var dismissShortcut: HotKey?
     @Published

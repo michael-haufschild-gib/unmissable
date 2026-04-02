@@ -32,6 +32,9 @@ final class FocusModeManager: ObservableObject {
 
     private let preferencesManager: PreferencesManager
     private let notificationTokens = NotificationTokenBag()
+    /// Tracks the in-flight DND check task so rapid notification callbacks
+    /// cancel the previous check rather than racing to update state.
+    private var dndCheckTask: Task<Void, Never>?
 
     init(preferencesManager: PreferencesManager, isTestMode: Bool = false) {
         self.preferencesManager = preferencesManager
@@ -65,9 +68,14 @@ final class FocusModeManager: ObservableObject {
     }
 
     private func checkDoNotDisturbStatus() {
-        // Use regular Task to maintain MainActor context, only the blocking Process call is isolated
-        Task {
+        // Cancel any in-flight check to avoid racing when notifications fire rapidly
+        dndCheckTask?.cancel()
+
+        dndCheckTask = Task {
             let result = await Self.runDNDCheck()
+
+            // If a newer check superseded this one, discard these results
+            guard !Task.isCancelled else { return }
 
             // Already on MainActor here - safe to update state directly
             switch result {

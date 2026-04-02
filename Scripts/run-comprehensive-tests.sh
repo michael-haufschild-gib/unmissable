@@ -102,8 +102,20 @@ else
     exit 1
 fi
 
-# Step 5: Run UI/Snapshot Tests
-log_info "Step 5: Running UI and snapshot tests..."
+# Step 5: Run End-to-End Tests
+log_info "Step 5: Running end-to-end tests..."
+if xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
+    -only-testing:"E2ETests" \
+    -resultBundlePath "$REPORTS_DIR/e2e-tests.xcresult" \
+    | tee "$REPORTS_DIR/e2e-tests.log"; then
+    log_success "End-to-end tests passed"
+else
+    log_error "End-to-end tests failed"
+    exit 1
+fi
+
+# Step 6: Run UI/Snapshot Tests
+log_info "Step 6: Running UI and snapshot tests..."
 if xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
     -only-testing:"SnapshotTests" \
     -resultBundlePath "$REPORTS_DIR/ui-tests.xcresult" \
@@ -113,8 +125,8 @@ else
     log_warning "UI tests failed (may be acceptable for snapshot tests)"
 fi
 
-# Step 6: Generate Code Coverage Report
-log_info "Step 6: Generating code coverage report..."
+# Step 7: Generate Code Coverage Report
+log_info "Step 7: Generating code coverage report..."
 PROFDATA_PATH="$BUILD_DIR/debug/codecov/default.profdata"
 BINARY_PATH="$BUILD_DIR/debug/UnmissablePackageTests.xctest/Contents/MacOS/UnmissablePackageTests"
 if [ -f "$PROFDATA_PATH" ] && [ -f "$BINARY_PATH" ]; then
@@ -127,8 +139,8 @@ else
     log_warning "Coverage data not found (run swift test --enable-code-coverage first)"
 fi
 
-# Step 7: Performance Testing
-log_info "Step 7: Running performance tests..."
+# Step 8: Performance Testing
+log_info "Step 8: Running performance tests..."
 if xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
     -only-testing:"UnmissableTests/EventSchedulerComprehensiveTests/testLargeNumberOfEvents" \
     -only-testing:"UnmissableTests/SystemIntegrationTests/testEndToEndPerformance" \
@@ -140,8 +152,8 @@ else
     log_warning "Performance tests had issues"
 fi
 
-# Step 8: Resource Lifecycle / Cleanup Tests
-log_info "Step 8: Running resource lifecycle and cleanup tests..."
+# Step 9: Resource Lifecycle / Cleanup Tests
+log_info "Step 9: Running resource lifecycle and cleanup tests..."
 if xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
     -only-testing:"UnmissableTests/SyncManagerLifecycleTests" \
     -only-testing:"UnmissableTests/HealthMonitorTests" \
@@ -155,8 +167,8 @@ else
     exit 1
 fi
 
-# Step 9: Test Report Analysis
-log_info "Step 9: Analyzing test results..."
+# Step 10: Test Report Analysis
+log_info "Step 10: Analyzing test results..."
 
 # Extract test metrics from xcresult bundles
 if command -v xcparse &> /dev/null; then
@@ -171,8 +183,8 @@ else
     log_warning "xcparse not found, skipping detailed test analysis"
 fi
 
-# Step 10: Production Readiness Check
-log_info "Step 10: Production readiness validation..."
+# Step 11: Production Readiness Check
+log_info "Step 11: Production readiness validation..."
 
 # Check for critical issues
 CRITICAL_ISSUES=0
@@ -185,6 +197,11 @@ fi
 
 if grep -q "Test Suite.*failed" "$REPORTS_DIR/integration-tests.log"; then
     log_error "Integration test failures detected"
+    CRITICAL_ISSUES=$((CRITICAL_ISSUES + 1))
+fi
+
+if grep -q "Test Suite.*failed" "$REPORTS_DIR/e2e-tests.log"; then
+    log_error "End-to-end test failures detected"
     CRITICAL_ISSUES=$((CRITICAL_ISSUES + 1))
 fi
 
@@ -214,6 +231,10 @@ Generated: $(date)
 ### Integration Tests
 - Status: $(if grep -q "Test Suite.*failed" "$REPORTS_DIR/integration-tests.log"; then echo "❌ FAILED"; else echo "✅ PASSED"; fi)
 - Log: integration-tests.log
+
+### End-to-End Tests
+- Status: $(if grep -q "Test Suite.*failed" "$REPORTS_DIR/e2e-tests.log"; then echo "❌ FAILED"; else echo "✅ PASSED"; fi)
+- Log: e2e-tests.log
 
 ### UI Tests
 - Status: $(if grep -q "Test Suite.*failed" "$REPORTS_DIR/ui-tests.log"; then echo "⚠️ ISSUES"; else echo "✅ PASSED"; fi)
@@ -259,6 +280,7 @@ if [ $CRITICAL_ISSUES -eq 0 ]; then
     log_info "Summary:"
     echo "  ✅ Unit tests: PASSED"
     echo "  ✅ Integration tests: PASSED"
+    echo "  ✅ E2E tests: PASSED"
     echo "  ✅ Memory tests: PASSED"
     echo "  📊 Performance tests: $(if grep -q "Performance test failed" "$REPORTS_DIR/performance-tests.log"; then echo "SLOW"; else echo "PASSED"; fi)"
     echo "  📱 UI tests: $(if grep -q "Test Suite.*failed" "$REPORTS_DIR/ui-tests.log"; then echo "ISSUES"; else echo "PASSED"; fi)"

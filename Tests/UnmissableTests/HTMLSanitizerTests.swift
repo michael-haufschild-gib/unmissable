@@ -143,7 +143,7 @@ final class HTMLSanitizerTests: XCTestCase {
         let input = "<p>Hello <strong"
         let result = HTMLSanitizer.sanitize(input)
         // The tokenizer should handle this without crashing
-        XCTAssertTrue(result.contains("Hello"))
+        XCTAssert(result.contains("Hello"))
     }
 
     func testHandlesUnclosedDangerousTag() {
@@ -163,7 +163,7 @@ final class HTMLSanitizerTests: XCTestCase {
         let input = "<a href=\"  javascript:alert(1)\">Click</a>"
         let result = HTMLSanitizer.sanitize(input)
         XCTAssertFalse(result.contains("javascript:"), "Leading whitespace should not bypass javascript: detection")
-        XCTAssertTrue(result.contains("about:blank"))
+        XCTAssert(result.contains("about:blank"))
     }
 
     func testPreservesSingleQuotedAttributes() {
@@ -178,22 +178,22 @@ final class HTMLSanitizerTests: XCTestCase {
         XCTAssertFalse(result.contains("onclick"))
         XCTAssertFalse(result.contains("onmouseover"))
         XCTAssertFalse(result.contains("onfocus"))
-        XCTAssertTrue(result.contains("Content"))
+        XCTAssert(result.contains("Content"))
     }
 
     func testPreservesSafeAttributesAlongsideDangerousOnes() {
         let input = "<a href=\"https://example.com\" onclick=\"steal()\" class=\"link\">Link</a>"
         let result = HTMLSanitizer.sanitize(input)
         XCTAssertFalse(result.contains("onclick"))
-        XCTAssertTrue(result.contains("href=\"https://example.com\""))
-        XCTAssertTrue(result.contains("class=\"link\""))
+        XCTAssert(result.contains("href=\"https://example.com\""))
+        XCTAssert(result.contains("class=\"link\""))
     }
 
     func testHandlesAngledBracketsInTextContent() {
         let input = "If x < 5 and y > 3, then show <p>result</p>"
         let result = HTMLSanitizer.sanitize(input)
-        XCTAssertTrue(result.contains("<p>result</p>"))
-        XCTAssertTrue(result.contains("x < 5"))
+        XCTAssert(result.contains("<p>result</p>"))
+        XCTAssert(result.contains("x < 5"))
     }
 
     func testHandlesVeryLargeInput() {
@@ -209,8 +209,8 @@ final class HTMLSanitizerTests: XCTestCase {
         let result = HTMLSanitizer.sanitize(input)
         XCTAssertFalse(result.contains("script"))
         XCTAssertFalse(result.contains("evil"))
-        XCTAssertTrue(result.contains("<p>Before</p>"))
-        XCTAssertTrue(result.contains("<p>After</p>"))
+        XCTAssert(result.contains("<p>Before</p>"))
+        XCTAssert(result.contains("<p>After</p>"))
     }
 
     func testHandlesNestedDangerousElements() {
