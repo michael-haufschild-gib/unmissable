@@ -3,12 +3,75 @@ import Foundation
 import OSLog
 @testable import Unmissable
 
+// MARK: - Controllable Test Clock
+
+/// Provides deterministic `sleep` and `now` closures for EventScheduler tests.
+/// Advance `currentTime` to simulate passage of time without real delays.
+/// `sleep` is a no-op by default — it yields once to let other tasks run,
+/// then returns immediately, making timer-dependent tests instant.
+@MainActor
+public final class TestClock {
+    /// The simulated current time. Advance this to move time forward for the scheduler.
+    public var currentTime: Date
+
+    /// When true, `sleep` advances `currentTime` by the requested duration
+    /// before returning. This makes the monitoring loop's drift detection
+    /// see consistent elapsed time.
+    public var autoAdvance: Bool
+
+    /// Creates a test clock starting at the given time.
+    /// - Parameters:
+    ///   - startTime: Initial simulated time (defaults to now).
+    ///   - autoAdvance: Whether `sleep` auto-advances `currentTime`.
+    public init(
+        startTime: Date = Date(),
+        autoAdvance: Bool = true
+    ) {
+        currentTime = startTime
+        self.autoAdvance = autoAdvance
+    }
+
+    /// Closure suitable for `EventScheduler(sleepForSeconds:)`.
+    /// Yields once so the caller's Task can be cancelled, then returns.
+    public var sleep: @Sendable (TimeInterval) async throws -> Void {
+        { [weak self] seconds in
+            // Yield to allow cancellation and other tasks to run
+            try Task.checkCancellation()
+            await Task.yield()
+            try Task.checkCancellation()
+
+            // Advance time on the main actor if autoAdvance is on
+            if let self {
+                await MainActor.run {
+                    if self.autoAdvance {
+                        self.currentTime = self.currentTime.addingTimeInterval(seconds)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Closure suitable for `EventScheduler(now:)`.
+    public var nowProvider: () -> Date {
+        { [weak self] in
+            // Safe to read from MainActor-isolated property via
+            // the nonisolated(unsafe) slot in EventScheduler
+            self?.currentTime ?? Date()
+        }
+    }
+
+    /// Advance time by a specific interval without going through sleep.
+    public func advance(by seconds: TimeInterval) {
+        currentTime = currentTime.addingTimeInterval(seconds)
+    }
+}
+
 // MARK: - Test-Safe Implementations
 
 /// Test-safe overlay manager that doesn't create actual UI elements
 @MainActor
 public final class TestSafeOverlayManager: OverlayManaging {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "TestSupport")
+    private let logger = Logger(category: "TestSupport")
 
     @Published
     public var activeEvent: Event?
@@ -70,7 +133,7 @@ public final class TestSafeOverlayManager: OverlayManaging {
 
 @MainActor
 public final class TestSafeMeetingDetailsPopupManager: MeetingDetailsPopupManaging {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "TestSupport")
+    private let logger = Logger(category: "TestSupport")
 
     @Published
     public private(set) var isPopupVisible = false

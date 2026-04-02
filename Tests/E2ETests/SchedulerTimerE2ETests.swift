@@ -22,21 +22,22 @@ final class SchedulerTimerE2ETests: XCTestCase {
     // MARK: - Timer-Based Overlay Trigger
 
     func testSchedulerTimerTriggersOverlayAtCorrectTime() async throws {
-        // Set overlay to show 0 minutes before — this means "show at event start time"
-        // For a very-near event, the scheduler should trigger via the
-        // "missed alert time" path immediately
+        // Set overlay to show 0 minutes before — alert triggers at event start time.
+        // With test clock, the monitoring loop sleeps are instant (autoAdvance
+        // moves clock forward), so the alert fires without wall-clock delay.
         env.preferencesManager.setOverlayShowMinutesBefore(0)
 
+        let baseTime = env.testClock.currentTime
         let nearEvent = E2EEventBuilder.futureEvent(
             id: "e2e-timer-trigger",
             title: "Near Future Meeting",
-            minutesFromNow: 1 // Very near
+            minutesFromNow: 1 // 1 minute from clock's "now"
         )
 
         try await env.seedAndSchedule([nearEvent])
 
-        // The scheduler should detect this event needs immediate overlay
-        try await e2eWait(timeout: 10.0, description: "Overlay should appear for near event") {
+        // Test clock auto-advances through the ~60s sleep instantly
+        try await e2eWait(timeout: 2.0, description: "Overlay should appear for near event") {
             self.env.overlayManager.isOverlayVisible
         }
 

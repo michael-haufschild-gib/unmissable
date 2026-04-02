@@ -5,7 +5,7 @@ import SwiftUI
 /// Manages the preferences window with proper activation and foreground behavior
 @MainActor
 final class PreferencesWindowManager: NSObject, ObservableObject {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "PreferencesWindowManager")
+    private let logger = Logger(category: "PreferencesWindowManager")
     private var preferencesWindow: NSWindow?
     private let appState: AppState
 

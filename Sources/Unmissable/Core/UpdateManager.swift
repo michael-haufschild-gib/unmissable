@@ -6,7 +6,7 @@ import Sparkle
 /// Requires an appcast URL configured before use.
 @MainActor
 final class UpdateManager: ObservableObject {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "UpdateManager")
+    private let logger = Logger(category: "UpdateManager")
 
     @Published
     var canCheckForUpdates = false

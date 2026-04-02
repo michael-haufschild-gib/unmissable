@@ -148,21 +148,15 @@ final class MultiProviderIntegrationTests: XCTestCase {
 
     // MARK: - Aggregated Sync Status: One Syncing, One Idle
 
+    // Sync status aggregation is now synchronous (using the delivered Combine value
+    // directly instead of re-reading the stale willSet property), so no async polling
+    // is needed — the aggregate updates inline when the provider status changes.
+
     func testSyncStatusReportsSyncingWhenOneProviderIsSyncing() {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         injectProvider(.apple, authenticated: true)
 
-        // Simulate Google syncing while Apple is idle
         googleSync.syncStatus = .syncing
-
-        // The Combine sink triggers syncAggregatedSyncStatus asynchronously on the main actor.
-        // Since we're already on @MainActor and the sink is synchronous (no async dispatch),
-        // the aggregated state should be updated by the next run loop tick.
-        let expectation = XCTestExpectation(description: "Sync status aggregated")
-        DispatchQueue.main.async {
-            expectation.fulfill()
-        }
-        wait(for: [expectation], timeout: 2.0)
 
         XCTAssertEqual(calendarService.syncStatus, .syncing)
     }
@@ -172,20 +166,9 @@ final class MultiProviderIntegrationTests: XCTestCase {
         injectProvider(.apple, authenticated: true)
 
         googleSync.syncStatus = .syncing
-
-        let syncExpectation = XCTestExpectation(description: "Syncing propagated")
-        DispatchQueue.main.async { syncExpectation.fulfill() }
-        wait(for: [syncExpectation], timeout: 2.0)
-
         XCTAssertEqual(calendarService.syncStatus, .syncing)
 
-        // Return to idle
         googleSync.syncStatus = .idle
-
-        let idleExpectation = XCTestExpectation(description: "Idle propagated")
-        DispatchQueue.main.async { idleExpectation.fulfill() }
-        wait(for: [idleExpectation], timeout: 2.0)
-
         XCTAssertEqual(calendarService.syncStatus, .idle)
     }
 
@@ -197,10 +180,6 @@ final class MultiProviderIntegrationTests: XCTestCase {
 
         appleSync.syncStatus = .error("Apple Calendar sync failed")
 
-        let expectation = XCTestExpectation(description: "Error status aggregated")
-        DispatchQueue.main.async { expectation.fulfill() }
-        wait(for: [expectation], timeout: 2.0)
-
         XCTAssertEqual(calendarService.syncStatus, .error("Apple Calendar sync failed"))
     }
 
@@ -208,13 +187,8 @@ final class MultiProviderIntegrationTests: XCTestCase {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         let (_, _, appleSync) = injectProvider(.apple, authenticated: true)
 
-        // Apple has error, Google is syncing — syncing should take priority
         appleSync.syncStatus = .error("Some error")
         googleSync.syncStatus = .syncing
-
-        let expectation = XCTestExpectation(description: "Status aggregated")
-        DispatchQueue.main.async { expectation.fulfill() }
-        wait(for: [expectation], timeout: 2.0)
 
         XCTAssertEqual(calendarService.syncStatus, .syncing)
     }
@@ -227,6 +201,69 @@ final class MultiProviderIntegrationTests: XCTestCase {
 
         XCTAssertEqual(calendarService.authError, "Token expired")
         // Apple is still connected
+        XCTAssertTrue(calendarService.isConnected)
+    }
+
+    // MARK: - Reconnect After Disconnect
+
+    func testReconnectingSameProviderRestoresState() {
+        injectProvider(.google, authenticated: true, email: "user@gmail.com")
+        XCTAssertEqual(calendarService.connectedProviders, Set([.google]))
+
+        calendarService.removeTestBackend(type: .google)
+        XCTAssertTrue(calendarService.connectedProviders.isEmpty)
+
+        // Reconnect
+        injectProvider(.google, authenticated: true, email: "user@gmail.com")
+        XCTAssertEqual(calendarService.connectedProviders, Set([.google]))
+        XCTAssertEqual(calendarService.userEmail, "user@gmail.com")
+    }
+
+    // MARK: - Sync Status Transitions
+
+    func testBothProvidersSyncing_reportsSync() {
+        let (_, _, googleSync) = injectProvider(.google, authenticated: true)
+        let (_, _, appleSync) = injectProvider(.apple, authenticated: true)
+
+        googleSync.syncStatus = .syncing
+        appleSync.syncStatus = .syncing
+
+        XCTAssertEqual(calendarService.syncStatus, .syncing)
+    }
+
+    func testOneProviderSyncingOneError_reportsSyncing() {
+        let (_, _, googleSync) = injectProvider(.google, authenticated: true)
+        let (_, _, appleSync) = injectProvider(.apple, authenticated: true)
+
+        googleSync.syncStatus = .syncing
+        appleSync.syncStatus = .error("Apple error")
+
+        XCTAssertEqual(
+            calendarService.syncStatus, .syncing,
+            "Syncing should take priority over error"
+        )
+    }
+
+    func testBothProvidersError_reportsFirstError() {
+        let (_, _, googleSync) = injectProvider(.google, authenticated: true)
+        let (_, _, appleSync) = injectProvider(.apple, authenticated: true)
+
+        googleSync.syncStatus = .error("Google error")
+        appleSync.syncStatus = .error("Apple error")
+
+        // Should report one of the errors
+        if case .error = calendarService.syncStatus {
+            // Expected
+        } else {
+            XCTFail("Expected error status when both providers have errors")
+        }
+    }
+
+    // MARK: - Edge Cases
+
+    func testProviderWithNilEmail_emailIsNil() {
+        injectProvider(.google, authenticated: true, email: nil)
+        XCTAssertNil(calendarService.userEmail)
         XCTAssertTrue(calendarService.isConnected)
     }
 

@@ -5,7 +5,7 @@ import OSLog
 
 @MainActor
 final class SoundManager: ObservableObject {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "SoundManager")
+    private let logger = Logger(category: "SoundManager")
 
     private var audioPlayer: AVAudioPlayer?
     private let preferencesManager: PreferencesManager

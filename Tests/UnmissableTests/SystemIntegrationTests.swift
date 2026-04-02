@@ -13,9 +13,6 @@ final class SystemIntegrationTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
 
-        // Clean up any existing test data first
-        try await TestDataCleanup.shared.cleanupAllTestData()
-
         mockPreferences = TestUtilities.createTestPreferencesManager()
         mockPreferences.testSoundEnabled = false // Disable sound to simplify alert counting
         overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
@@ -30,9 +27,6 @@ final class SystemIntegrationTests: XCTestCase {
         eventScheduler.stopScheduling()
         overlayManager.hideOverlay()
         cancellables.removeAll()
-
-        // Clean up test data after each test
-        try await TestDataCleanup.shared.cleanupAllTestData()
 
         eventScheduler = nil
         overlayManager = nil

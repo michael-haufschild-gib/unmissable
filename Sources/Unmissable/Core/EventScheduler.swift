@@ -5,7 +5,7 @@ import OSLog
 
 @MainActor
 final class EventScheduler: ObservableObject {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "EventScheduler")
+    private let logger = Logger(category: "EventScheduler")
 
     @Published
     var scheduledAlerts: [ScheduledAlert] = []
@@ -19,9 +19,26 @@ final class EventScheduler: ObservableObject {
     private var currentEvents: [Event] = []
     private weak var currentOverlayManager: (any OverlayManaging)?
 
-    init(preferencesManager: PreferencesManager, linkParser: LinkParser) {
+    /// Abstraction over `Task.sleep` for deterministic testing.
+    /// Production default sleeps for the given number of seconds.
+    private let sleepForSeconds: @Sendable (TimeInterval) async throws -> Void
+
+    /// Abstraction over `Date()` for deterministic testing.
+    /// Production default returns the current wall-clock time.
+    private nonisolated(unsafe) let now: () -> Date
+
+    init(
+        preferencesManager: PreferencesManager,
+        linkParser: LinkParser,
+        sleepForSeconds: @escaping @Sendable (TimeInterval) async throws -> Void = { seconds in
+            try await Task.sleep(for: .seconds(seconds))
+        },
+        now: @escaping () -> Date = { Date() }
+    ) {
         self.preferencesManager = preferencesManager
         self.linkParser = linkParser
+        self.sleepForSeconds = sleepForSeconds
+        self.now = now
         setupPreferencesObserver()
     }
 
@@ -126,14 +143,14 @@ final class EventScheduler: ObservableObject {
         // Preserve existing snooze alerts before clearing
         let existingSnoozeAlerts = scheduledAlerts.filter { alert in
             if case .snooze = alert.alertType {
-                return alert.triggerDate > Date() // Only keep future snooze alerts
+                return alert.triggerDate > now() // Only keep future snooze alerts
             }
             return false
         }
 
         scheduledAlerts.removeAll()
 
-        let currentTime = Date()
+        let currentTime = now()
         var missedAlertEvents: [Event] = []
 
         for event in events {
@@ -205,13 +222,13 @@ final class EventScheduler: ObservableObject {
                         logger.debug("No alerts scheduled, waiting for updates")
                         // Short sleep so newly-added events are picked up promptly
                         // if a reschedule doesn't cancel this task first.
-                        let idleSleepStart = Date()
-                        try await Task.sleep(for: .seconds(30))
+                        let idleSleepStart = now()
+                        try await sleepForSeconds(30)
 
                         // Detect system sleep/wake: if wall clock advanced far beyond 30s,
                         // the system likely slept. Process any due alerts immediately
                         // instead of looping back to re-check.
-                        let idleDrift = Date().timeIntervalSince(idleSleepStart) - 30
+                        let idleDrift = now().timeIntervalSince(idleSleepStart) - 30
                         if idleDrift > Self.wakeDriftThreshold {
                             logger.info(
                                 "WAKE DETECTED: Idle sleep overran by \(String(format: "%.1f", idleDrift))s — processing due alerts"
@@ -222,20 +239,20 @@ final class EventScheduler: ObservableObject {
                         continue
                     }
 
-                    let now = Date()
-                    let timeUntilTrigger = nextAlert.triggerDate.timeIntervalSince(now)
+                    let currentTime = now()
+                    let timeUntilTrigger = nextAlert.triggerDate.timeIntervalSince(currentTime)
 
                     if timeUntilTrigger > 0.1 {
                         logger
                             .debug(
                                 "MONITORING: Sleeping for \(String(format: "%.2f", timeUntilTrigger))s until next alert for event \(nextAlert.event.id)"
                             )
-                        let sleepStart = Date()
+                        let sleepStart = now()
                         // Sleep exactly until the next alert (plus a tiny buffer)
-                        try await Task.sleep(for: .seconds(timeUntilTrigger))
+                        try await sleepForSeconds(timeUntilTrigger)
 
                         // Detect system sleep/wake: wall clock advanced far beyond expected
-                        let sleepDrift = Date().timeIntervalSince(sleepStart) - timeUntilTrigger
+                        let sleepDrift = now().timeIntervalSince(sleepStart) - timeUntilTrigger
                         if sleepDrift > Self.wakeDriftThreshold {
                             logger.info(
                                 "WAKE DETECTED: Alert sleep overran by \(String(format: "%.1f", sleepDrift))s — processing all due alerts"
@@ -255,7 +272,7 @@ final class EventScheduler: ObservableObject {
                     }
                     logger.error("Alert monitoring error: \(error.localizedDescription)")
                     // Prevent rapid error looping
-                    try? await Task.sleep(for: .seconds(5))
+                    try? await sleepForSeconds(5)
                 }
             }
         }
@@ -269,15 +286,15 @@ final class EventScheduler: ObservableObject {
     }
 
     private func checkForTriggeredAlerts(overlayManager: any OverlayManaging) {
-        let now = Date()
+        let currentTime = now()
 
         // Find alerts that should trigger
         let triggeredAlerts = scheduledAlerts.filter { alert in
-            alert.triggerDate <= now
+            alert.triggerDate <= currentTime
         }
 
         if !triggeredAlerts.isEmpty {
-            logger.debug("Found \(triggeredAlerts.count) triggered alerts at \(now)")
+            logger.debug("Found \(triggeredAlerts.count) triggered alerts at \(currentTime)")
             for alert in triggeredAlerts {
                 let alertTypeName = switch alert.alertType {
                 case let .reminder(minutes):
@@ -330,8 +347,8 @@ final class EventScheduler: ObservableObject {
     }
 
     func scheduleSnooze(for event: Event, minutes: Int) {
-        let snoozeDate = Date().addingTimeInterval(TimeInterval(minutes * 60))
-        let meetingStarted = event.startDate < Date()
+        let snoozeDate = now().addingTimeInterval(TimeInterval(minutes * 60))
+        let meetingStarted = event.startDate < now()
 
         // Allow snoozing past meeting start time - user might want to join late
         // Don't limit to meeting start time like the original logic

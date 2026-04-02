@@ -186,29 +186,30 @@ final class MeetingDetailsPopupTests: XCTestCase {
 
     // MARK: - UI Integration Tests
 
-    func testPopupWindowPositioning() async throws {
+    func testPopupPreservesEventDataAfterShow() throws {
         let pm = try XCTUnwrap(popupManager)
         let sampleEvent = createSampleEvent()
 
         pm.showPopup(for: sampleEvent)
 
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
-            pm.isPopupVisible
-        }
-
-        XCTAssertTrue(pm.isPopupVisible, "Popup should be positioned correctly")
+        let shownEvent = try XCTUnwrap(pm.lastShownEvent)
+        XCTAssertEqual(shownEvent.id, sampleEvent.id)
+        XCTAssertEqual(shownEvent.title, sampleEvent.title)
+        XCTAssertEqual(shownEvent.organizer, sampleEvent.organizer)
+        XCTAssertEqual(shownEvent.attendees.count, sampleEvent.attendees.count)
 
         pm.hidePopup()
     }
 
-    func testPopupThemeIntegration() throws {
+    func testHidePopupClearsLastShownEvent() throws {
         let pm = try XCTUnwrap(popupManager)
         let sampleEvent = createSampleEvent()
 
         pm.showPopup(for: sampleEvent)
-        XCTAssertTrue(pm.isPopupVisible, "Popup should integrate with theming system")
+        XCTAssertNotNil(pm.lastShownEvent)
 
         pm.hidePopup()
+        XCTAssertNil(pm.lastShownEvent, "lastShownEvent should be cleared on hide")
     }
 
     // MARK: - Performance Tests

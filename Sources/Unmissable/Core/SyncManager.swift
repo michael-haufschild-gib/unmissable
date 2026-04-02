@@ -5,7 +5,7 @@ import OSLog
 
 @MainActor
 final class SyncManager: ObservableObject {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "SyncManager")
+    private let logger = Logger(category: "SyncManager")
 
     @Published
     var syncStatus: SyncStatus = .idle
@@ -182,34 +182,11 @@ final class SyncManager: ObservableObject {
     }
 
     func performSync(isManualSync: Bool = false) async {
-        // Rate-limit manual syncs to prevent API abuse from rapid user taps
-        if isManualSync {
-            if let lastSync = lastManualSyncTime {
-                let timeSinceLastSync = Date().timeIntervalSince(lastSync)
-                if timeSinceLastSync < minSyncCooldown {
-                    let remainingCooldown = Int(minSyncCooldown - timeSinceLastSync)
-                    logger.debug("Manual sync rate limited - \(remainingCooldown)s remaining")
-                    return
-                }
-            }
-            lastManualSyncTime = Date()
-        }
-
-        guard isOnline else {
-            logger.debug("Skipping sync - device is offline")
-            syncStatus = .offline
-            return
-        }
-
-        guard syncStatus != .syncing else {
-            logger.debug("Sync already in progress, skipping")
-            return
-        }
+        guard shouldStartSync(isManualSync: isManualSync) else { return }
 
         syncStatus = .syncing
         logger.debug("Starting calendar sync (attempt \(self.retryCount + 1))")
 
-        // Fetch calendars from local DB — separate error handling from API failures
         let selectedCalendarIds: [String]
         do {
             let calendars = try await databaseManager.fetchCalendars()
@@ -222,91 +199,146 @@ final class SyncManager: ObservableObject {
 
         guard !selectedCalendarIds.isEmpty else {
             logger.warning("No calendars selected for sync")
-            syncStatus = .idle
-            updateSyncTimes()
-            resetRetryCount()
+            completeSync()
             return
         }
 
         do {
-            let now = Date()
-            let startOfDay = Calendar.current.startOfDay(for: now)
-            let endDate = Calendar.current.date(byAdding: .day, value: self.eventLookAheadDays, to: now) ?? now
+            let fetchedEvents = try await fetchEventsFromAPI(for: selectedCalendarIds)
 
-            let fetchedEvents = await apiService.fetchEvents(
-                for: selectedCalendarIds,
-                from: startOfDay,
-                to: endDate
-            )
-
-            if fetchedEvents.isEmpty, let apiError = apiService.lastError {
-                throw SyncError.apiFetchFailed(apiError)
-            }
-
-            // Handle empty API results with staleness TTL.
-            // If last non-empty sync is known and older than the TTL, the calendar is
-            // genuinely empty — clear the cache. Otherwise preserve it to guard against
-            // transient API issues.
             if fetchedEvents.isEmpty {
-                if let lastNonEmpty = lastSuccessfulNonEmptySync,
-                   Date().timeIntervalSince(lastNonEmpty) > stalenessTTL
-                {
-                    logger.info(
-                        "API returned zero events for >\(Int(self.stalenessTTL / 3600))h — clearing stale cached events"
-                    )
-                    for calendarId in selectedCalendarIds {
-                        do {
-                            try await databaseManager.replaceEvents(for: calendarId, with: [])
-                        } catch {
-                            logger.error(
-                                "Database write error clearing events for calendar \(calendarId): \(error.localizedDescription)"
-                            )
-                        }
-                    }
-                } else {
-                    logger.info(
-                        "API returned zero events with no error for \(selectedCalendarIds.count) calendars — preserving cached events"
-                    )
-                }
-                syncStatus = .idle
-                updateSyncTimes()
-                resetRetryCount()
-                await onSyncCompleted?()
+                await handleEmptyFetchResult(for: selectedCalendarIds)
                 return
             }
 
-            let eventsByCalendar = Dictionary(grouping: fetchedEvents) { $0.calendarId }
-
-            let failedCount = await saveEventsPerCalendar(
-                eventsByCalendar: eventsByCalendar,
+            await saveAndFinalize(
+                fetchedEvents: fetchedEvents,
                 selectedCalendarIds: selectedCalendarIds
             )
-
-            if failedCount == selectedCalendarIds.count {
-                syncStatus = .error("Database write error: failed to save events for all calendars")
-                return
-            }
-
-            lastSuccessfulNonEmptySync = Date()
-            syncStatus = .idle
-            updateSyncTimes()
-            resetRetryCount()
-
-            logger.info("Sync completed: \(fetchedEvents.count) events from \(selectedCalendarIds.count) calendars")
-
-            await onSyncCompleted?()
         } catch {
             logger.error("Sync failed: \(error.localizedDescription)")
-
-            if isNetworkError(error) {
-                handleNetworkError(error)
-            } else {
-                syncStatus = .error(error.localizedDescription)
-                resetRetryCount()
-            }
-
-            updateNextSyncTime()
+            handleSyncError(error)
         }
+    }
+
+    /// Checks preconditions for starting a sync: rate limits, online status, and
+    /// whether a sync is already in progress.
+    private func shouldStartSync(isManualSync: Bool) -> Bool {
+        if isManualSync {
+            if let lastSync = lastManualSyncTime,
+               Date().timeIntervalSince(lastSync) < minSyncCooldown
+            {
+                let remaining = Int(minSyncCooldown - Date().timeIntervalSince(lastSync))
+                logger.debug("Manual sync rate limited - \(remaining)s remaining")
+                return false
+            }
+            lastManualSyncTime = Date()
+        }
+
+        guard isOnline else {
+            logger.debug("Skipping sync - device is offline")
+            syncStatus = .offline
+            return false
+        }
+
+        guard syncStatus != .syncing else {
+            logger.debug("Sync already in progress, skipping")
+            return false
+        }
+
+        return true
+    }
+
+    /// Fetches events from the API for the given calendar IDs over the configured look-ahead window.
+    private func fetchEventsFromAPI(for calendarIds: [String]) async throws -> [Event] {
+        let now = Date()
+        let startOfDay = Calendar.current.startOfDay(for: now)
+        let endDate = Calendar.current.date(
+            byAdding: .day, value: eventLookAheadDays, to: now
+        ) ?? now
+
+        let fetchedEvents = await apiService.fetchEvents(
+            for: calendarIds,
+            from: startOfDay,
+            to: endDate
+        )
+
+        if fetchedEvents.isEmpty, let apiError = apiService.lastError {
+            throw SyncError.apiFetchFailed(apiError)
+        }
+
+        return fetchedEvents
+    }
+
+    /// Handles the case where the API returns zero events with no error.
+    /// Uses a staleness TTL to decide whether to clear cached events or preserve them.
+    private func handleEmptyFetchResult(for calendarIds: [String]) async {
+        if let lastNonEmpty = lastSuccessfulNonEmptySync,
+           Date().timeIntervalSince(lastNonEmpty) > stalenessTTL
+        {
+            logger.info(
+                "API returned zero events for >\(Int(self.stalenessTTL / 3600))h — clearing stale cache"
+            )
+            for calendarId in calendarIds {
+                do {
+                    try await databaseManager.replaceEvents(for: calendarId, with: [])
+                } catch {
+                    logger.error(
+                        "Failed to clear events for calendar \(calendarId): \(error.localizedDescription)"
+                    )
+                }
+            }
+        } else {
+            logger.info(
+                "API returned zero events for \(calendarIds.count) calendars — preserving cache"
+            )
+        }
+        completeSync()
+        await onSyncCompleted?()
+    }
+
+    /// Saves fetched events per calendar and finalizes the sync cycle.
+    private func saveAndFinalize(
+        fetchedEvents: [Event],
+        selectedCalendarIds: [String]
+    ) async {
+        let eventsByCalendar = Dictionary(grouping: fetchedEvents) { $0.calendarId }
+
+        let failedCount = await saveEventsPerCalendar(
+            eventsByCalendar: eventsByCalendar,
+            selectedCalendarIds: selectedCalendarIds
+        )
+
+        if failedCount == selectedCalendarIds.count {
+            syncStatus = .error("Database write error: failed to save events for all calendars")
+            return
+        }
+
+        lastSuccessfulNonEmptySync = Date()
+        completeSync()
+
+        logger.info(
+            "Sync completed: \(fetchedEvents.count) events from \(selectedCalendarIds.count) calendars"
+        )
+        await onSyncCompleted?()
+    }
+
+    /// Resets sync state to idle after a successful sync cycle.
+    private func completeSync() {
+        syncStatus = .idle
+        updateSyncTimes()
+        resetRetryCount()
+    }
+
+    /// Routes a sync error to the appropriate handler (network vs. other).
+    private func handleSyncError(_ error: Error) {
+        if isNetworkError(error) {
+            handleNetworkError(error)
+        } else {
+            syncStatus = .error(error.localizedDescription)
+            resetRetryCount()
+        }
+        updateNextSyncTime()
     }
 
     private func saveEventsPerCalendar(

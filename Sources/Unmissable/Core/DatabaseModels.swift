@@ -2,7 +2,7 @@ import Foundation
 import GRDB
 import OSLog
 
-private let logger = Logger(subsystem: "com.unmissable.app", category: "DatabaseModels")
+private let logger = Logger(category: "DatabaseModels")
 
 // MARK: - Cached JSON Coders
 
@@ -166,9 +166,8 @@ extension CalendarInfo: FetchableRecord, PersistableRecord {
         } else {
             // Legacy rows from before multi-provider support lack a provider column.
             // Default to .google since that was the only provider at the time.
-            let rawValue = row[Columns.sourceProvider] as? String
-            if rawValue != nil {
-                logger.warning("Unknown calendar provider '\(rawValue!)' — defaulting to .google")
+            if let rawValue = row[Columns.sourceProvider] as? String {
+                logger.warning("Unknown calendar provider '\(rawValue)' — defaulting to .google")
             }
             sourceProvider = .google
         }

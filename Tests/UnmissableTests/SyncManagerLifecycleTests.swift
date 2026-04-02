@@ -35,6 +35,37 @@ final class SyncManagerLifecycleTests: XCTestCase {
         XCTAssertEqual(manager.retryCount, 0, "Stopping periodic sync should clear retry state")
     }
 
+    func testStopPeriodicSync_resetsRetryCountRegardlessOfValue() {
+        manager.retryCount = 10
+
+        manager.stopPeriodicSync()
+
+        XCTAssertEqual(manager.retryCount, 0, "Stopping should reset even high retry counts")
+    }
+
+    func testInitialRetryCountIsZero() {
+        XCTAssertEqual(manager.retryCount, 0, "New SyncManager should have 0 retry count")
+    }
+
+    func testInitialSyncStatusIsIdle() {
+        XCTAssertEqual(manager.syncStatus, .idle)
+    }
+
+    func testInitialLastSyncTimeIsNil() {
+        XCTAssertNil(manager.lastSyncTime, "New SyncManager should have nil lastSyncTime")
+    }
+
+    func testPerformSync_whenNoCalendarsSelected_completesWithoutUpdatingLastSync() async {
+        await manager.performSync()
+
+        // Without calendars selected, sync may return idle or error depending on auth state.
+        // The key invariant: lastSyncTime should not be set on a failed or no-op sync.
+        XCTAssertNil(
+            manager.lastSyncTime,
+            "No-op or failed sync should not update lastSyncTime"
+        )
+    }
+
     func testPerformSync_whenNotAuthenticated_setsErrorStatusWhenCalendarsSelected() async throws {
         let calendar = CalendarInfo(
             id: "sync-lifecycle-test-\(UUID())",

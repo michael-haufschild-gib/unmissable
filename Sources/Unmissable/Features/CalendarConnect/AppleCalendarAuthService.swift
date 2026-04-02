@@ -6,7 +6,7 @@ import OSLog
 /// No OAuth needed — uses the system permission dialog.
 @MainActor
 final class AppleCalendarAuthService: ObservableObject, CalendarAuthProviding {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "AppleCalendarAuth")
+    private let logger = Logger(category: "AppleCalendarAuth")
     private let eventStore: EKEventStore
 
     private static let calendarDeniedMessage =

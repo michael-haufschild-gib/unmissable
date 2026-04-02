@@ -135,13 +135,15 @@ struct EventPropertyTests {
     )
     func autoDetectedProvider(urlString: String, expected: Provider) throws {
         let url = try #require(URL(string: urlString))
-        let event = Event(
+        let linkParser = LinkParser()
+        let event = Event.withAutoDetectedProvider(
             id: "provider-test",
             title: "Test",
             startDate: Date(),
             endDate: Date().addingTimeInterval(3600),
             calendarId: "primary",
-            links: [url]
+            links: [url],
+            linkParser: linkParser
         )
         #expect(event.provider == expected)
     }

@@ -93,8 +93,10 @@ final class PreferencesManagerTests: XCTestCase {
         preferencesManager.setOverlayOpacity(0.7)
 
         // Create new instance backed by the same test suite to verify persistence
-        let newPreferencesManager =
-            try PreferencesManager(userDefaults: XCTUnwrap(UserDefaults(suiteName: testSuiteName)), themeManager: ThemeManager())
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: testSuiteName))
+        let newPreferencesManager = PreferencesManager(
+            userDefaults: defaults, themeManager: ThemeManager()
+        )
 
         XCTAssertEqual(newPreferencesManager.defaultAlertMinutes, 5)
         XCTAssertTrue(newPreferencesManager.useLengthBasedTiming)
@@ -109,6 +111,171 @@ final class PreferencesManagerTests: XCTestCase {
 
         let allThemes = AppTheme.allCases
         XCTAssertEqual(allThemes.count, 3)
+    }
+
+    // MARK: - Boundary Clamping Tests
+
+    func testOverlayOpacity_clampedToValidRange() {
+        preferencesManager.setOverlayOpacity(0.0) // below min (0.1)
+        XCTAssertEqual(preferencesManager.overlayOpacity, 0.1, accuracy: 0.001)
+
+        preferencesManager.setOverlayOpacity(2.0) // above max (1.0)
+        XCTAssertEqual(preferencesManager.overlayOpacity, 1.0, accuracy: 0.001)
+
+        preferencesManager.setOverlayOpacity(0.5) // valid
+        XCTAssertEqual(preferencesManager.overlayOpacity, 0.5, accuracy: 0.001)
+    }
+
+    func testOverlayOpacity_exactBoundaryValues() {
+        preferencesManager.setOverlayOpacity(0.1) // min
+        XCTAssertEqual(preferencesManager.overlayOpacity, 0.1, accuracy: 0.001)
+
+        preferencesManager.setOverlayOpacity(1.0) // max
+        XCTAssertEqual(preferencesManager.overlayOpacity, 1.0, accuracy: 0.001)
+    }
+
+    func testDefaultAlertMinutes_clampedToValidRange() {
+        preferencesManager.setDefaultAlertMinutes(-5)
+        XCTAssertEqual(preferencesManager.defaultAlertMinutes, 0, "Negative values should clamp to 0")
+
+        preferencesManager.setDefaultAlertMinutes(100)
+        XCTAssertEqual(preferencesManager.defaultAlertMinutes, 60, "Values above 60 should clamp to 60")
+
+        preferencesManager.setDefaultAlertMinutes(30) // valid
+        XCTAssertEqual(preferencesManager.defaultAlertMinutes, 30)
+    }
+
+    func testShortMeetingAlertMinutes_clampedToValidRange() {
+        preferencesManager.setShortMeetingAlertMinutes(-1)
+        XCTAssertEqual(preferencesManager.shortMeetingAlertMinutes, 0)
+
+        preferencesManager.setShortMeetingAlertMinutes(61)
+        XCTAssertEqual(preferencesManager.shortMeetingAlertMinutes, 60)
+    }
+
+    func testMediumMeetingAlertMinutes_clampedToValidRange() {
+        preferencesManager.setMediumMeetingAlertMinutes(-1)
+        XCTAssertEqual(preferencesManager.mediumMeetingAlertMinutes, 0)
+
+        preferencesManager.setMediumMeetingAlertMinutes(100)
+        XCTAssertEqual(preferencesManager.mediumMeetingAlertMinutes, 60)
+    }
+
+    func testLongMeetingAlertMinutes_clampedToValidRange() {
+        preferencesManager.setLongMeetingAlertMinutes(-1)
+        XCTAssertEqual(preferencesManager.longMeetingAlertMinutes, 0)
+
+        preferencesManager.setLongMeetingAlertMinutes(100)
+        XCTAssertEqual(preferencesManager.longMeetingAlertMinutes, 60)
+    }
+
+    func testSyncInterval_exactBoundaryValues() {
+        preferencesManager.setSyncIntervalSeconds(30) // min
+        XCTAssertEqual(preferencesManager.syncIntervalSeconds, 30)
+
+        preferencesManager.setSyncIntervalSeconds(3600) // max
+        XCTAssertEqual(preferencesManager.syncIntervalSeconds, 3600)
+    }
+
+    // MARK: - MenuBarDisplayMode
+
+    func testMenuBarDisplayMode_defaultIsIcon() {
+        XCTAssertEqual(preferencesManager.menuBarDisplayMode, .icon)
+    }
+
+    func testMenuBarDisplayMode_persistsAcrossInstances() throws {
+        preferencesManager.setMenuBarDisplayMode(.nameTimer)
+
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: testSuiteName))
+        let newPreferencesManager = PreferencesManager(
+            userDefaults: defaults, themeManager: ThemeManager()
+        )
+
+        XCTAssertEqual(newPreferencesManager.menuBarDisplayMode, .nameTimer)
+    }
+
+    func testMenuBarDisplayModeEnum() {
+        XCTAssertEqual(MenuBarDisplayMode.allCases.count, 3)
+        XCTAssertTrue(MenuBarDisplayMode.allCases.contains(.icon))
+        XCTAssertTrue(MenuBarDisplayMode.allCases.contains(.timer))
+        XCTAssertTrue(MenuBarDisplayMode.allCases.contains(.nameTimer))
+    }
+
+    // MARK: - Alert Minutes for Event (Length-Based Boundary)
+
+    func testAlertMinutesForEvent_exactly29Minutes_usesShort() {
+        preferencesManager.setUseLengthBasedTiming(true)
+        preferencesManager.setShortMeetingAlertMinutes(1)
+        preferencesManager.setMediumMeetingAlertMinutes(3)
+        preferencesManager.setLongMeetingAlertMinutes(5)
+
+        let event = Event(
+            id: "boundary-29",
+            title: "29 Min Meeting",
+            startDate: Date(),
+            endDate: Date().addingTimeInterval(29 * 60),
+            calendarId: "primary"
+        )
+        XCTAssertEqual(preferencesManager.alertMinutes(for: event), 1, "29 min < 30 = short")
+    }
+
+    func testAlertMinutesForEvent_exactly30Minutes_usesMedium() {
+        preferencesManager.setUseLengthBasedTiming(true)
+        preferencesManager.setShortMeetingAlertMinutes(1)
+        preferencesManager.setMediumMeetingAlertMinutes(3)
+
+        let event = Event(
+            id: "boundary-30",
+            title: "30 Min Meeting",
+            startDate: Date(),
+            endDate: Date().addingTimeInterval(30 * 60),
+            calendarId: "primary"
+        )
+        XCTAssertEqual(preferencesManager.alertMinutes(for: event), 3, "30 min >= 30 = medium")
+    }
+
+    func testAlertMinutesForEvent_exactly60Minutes_usesMedium() {
+        preferencesManager.setUseLengthBasedTiming(true)
+        preferencesManager.setMediumMeetingAlertMinutes(3)
+        preferencesManager.setLongMeetingAlertMinutes(5)
+
+        let event = Event(
+            id: "boundary-60",
+            title: "60 Min Meeting",
+            startDate: Date(),
+            endDate: Date().addingTimeInterval(60 * 60),
+            calendarId: "primary"
+        )
+        XCTAssertEqual(preferencesManager.alertMinutes(for: event), 3, "60 min <= 60 = medium")
+    }
+
+    func testAlertMinutesForEvent_exactly61Minutes_usesLong() {
+        preferencesManager.setUseLengthBasedTiming(true)
+        preferencesManager.setMediumMeetingAlertMinutes(3)
+        preferencesManager.setLongMeetingAlertMinutes(5)
+
+        let event = Event(
+            id: "boundary-61",
+            title: "61 Min Meeting",
+            startDate: Date(),
+            endDate: Date().addingTimeInterval(61 * 60),
+            calendarId: "primary"
+        )
+        XCTAssertEqual(preferencesManager.alertMinutes(for: event), 5, "61 min > 60 = long")
+    }
+
+    func testAlertMinutesForEvent_zeroDuration_usesShort() {
+        preferencesManager.setUseLengthBasedTiming(true)
+        preferencesManager.setShortMeetingAlertMinutes(1)
+
+        let event = Event(
+            id: "zero-dur",
+            title: "Zero Duration",
+            startDate: Date(),
+            endDate: Date(), // same time
+            calendarId: "primary"
+        )
+        XCTAssertEqual(preferencesManager.alertMinutes(for: event), 1, "Zero duration < 30 = short")
     }
 
     func testFontSizeEnum() {

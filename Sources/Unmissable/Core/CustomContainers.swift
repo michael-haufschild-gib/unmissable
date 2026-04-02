@@ -61,9 +61,7 @@ struct CustomCard<Content: View>: View {
 
     private var backgroundColor: Color {
         switch style {
-        case .standard:
-            design.colors.backgroundCard
-        case .elevated:
+        case .standard, .elevated:
             design.colors.backgroundCard
         case .flat:
             design.colors.backgroundTertiary

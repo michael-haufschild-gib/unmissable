@@ -36,7 +36,11 @@ struct CalendarInfo: Identifiable, Codable {
         self.updatedAt = updatedAt
     }
 
-    /// Returns a copy with updated selection status and current timestamp
+    /// Returns a copy with updated selection status and current timestamp.
+    ///
+    /// **Maintenance note:** This method lists every stored property explicitly so that
+    /// adding a new required property to `CalendarInfo.init` will cause a compile error here,
+    /// forcing the developer to decide how the new field should be handled in copies.
     func withSelection(_ isSelected: Bool) -> Self {
         Self(
             id: id,

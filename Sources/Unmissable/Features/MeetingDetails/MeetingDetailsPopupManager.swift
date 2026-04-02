@@ -2,6 +2,12 @@ import AppKit
 import OSLog
 import SwiftUI
 
+/// Default size for the meeting details popup window.
+/// Shared between MeetingDetailsView and MeetingDetailsPopupManager.
+enum MeetingDetailsLayout {
+    static let popupSize = NSSize(width: 480, height: 600)
+}
+
 @MainActor
 final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
     private let logger = Logger(
@@ -86,7 +92,7 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
 
         // Create NSWindow with borderless style for clean popup appearance
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 600),
+            contentRect: NSRect(origin: .zero, size: MeetingDetailsLayout.popupSize),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false

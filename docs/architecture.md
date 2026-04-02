@@ -195,16 +195,19 @@ enum OverlayManagerFactory {
 }
 ```
 
-### 2. Singleton for Stateless Utilities
+### 2. Dependency Injection via ServiceContainer
+
+All services are created in `ServiceContainer` and passed to their consumers. Avoid singletons.
 
 ```swift
-class LinkParser {
-    static let shared = LinkParser()
-
-    private init() {}
-
-    func extractLinks(from text: String) -> [URL] {
-        // Implementation
+// ServiceContainer creates and owns all services:
+final class ServiceContainer {
+    let linkParser: LinkParser
+    let calendarService: CalendarService
+    // ...
+    init(...) {
+        linkParser = LinkParser()
+        calendarService = CalendarService(linkParser: linkParser, ...)
     }
 }
 ```
