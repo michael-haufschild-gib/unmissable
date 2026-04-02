@@ -132,11 +132,10 @@ final class LinkParserTests: XCTestCase {
     // MARK: - shouldShowJoinButton Tests
 
     func testShouldShowJoinButton_moreThan10MinBeforeStart_returnsFalse() throws {
-        let event = try TestUtilities.createTestEvent(
+        let meetURL = try XCTUnwrap(URL(string: "https://meet.google.com/abc"))
+        let event = TestUtilities.createTestEvent(
             startDate: Date().addingTimeInterval(700), // ~11.7 min from now
-            links: [XCTUnwrap(
-                URL(string: "https://meet.google.com/abc")
-            )] // swiftlint:disable:this force_unwrapping
+            links: [meetURL]
         )
         XCTAssertFalse(
             linkParser.shouldShowJoinButton(for: event),

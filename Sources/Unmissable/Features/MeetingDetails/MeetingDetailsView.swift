@@ -85,6 +85,8 @@ struct MeetingDetailsView: View {
             alignment: .bottom
         )
         .contentShape(Rectangle())
+        // Empty gesture prevents taps from falling through to the scrollable
+        // content below the fixed header, which would trigger link navigation.
         .onTapGesture {}
         .accessibilityAddTraits(.isButton)
     }

@@ -41,21 +41,36 @@ enum Provider: String, Codable, CaseIterable {
         }
     }
 
+    /// Classifies a URL as a specific meeting provider.
+    /// Uses host-based matching for accuracy — mirrors the trusted domains in
+    /// `LinkParser.trustedMeetingDomains`. If you add a provider here, update
+    /// LinkParser's domain list too.
     static func detect(from url: URL) -> Self {
-        let urlString = url.absoluteString.lowercased()
+        let scheme = url.scheme?.lowercased() ?? ""
+        let host = url.host?.lowercased() ?? ""
 
-        if urlString.contains("meet.google.com") || urlString.contains("g.co/meet") {
+        // Custom URL schemes for native meeting apps
+        switch scheme {
+        case "zoommtg": return .zoom
+        case "msteams": return .teams
+        case "webex": return .webex
+        default: break
+        }
+
+        // HTTPS domain matching
+        if host == "meet.google.com" || host.hasSuffix(".meet.google.com") {
             return .meet
         }
-        if urlString.contains("zoom.us") || urlString.hasPrefix("zoommtg://") {
+        if host == "g.co", url.path.lowercased().hasPrefix("/meet/") {
+            return .meet
+        }
+        if host == "zoom.us" || host.hasSuffix(".zoom.us") {
             return .zoom
         }
-        if urlString.contains("teams.microsoft.com") || urlString.contains("teams.live.com")
-            || urlString.hasPrefix("msteams://")
-        {
+        if host == "teams.microsoft.com" || host == "teams.live.com" {
             return .teams
         }
-        if urlString.contains("webex.com") || urlString.hasPrefix("webex://") {
+        if host == "webex.com" || host.hasSuffix(".webex.com") {
             return .webex
         }
         return .generic

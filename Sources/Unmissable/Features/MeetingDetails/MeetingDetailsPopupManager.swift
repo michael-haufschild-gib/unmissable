@@ -10,9 +10,7 @@ enum MeetingDetailsLayout {
 
 @MainActor
 final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
-    private let logger = Logger(
-        subsystem: "com.unmissable.app", category: "MeetingDetailsPopupManager"
-    )
+    private let logger = Logger(category: "MeetingDetailsPopupManager")
 
     @Published
     private(set) var isPopupVisible = false
@@ -79,16 +77,10 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
 
     private func createPopupWindow(for event: Event, relativeTo parentWindow: NSWindow?) -> NSWindow {
         // Create the SwiftUI content view
+        // Note: No .onDisappear cleanup here — hidePopup() handles all state cleanup.
+        // Adding redundant cleanup in onDisappear races with hidePopup() via the window delegate.
         let contentView = MeetingDetailsView(event: event, onClose: { [weak self] in self?.hidePopup() })
             .customThemedEnvironment(themeManager: themeManager)
-            .onDisappear {
-                // Clean up when view disappears
-                Task { @MainActor in
-                    self.isPopupVisible = false
-                    self.popupWindow = nil
-                    self.parentWindow = nil
-                }
-            }
 
         // Create NSWindow with borderless style for clean popup appearance
         let window = NSWindow(

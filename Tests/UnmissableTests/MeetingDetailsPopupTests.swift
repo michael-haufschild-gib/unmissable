@@ -206,7 +206,7 @@ final class MeetingDetailsPopupTests: XCTestCase {
         let sampleEvent = createSampleEvent()
 
         pm.showPopup(for: sampleEvent)
-        XCTAssertNotNil(pm.lastShownEvent)
+        XCTAssertEqual(pm.lastShownEvent?.id, sampleEvent.id, "lastShownEvent should match shown event")
 
         pm.hidePopup()
         XCTAssertNil(pm.lastShownEvent, "lastShownEvent should be cleared on hide")

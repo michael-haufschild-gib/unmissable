@@ -119,9 +119,11 @@ final class DisplayPropertyTests: XCTestCase {
     }
 
     func testHealthSeverityAllCases() {
-        XCTAssertEqual(HealthIssue.Severity.allCases.count, 2)
-        XCTAssertTrue(HealthIssue.Severity.allCases.contains(.warning))
-        XCTAssertTrue(HealthIssue.Severity.allCases.contains(.error))
+        XCTAssertEqual(
+            HealthIssue.Severity.allCases,
+            [.warning, .error],
+            "Severity allCases should contain exactly warning and error"
+        )
     }
 
     func testHealthSeverityRawValues() {

@@ -347,13 +347,13 @@ struct ShortcutsPreferencesView: View {
                             shortcutRow(
                                 title: "Dismiss overlay",
                                 subtitle: "Close the current meeting alert",
-                                shortcut: "⌘⎋"
+                                shortcut: ShortcutsManager.dismissShortcutDisplay
                             )
 
                             shortcutRow(
                                 title: "Join meeting",
                                 subtitle: "Quickly join the current meeting",
-                                shortcut: "⌘⏎"
+                                shortcut: ShortcutsManager.joinShortcutDisplay
                             )
                         }
                     }

@@ -9,7 +9,7 @@ final class GoogleCalendarConfigTests: XCTestCase {
             GoogleCalendarConfig.authorizationEndpoint.host,
             "accounts.google.com"
         )
-        XCTAssertTrue(
+        XCTAssert(
             GoogleCalendarConfig.authorizationEndpoint.path.contains("auth"),
             "Authorization endpoint should contain 'auth' in path"
         )
@@ -32,7 +32,7 @@ final class GoogleCalendarConfigTests: XCTestCase {
     // MARK: - Scopes
 
     func testScopesIncludeCalendarReadOnly() {
-        XCTAssertTrue(
+        XCTAssert(
             GoogleCalendarConfig.scopes.contains(
                 "https://www.googleapis.com/auth/calendar.readonly"
             ),
@@ -41,7 +41,7 @@ final class GoogleCalendarConfigTests: XCTestCase {
     }
 
     func testScopesIncludeCalendarListReadOnly() {
-        XCTAssertTrue(
+        XCTAssert(
             GoogleCalendarConfig.scopes.contains(
                 "https://www.googleapis.com/auth/calendar.calendarlist.readonly"
             ),
@@ -50,7 +50,7 @@ final class GoogleCalendarConfigTests: XCTestCase {
     }
 
     func testScopesIncludeUserInfoEmail() {
-        XCTAssertTrue(
+        XCTAssert(
             GoogleCalendarConfig.scopes.contains(
                 "https://www.googleapis.com/auth/userinfo.email"
             ),
@@ -60,7 +60,7 @@ final class GoogleCalendarConfigTests: XCTestCase {
 
     func testScopesAreReadOnly() {
         for scope in GoogleCalendarConfig.scopes {
-            XCTAssertTrue(
+            XCTAssert(
                 scope.contains("readonly") || scope.contains("userinfo"),
                 "All scopes should be read-only or user info, found: \(scope)"
             )
@@ -79,7 +79,7 @@ final class GoogleCalendarConfigTests: XCTestCase {
     // MARK: - Redirect URI
 
     func testRedirectURIEndsWithColon() {
-        XCTAssertTrue(
+        XCTAssert(
             GoogleCalendarConfig.redirectURI.contains(":/"),
             "Redirect URI should have scheme format (scheme:/)"
         )

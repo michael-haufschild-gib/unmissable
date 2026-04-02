@@ -11,6 +11,8 @@ struct OverlayContentView: View {
 
     @EnvironmentObject
     private var preferences: PreferencesManager
+    @EnvironmentObject
+    private var themeManager: ThemeManager
     @Environment(\.customDesign)
     private var design
     @State
@@ -213,7 +215,9 @@ struct OverlayContentView: View {
                 .accessibilityHint("Opens the meeting link in your default application")
             }
 
-            snoozeMenu
+            if preferences.allowSnooze {
+                snoozeMenu
+            }
 
             Button("Dismiss") {
                 onDismiss()
@@ -297,39 +301,35 @@ struct OverlayContentView: View {
         }
     }
 
-    /// Background respects user's theme and opacity preferences
+    /// Background respects resolved theme and opacity preferences.
+    /// Uses themeManager.effectiveTheme (not preferences.appearanceTheme) so
+    /// .system resolves to light/dark consistently with the design system.
     private var backgroundColor: Color {
-        switch preferences.appearanceTheme {
+        switch themeManager.effectiveTheme {
         case .light:
             Color.white.opacity(preferences.overlayOpacity)
         case .dark:
             Color.black.opacity(preferences.overlayOpacity)
-        case .system:
-            Color(.controlBackgroundColor).opacity(preferences.overlayOpacity)
         }
     }
 
-    /// Primary text color driven by user's theme preference
+    /// Primary text color driven by resolved theme
     private var textColor: Color {
-        switch preferences.appearanceTheme {
+        switch themeManager.effectiveTheme {
         case .light:
             .black
         case .dark:
             .white
-        case .system:
-            Color(.controlTextColor)
         }
     }
 
     /// Subtle/secondary text color for hints and labels
     private var subtleTextColor: Color {
-        switch preferences.appearanceTheme {
+        switch themeManager.effectiveTheme {
         case .light:
             Color(red: 0.4, green: 0.4, blue: 0.42)
         case .dark:
             Color(red: 0.6, green: 0.6, blue: 0.63)
-        case .system:
-            Color(.secondaryLabelColor)
         }
     }
 

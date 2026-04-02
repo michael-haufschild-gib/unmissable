@@ -32,7 +32,7 @@ final class MenuBarPreviewManagerTests: XCTestCase {
 
     // MARK: - Timer Mode
 
-    func testTimerMode_withFutureEvent_showsTimerText() {
+    func testTimerMode_withFutureEvent_showsTimerText() throws {
         prefs.setMenuBarDisplayMode(.timer)
         let futureEvent = TestUtilities.createTestEvent(
             startDate: Date().addingTimeInterval(1800) // 30 minutes
@@ -40,12 +40,9 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         manager.updateEvents([futureEvent])
 
         XCTAssertFalse(manager.shouldShowIcon, "Timer mode with events should hide icon")
-        XCTAssertNotNil(manager.menuBarText, "Timer mode with events should show text")
-        let text = manager.menuBarText ?? ""
-        XCTAssertTrue(
-            text.contains("min") || text.contains("h") || text.contains("Starting"),
-            "Timer text should contain a time unit, got: \(text)"
-        )
+        let text = try XCTUnwrap(manager.menuBarText, "Timer mode with events should show text")
+        let hasTimeUnit = text.contains("min") || text.contains("h") || text.contains("Starting")
+        XCTAssert(hasTimeUnit, "Timer text should contain a time unit, got: \(text)")
     }
 
     func testTimerMode_withNoEvents_fallsBackToIcon() {
@@ -82,7 +79,7 @@ final class MenuBarPreviewManagerTests: XCTestCase {
 
     // MARK: - Name+Timer Mode
 
-    func testNameTimerMode_showsNameAndTime() {
+    func testNameTimerMode_showsNameAndTime() throws {
         prefs.setMenuBarDisplayMode(.nameTimer)
         let event = TestUtilities.createTestEvent(
             title: "Team Sync",
@@ -91,18 +88,13 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         manager.updateEvents([event])
 
         XCTAssertFalse(manager.shouldShowIcon)
-        let text = manager.menuBarText ?? ""
-        XCTAssertTrue(
-            text.contains("Team Sync"),
-            "Name+Timer should contain meeting name, got: \(text)"
-        )
-        XCTAssertTrue(
-            text.contains("min") || text.contains("h"),
-            "Name+Timer should contain time, got: \(text)"
-        )
+        let text = try XCTUnwrap(manager.menuBarText, "Name+Timer should produce text")
+        XCTAssert(text.hasPrefix("Team Sync"), "Name+Timer should start with meeting name, got: \(text)")
+        let hasTime = text.contains("min") || text.contains("h")
+        XCTAssert(hasTime, "Name+Timer should contain time, got: \(text)")
     }
 
-    func testNameTimerMode_truncatesLongNames() {
+    func testNameTimerMode_truncatesLongNames() throws {
         prefs.setMenuBarDisplayMode(.nameTimer)
         let event = TestUtilities.createTestEvent(
             title: "Very Important Strategic Planning Meeting",
@@ -110,15 +102,12 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         )
         manager.updateEvents([event])
 
-        let text = manager.menuBarText ?? ""
+        let text = try XCTUnwrap(manager.menuBarText, "Should produce text for truncation test")
         // Name should be truncated to 9 chars + "..."
-        XCTAssertTrue(
-            text.hasPrefix("Very Impo..."),
-            "Long name should be truncated, got: \(text)"
-        )
+        XCTAssert(text.hasPrefix("Very Impo..."), "Long name should be truncated, got: \(text)")
     }
 
-    func testNameTimerMode_shortNameNotTruncated() {
+    func testNameTimerMode_shortNameNotTruncated() throws {
         prefs.setMenuBarDisplayMode(.nameTimer)
         let event = TestUtilities.createTestEvent(
             title: "Short Name",
@@ -126,16 +115,13 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         )
         manager.updateEvents([event])
 
-        let text = manager.menuBarText ?? ""
-        XCTAssertTrue(
-            text.hasPrefix("Short Name"),
-            "Short names (<= 12 chars) should not be truncated, got: \(text)"
-        )
+        let text = try XCTUnwrap(manager.menuBarText, "Should produce text for short name test")
+        XCTAssert(text.hasPrefix("Short Name"), "Short names (<= 12 chars) should not be truncated, got: \(text)")
     }
 
     // MARK: - Event Priority
 
-    func testInProgressEventTakesPriorityOverFutureEvent() {
+    func testInProgressEventTakesPriorityOverFutureEvent() throws {
         prefs.setMenuBarDisplayMode(.nameTimer)
         let inProgress = TestUtilities.createTestEvent(
             title: "Current Meeting",
@@ -148,14 +134,11 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         )
         manager.updateEvents([future, inProgress])
 
-        let text = manager.menuBarText ?? ""
-        XCTAssertTrue(
-            text.contains("Current"),
-            "In-progress meeting should take priority, got: \(text)"
-        )
+        let text = try XCTUnwrap(manager.menuBarText, "Should produce text for priority test")
+        XCTAssert(text.hasPrefix("Current"), "In-progress meeting should take priority, got: \(text)")
     }
 
-    func testNearestFutureEventIsSelected() {
+    func testNearestFutureEventIsSelected() throws {
         prefs.setMenuBarDisplayMode(.nameTimer)
         let far = TestUtilities.createTestEvent(
             title: "Far Meeting",
@@ -167,11 +150,8 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         )
         manager.updateEvents([far, near])
 
-        let text = manager.menuBarText ?? ""
-        XCTAssertTrue(
-            text.contains("Near Meetin"),
-            "Nearest future meeting should be selected, got: \(text)"
-        )
+        let text = try XCTUnwrap(manager.menuBarText, "Should produce text for nearest future test")
+        XCTAssert(text.hasPrefix("Near Meetin"), "Nearest future meeting should be selected, got: \(text)")
     }
 
     // MARK: - Format Time Left Boundaries
@@ -186,36 +166,37 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         XCTAssertEqual(manager.menuBarText, "< 1 min")
     }
 
-    func testTimerMode_overOneHour() {
+    func testTimerMode_overOneHour() throws {
         prefs.setMenuBarDisplayMode(.timer)
         let event = TestUtilities.createTestEvent(
             startDate: Date().addingTimeInterval(3660) // 61 minutes to avoid rounding below 60
         )
         manager.updateEvents([event])
 
-        let text = manager.menuBarText ?? ""
-        XCTAssertTrue(text.contains("h"), "Over 1 hour should use hour format, got: \(text)")
+        let text = try XCTUnwrap(manager.menuBarText, "Should produce text for hour format test")
+        XCTAssert(text.contains("h"), "Over 1 hour should use hour format, got: \(text)")
     }
 
-    func testTimerMode_overOneDay() {
+    func testTimerMode_overOneDay() throws {
         prefs.setMenuBarDisplayMode(.timer)
         let event = TestUtilities.createTestEvent(
             startDate: Date().addingTimeInterval(100_000)
         )
         manager.updateEvents([event])
 
-        let text = manager.menuBarText ?? ""
-        XCTAssertTrue(text.contains("d"), "Over 1 day should use day format, got: \(text)")
+        let text = try XCTUnwrap(manager.menuBarText, "Should produce text for day format test")
+        XCTAssert(text.contains("d"), "Over 1 day should use day format, got: \(text)")
     }
 
     // MARK: - Mode Switching
 
-    func testSwitchingFromTimerToIconClearsText() {
+    func testSwitchingFromTimerToIconClearsText() throws {
         prefs.setMenuBarDisplayMode(.timer)
         manager.updateEvents([
             TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(1800)),
         ])
-        XCTAssertNotNil(manager.menuBarText)
+        let preSwitch = try XCTUnwrap(manager.menuBarText, "Timer mode should produce text before mode switch")
+        XCTAssertFalse(preSwitch.isEmpty, "Timer text should be non-empty")
 
         prefs.setMenuBarDisplayMode(.icon)
 

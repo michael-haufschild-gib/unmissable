@@ -12,8 +12,6 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     @Published
     var events: [Event] = []
     @Published
-    var isLoading = false
-    @Published
     var lastError: String?
     @Published
     var calendarErrors: [String: String] = [:]
@@ -36,10 +34,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     @discardableResult
     func fetchCalendars() async -> [CalendarInfo] {
         logger.debug("Fetching calendar list")
-        isLoading = true
         lastError = nil
-
-        defer { isLoading = false }
 
         do {
             let accessToken = try await oauth2Service.getValidAccessToken()
@@ -90,11 +85,8 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     @discardableResult
     func fetchEvents(for calendarIds: [String], from startDate: Date, to endDate: Date) async -> [Event] {
         logger.debug("Fetching events for \(calendarIds.count) calendars")
-        isLoading = true
         lastError = nil
         calendarErrors = [:]
-
-        defer { isLoading = false }
 
         var allEvents: [Event] = []
         var successfulCalendars = 0
@@ -445,10 +437,6 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         // Stable dedup preserving order
         var seen = Set<String>()
         return links.filter { seen.insert($0.absoluteString.lowercased()).inserted }
-    }
-
-    private nonisolated func extractURL(from text: String) -> URL? {
-        linkParser.extractURL(from: text)
     }
 
     private nonisolated func extractURLs(from text: String) -> [URL] {

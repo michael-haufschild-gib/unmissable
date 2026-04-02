@@ -183,6 +183,10 @@ final class EventScheduler: ObservableObject {
                 // Alert time has passed but meeting hasn't started (e.g. app started late)
                 missedAlertEvents.append(event)
             }
+            // Implicit else: event already started (startDate <= now).
+            // Intentionally no overlay — a retroactive blocking overlay for an
+            // in-progress meeting would be disorienting. The menu bar shows
+            // "Starting" for these events; snoozed alerts are preserved separately.
 
             // Schedule sound alerts if enabled (using event-specific timing)
             if preferencesManager.soundEnabled {

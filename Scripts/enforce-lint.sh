@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Full SwiftLint enforcement gate.
+# Runs ALL rules (custom + standard) with --strict so warnings also fail the gate.
+# Called by build.sh and can be used as a pre-commit hook.
+
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -23,15 +27,16 @@ elif xcrun --find swiftlint >/dev/null 2>&1; then
 fi
 
 if [ -z "$SWIFTLINT_BIN" ]; then
-    echo "❌ SwiftLint is required for test lint enforcement. Install with: brew install swiftlint"
+    echo "SwiftLint is required. Install with: brew install swiftlint"
     exit 1
 fi
 
+# Run full SwiftLint with --strict: warnings are treated as errors.
+# This enforces ALL rules in .swiftlint.yml, not just a subset.
 "$SWIFTLINT_BIN" lint \
+    --strict \
     --config "$PROJECT_DIR/.swiftlint.yml" \
     --cache-path "$CACHE_DIR" \
-    --only-rule no_real_overlay_manager_in_tests \
-    --only-rule no_real_appstate_in_tests \
     "$PROJECT_DIR"
 
 touch "$OUTPUT_DIR/lint-complete"

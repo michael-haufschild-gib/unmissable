@@ -60,14 +60,12 @@ final class PreferencesWindowManager: NSObject, ObservableObject {
     }
 
     private func activateWindow(_ window: NSWindow) {
-        // Activate the application first
-        NSApp.activate(ignoringOtherApps: true)
-
-        // Then bring the window to front and make it key
+        // Activate the application first, then bring window to front.
+        // orderFrontRegardless removed — NSApp.activate + makeKeyAndOrderFront is
+        // the standard pattern. orderFrontRegardless bypasses the responder chain
+        // and is unnecessary once the app is already activated.
+        NSApp.activate()
         window.makeKeyAndOrderFront(nil)
-
-        // Ensure the window is properly focused
-        window.orderFrontRegardless()
 
         logger.info("Preferences window activated and brought to foreground")
     }

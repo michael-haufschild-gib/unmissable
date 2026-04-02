@@ -1,7 +1,10 @@
 import Foundation
 
 struct Attendee: Identifiable, Codable, Equatable {
-    /// Email is unique and stable, making it a reliable identifier across encode/decode cycles
+    /// Email is unique per event in both Google Calendar API and EventKit.
+    /// Using email as id preserves Equatable/Codable stability across encode/decode cycles.
+    /// **Invariant:** Each Attendee in an Event.attendees array has a distinct email.
+    /// The API services (Google, Apple) enforce this at fetch time.
     var id: String {
         email
     }
