@@ -86,7 +86,7 @@ final class EventScheduler: ObservableObject {
         currentEvents = events
         currentOverlayManager = overlayManager
 
-        stopTimers()
+        stopTimers(preserveSnoozes: true)
         let missedEvents = scheduleAlerts(for: events)
         for event in missedEvents {
             logger.info("Missed alert time for event \(event.id), triggering immediately")
@@ -130,11 +130,20 @@ final class EventScheduler: ObservableObject {
         logger.debug("Event scheduling stopped")
     }
 
-    private func stopTimers() {
+    private func stopTimers(preserveSnoozes: Bool = false) {
         // Cancel the monitoring task
         monitoringTask?.cancel()
         monitoringTask = nil
-        scheduledAlerts.removeAll()
+        if preserveSnoozes {
+            // Keep snooze alerts so they survive startScheduling calls
+            // (e.g. after calendar sync refreshes the event list)
+            scheduledAlerts.removeAll { alert in
+                if case .snooze = alert.alertType { return false }
+                return true
+            }
+        } else {
+            scheduledAlerts.removeAll()
+        }
     }
 
     /// Returns events whose alert time has already passed but whose meeting has not yet started.
