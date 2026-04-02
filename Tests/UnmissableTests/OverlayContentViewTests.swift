@@ -103,26 +103,29 @@ final class OverlayContentViewTests: XCTestCase {
     }
 
     @MainActor
-    func testOverlayContentViewDoesNotRetainTimers() {
-        let event = createTestEvent()
+    func testSnoozeCallbackReceivesDifferentDurations() {
+        let durations = [1, 5, 10, 15, 30]
 
-        var view: OverlayContentView? = OverlayContentView(
-            event: event,
-            linkParser: LinkParser(),
-            onDismiss: {},
-            onJoin: {},
-            onSnooze: { _ in }
-        )
+        for expectedMinutes in durations {
+            let event = createTestEvent()
+            var receivedMinutes: Int?
 
-        // Start countdown (simulating onAppear)
-        // view.startCountdown() - would need to expose this for testing
+            let view = OverlayContentView(
+                event: event,
+                linkParser: LinkParser(),
+                onDismiss: {},
+                onJoin: {},
+                onSnooze: { minutes in
+                    receivedMinutes = minutes
+                }
+            )
 
-        // Release the view
-        view = nil
-
-        // The timer should be cleaned up automatically
-        // This test mainly ensures no crashes occur during deallocation
-        XCTAssertNil(view)
+            view.onSnooze(expectedMinutes)
+            XCTAssertEqual(
+                receivedMinutes, expectedMinutes,
+                "Snooze callback should forward \(expectedMinutes) minutes"
+            )
+        }
     }
 
     @MainActor

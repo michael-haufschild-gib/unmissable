@@ -13,7 +13,7 @@ struct ProviderBackend {
 
 @MainActor
 final class CalendarService: ObservableObject {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "CalendarService")
+    private let logger = Logger(category: "CalendarService")
 
     // MARK: - Published State
 
@@ -285,23 +285,32 @@ final class CalendarService: ObservableObject {
 
     private func setupProviderBindings(for backend: ProviderBackend) {
         var subs = Set<AnyCancellable>()
+        let providerType = backend.type
 
-        // When any provider's sync status changes, update aggregated status
+        // Combine's @Published fires during willSet — the triggering publisher's
+        // property is still the OLD value at sink time. We fix this by using the
+        // delivered value for the changed provider and reading other providers
+        // directly (their values haven't changed). dropFirst() skips the initial
+        // value emitted at subscription time (already aggregated by injectTestBackend
+        // / getOrCreateBackend).
         backend.sync.$syncStatus
-            .sink { [weak self] _ in
-                self?.syncAggregatedSyncStatus()
+            .dropFirst()
+            .sink { [weak self] newStatus in
+                self?.aggregateSyncStatus(changedProvider: providerType, newStatus: newStatus)
             }
             .store(in: &subs)
 
         backend.sync.$lastSyncTime
-            .sink { [weak self] _ in
-                self?.syncAggregatedSyncTimes()
+            .dropFirst()
+            .sink { [weak self] newTime in
+                self?.aggregateSyncTimes(changedProvider: providerType, newLastSync: newTime)
             }
             .store(in: &subs)
 
         backend.sync.$nextSyncTime
-            .sink { [weak self] _ in
-                self?.syncAggregatedSyncTimes()
+            .dropFirst()
+            .sink { [weak self] newTime in
+                self?.aggregateSyncTimes(changedProvider: providerType, newNextSync: newTime)
             }
             .store(in: &subs)
 
@@ -342,8 +351,15 @@ final class CalendarService: ObservableObject {
         authError = providers.values.compactMap(\.auth.authorizationError).first
     }
 
-    private func syncAggregatedSyncStatus() {
-        let statuses = providers.values.map(\.sync.syncStatus)
+    /// Aggregates sync status using `newStatus` for the provider that just changed
+    /// and reading other providers' current values (which are stable during willSet).
+    private func aggregateSyncStatus(
+        changedProvider: CalendarProviderType, newStatus: SyncStatus
+    ) {
+        var statuses: [SyncStatus] = []
+        for (type, backend) in providers {
+            statuses.append(type == changedProvider ? newStatus : backend.sync.syncStatus)
+        }
 
         if statuses.contains(where: \.isSyncing) {
             syncStatus = .syncing
@@ -356,11 +372,27 @@ final class CalendarService: ObservableObject {
         }
     }
 
-    private func syncAggregatedSyncTimes() {
-        // Most recent sync time across all providers
-        lastSyncTime = providers.values.compactMap(\.sync.lastSyncTime).max()
-        // Earliest next sync time
-        nextSyncTime = providers.values.compactMap(\.sync.nextSyncTime).min()
+    /// Aggregates sync times, substituting the delivered value for the provider that changed.
+    private func aggregateSyncTimes(
+        changedProvider: CalendarProviderType,
+        newLastSync: Date? = nil,
+        newNextSync: Date? = nil
+    ) {
+        var lastSyncTimes: [Date] = []
+        var nextSyncTimes: [Date] = []
+
+        for (type, backend) in providers {
+            if type == changedProvider {
+                if let t = newLastSync ?? backend.sync.lastSyncTime { lastSyncTimes.append(t) }
+                if let t = newNextSync ?? backend.sync.nextSyncTime { nextSyncTimes.append(t) }
+            } else {
+                if let t = backend.sync.lastSyncTime { lastSyncTimes.append(t) }
+                if let t = backend.sync.nextSyncTime { nextSyncTimes.append(t) }
+            }
+        }
+
+        lastSyncTime = lastSyncTimes.max()
+        nextSyncTime = nextSyncTimes.min()
     }
 
     private func loadCachedData() async {

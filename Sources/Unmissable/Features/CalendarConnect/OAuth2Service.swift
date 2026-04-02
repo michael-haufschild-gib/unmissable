@@ -6,7 +6,7 @@ import OSLog
 
 @MainActor
 final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "OAuth2Service")
+    private let logger = Logger(category: "OAuth2Service")
     private let keychain = Keychain(service: "com.unmissable.app.oauth")
 
     @Published
@@ -79,7 +79,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
     func startAuthorizationFlow() async throws {
         logger.info("Starting OAuth 2.0 authorization flow")
 
-        guard GoogleCalendarConfig.validateConfiguration() else {
+        guard GoogleCalendarConfig.isConfigured else {
             let error =
                 "OAuth configuration not properly set up. Please configure your Google OAuth client ID."
             logger.error("\(error)")

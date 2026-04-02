@@ -19,9 +19,9 @@ enum GoogleCalendarConfig {
 
     // MARK: - Secure Configuration Loading
 
-    /// Whether OAuth is properly configured
+    /// Whether OAuth is properly configured (client ID and redirect scheme both present)
     static var isConfigured: Bool {
-        !clientId.isEmpty
+        !clientId.isEmpty && !redirectScheme.isEmpty
     }
 
     /// OAuth Client ID - loads from environment variable or Config.plist (in project root)
@@ -115,16 +115,4 @@ enum GoogleCalendarConfig {
     }
 }
 
-extension GoogleCalendarConfig {
-    /// Validates that the OAuth configuration is properly set up
-    static func validateConfiguration() -> Bool {
-        // Check if client ID is configured (no longer crashes)
-        guard !clientId.isEmpty else {
-            return false
-        }
-        guard !redirectScheme.isEmpty else {
-            return false
-        }
-        return true
-    }
-}
+// validateConfiguration() removed — use isConfigured instead (single source of truth)

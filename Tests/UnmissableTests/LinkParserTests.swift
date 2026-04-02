@@ -93,9 +93,200 @@ final class LinkParserTests: XCTestCase {
         XCTAssertTrue(linkParser.isValidMeetingURL(teamsLive))
     }
 
+    // MARK: - isMeetingURL Tests
+
+    func testIsMeetingURL_acceptsHTTPSMeetingDomains() throws {
+        let meet = try XCTUnwrap(URL(string: "https://meet.google.com/abc-defg-hij"))
+        let zoom = try XCTUnwrap(URL(string: "https://zoom.us/j/123456789"))
+        let teams = try XCTUnwrap(URL(string: "https://teams.microsoft.com/l/meetup-join/abc"))
+        let webex = try XCTUnwrap(URL(string: "https://webex.com/meet/user"))
+
+        XCTAssertTrue(linkParser.isMeetingURL(meet))
+        XCTAssertTrue(linkParser.isMeetingURL(zoom))
+        XCTAssertTrue(linkParser.isMeetingURL(teams))
+        XCTAssertTrue(linkParser.isMeetingURL(webex))
+    }
+
+    func testIsMeetingURL_acceptsCustomSchemes() throws {
+        let zoommtg = try XCTUnwrap(URL(string: "zoommtg://zoom.us/join?confno=123"))
+        let msteams = try XCTUnwrap(URL(string: "msteams://teams.microsoft.com/meeting"))
+        let webex = try XCTUnwrap(URL(string: "webex://example.webex.com/join/123"))
+
+        XCTAssertTrue(linkParser.isMeetingURL(zoommtg))
+        XCTAssertTrue(linkParser.isMeetingURL(msteams))
+        XCTAssertTrue(linkParser.isMeetingURL(webex))
+    }
+
+    func testIsMeetingURL_rejectsNonMeetingURLs() throws {
+        let docs = try XCTUnwrap(URL(string: "https://docs.google.com/document/d/abc"))
+        let generic = try XCTUnwrap(URL(string: "https://example.com/page"))
+        let http = try XCTUnwrap(URL(string: "http://meet.google.com/abc"))
+        let unknownScheme = try XCTUnwrap(URL(string: "ftp://files.example.com/doc"))
+
+        XCTAssertFalse(linkParser.isMeetingURL(docs))
+        XCTAssertFalse(linkParser.isMeetingURL(generic))
+        XCTAssertFalse(linkParser.isMeetingURL(http), "Only HTTPS is accepted for domain-based detection")
+        XCTAssertFalse(linkParser.isMeetingURL(unknownScheme))
+    }
+
+    // MARK: - shouldShowJoinButton Tests
+
+    func testShouldShowJoinButton_moreThan10MinBeforeStart_returnsFalse() throws {
+        let event = try TestUtilities.createTestEvent(
+            startDate: Date().addingTimeInterval(700), // ~11.7 min from now
+            links: [XCTUnwrap(
+                URL(string: "https://meet.google.com/abc")
+            )] // swiftlint:disable:this force_unwrapping
+        )
+        XCTAssertFalse(
+            linkParser.shouldShowJoinButton(for: event),
+            "Join button should not show more than 10 minutes before start"
+        )
+    }
+
+    func testShouldShowJoinButton_within10MinBeforeStart_returnsTrue() throws {
+        let url = try XCTUnwrap(URL(string: "https://meet.google.com/abc"))
+        let event = TestUtilities.createTestEvent(
+            startDate: Date().addingTimeInterval(500), // ~8.3 min from now
+            links: [url]
+        )
+        XCTAssertTrue(
+            linkParser.shouldShowJoinButton(for: event),
+            "Join button should show within 10 minutes of start"
+        )
+    }
+
+    func testShouldShowJoinButton_duringMeeting_returnsTrue() throws {
+        let url = try XCTUnwrap(URL(string: "https://zoom.us/j/123"))
+        let event = TestUtilities.createTestEvent(
+            startDate: Date().addingTimeInterval(-600), // started 10 min ago
+            endDate: Date().addingTimeInterval(3000), // ends in 50 min
+            links: [url]
+        )
+        XCTAssertTrue(
+            linkParser.shouldShowJoinButton(for: event),
+            "Join button should show during an active meeting"
+        )
+    }
+
+    func testShouldShowJoinButton_afterMeetingEnds_returnsFalse() throws {
+        let url = try XCTUnwrap(URL(string: "https://meet.google.com/abc"))
+        let event = TestUtilities.createTestEvent(
+            startDate: Date().addingTimeInterval(-7200),
+            endDate: Date().addingTimeInterval(-3600),
+            links: [url]
+        )
+        XCTAssertFalse(
+            linkParser.shouldShowJoinButton(for: event),
+            "Join button should not show after meeting ends"
+        )
+    }
+
+    func testShouldShowJoinButton_noMeetingLink_returnsFalse() {
+        let event = TestUtilities.createTestEvent(
+            startDate: Date().addingTimeInterval(300),
+            links: []
+        )
+        XCTAssertFalse(
+            linkParser.shouldShowJoinButton(for: event),
+            "Join button should not show for events without meeting links"
+        )
+    }
+
+    func testShouldShowJoinButton_nonMeetingURL_returnsFalse() throws {
+        let url = try XCTUnwrap(URL(string: "https://docs.google.com/doc"))
+        let event = TestUtilities.createTestEvent(
+            startDate: Date().addingTimeInterval(300),
+            links: [url]
+        )
+        XCTAssertFalse(
+            linkParser.shouldShowJoinButton(for: event),
+            "Join button should not show for non-meeting URLs"
+        )
+    }
+
+    func testShouldShowJoinButton_exactlyAtStartTime_returnsTrue() throws {
+        let url = try XCTUnwrap(URL(string: "https://meet.google.com/abc"))
+        let event = TestUtilities.createTestEvent(
+            startDate: Date(), // right now
+            endDate: Date().addingTimeInterval(3600),
+            links: [url]
+        )
+        XCTAssertTrue(
+            linkParser.shouldShowJoinButton(for: event),
+            "Join button should show exactly at start time"
+        )
+    }
+
+    // MARK: - extractURLs / extractURL Tests
+
+    func testExtractURLs_findsMultipleURLs() {
+        let text = "Check https://example.com and https://google.com for details"
+        let urls = linkParser.extractURLs(from: text)
+        XCTAssertEqual(urls.count, 2)
+    }
+
+    func testExtractURLs_emptyStringReturnsEmpty() {
+        XCTAssertTrue(linkParser.extractURLs(from: "").isEmpty)
+    }
+
+    func testExtractURLs_noURLsReturnsEmpty() {
+        XCTAssertTrue(linkParser.extractURLs(from: "Just plain text").isEmpty)
+    }
+
+    func testExtractURL_returnsFirstURL() {
+        let text = "Visit https://first.com and https://second.com"
+        let url = linkParser.extractURL(from: text)
+        XCTAssertEqual(url?.host, "first.com")
+    }
+
+    func testExtractURL_noURLReturnsNil() {
+        XCTAssertNil(linkParser.extractURL(from: "No links here"))
+    }
+
+    // MARK: - Edge Cases
+
+    func testExtractGoogleMeetID_noHyphenReturnsNil() throws {
+        let url = try XCTUnwrap(URL(string: "https://meet.google.com/"))
+        XCTAssertNil(linkParser.extractGoogleMeetID(from: url))
+    }
+
+    func testIsValidMeetingURL_subdomainOfTrustedDomain() throws {
+        let url = try XCTUnwrap(URL(string: "https://company.zoom.us/j/123"))
+        XCTAssertTrue(
+            linkParser.isValidMeetingURL(url),
+            "Subdomains of trusted domains should be valid"
+        )
+    }
+
+    func testIsMeetingURL_httpSchemeRejectedForDomainURLs() throws {
+        let url = try XCTUnwrap(URL(string: "http://meet.google.com/abc"))
+        XCTAssertFalse(
+            linkParser.isMeetingURL(url),
+            "HTTP (non-HTTPS) should be rejected for domain-based detection"
+        )
+    }
+
+    func testDetectPrimaryLink_prioritizesGoogleMeetOverOthers() throws {
+        let zoom = try XCTUnwrap(URL(string: "https://zoom.us/j/123"))
+        let meet = try XCTUnwrap(URL(string: "https://meet.google.com/abc"))
+        let primary = linkParser.detectPrimaryLink(from: [zoom, meet])
+        XCTAssertEqual(primary, meet, "Google Meet should have highest priority")
+    }
+
+    func testDetectPrimaryLink_emptyListReturnsNil() {
+        XCTAssertNil(linkParser.detectPrimaryLink(from: []))
+    }
+
+    func testDetectPrimaryLink_allNonMeetingURLsReturnsNil() throws {
+        let docs = try XCTUnwrap(URL(string: "https://docs.google.com/doc"))
+        let example = try XCTUnwrap(URL(string: "https://example.com/page"))
+        XCTAssertNil(linkParser.detectPrimaryLink(from: [docs, example]))
+    }
+
     @MainActor
     func testEventWithParsedGoogleMeetLinks() {
-        let event = Event.withParsedMeetLinks(
+        let event = Event.withParsedGoogleMeetLinks(
             id: "test",
             title: "Team Meeting",
             startDate: Date(),

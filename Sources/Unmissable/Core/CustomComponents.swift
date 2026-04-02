@@ -106,6 +106,8 @@ struct CustomButton: View {
         }
     }
 
+    /// Background color for non-primary styles or disabled state.
+    /// Primary+enabled uses `backgroundView` with a brightness modifier instead.
     private var backgroundColor: Color {
         if !isEnabled {
             return design.colors.backgroundButton.opacity(0.5)
@@ -113,8 +115,9 @@ struct CustomButton: View {
 
         switch style {
         case .primary:
-            // Use a subtle gradient effect inspired by AI Wave
-            return isPressed ? design.colors.interactivePressed : design.colors.interactive
+            // Primary+enabled is handled by backgroundView; this branch exists
+            // only for exhaustiveness. Disabled primary returns at the guard above.
+            return design.colors.interactive
         case .secondary:
             return isPressed ? design.colors.backgroundSecondary : design.colors.backgroundButton
         case .destructive:

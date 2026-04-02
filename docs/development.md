@@ -284,3 +284,21 @@ swift build
 - Do run at least `xcodebuild -scheme Unmissable -destination 'platform=macOS' test`
 - Don't commit with failing tests
 - Do run comprehensive tests before PRs: `./Scripts/run-comprehensive-tests.sh`
+
+---
+
+## Performance Expectations
+
+Unmissable is a lightweight menu bar app. It should be invisible when idle.
+
+| Path | Budget | Measurement |
+|------|--------|-------------|
+| Cold launch to menu bar icon | < 2s | Stopwatch or `ProcessInfo.systemUptime` delta |
+| Calendar sync cycle | < 10s (network-bound) | `SyncManager` logs elapsed time |
+| DB query: fetchUpcomingEvents | < 100ms | `DatabaseManager.withTimeout` (30s hard cap) |
+| Overlay window creation | < 200ms | `OverlayManager.showOverlay` logs response time |
+| Idle memory | < 50 MB | `HealthMonitor.metrics.memoryUsageMB` (warns at 200 MB) |
+
+**If a path exceeds its budget**: check `OSLog` output filtered by the relevant subsystem category. The `HealthMonitor` logs memory and reports stuck overlays.
+
+**No automated performance regression tests exist** — the paths above are dominated by I/O (network, SQLite, AppKit window creation) where micro-benchmarks add noise, not signal. Monitor via `HealthMonitor` and OSLog in production.

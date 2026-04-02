@@ -3,7 +3,7 @@ import OSLog
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "AppDelegate")
+    private let logger = Logger(category: "AppDelegate")
 
     func applicationDidFinishLaunching(_: Notification) {
         logger.info("Unmissable app finished launching")
@@ -55,8 +55,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         logger.info("Received URL with scheme: \(url.scheme ?? "nil", privacy: .public)")
 
-        // Handle OAuth callback using bundle ID scheme
-        if url.scheme == "com.unmissable.app" {
+        // Handle OAuth callback using the configured redirect scheme
+        if url.scheme == GoogleCalendarConfig.redirectScheme {
             logger.info("OAuth callback detected - posting notification")
             NotificationCenter.default.post(
                 name: .oauthCallback,

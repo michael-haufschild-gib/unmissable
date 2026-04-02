@@ -2,7 +2,7 @@ import Foundation
 import GRDB
 import OSLog
 
-private let extensionLogger = Logger(subsystem: "com.unmissable.app", category: "DatabaseManager")
+private let extensionLogger = Logger(category: "DatabaseManager")
 
 // MARK: - Search & Maintenance
 
@@ -52,11 +52,12 @@ extension DatabaseManager {
         let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
         try await deleteOldEvents(before: thirtyDaysAgo)
 
-        // Vacuum database (use longer timeout as VACUUM can take time on large DBs)
+        // Vacuum database outside a transaction (VACUUM cannot run inside a transaction).
+        // Use longer timeout as VACUUM can take time on large DBs.
         guard let dbQueue else { return }
 
         try await withTimeout(60.0) {
-            try await dbQueue.write { db in
+            try await dbQueue.barrierWriteWithoutTransaction { db in
                 try db.execute(sql: "VACUUM")
             }
         }
@@ -87,63 +88,50 @@ extension DatabaseManager {
 
 #if DEBUG
     extension DatabaseManager {
-        /// Delete events matching a specific ID pattern (for testing only)
-        func deleteTestEvents(withIdPattern pattern: String) async throws {
-            guard let dbQueue else {
-                throw DatabaseError.notInitialized
-            }
-
-            let escapedPattern = pattern
+        /// Escapes SQL LIKE wildcards and wraps in `%…%` for substring matching.
+        private func likePattern(for raw: String) -> String {
+            let escaped = raw
                 .replacingOccurrences(of: "%", with: "\\%")
                 .replacingOccurrences(of: "_", with: "\\_")
-            let likePattern = "%\(escapedPattern)%"
+            return "%\(escaped)%"
+        }
 
+        /// Delete events matching a specific ID pattern (for testing only)
+        func deleteTestEvents(withIdPattern pattern: String) async throws {
+            guard let dbQueue else { throw DatabaseError.notInitialized }
+
+            let like = likePattern(for: pattern)
             let deletedCount = try await dbQueue.write { db in
                 try Event
-                    .filter(Event.Columns.id.like(likePattern, escape: "\\"))
+                    .filter(Event.Columns.id.like(like, escape: "\\"))
                     .deleteAll(db)
             }
-
             extensionLogger.info("Deleted \(deletedCount) test events with pattern: \(pattern)")
         }
 
         /// Delete test calendars matching a name pattern (for testing only)
         func deleteTestCalendars(withNamePattern pattern: String) async throws {
-            guard let dbQueue else {
-                throw DatabaseError.notInitialized
-            }
+            guard let dbQueue else { throw DatabaseError.notInitialized }
 
-            let escapedPattern = pattern
-                .replacingOccurrences(of: "%", with: "\\%")
-                .replacingOccurrences(of: "_", with: "\\_")
-            let likePattern = "%\(escapedPattern)%"
-
+            let like = likePattern(for: pattern)
             let deletedCount = try await dbQueue.write { db in
                 try CalendarInfo
-                    .filter(CalendarInfo.Columns.name.like(likePattern, escape: "\\"))
+                    .filter(CalendarInfo.Columns.name.like(like, escape: "\\"))
                     .deleteAll(db)
             }
-
             extensionLogger.info("Deleted \(deletedCount) test calendars with pattern: \(pattern)")
         }
 
         /// Delete events matching a specific title pattern (for testing only)
         func deleteTestEventsByTitle(withPattern pattern: String) async throws {
-            guard let dbQueue else {
-                throw DatabaseError.notInitialized
-            }
+            guard let dbQueue else { throw DatabaseError.notInitialized }
 
-            let escapedPattern = pattern
-                .replacingOccurrences(of: "%", with: "\\%")
-                .replacingOccurrences(of: "_", with: "\\_")
-            let likePattern = "%\(escapedPattern)%"
-
+            let like = likePattern(for: pattern)
             let deletedCount = try await dbQueue.write { db in
                 try Event
-                    .filter(Event.Columns.title.like(likePattern, escape: "\\"))
+                    .filter(Event.Columns.title.like(like, escape: "\\"))
                     .deleteAll(db)
             }
-
             extensionLogger.info("Deleted \(deletedCount) test events with title pattern: \(pattern)")
         }
     }

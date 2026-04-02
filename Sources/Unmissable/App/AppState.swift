@@ -5,7 +5,7 @@ import OSLog
 
 @MainActor
 final class AppState: ObservableObject {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "AppState")
+    private let logger = Logger(category: "AppState")
 
     // MARK: - Services (from DI container)
 

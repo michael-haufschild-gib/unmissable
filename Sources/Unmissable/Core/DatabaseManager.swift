@@ -53,7 +53,7 @@ extension DatabaseManaging {
 }
 
 actor DatabaseManager: DatabaseManaging {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "DatabaseManager")
+    private let logger = Logger(category: "DatabaseManager")
 
     private(set) var dbQueue: DatabaseQueue?
     private(set) var isInitialized: Bool = false

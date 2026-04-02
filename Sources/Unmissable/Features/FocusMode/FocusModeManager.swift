@@ -23,7 +23,7 @@ private final class NotificationTokenBag: @unchecked Sendable {
 
 @MainActor
 final class FocusModeManager: ObservableObject {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "FocusModeManager")
+    private let logger = Logger(category: "FocusModeManager")
 
     @Published
     var isDoNotDisturbEnabled: Bool = false

@@ -1,3 +1,4 @@
+import AppKit
 import SnapshotTesting
 import SwiftUI
 @testable import Unmissable
@@ -5,46 +6,60 @@ import XCTest
 
 @MainActor
 final class OverlaySnapshotTests: XCTestCase {
-    // Snapshot tests use `.dump` strategy to capture the full SwiftUI view tree
-    // including text content and modifier chains. This catches meaningful UI regressions
-    // (missing text, wrong modifiers, structural changes) unlike `.recursiveDescription`
-    // which only shows the NSHostingView shell.
-    //
-    // To record new baselines: set `isRecording = true` below and run once.
-    // Then set it back to `false` for CI.
+    // Snapshot tests use `.image` strategy to catch visual regressions:
+    // wrong colors, broken layout, clipped text, missing elements.
+    // All event dates (including createdAt/updatedAt) are fixed to epoch-based
+    // values for determinism — using Date() would make snapshots change every run.
+    // Structural regressions (wrong data bindings, missing environment objects)
+    // are covered by OverlayContentViewTests and OverlayRuntimeContractTests.
 
-    override func invokeTest() {
-        // Set `isRecording = true` to regenerate reference snapshots
-        // isRecording = true
-        super.invokeTest()
-    }
+    /// Tolerance for minor font rendering differences across macOS versions.
+    private let precision: Float = 1.0
+    private let perceptualPrecision: Float = 0.98
+
+    private let snapshotSize = CGSize(width: 1200, height: 800)
 
     func testOverlayContentBeforeMeeting() {
-        let view = makeOverlayView(event: createSampleEvent())
-        assertSnapshot(of: view, as: .dump)
+        let controller = makeHostingController(event: createSampleEvent())
+        assertSnapshot(
+            of: controller,
+            as: .image(precision: precision, perceptualPrecision: perceptualPrecision, size: snapshotSize)
+        )
     }
 
     func testOverlayContentWithoutMeetingLink() {
-        let view = makeOverlayView(event: createSampleEventWithoutLink())
-        assertSnapshot(of: view, as: .dump)
+        let controller = makeHostingController(event: createSampleEventWithoutLink())
+        assertSnapshot(
+            of: controller,
+            as: .image(precision: precision, perceptualPrecision: perceptualPrecision, size: snapshotSize)
+        )
     }
 
     func testOverlayContentWithLongTitle() {
-        let view = makeOverlayView(event: createSampleEventWithLongTitle())
-        assertSnapshot(of: view, as: .dump)
+        let controller = makeHostingController(event: createSampleEventWithLongTitle())
+        assertSnapshot(
+            of: controller,
+            as: .image(precision: precision, perceptualPrecision: perceptualPrecision, size: snapshotSize)
+        )
     }
 
     func testOverlayContentFromSnooze() {
-        let view = makeOverlayView(event: createSampleEvent(), isFromSnooze: true)
-        assertSnapshot(of: view, as: .dump)
+        let controller = makeHostingController(event: createSampleEvent(), isFromSnooze: true)
+        assertSnapshot(
+            of: controller,
+            as: .image(precision: precision, perceptualPrecision: perceptualPrecision, size: snapshotSize)
+        )
     }
 
     // MARK: - Helpers
 
-    private func makeOverlayView(event: Event, isFromSnooze: Bool = false) -> some View {
+    private func makeHostingController(
+        event: Event,
+        isFromSnooze: Bool = false
+    ) -> NSHostingController<some View> {
         let themeManager = ThemeManager()
         let preferencesManager = PreferencesManager(themeManager: themeManager)
-        return OverlayContentView(
+        let view = OverlayContentView(
             event: event,
             linkParser: LinkParser(),
             onDismiss: {},
@@ -55,19 +70,27 @@ final class OverlaySnapshotTests: XCTestCase {
         .environmentObject(preferencesManager)
         .customThemedEnvironment(themeManager: themeManager)
         .frame(width: 1200, height: 800)
+
+        return NSHostingController(rootView: view)
     }
+
+    /// Fixed epoch date for deterministic snapshot output.
+    /// All event metadata uses this to avoid Date()-dependent snapshot drift.
+    private static let fixedDate = Date(timeIntervalSince1970: 1_700_000_000)
 
     private func createSampleEvent() -> Event {
         Event(
             id: "snapshot-test",
             title: "Important Team Meeting",
-            startDate: Date(timeIntervalSince1970: 2_000_000_000), // Fixed date for determinism
+            startDate: Date(timeIntervalSince1970: 2_000_000_000),
             endDate: Date(timeIntervalSince1970: 2_000_001_800),
             organizer: "john.doe@company.com",
             calendarId: "primary",
             // swiftlint:disable:next force_unwrapping
             links: [URL(string: "https://meet.google.com/abc-defg-hij")!],
-            provider: .meet
+            provider: .meet,
+            createdAt: Self.fixedDate,
+            updatedAt: Self.fixedDate
         )
     }
 
@@ -78,7 +101,9 @@ final class OverlaySnapshotTests: XCTestCase {
             startDate: Date(timeIntervalSince1970: 2_000_000_000),
             endDate: Date(timeIntervalSince1970: 2_000_001_800),
             organizer: "jane.smith@company.com",
-            calendarId: "primary"
+            calendarId: "primary",
+            createdAt: Self.fixedDate,
+            updatedAt: Self.fixedDate
         )
     }
 
@@ -93,7 +118,9 @@ final class OverlaySnapshotTests: XCTestCase {
             calendarId: "primary",
             // swiftlint:disable:next force_unwrapping
             links: [URL(string: "https://meet.google.com/abc-defg-hij")!],
-            provider: .meet
+            provider: .meet,
+            createdAt: Self.fixedDate,
+            updatedAt: Self.fixedDate
         )
     }
 }

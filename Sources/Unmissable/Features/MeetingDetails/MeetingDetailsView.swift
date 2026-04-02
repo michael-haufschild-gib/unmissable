@@ -47,7 +47,10 @@ struct MeetingDetailsView: View {
             color: design.shadows.color, radius: design.shadows.radius, x: design.shadows.offset.width,
             y: design.shadows.offset.height
         )
-        .frame(width: 480, height: 600)
+        .frame(
+            width: MeetingDetailsLayout.popupSize.width,
+            height: MeetingDetailsLayout.popupSize.height
+        )
     }
 
     // MARK: - Header Section

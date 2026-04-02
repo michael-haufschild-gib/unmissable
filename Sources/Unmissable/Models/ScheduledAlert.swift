@@ -12,11 +12,15 @@ struct ScheduledAlert: Identifiable {
         case meetingStart
     }
 
-    var isActive: Bool {
-        Date() >= triggerDate
+    /// Whether the trigger date has passed relative to the given reference time.
+    /// Requires an explicit `Date` parameter to ensure callers reason about
+    /// the result without wall-clock non-determinism.
+    func isActive(at now: Date) -> Bool {
+        now >= triggerDate
     }
 
-    var timeUntilTrigger: TimeInterval {
-        triggerDate.timeIntervalSinceNow
+    /// Seconds remaining until the trigger fires relative to the given reference time.
+    func timeUntilTrigger(from now: Date) -> TimeInterval {
+        triggerDate.timeIntervalSince(now)
     }
 }

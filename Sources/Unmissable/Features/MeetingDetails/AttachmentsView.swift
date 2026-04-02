@@ -2,10 +2,10 @@ import AppKit
 import OSLog
 import SwiftUI
 
+private let attachmentsLogger = Logger(category: "AttachmentsView")
+
 /// A SwiftUI view that displays event attachments with links to open them
 struct AttachmentsView: View {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "AttachmentsView")
-
     let attachments: [EventAttachment]
     @Environment(\.customDesign)
     private var design
@@ -34,8 +34,6 @@ struct AttachmentsView: View {
 
 /// Individual attachment row component
 struct AttachmentRow: View {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "AttachmentRow")
-
     let attachment: EventAttachment
     @Environment(\.customDesign)
     private var design
@@ -129,18 +127,18 @@ struct AttachmentRow: View {
 
     private func openAttachment() {
         guard let url = URL(string: attachment.fileUrl) else {
-            logger.error("AttachmentRow: Invalid URL for attachment")
+            attachmentsLogger.error("AttachmentRow: Invalid URL for attachment")
             return
         }
 
         guard let scheme = url.scheme?.lowercased(),
               Self.allowedSchemes.contains(scheme)
         else {
-            logger.warning("AttachmentRow: Blocked attachment with disallowed scheme")
+            attachmentsLogger.warning("AttachmentRow: Blocked attachment with disallowed scheme")
             return
         }
 
-        logger.info("AttachmentRow: Opening attachment (id: \(attachment.fileId ?? "unknown"))")
+        attachmentsLogger.info("AttachmentRow: Opening attachment (id: \(attachment.fileId ?? "unknown"))")
 
         NSWorkspace.shared.open(url)
     }

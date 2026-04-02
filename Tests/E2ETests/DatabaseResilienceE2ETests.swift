@@ -195,6 +195,60 @@ final class DatabaseResilienceE2ETests: XCTestCase {
         XCTAssertGreaterThanOrEqual(env.eventScheduler.scheduledAlerts.count, 5)
     }
 
+    // MARK: - Maintenance Lifecycle
+
+    func testMaintenancePurgesOldEventsAndSchedulerUpdates() async throws {
+        // Seed old events and recent events
+        let oldEvent = Event(
+            id: "e2e-maint-old",
+            title: "Ancient Meeting",
+            startDate: Date().addingTimeInterval(-45 * 86_400),
+            endDate: Date().addingTimeInterval(-45 * 86_400 + 3600),
+            calendarId: "e2e-maint-cal",
+            createdAt: Date().addingTimeInterval(-45 * 86_400),
+            updatedAt: Date().addingTimeInterval(-45 * 86_400)
+        )
+        let recentEvent = E2EEventBuilder.futureEvent(
+            id: "e2e-maint-recent",
+            title: "Recent Meeting",
+            minutesFromNow: 30,
+            calendarId: "e2e-maint-cal"
+        )
+
+        try await env.seedEvents([oldEvent, recentEvent])
+
+        // Verify both are in DB
+        let allBeforeMaint = try await env.databaseManager.fetchEvents(
+            from: Date().addingTimeInterval(-90 * 86_400),
+            to: Date().addingTimeInterval(86_400)
+        )
+        XCTAssertTrue(allBeforeMaint.contains { $0.id == "e2e-maint-old" })
+        XCTAssertTrue(allBeforeMaint.contains { $0.id == "e2e-maint-recent" })
+
+        // Run maintenance
+        try await env.databaseManager.performMaintenance()
+
+        // Old event should be purged
+        let allAfterMaint = try await env.databaseManager.fetchEvents(
+            from: Date().addingTimeInterval(-90 * 86_400),
+            to: Date().addingTimeInterval(86_400)
+        )
+        XCTAssertFalse(allAfterMaint.contains { $0.id == "e2e-maint-old" })
+        XCTAssertTrue(allAfterMaint.contains { $0.id == "e2e-maint-recent" })
+
+        // Re-schedule after maintenance
+        let upcoming = try await env.fetchUpcomingEvents()
+        env.eventScheduler.stopScheduling()
+        await env.eventScheduler.startScheduling(
+            events: upcoming, overlayManager: env.overlayManager
+        )
+
+        // Only recent event should have alert
+        let alertIds = env.eventScheduler.scheduledAlerts.map(\.event.id)
+        XCTAssertTrue(alertIds.contains("e2e-maint-recent"))
+        XCTAssertFalse(alertIds.contains("e2e-maint-old"))
+    }
+
     // MARK: - Database Initialization Edge Cases
 
     func testFreshDatabaseCreatedSuccessfully() async {

@@ -2,8 +2,7 @@ import Foundation
 import OSLog
 
 final class LinkParser: Sendable {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "LinkParser")
-
+    private let logger = Logger(category: "LinkParser")
 
     /// Trusted domains for meeting links — only these are considered valid meeting URLs
     private static let trustedMeetingDomains = [
@@ -73,8 +72,8 @@ final class LinkParser: Sendable {
 
     // MARK: - URL Validation
 
-    /// Validates that a URL is from a trusted meeting domain
-    /// This helps prevent phishing attacks via lookalike domains
+    /// Validates that a URL is from a trusted meeting domain (HTTPS only).
+    /// This helps prevent phishing attacks via lookalike domains.
     func isValidMeetingURL(_ url: URL) -> Bool {
         guard url.scheme?.lowercased() == "https" else {
             return false
@@ -94,10 +93,26 @@ final class LinkParser: Sendable {
         }
     }
 
+    /// Custom URL schemes used by meeting providers (e.g., zoommtg://, msteams://, webex://).
+    /// Centralized here so callers don't need to maintain their own scheme lists.
+    private static let meetingURLSchemes: Set<String> = ["zoommtg", "msteams", "webex"]
+
+    /// Checks whether a URL is a meeting link — either a trusted HTTPS domain or a known
+    /// meeting app custom scheme (zoommtg://, msteams://, webex://).
+    func isMeetingURL(_ url: URL) -> Bool {
+        if isValidMeetingURL(url) {
+            return true
+        }
+        guard let scheme = url.scheme?.lowercased() else {
+            return false
+        }
+        return Self.meetingURLSchemes.contains(scheme)
+    }
+
     // MARK: - Link Prioritization
 
     func detectPrimaryLink(from links: [URL]) -> URL? {
-        let validLinks = links.filter { isValidMeetingURL($0) }
+        let validLinks = links.filter { isMeetingURL($0) }
 
         // Priority 1: Google Meet (meet.google.com, g.co/meet)
         if let meetLink = validLinks.first(where: { isGoogleMeetURL($0) }) {
@@ -119,8 +134,8 @@ final class LinkParser: Sendable {
     }
 
     func isOnlineMeeting(links: [URL]) -> Bool {
-        // Only consider it an online meeting if there are validated meeting links
-        links.contains { isValidMeetingURL($0) }
+        // Consider it an online meeting if there are meeting links (HTTPS domains or custom schemes)
+        links.contains { isMeetingURL($0) }
     }
 
     // MARK: - General URL Extraction

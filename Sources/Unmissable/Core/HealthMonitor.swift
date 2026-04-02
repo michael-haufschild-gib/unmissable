@@ -3,7 +3,7 @@ import OSLog
 
 @MainActor
 final class HealthMonitor: ObservableObject {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "HealthMonitor")
+    private let logger = Logger(category: "HealthMonitor")
 
     @Published
     var healthStatus: HealthStatus = .healthy

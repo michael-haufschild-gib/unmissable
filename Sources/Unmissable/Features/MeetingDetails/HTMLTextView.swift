@@ -2,11 +2,11 @@ import AppKit
 import OSLog
 import SwiftUI
 
+private let htmlTextViewLogger = Logger(category: "HTMLTextView")
+
 /// A SwiftUI view that renders HTML content using NSAttributedString and NSTextView
 /// Supports rich text formatting, clickable links, and custom theming
 struct HTMLTextView: NSViewRepresentable {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "HTMLTextView")
-
     let htmlContent: String?
     let effectiveTheme: EffectiveTheme
     let onLinkTap: ((URL) -> Void)?
@@ -55,7 +55,7 @@ struct HTMLTextView: NSViewRepresentable {
         let attributedString = createAttributedString(from: htmlContent)
         textView.textStorage?.setAttributedString(attributedString)
 
-        logger.debug(
+        htmlTextViewLogger.debug(
             "HTMLTextView: Created NSTextView with content length: \(attributedString.length)"
         )
 
@@ -74,7 +74,7 @@ struct HTMLTextView: NSViewRepresentable {
         coordinator.lastHtmlContent = htmlContent
         coordinator.lastTheme = effectiveTheme
 
-        logger.debug("HTMLTextView: Updating content (\(htmlContent?.count ?? 0) chars)")
+        htmlTextViewLogger.debug("HTMLTextView: Updating content (\(htmlContent?.count ?? 0) chars)")
         textView.textStorage?.setAttributedString(newAttributedText)
 
         // Force layout update
@@ -87,7 +87,7 @@ struct HTMLTextView: NSViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onLinkTap: onLinkTap, logger: logger)
+        Coordinator(onLinkTap: onLinkTap, logger: htmlTextViewLogger)
     }
 
     // MARK: - HTML Processing
@@ -103,7 +103,7 @@ struct HTMLTextView: NSViewRepresentable {
             return NSAttributedString(string: placeholder, attributes: attributes)
         }
 
-        logger.debug("HTMLTextView: Processing content (\(htmlContent.count) chars)")
+        htmlTextViewLogger.debug("HTMLTextView: Processing content (\(htmlContent.count) chars)")
 
         // Check if content contains actual HTML tags (not just comparison operators like `x < 5`)
         let isHTML = htmlContent.range(
@@ -124,7 +124,7 @@ struct HTMLTextView: NSViewRepresentable {
         let styledHTML = createStyledHTML(content: htmlContent)
 
         guard let data = styledHTML.data(using: .utf8) else {
-            logger.error("HTMLTextView: Failed to convert HTML to data")
+            htmlTextViewLogger.error("HTMLTextView: Failed to convert HTML to data")
             return createPlainTextFallback(htmlContent)
         }
 
@@ -137,10 +137,10 @@ struct HTMLTextView: NSViewRepresentable {
             let attributedString = try NSAttributedString(
                 data: data, options: options, documentAttributes: nil
             )
-            logger.debug("HTMLTextView: Successfully parsed HTML (\(attributedString.length) chars)")
+            htmlTextViewLogger.debug("HTMLTextView: Successfully parsed HTML (\(attributedString.length) chars)")
             return attributedString
         } catch {
-            logger.error("HTMLTextView: Failed to parse HTML - \(error.localizedDescription)")
+            htmlTextViewLogger.error("HTMLTextView: Failed to parse HTML - \(error.localizedDescription)")
             return createPlainTextFallback(htmlContent)
         }
     }

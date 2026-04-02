@@ -5,7 +5,9 @@ struct EventGroup: Identifiable {
     let title: String
     let events: [Event]
 
-    var id: String { title }
+    var id: String {
+        title
+    }
 }
 
 struct MenuBarView: View {

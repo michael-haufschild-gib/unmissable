@@ -6,7 +6,6 @@ import SwiftUI
 
 @MainActor
 final class ThemeManager: ObservableObject {
-
     @Published
     var currentTheme: AppTheme = .system
     @Published
@@ -26,9 +25,10 @@ final class ThemeManager: ObservableObject {
     }
 
     private func setupSystemAppearanceObserver() {
-        // NSApp.effectiveAppearance is observable regardless of delegate state.
-        // Previous guard on delegate != nil caused the observer to never be set up
-        // when ThemeManager was created before the app delegate (common at startup).
+        // NSApp is nil in SPM test bundles (`swift test`) since no NSApplication is running.
+        // Guard to prevent crashes; tests use ThemeManager without needing live appearance tracking.
+        guard NSApp != nil else { return }
+
         systemAppearanceObserver = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
             Task { @MainActor in
                 self?.updateEffectiveTheme()
@@ -43,8 +43,13 @@ final class ThemeManager: ObservableObject {
         case .dark:
             effectiveTheme = .dark
         case .system:
+            // NSApp is nil in SPM test bundles — default to .dark when unavailable.
+            guard let app = NSApp else {
+                effectiveTheme = .dark
+                return
+            }
             effectiveTheme =
-                NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                app.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
                     ? .dark : .light
         }
     }

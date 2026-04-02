@@ -62,7 +62,7 @@ struct Event: Identifiable, Codable, Equatable {
 
     /// Creates an Event, auto-detecting the provider from `links` when no explicit provider is given.
     /// Use this when constructing events from raw data where the provider is not already known.
-    static func withAutoDetectedProvider(
+    static func withAutoDetectedProvider( // swiftlint:disable:this function_parameter_count
         id: String,
         title: String,
         startDate: Date,
@@ -116,7 +116,7 @@ struct Event: Identifiable, Codable, Equatable {
 
     /// Creates an event by extracting Google Meet links from text fields (title, description, location).
     /// For events from calendar APIs, use the API service's conversion methods which handle all providers.
-    static func withParsedMeetLinks(
+    static func withParsedGoogleMeetLinks( // swiftlint:disable:this function_parameter_count
         id: String,
         title: String,
         startDate: Date,

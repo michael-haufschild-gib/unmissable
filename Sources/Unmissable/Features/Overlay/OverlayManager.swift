@@ -6,7 +6,7 @@ import SwiftUI
 
 @MainActor
 final class OverlayManager: ObservableObject, OverlayManaging {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "OverlayManager")
+    private let logger = Logger(category: "OverlayManager")
 
     @Published
     var activeEvent: Event?

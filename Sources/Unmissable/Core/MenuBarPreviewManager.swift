@@ -4,7 +4,7 @@ import OSLog
 
 @MainActor
 final class MenuBarPreviewManager: ObservableObject {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "MenuBarPreviewManager")
+    private let logger = Logger(category: "MenuBarPreviewManager")
 
     @Published
     var menuBarText: String?
@@ -39,11 +39,6 @@ final class MenuBarPreviewManager: ObservableObject {
 
         // Force immediate update based on new preference - USE THE PARAMETER!
         updateMenuBarDisplay(mode: newMode)
-
-        // Force UI update by explicitly triggering @Published notifications
-        Task { @MainActor in
-            self.objectWillChange.send()
-        }
     }
 
     func updateEvents(_ events: [Event]) {
@@ -85,8 +80,20 @@ final class MenuBarPreviewManager: ObservableObject {
         }
     }
 
+    /// Returns the most relevant meeting for the timer display:
+    /// first any in-progress meeting (started but not ended), then the next upcoming one.
     private func getNextMeeting() -> Event? {
         let now = Date()
+
+        // Prefer an in-progress meeting so the timer shows "Starting" instead of
+        // disappearing the moment a meeting begins.
+        if let inProgress = events
+            .filter({ $0.startDate <= now && $0.endDate > now })
+            .min(by: { $0.startDate < $1.startDate })
+        {
+            return inProgress
+        }
+
         return events
             .filter { $0.startDate > now }
             .min { $0.startDate < $1.startDate }

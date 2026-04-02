@@ -6,7 +6,7 @@ import OSLog
 /// Supports iCloud, Exchange, CalDAV, and any other source configured in System Settings.
 @MainActor
 final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "AppleCalendarAPI")
+    private let logger = Logger(category: "AppleCalendarAPI")
     private let eventStore: EKEventStore
     private let linkParser: LinkParser
 
@@ -176,12 +176,9 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
             links.append(contentsOf: extractURLs(from: notes))
         }
 
-        // Filter to only meeting-relevant URLs using the trusted domain list
+        // Filter to only meeting-relevant URLs using LinkParser's centralized detection
         let meetingLinks = links.filter { url in
-            self.linkParser.isValidMeetingURL(url)
-                || url.scheme == "zoommtg"
-                || url.scheme == "msteams"
-                || url.scheme == "webex"
+            self.linkParser.isMeetingURL(url)
         }
 
         // Dedup preserving order

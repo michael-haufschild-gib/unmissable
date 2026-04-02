@@ -181,6 +181,43 @@ final class AttendeeModelTests: XCTestCase {
         }
     }
 
+    // MARK: - Equatable Tests
+
+    func testEquatable_sameFieldsAreEqual() {
+        let a = Attendee(name: "Alice", email: "alice@x.com", status: .accepted, isSelf: false)
+        let b = Attendee(name: "Alice", email: "alice@x.com", status: .accepted, isSelf: false)
+        XCTAssertEqual(a, b)
+    }
+
+    func testEquatable_differentStatusMakesNotEqual() {
+        let a = Attendee(name: "Alice", email: "alice@x.com", status: .accepted, isSelf: false)
+        let b = Attendee(name: "Alice", email: "alice@x.com", status: .declined, isSelf: false)
+        XCTAssertNotEqual(a, b, "Different status should make attendees not equal")
+    }
+
+    func testEquatable_differentNameSameEmailMakesNotEqual() {
+        let a = Attendee(name: "Alice", email: "shared@x.com", isSelf: false)
+        let b = Attendee(name: "Bob", email: "shared@x.com", isSelf: false)
+        XCTAssertNotEqual(a, b, "Equatable compares all stored properties, not just email")
+    }
+
+    // MARK: - AttendeeStatus Edge Cases
+
+    func testAttendeeStatusCaseIterable() {
+        XCTAssertEqual(AttendeeStatus.allCases.count, 4)
+    }
+
+    func testAttendeeStatusCodableFromRawValue() throws {
+        let json = Data("\"tentative\"".utf8)
+        let decoded = try JSONDecoder().decode(AttendeeStatus.self, from: json)
+        XCTAssertEqual(decoded, .tentative)
+    }
+
+    func testAttendeeStatusCodableInvalidRawValueThrows() {
+        let json = Data("\"unknown\"".utf8)
+        XCTAssertThrowsError(try JSONDecoder().decode(AttendeeStatus.self, from: json))
+    }
+
     // MARK: - Edge Case Tests
 
     func testAttendeeWithEmptyEmail() {

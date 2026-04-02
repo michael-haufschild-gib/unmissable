@@ -157,6 +157,22 @@ enum HTMLSanitizer {
 
     // MARK: - Attribute Sanitization
 
+    /// Intermediate result from reading a quoted attribute value.
+    private struct QuotedValue {
+        let value: String
+        let quote: Character
+        let afterQuote: String.Index
+    }
+
+    /// Parsed attribute name with its position context for emit decisions.
+    private struct ParsedAttributeName {
+        let name: String
+        let nameLower: String
+        let wsStart: String.Index
+        let attrStart: String.Index
+        let isEventHandler: Bool
+    }
+
     /// Removes event handler attributes (on*) and neutralizes javascript:/data: URIs
     /// within a tag string like `<a href="..." onclick="...">`.
     private static func sanitizeAttributes(_ tag: String) -> String {
@@ -165,116 +181,17 @@ enum HTMLSanitizer {
 
         var result = ""
         result.reserveCapacity(tag.count)
-        var i = tag.startIndex
+        var i = copyTagPrefix(tag, into: &result)
 
-        // Copy up to first whitespace after tag name (the '<' and tag name)
-        // Skip '<' and optional '/'
-        result.append(tag[i]) // '<'
-        i = tag.index(after: i)
-        if i < tag.endIndex, tag[i] == "/" {
-            result.append(tag[i])
-            i = tag.index(after: i)
-        }
-        // Copy tag name
-        while i < tag.endIndex, tag[i].isASCIILetterOrDigit {
-            result.append(tag[i])
-            i = tag.index(after: i)
-        }
-
-        // Now process attributes
+        // Process attributes one at a time
         while i < tag.endIndex {
             if tag[i] == ">" || (tag[i] == "/" && nextChar(tag, after: i) == ">") {
-                // End of tag — copy remainder
                 result.append(contentsOf: tag[i...])
                 break
             }
 
-            // Skip whitespace
             if tag[i].isWhitespace {
-                let wsStart = i
-                while i < tag.endIndex, tag[i].isWhitespace {
-                    i = tag.index(after: i)
-                }
-                // Read ahead to check if this whitespace precedes a dangerous attribute
-                let attrStart = i
-                var attrName = ""
-                while i < tag.endIndex, tag[i].isASCIILetterOrDigit || tag[i] == "-" || tag[i] == "_" {
-                    attrName.append(tag[i])
-                    i = tag.index(after: i)
-                }
-
-                let attrNameLower = attrName.lowercased()
-                let isEventHandler = attrNameLower.hasPrefix("on") && attrNameLower.count > 2
-
-                // Check for = and value
-                var tempI = i
-                // Skip whitespace around =
-                while tempI < tag.endIndex, tag[tempI].isWhitespace {
-                    tempI = tag.index(after: tempI)
-                }
-
-                if tempI < tag.endIndex, tag[tempI] == "=" {
-                    tempI = tag.index(after: tempI)
-                    // Skip whitespace after =
-                    while tempI < tag.endIndex, tag[tempI].isWhitespace {
-                        tempI = tag.index(after: tempI)
-                    }
-
-                    // Read attribute value
-                    if tempI < tag.endIndex, tag[tempI] == "\"" || tag[tempI] == "'" {
-                        let quote = tag[tempI]
-                        let valueStart = tag.index(after: tempI)
-                        var valueEnd = valueStart
-                        while valueEnd < tag.endIndex, tag[valueEnd] != quote {
-                            valueEnd = tag.index(after: valueEnd)
-                        }
-                        let value = String(tag[valueStart ..< valueEnd])
-                        let afterQuote = valueEnd < tag.endIndex
-                            ? tag.index(after: valueEnd) : valueEnd
-
-                        if isEventHandler {
-                            // Drop the entire attribute (whitespace + name + = + value)
-                            i = afterQuote
-                            continue
-                        }
-
-                        let isDangerousURI = (attrNameLower == "href" || attrNameLower == "src")
-                            && isDangerousURI(value)
-
-                        if isDangerousURI {
-                            // Replace the URI value with about:blank
-                            result.append(contentsOf: tag[wsStart ..< attrStart])
-                            result.append(attrName)
-                            result.append("=")
-                            result.append(quote)
-                            result.append("about:blank")
-                            result.append(quote)
-                            i = afterQuote
-                        } else {
-                            // Safe attribute — copy as-is
-                            result.append(contentsOf: tag[wsStart ..< afterQuote])
-                            i = afterQuote
-                        }
-                    } else {
-                        // Unquoted attribute value — advance past it
-                        while tempI < tag.endIndex, !tag[tempI].isWhitespace, tag[tempI] != ">" {
-                            tempI = tag.index(after: tempI)
-                        }
-                        if isEventHandler {
-                            i = tempI
-                            continue
-                        }
-                        result.append(contentsOf: tag[wsStart ..< tempI])
-                        i = tempI
-                    }
-                } else {
-                    // Attribute without value (boolean attribute)
-                    if isEventHandler {
-                        // i is already past the attribute name — just skip it
-                        continue
-                    }
-                    result.append(contentsOf: tag[wsStart ..< i])
-                }
+                i = processAttribute(tag, from: i, into: &result)
             } else {
                 result.append(tag[i])
                 i = tag.index(after: i)
@@ -282,6 +199,147 @@ enum HTMLSanitizer {
         }
 
         return result
+    }
+
+    /// Copies the tag opener (`<`, optional `/`, and tag name) into `result`.
+    /// Returns the index immediately after the tag name.
+    private static func copyTagPrefix(
+        _ tag: String, into result: inout String
+    ) -> String.Index {
+        var i = tag.startIndex
+        result.append(tag[i]) // '<'
+        i = tag.index(after: i)
+        if i < tag.endIndex, tag[i] == "/" {
+            result.append(tag[i])
+            i = tag.index(after: i)
+        }
+        while i < tag.endIndex, tag[i].isASCIILetterOrDigit {
+            result.append(tag[i])
+            i = tag.index(after: i)
+        }
+        return i
+    }
+
+    /// Processes a single attribute (starting from whitespace before the name).
+    /// Strips event handler attributes and neutralizes dangerous URIs.
+    /// Returns the index after the processed attribute.
+    private static func processAttribute(
+        _ tag: String, from start: String.Index, into result: inout String
+    ) -> String.Index {
+        var i = start
+
+        // Consume leading whitespace
+        let wsStart = i
+        while i < tag.endIndex, tag[i].isWhitespace {
+            i = tag.index(after: i)
+        }
+
+        // Read attribute name
+        let attrStart = i
+        var attrName = ""
+        while i < tag.endIndex, tag[i].isASCIILetterOrDigit || tag[i] == "-" || tag[i] == "_" {
+            attrName.append(tag[i])
+            i = tag.index(after: i)
+        }
+
+        let nameLower = attrName.lowercased()
+        let attr = ParsedAttributeName(
+            name: attrName,
+            nameLower: nameLower,
+            wsStart: wsStart,
+            attrStart: attrStart,
+            isEventHandler: nameLower.hasPrefix("on") && nameLower.count > 2
+        )
+
+        // Look for `= value`
+        var tempI = skipWhitespace(tag, from: i)
+
+        guard tempI < tag.endIndex, tag[tempI] == "=" else {
+            // Boolean attribute (no value)
+            if !attr.isEventHandler {
+                result.append(contentsOf: tag[wsStart ..< i])
+            }
+            return i
+        }
+
+        tempI = skipWhitespace(tag, from: tag.index(after: tempI))
+
+        if let quoted = readQuotedValue(tag, from: tempI) {
+            return emitQuotedAttribute(tag, attr: attr, quoted: quoted, into: &result)
+        }
+
+        // Unquoted value — advance past it
+        while tempI < tag.endIndex, !tag[tempI].isWhitespace, tag[tempI] != ">" {
+            tempI = tag.index(after: tempI)
+        }
+        if !attr.isEventHandler {
+            result.append(contentsOf: tag[wsStart ..< tempI])
+        }
+        return tempI
+    }
+
+    /// Emits a quoted attribute, either dropping it (event handler), neutralizing the URI,
+    /// or copying it verbatim. Returns the index after the attribute.
+    private static func emitQuotedAttribute(
+        _ tag: String,
+        attr: ParsedAttributeName,
+        quoted: QuotedValue,
+        into result: inout String
+    ) -> String.Index {
+        if attr.isEventHandler {
+            return quoted.afterQuote
+        }
+
+        let hasDangerousURI = (attr.nameLower == "href" || attr.nameLower == "src")
+            && isDangerousURI(quoted.value)
+
+        if hasDangerousURI {
+            result.append(contentsOf: tag[attr.wsStart ..< attr.attrStart])
+            result.append(attr.name)
+            result.append("=")
+            result.append(quoted.quote)
+            result.append("about:blank")
+            result.append(quoted.quote)
+        } else {
+            result.append(contentsOf: tag[attr.wsStart ..< quoted.afterQuote])
+        }
+        return quoted.afterQuote
+    }
+
+    /// Reads a quoted attribute value starting at the opening quote character.
+    /// Returns nil if `from` does not point to a quote.
+    private static func readQuotedValue(
+        _ tag: String, from: String.Index
+    ) -> QuotedValue? {
+        guard from < tag.endIndex,
+              tag[from] == "\"" || tag[from] == "'"
+        else { return nil }
+
+        let quote = tag[from]
+        let valueStart = tag.index(after: from)
+        var valueEnd = valueStart
+        while valueEnd < tag.endIndex, tag[valueEnd] != quote {
+            valueEnd = tag.index(after: valueEnd)
+        }
+        let afterQuote = valueEnd < tag.endIndex
+            ? tag.index(after: valueEnd) : valueEnd
+
+        return QuotedValue(
+            value: String(tag[valueStart ..< valueEnd]),
+            quote: quote,
+            afterQuote: afterQuote
+        )
+    }
+
+    /// Advances past whitespace characters, returning the first non-whitespace index.
+    private static func skipWhitespace(
+        _ tag: String, from: String.Index
+    ) -> String.Index {
+        var i = from
+        while i < tag.endIndex, tag[i].isWhitespace {
+            i = tag.index(after: i)
+        }
+        return i
     }
 
     /// Checks if a URI value starts with `javascript:` or `data:` (case-insensitive).

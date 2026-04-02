@@ -166,6 +166,66 @@ final class GoogleCalendarModelsTests: XCTestCase {
         XCTAssertFalse(try XCTUnwrap(attendee.isSelf))
     }
 
+    // MARK: - Forward Compatibility (Unknown Fields)
+
+    func testGCalEventEntry_unknownFieldsAreIgnored() throws {
+        let json = Data("""
+        {
+            "id": "compat-1",
+            "summary": "Forward Compat Event",
+            "newFieldAddedLater": "should be ignored",
+            "start": {
+                "dateTime": "2026-03-20T10:00:00Z",
+                "extraNestedField": true
+            }
+        }
+        """.utf8)
+
+        let entry = try decoder.decode(GCalEventEntry.self, from: json)
+        XCTAssertEqual(entry.id, "compat-1")
+        XCTAssertEqual(entry.summary, "Forward Compat Event")
+    }
+
+    func testGCalAttendee_unknownFieldsIgnored() throws {
+        let json = Data("""
+        {
+            "email": "forward@example.com",
+            "responseStatus": "accepted",
+            "futureField": "ignored"
+        }
+        """.utf8)
+
+        let attendee = try decoder.decode(GCalAttendee.self, from: json)
+        XCTAssertEqual(attendee.email, "forward@example.com")
+    }
+
+    // MARK: - Null vs Missing Fields
+
+    func testGCalEventEntry_nullSummaryDecodesAsNil() throws {
+        let json = Data("""
+        {
+            "id": "null-summary",
+            "summary": null
+        }
+        """.utf8)
+
+        let entry = try decoder.decode(GCalEventEntry.self, from: json)
+        XCTAssertNil(entry.summary)
+    }
+
+    func testGCalEventEntry_emptyAttendeesDecodesAsEmptyArray() throws {
+        let json = Data("""
+        {
+            "id": "empty-attendees",
+            "summary": "Meeting",
+            "attendees": []
+        }
+        """.utf8)
+
+        let entry = try decoder.decode(GCalEventEntry.self, from: json)
+        XCTAssertEqual(entry.attendees?.count, 0)
+    }
+
     // MARK: - GCalCalendarListResponse
 
     func testGCalCalendarListResponse_decodesCalendarList() throws {

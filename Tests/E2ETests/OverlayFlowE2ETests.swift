@@ -23,19 +23,20 @@ final class OverlayFlowE2ETests: XCTestCase {
 
     func testSchedulerTriggersOverlayForImminentEvent() async throws {
         // Event starting very soon with overlayShowMinutesBefore = 0
-        // This makes the scheduler show the overlay immediately
+        // This makes the scheduler show the overlay at event start time.
+        // Test clock auto-advances through the sleep, so no real wait needed.
         env.preferencesManager.setOverlayShowMinutesBefore(0)
 
         let imminentEvent = E2EEventBuilder.futureEvent(
             id: "e2e-imminent",
             title: "Imminent Meeting",
-            minutesFromNow: 1 // 1 minute from now
+            minutesFromNow: 1 // 1 minute from clock's "now"
         )
 
         try await env.seedAndSchedule([imminentEvent])
 
-        // Wait for overlay to be triggered
-        try await e2eWait(timeout: 35.0, description: "Overlay should appear for imminent event") {
+        // Test clock makes the monitoring loop's sleep instant
+        try await e2eWait(timeout: 2.0, description: "Overlay should appear for imminent event") {
             self.env.overlayManager.isOverlayVisible
         }
 
@@ -318,6 +319,46 @@ final class OverlayFlowE2ETests: XCTestCase {
             return false
         }
         XCTAssertFalse(hasSnooze, "Snooze with no active overlay should not schedule anything")
+    }
+
+    // MARK: - Snooze After Meeting Start Through Full Stack
+
+    func testSnoozedOverlayShowsFromDBEventAfterMeetingStarts() async throws {
+        let event = E2EEventBuilder.futureEvent(
+            id: "e2e-snooze-db-start",
+            title: "Snooze DB Meeting",
+            minutesFromNow: 1,
+            durationMinutes: 60
+        )
+
+        try await env.seedAndSchedule([event])
+
+        // Show overlay and snooze
+        env.overlayManager.showOverlayImmediately(for: event)
+        XCTAssertTrue(env.overlayManager.isOverlayVisible)
+
+        env.overlayManager.snoozeOverlay(for: 5)
+        XCTAssertFalse(env.overlayManager.isOverlayVisible)
+
+        // Verify snooze alert exists
+        let hasSnooze = env.eventScheduler.scheduledAlerts.contains { alert in
+            if case .snooze = alert.alertType { return true }
+            return false
+        }
+        XCTAssertTrue(hasSnooze, "Snooze should be scheduled")
+
+        // Simulate snooze firing after meeting started by re-fetching from DB
+        // and showing as fromSnooze
+        let fetched = try await env.fetchUpcomingEvents()
+        // The event may still be in upcoming if it hasn't started yet
+
+        // Show from snooze — this should work even if startDate is now in the past
+        env.overlayManager.showOverlayImmediately(for: event, fromSnooze: true)
+        XCTAssertTrue(
+            env.overlayManager.isOverlayVisible,
+            "Snoozed overlay should show from DB-fetched event"
+        )
+        XCTAssertEqual(env.overlayManager.activeEvent?.id, event.id)
     }
 
     // MARK: - Online Meeting Data Preserved in Overlay

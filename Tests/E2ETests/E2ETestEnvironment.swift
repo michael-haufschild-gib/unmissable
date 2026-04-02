@@ -12,10 +12,11 @@ final class E2ETestEnvironment {
     let eventScheduler: EventScheduler
     let overlayManager: TestSafeOverlayManager
     let meetingDetailsPopupManager: TestSafeMeetingDetailsPopupManager
+    let testClock: TestClock
 
     private let tempDatabaseURL: URL
 
-    init() async throws {
+    init(useTestClock: Bool = true) async throws {
         // Create an isolated temporary database for each test environment
         let tempDir = FileManager.default.temporaryDirectory
         let dbName = "unmissable-e2e-\(UUID().uuidString).db"
@@ -43,7 +44,20 @@ final class E2ETestEnvironment {
         preferencesManager.setAutoJoinEnabled(false)
         preferencesManager.setIncludeAllDayEvents(false)
 
-        eventScheduler = EventScheduler(preferencesManager: preferencesManager, linkParser: LinkParser())
+        testClock = TestClock(startTime: Date(), autoAdvance: true)
+        if useTestClock {
+            eventScheduler = EventScheduler(
+                preferencesManager: preferencesManager,
+                linkParser: LinkParser(),
+                sleepForSeconds: testClock.sleep,
+                now: testClock.nowProvider
+            )
+        } else {
+            eventScheduler = EventScheduler(
+                preferencesManager: preferencesManager,
+                linkParser: LinkParser()
+            )
+        }
         overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         meetingDetailsPopupManager = TestSafeMeetingDetailsPopupManager()
 

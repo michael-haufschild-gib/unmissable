@@ -3,7 +3,7 @@ import OSLog
 
 @MainActor
 final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
-    private let logger = Logger(subsystem: "com.unmissable.app", category: "GoogleCalendarAPIService")
+    private let logger = Logger(category: "GoogleCalendarAPIService")
     private let oauth2Service: OAuth2Service
     private let linkParser: LinkParser
 
@@ -19,7 +19,6 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     var calendarErrors: [String: String] = [:]
 
     /// URLSession with timeout configuration to prevent indefinite hangs.
-    /// URLSession with timeout configuration to prevent indefinite hangs
     private static let urlSession: URLSession = {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30 // 30 seconds per request
@@ -165,8 +164,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     /// Based on `.urlPathAllowed` with `#` explicitly removed — calendar IDs like
     /// `#contacts@group.v.calendar.google.com` must have `#` encoded to `%23`
     /// so it isn't misinterpreted as a URL fragment delimiter.
-    /// Characters allowed in percent-encoded calendar IDs.
-    private nonisolated(unsafe) static let calendarIdAllowedCharacters: CharacterSet = {
+    private nonisolated static let calendarIdAllowedCharacters: CharacterSet = {
         var set = CharacterSet.urlPathAllowed
         set.remove("#")
         return set
@@ -418,25 +416,30 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     private nonisolated func extractMeetingLinks(from entry: GCalEventEntry) -> [URL] {
         var links: [URL] = []
 
-        // hangoutLink is the legacy Google Meet link — check first as a reliable source
+        // hangoutLink is the legacy Google Meet link — always meeting-relevant
         if let hangoutLink = entry.hangoutLink, let url = URL(string: hangoutLink) {
             links.append(url)
         }
 
-        if let location = entry.location, let url = extractURL(from: location) {
-            links.append(url)
-        }
-
-        if let description = entry.description {
-            links.append(contentsOf: extractURLs(from: description))
-        }
-
+        // conferenceData entryPoints come from Google's meeting infrastructure — always relevant
         if let entryPoints = entry.conferenceData?.entryPoints {
             for ep in entryPoints {
                 if let uri = ep.uri, let url = URL(string: uri) {
                     links.append(url)
                 }
             }
+        }
+
+        // Location and description may contain non-meeting URLs (e.g., docs, agendas).
+        // Filter to only meeting-relevant URLs using LinkParser's centralized detection.
+        if let location = entry.location {
+            let locationURLs = extractURLs(from: location)
+            links.append(contentsOf: locationURLs.filter { linkParser.isMeetingURL($0) })
+        }
+
+        if let description = entry.description {
+            let descriptionURLs = extractURLs(from: description)
+            links.append(contentsOf: descriptionURLs.filter { linkParser.isMeetingURL($0) })
         }
 
         // Stable dedup preserving order

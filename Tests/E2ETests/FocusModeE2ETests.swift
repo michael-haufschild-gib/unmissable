@@ -143,6 +143,40 @@ final class FocusModeE2ETests: XCTestCase {
         XCTAssertTrue(env.overlayManager.isOverlayVisible)
     }
 
+    // MARK: - Focus Mode + Scheduler Overlay Interaction
+
+    func testFocusModeGateWithSchedulerOverlayTrigger() async throws {
+        // Start with DND on, override disabled
+        focusModeManager.isDoNotDisturbEnabled = true
+        env.preferencesManager.setOverrideFocusMode(false)
+        env.preferencesManager.setOverlayShowMinutesBefore(0)
+
+        let event = E2EEventBuilder.futureEvent(
+            id: "e2e-focus-scheduler",
+            title: "Focus Gate Meeting",
+            minutesFromNow: 1
+        )
+
+        try await env.seedAndSchedule([event])
+
+        // Verify DND suppresses the overlay decision
+        XCTAssertFalse(
+            focusModeManager.shouldShowOverlay(),
+            "DND on + override disabled should suppress overlay"
+        )
+
+        // Now enable override
+        env.preferencesManager.setOverrideFocusMode(true)
+        XCTAssertTrue(
+            focusModeManager.shouldShowOverlay(),
+            "DND on + override enabled should allow overlay"
+        )
+
+        // Manually trigger overlay (as scheduler would after focus check passes)
+        env.overlayManager.showOverlayImmediately(for: event)
+        XCTAssertTrue(env.overlayManager.isOverlayVisible)
+    }
+
     // MARK: - Sound Follows Overlay Logic
 
     func testSoundFollowsSameLogicAsOverlay() {

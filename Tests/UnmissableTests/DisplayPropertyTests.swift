@@ -1,11 +1,13 @@
 @testable import Unmissable
 import XCTest
 
+/// Verifies that model types expose human-readable display properties
+/// suitable for UI labels and screen reader descriptions.
 @MainActor
-final class AccessibilityTests: XCTestCase {
-    // MARK: - Event Accessibility Data
+final class DisplayPropertyTests: XCTestCase {
+    // MARK: - Event Display Data
 
-    func testEventProvidesDataForAccessibilityLabels() {
+    func testEventProvidesHumanReadableProperties() {
         let start = Date()
         let end = start.addingTimeInterval(3600)
 
@@ -28,50 +30,9 @@ final class AccessibilityTests: XCTestCase {
         XCTAssertEqual(event.duration, 3600)
     }
 
-    // MARK: - Provider Display Names
-
-    func testProviderDisplayNameIsHumanReadable() {
-        XCTAssertEqual(Provider.meet.displayName, "Google Meet")
-        XCTAssertEqual(Provider.zoom.displayName, "Zoom")
-        XCTAssertEqual(
-            Provider.teams.displayName,
-            "Microsoft Teams"
-        )
-        XCTAssertEqual(
-            Provider.webex.displayName,
-            "Cisco Webex"
-        )
-        XCTAssertEqual(Provider.generic.displayName, "Other")
-    }
-
-    func testProviderIconNameIsValidSFSymbol() {
-        XCTAssertEqual(Provider.meet.iconName, "video.fill")
-        XCTAssertEqual(Provider.zoom.iconName, "video.fill")
-        XCTAssertEqual(Provider.teams.iconName, "video.fill")
-        XCTAssertEqual(Provider.webex.iconName, "video.fill")
-        XCTAssertEqual(Provider.generic.iconName, "link")
-    }
-
-    // MARK: - Attendee Status
-
-    func testAttendeeStatusDisplayTextForScreenReaders() {
-        XCTAssertEqual(
-            AttendeeStatus.needsAction.displayText,
-            "Not responded"
-        )
-        XCTAssertEqual(
-            AttendeeStatus.declined.displayText,
-            "Declined"
-        )
-        XCTAssertEqual(
-            AttendeeStatus.tentative.displayText,
-            "Maybe"
-        )
-        XCTAssertEqual(
-            AttendeeStatus.accepted.displayText,
-            "Accepted"
-        )
-    }
+    // Provider display names and attendee status display texts are
+    // tested in ProviderTests and AttendeeModelTests respectively.
+    // This file focuses on display properties NOT tested elsewhere.
 
     // MARK: - Sync Status
 
@@ -113,6 +74,59 @@ final class AccessibilityTests: XCTestCase {
         )
         let critical = HealthStatus.critical(issues: [error])
         XCTAssertFalse(critical.isHealthy)
+    }
+
+    func testHealthStatusEquatable_healthyEqualsHealthy() {
+        XCTAssertEqual(HealthStatus.healthy, HealthStatus.healthy)
+    }
+
+    func testHealthStatusEquatable_degradedWithSameIssuesAreEqual() {
+        let issue = HealthIssue(
+            severity: .warning,
+            component: "Test",
+            message: "Test issue",
+            suggestion: "Fix it"
+        )
+        // Note: HealthIssue has UUID id, so two instances are never equal
+        // even with same content. This tests that .degraded([issue]) == .degraded([issue])
+        // using the SAME instance.
+        let status1 = HealthStatus.degraded(issues: [issue])
+        let status2 = HealthStatus.degraded(issues: [issue])
+        XCTAssertEqual(status1, status2)
+    }
+
+    func testHealthStatusEquatable_healthyNotEqualToDegraded() {
+        let issue = HealthIssue(
+            severity: .warning,
+            component: "Test",
+            message: "msg",
+            suggestion: "sug"
+        )
+        XCTAssertNotEqual(HealthStatus.healthy, HealthStatus.degraded(issues: [issue]))
+    }
+
+    func testHealthStatusEquatable_degradedNotEqualToCritical() {
+        let issue = HealthIssue(
+            severity: .error,
+            component: "DB",
+            message: "msg",
+            suggestion: "sug"
+        )
+        XCTAssertNotEqual(
+            HealthStatus.degraded(issues: [issue]),
+            HealthStatus.critical(issues: [issue])
+        )
+    }
+
+    func testHealthSeverityAllCases() {
+        XCTAssertEqual(HealthIssue.Severity.allCases.count, 2)
+        XCTAssertTrue(HealthIssue.Severity.allCases.contains(.warning))
+        XCTAssertTrue(HealthIssue.Severity.allCases.contains(.error))
+    }
+
+    func testHealthSeverityRawValues() {
+        XCTAssertEqual(HealthIssue.Severity.warning.rawValue, "warning")
+        XCTAssertEqual(HealthIssue.Severity.error.rawValue, "error")
     }
 
     func testHealthIssueCarriesAccessibleContext() {

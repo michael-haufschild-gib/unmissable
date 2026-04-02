@@ -138,6 +138,81 @@ final class HTMLSanitizerTests: XCTestCase {
         XCTAssertEqual(HTMLSanitizer.sanitize(input), input)
     }
 
+    func testHandlesUnclosedTag() {
+        // An unclosed tag (no >) should be treated as literal text
+        let input = "<p>Hello <strong"
+        let result = HTMLSanitizer.sanitize(input)
+        // The tokenizer should handle this without crashing
+        XCTAssertTrue(result.contains("Hello"))
+    }
+
+    func testHandlesUnclosedDangerousTag() {
+        // Script tag that never closes
+        let input = "<script>alert('xss')"
+        let result = HTMLSanitizer.sanitize(input)
+        XCTAssertFalse(result.contains("alert"), "Script content should be removed even without closing tag")
+    }
+
+    func testStripsDataURIWithBase64() {
+        let input = "<img src=\"data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==\">"
+        let result = HTMLSanitizer.sanitize(input)
+        XCTAssertFalse(result.lowercased().contains("data:"))
+    }
+
+    func testNeutralizesJavascriptURIWithWhitespace() {
+        let input = "<a href=\"  javascript:alert(1)\">Click</a>"
+        let result = HTMLSanitizer.sanitize(input)
+        XCTAssertFalse(result.contains("javascript:"), "Leading whitespace should not bypass javascript: detection")
+        XCTAssertTrue(result.contains("about:blank"))
+    }
+
+    func testPreservesSingleQuotedAttributes() {
+        let input = "<a href='https://meet.google.com/abc'>Join</a>"
+        let result = HTMLSanitizer.sanitize(input)
+        XCTAssertEqual(result, input, "Single-quoted safe attributes should be preserved")
+    }
+
+    func testStripsMultipleEventHandlers() {
+        let input = "<div onclick=\"a()\" onmouseover=\"b()\" onfocus=\"c()\">Content</div>"
+        let result = HTMLSanitizer.sanitize(input)
+        XCTAssertFalse(result.contains("onclick"))
+        XCTAssertFalse(result.contains("onmouseover"))
+        XCTAssertFalse(result.contains("onfocus"))
+        XCTAssertTrue(result.contains("Content"))
+    }
+
+    func testPreservesSafeAttributesAlongsideDangerousOnes() {
+        let input = "<a href=\"https://example.com\" onclick=\"steal()\" class=\"link\">Link</a>"
+        let result = HTMLSanitizer.sanitize(input)
+        XCTAssertFalse(result.contains("onclick"))
+        XCTAssertTrue(result.contains("href=\"https://example.com\""))
+        XCTAssertTrue(result.contains("class=\"link\""))
+    }
+
+    func testHandlesAngledBracketsInTextContent() {
+        let input = "If x < 5 and y > 3, then show <p>result</p>"
+        let result = HTMLSanitizer.sanitize(input)
+        XCTAssertTrue(result.contains("<p>result</p>"))
+        XCTAssertTrue(result.contains("x < 5"))
+    }
+
+    func testHandlesVeryLargeInput() {
+        // 100KB of safe HTML — should not crash or take excessive time
+        let chunk = "<p>Normal paragraph content here.</p>"
+        let largeInput = String(repeating: chunk, count: 2500)
+        let result = HTMLSanitizer.sanitize(largeInput)
+        XCTAssertEqual(result, largeInput, "Large safe input should pass through unchanged")
+    }
+
+    func testNestedScriptInsideDiv() {
+        let input = "<div><p>Before</p><script>evil()</script><p>After</p></div>"
+        let result = HTMLSanitizer.sanitize(input)
+        XCTAssertFalse(result.contains("script"))
+        XCTAssertFalse(result.contains("evil"))
+        XCTAssertTrue(result.contains("<p>Before</p>"))
+        XCTAssertTrue(result.contains("<p>After</p>"))
+    }
+
     func testHandlesNestedDangerousElements() {
         let input = "<div><script><script>nested</script></script></div>"
         let result = HTMLSanitizer.sanitize(input)

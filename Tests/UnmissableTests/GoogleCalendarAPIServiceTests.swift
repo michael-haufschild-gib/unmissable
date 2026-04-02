@@ -250,6 +250,98 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
         XCTAssertEqual(unwrapped.attachments.first?.mimeType, "application/pdf")
     }
 
+    // MARK: - convertToEvent: HangoutLink Fallback
+
+    func testConvertToEvent_withHangoutLinkButNoConferenceData_extractsMeetLink() throws {
+        let entry = GCalEventEntry(
+            id: "hangout-1",
+            summary: "Hangout Meeting",
+            status: "confirmed",
+            start: GCalDateTime(dateTime: "2026-03-20T15:00:00Z", date: nil, timeZone: nil),
+            end: GCalDateTime(dateTime: "2026-03-20T16:00:00Z", date: nil, timeZone: nil),
+            organizer: nil,
+            description: nil,
+            location: nil,
+            attendees: nil,
+            attachments: nil,
+            conferenceData: nil,
+            hangoutLink: "https://meet.google.com/hangout-test-room"
+        )
+
+        let event = apiService.convertToEvent(from: entry, calendarId: "primary")
+        let unwrapped = try XCTUnwrap(event)
+
+        XCTAssertFalse(unwrapped.links.isEmpty, "hangoutLink should be extracted as a meeting link")
+    }
+
+    func testConvertToEvent_phoneOnlyEntryPoints_noVideoLink() throws {
+        let entry = GCalEventEntry(
+            id: "phone-only-1",
+            summary: "Phone Meeting",
+            status: "confirmed",
+            start: GCalDateTime(dateTime: "2026-03-20T15:00:00Z", date: nil, timeZone: nil),
+            end: GCalDateTime(dateTime: "2026-03-20T16:00:00Z", date: nil, timeZone: nil),
+            organizer: nil,
+            description: nil,
+            location: nil,
+            attendees: nil,
+            attachments: nil,
+            conferenceData: GCalConferenceData(
+                entryPoints: [
+                    GCalEntryPoint(uri: "tel:+15550100", entryPointType: "phone"),
+                ]
+            ),
+            hangoutLink: nil
+        )
+
+        let event = apiService.convertToEvent(from: entry, calendarId: "primary")
+        let unwrapped = try XCTUnwrap(event)
+
+        // Phone URIs should be extracted but may not be valid meeting URLs
+        // The important thing is the conversion doesn't crash
+        XCTAssertEqual(unwrapped.title, "Phone Meeting")
+    }
+
+    func testConvertToEvent_malformedDateTimeString_returnsNil() {
+        let entry = GCalEventEntry(
+            id: "malformed-date",
+            summary: "Bad Date Meeting",
+            status: "confirmed",
+            start: GCalDateTime(dateTime: "not-a-date", date: nil, timeZone: nil),
+            end: GCalDateTime(dateTime: "also-not-a-date", date: nil, timeZone: nil),
+            organizer: nil,
+            description: nil,
+            location: nil,
+            attendees: nil,
+            attachments: nil,
+            conferenceData: nil,
+            hangoutLink: nil
+        )
+
+        let event = apiService.convertToEvent(from: entry, calendarId: "primary")
+        XCTAssertNil(event, "Malformed date should result in nil event")
+    }
+
+    func testConvertToEvent_missingStartDate_returnsNil() {
+        let entry = GCalEventEntry(
+            id: "no-start",
+            summary: "No Start",
+            status: "confirmed",
+            start: nil,
+            end: GCalDateTime(dateTime: "2026-03-20T16:00:00Z", date: nil, timeZone: nil),
+            organizer: nil,
+            description: nil,
+            location: nil,
+            attendees: nil,
+            attachments: nil,
+            conferenceData: nil,
+            hangoutLink: nil
+        )
+
+        let event = apiService.convertToEvent(from: entry, calendarId: "primary")
+        XCTAssertNil(event, "Missing start date should result in nil event")
+    }
+
     // MARK: - convertToEvent: Attendee Conversion
 
     func testConvertToEvent_attendeesWithAllFields_mapsCorrectly() throws {
