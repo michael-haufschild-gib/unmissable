@@ -372,14 +372,18 @@ enum HTMLSanitizer {
     }
 
     /// Checks if a URI value starts with `javascript:` or `data:` (case-insensitive).
-    /// Decodes HTML entities and strips ASCII control/whitespace characters before the
-    /// scheme check to prevent bypasses like `&#106;avascript:` or `java&#x0A;script:`.
+    /// Decodes HTML entities and strips all non-ASCII-graphic characters before the
+    /// scheme check to prevent bypasses like `&#106;avascript:`, `java&#x0A;script:`,
+    /// or any undecoded named entity (e.g. `&nbsp;`, `&ZeroWidthSpace;`) that resolves
+    /// to a non-ASCII character browsers might strip from URL schemes.
     private static func isDangerousURI(_ value: String) -> Bool {
         let decoded = decodeHTMLEntities(value)
-        // Strip all ASCII control characters (0x00-0x1F, 0x7F) and whitespace to prevent
-        // bypasses that insert them within the scheme (e.g. "java\nscript:", "jav\tascript:")
+        // Keep only ASCII graphic characters (0x21-0x7E) for the scheme check.
+        // This strips control chars, whitespace, NBSP, zero-width chars, and any
+        // non-ASCII character that could be injected via undecoded named entities.
+        // The original value is not modified — only the detection check uses this.
         let normalized = String(decoded.unicodeScalars.filter { scalar in
-            scalar.value > 0x20 && scalar.value != 0x7F
+            scalar.value >= 0x21 && scalar.value <= 0x7E
         })
         let lowered = normalized.lowercased()
         return lowered.hasPrefix("javascript:") || lowered.hasPrefix("data:")

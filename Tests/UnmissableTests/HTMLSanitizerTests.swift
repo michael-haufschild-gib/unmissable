@@ -343,6 +343,88 @@ final class HTMLSanitizerTests: XCTestCase {
         XCTAssert(result.contains("href=https://example.com"), "Safe unquoted href should be preserved")
     }
 
+    // MARK: - Non-ASCII Character Bypass Prevention
+
+    func testNeutralizesNBSPInScheme() {
+        // NBSP (U+00A0) inserted via entity — must not bypass javascript: detection
+        let input = "<a href=\"java&#xa0;script:alert(1)\">Click</a>"
+        let result = HTMLSanitizer.sanitize(input)
+        XCTAssert(result.contains("about:blank"), "NBSP inside scheme should be stripped before check")
+        XCTAssertFalse(result.contains("alert"), "Payload must not appear in output")
+    }
+
+    func testNeutralizesZeroWidthSpaceInScheme() {
+        // Zero-width space (U+200B) inserted via numeric entity
+        let input = "<a href=\"java&#x200B;script:alert(1)\">Click</a>"
+        let result = HTMLSanitizer.sanitize(input)
+        XCTAssert(result.contains("about:blank"), "Zero-width space inside scheme should be stripped before check")
+        XCTAssertFalse(result.contains("alert"), "Payload must not appear in output")
+    }
+
+    func testNeutralizesNBSPEntityInScheme() {
+        // Direct NBSP character (not entity-encoded) in the source
+        let input = "<a href=\"java\u{00A0}script:alert(1)\">Click</a>"
+        let result = HTMLSanitizer.sanitize(input)
+        XCTAssert(result.contains("about:blank"), "Direct NBSP char inside scheme should be stripped before check")
+    }
+
+    // MARK: - Integration Test: Sanitizer → NSAttributedString Rendering
+
+    func testSanitizedHTMLProducesNoJavascriptLinksInRendering() throws {
+        let maliciousInputs = [
+            "<a href=\"javascript:alert(1)\">Click</a>",
+            "<a href=\"&#106;avascript:alert(1)\">Click</a>",
+            "<a href=\"javascript&colon;alert(1)\">Click</a>",
+            "<a href=\"java&#x0A;script:alert(1)\">Click</a>",
+            "<a href=\"java&#xa0;script:alert(1)\">Click</a>",
+            "<a href=\"data:text/html,<script>alert(1)</script>\">Click</a>",
+        ]
+
+        let dangerousSchemes: Set = ["javascript", "data"]
+
+        for input in maliciousInputs {
+            let sanitized = HTMLSanitizer.sanitize(input)
+
+            // Replicate the HTMLTextView rendering pipeline
+            let styledHTML = """
+            <!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+            <body>\(sanitized)</body></html>
+            """
+
+            guard let data = styledHTML.data(using: .utf8) else {
+                XCTFail("Failed to encode HTML to data for input: \(input)")
+                continue
+            }
+
+            let options: [NSAttributedString.DocumentReadingOptionKey: Any] = [
+                .documentType: NSAttributedString.DocumentType.html,
+                .characterEncoding: String.Encoding.utf8.rawValue,
+            ]
+
+            let attributedString = try NSAttributedString(
+                data: data, options: options, documentAttributes: nil
+            )
+
+            // Enumerate all links in the rendered attributed string
+            attributedString.enumerateAttribute(
+                .link,
+                in: NSRange(location: 0, length: attributedString.length)
+            ) { value, _, _ in
+                guard let url = value as? URL ?? (value as? String).flatMap({ URL(string: $0) })
+                else { return }
+
+                if let scheme = url.scheme?.lowercased() {
+                    XCTAssertFalse(
+                        dangerousSchemes.contains(scheme),
+                        "Rendered HTML contains dangerous \(scheme): link from input: \(input)"
+                    )
+                }
+            }
+        }
+    }
+
+    // MARK: - Compound Dangerous Elements
+
     func testStripsMultipleDangerousElementsPreservesSafe() {
         let input = """
         <p>Agenda:</p>\
