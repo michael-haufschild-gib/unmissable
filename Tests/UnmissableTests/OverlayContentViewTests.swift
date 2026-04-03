@@ -1,4 +1,5 @@
 import SwiftUI
+import TestSupport
 @testable import Unmissable
 import XCTest
 
@@ -8,7 +9,7 @@ final class OverlayContentViewTests: XCTestCase {
         let expectation = XCTestExpectation(description: "Snooze callback completes without deadlock")
         expectation.expectedFulfillmentCount = 1
 
-        let event = createTestEvent()
+        let event = TestUtilities.createTestEvent()
         nonisolated(unsafe) var snoozeMinutes: Int?
 
         let view = OverlayContentView(
@@ -41,7 +42,7 @@ final class OverlayContentViewTests: XCTestCase {
     func testDismissCallbackDoesNotCauseDeadlock() {
         let expectation = XCTestExpectation(description: "Dismiss callback completes without deadlock")
 
-        let event = createTestEvent()
+        let event = TestUtilities.createTestEvent()
         nonisolated(unsafe) var dismissCalled = false
 
         let view = OverlayContentView(
@@ -75,7 +76,7 @@ final class OverlayContentViewTests: XCTestCase {
         )
 
         let testURL = try XCTUnwrap(URL(string: "https://meet.google.com/test"))
-        let event = createTestEventWithURL(testURL)
+        let event = TestUtilities.createTestEvent(links: [testURL], provider: .meet)
         nonisolated(unsafe) var joinedURL: URL?
 
         let view = OverlayContentView(
@@ -107,7 +108,7 @@ final class OverlayContentViewTests: XCTestCase {
         let durations = [1, 5, 10, 15, 30]
 
         for expectedMinutes in durations {
-            let event = createTestEvent()
+            let event = TestUtilities.createTestEvent()
             var receivedMinutes: Int?
 
             let view = OverlayContentView(
@@ -131,8 +132,11 @@ final class OverlayContentViewTests: XCTestCase {
     @MainActor
     func testCallbacksRouteCorrectlyAcrossEventVariants() throws {
         let variants = try [
-            createTestEvent(),
-            createTestEventWithURL(XCTUnwrap(URL(string: "https://meet.google.com/test"))),
+            TestUtilities.createTestEvent(),
+            TestUtilities.createTestEvent(
+                links: [XCTUnwrap(URL(string: "https://meet.google.com/test"))],
+                provider: .meet
+            ),
             Event(
                 id: "test-event-no-link",
                 title: "In-Person Meeting",
@@ -183,31 +187,5 @@ final class OverlayContentViewTests: XCTestCase {
             XCTAssertEqual(snoozeCalls, 1, "Snooze callback should route for event: \(event.id)")
             XCTAssertEqual(snoozeMinutes, 10, "Snooze minutes should be forwarded for event: \(event.id)")
         }
-    }
-
-    // MARK: - Helper Methods
-
-    private func createTestEvent() -> Event {
-        Event(
-            id: "test-event",
-            title: "Test Meeting",
-            startDate: Date().addingTimeInterval(300), // 5 minutes from now
-            endDate: Date().addingTimeInterval(1800), // 30 minutes from now
-            organizer: "test@example.com",
-            calendarId: "test-calendar"
-        )
-    }
-
-    private func createTestEventWithURL(_ url: URL) -> Event {
-        Event(
-            id: "test-event-with-url",
-            title: "Test Meeting with Link",
-            startDate: Date().addingTimeInterval(300),
-            endDate: Date().addingTimeInterval(1800),
-            organizer: "test@example.com",
-            calendarId: "test-calendar",
-            links: [url],
-            provider: .meet
-        )
     }
 }

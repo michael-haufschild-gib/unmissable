@@ -93,6 +93,12 @@ public final class TestSafeOverlayManager: OverlayManaging {
     public func showOverlay(for event: Event, fromSnooze: Bool = false) {
         logger.debug("TEST-SAFE SHOW: Overlay for \(event.title), fromSnooze: \(fromSnooze)")
 
+        // Mirror production dedup: skip if same event is already showing
+        if isOverlayVisible, activeEvent?.id == event.id {
+            logger.debug("TEST-SAFE: Skipping — overlay already visible for event \(event.id)")
+            return
+        }
+
         // Auto-dismiss for meetings that started too long ago
         let timeSinceStart = Date().timeIntervalSince(event.startDate)
         let maxAge: TimeInterval = fromSnooze ? 30 * 60 : 5 * 60

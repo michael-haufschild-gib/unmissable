@@ -65,15 +65,15 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         XCTAssertEqual(activeEvent.startDate, firstEventTime, "Should show first event time again")
     }
 
-    // MARK: - Countdown Timer Accuracy Tests
+    // MARK: - Computed Time Remaining Tests
 
-    func testCountdownTimerShowsCorrectRemainingTime() async throws {
+    func testTimeUntilMeetingReflectsCorrectRemainingTime() async throws {
         let futureTime = Date().addingTimeInterval(120) // 2 minutes from now
         let event = TestUtilities.createTestEvent(startDate: futureTime)
 
         overlayManager.showOverlayImmediately(for: event)
 
-        // Wait for timer to initialize
+        // Verify computed property reflects remaining time
         try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
             self.overlayManager.timeUntilMeeting > 0
         }
@@ -82,16 +82,16 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         XCTAssertGreaterThan(initialCountdown, 115, "Initial countdown should be close to 2 minutes")
         XCTAssertLessThan(initialCountdown, 125, "Initial countdown should be close to 2 minutes")
 
-        // Wait for countdown to decrease
+        // Verify computed property tracks wall clock
         try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
             self.overlayManager.timeUntilMeeting < initialCountdown - 0.9
         }
 
         let updatedCountdown = overlayManager.timeUntilMeeting
-        XCTAssertLessThan(updatedCountdown, initialCountdown, "Countdown should decrease over time")
+        XCTAssertLessThan(updatedCountdown, initialCountdown, "Computed time should decrease as wall clock advances")
     }
 
-    func testCountdownTimerInitializesImmediatelyOnShow() {
+    func testTimeUntilMeetingInitializesImmediatelyOnShow() {
         let event = TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(300))
 
         overlayManager.showOverlayImmediately(for: event)
@@ -104,7 +104,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         )
     }
 
-    func testCountdownTimerUpdatesEverySecond() async throws {
+    func testTimeUntilMeetingDecreasesWithWallClock() async throws {
         let futureTime = Date().addingTimeInterval(300)
         let event = TestUtilities.createTestEvent(startDate: futureTime)
 
@@ -112,17 +112,17 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
 
         let initialCountdown = overlayManager.timeUntilMeeting
 
-        // Wait for at least 2 seconds of decrease
+        // Verify computed property tracks elapsed wall clock time
         try await TestUtilities.waitForAsync(timeout: 5.0) { @MainActor @Sendable in
             self.overlayManager.timeUntilMeeting < initialCountdown - 2.0
         }
 
         let finalCountdown = overlayManager.timeUntilMeeting
         let totalDecrease = initialCountdown - finalCountdown
-        XCTAssertGreaterThan(totalDecrease, 1.8, "Countdown should decrease by at least ~2 seconds")
+        XCTAssertGreaterThan(totalDecrease, 1.8, "Computed time should track wall clock decrease")
     }
 
-    func testCountdownTimerHandlesPastEvents() async throws {
+    func testTimeUntilMeetingHandlesPastEvents() async throws {
         let pastTime = Date().addingTimeInterval(-60)
         let event = TestUtilities.createTestEvent(startDate: pastTime)
 
@@ -140,9 +140,9 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         )
     }
 
-    // MARK: - Timer Functionality Tests
+    // MARK: - Computed Property Behavior Tests
 
-    func testCountdownTimerActuallyRuns() async throws {
+    func testTimeUntilMeetingContinuouslyDecreases() async throws {
         let futureTime = Date().addingTimeInterval(180)
         let event = TestUtilities.createTestEvent(startDate: futureTime)
 
@@ -153,24 +153,24 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         }
         let initialTime = overlayManager.timeUntilMeeting
 
-        // Wait for timer to decrease
+        // Verify computed property decreases over time
         try await TestUtilities.waitForAsync(timeout: 4.0) { @MainActor @Sendable in
             self.overlayManager.timeUntilMeeting < initialTime - 1.5
         }
         let updatedTime = overlayManager.timeUntilMeeting
 
-        XCTAssertNotEqual(initialTime, updatedTime, "Timer should be running and values should change")
+        XCTAssertNotEqual(initialTime, updatedTime, "Computed time should change as wall clock advances")
         XCTAssertLessThan(updatedTime, initialTime, "Time should be decreasing")
 
-        // Verify it's still running
+        // Verify continued decrease
         try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
             self.overlayManager.timeUntilMeeting < updatedTime - 0.5
         }
         let finalTime = overlayManager.timeUntilMeeting
-        XCTAssertLessThan(finalTime, updatedTime, "Timer should continue running")
+        XCTAssertLessThan(finalTime, updatedTime, "Computed time should continue decreasing")
     }
 
-    func testTimerStopsWhenOverlayHidden() async throws {
+    func testTimeUntilMeetingResetsWhenOverlayHidden() async throws {
         let futureTime = Date().addingTimeInterval(300)
         let event = TestUtilities.createTestEvent(startDate: futureTime)
 
@@ -190,7 +190,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         XCTAssertEqual(timeAfterHide, overlayManager.timeUntilMeeting, "Timer should stop when overlay is hidden")
     }
 
-    func testTimerRestartsProperly() async throws {
+    func testTimeUntilMeetingUpdatesWhenEventChanges() async throws {
         let firstEvent = TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(300))
         let secondEvent = TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(600))
 
@@ -257,7 +257,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
 
     // MARK: - Integration Tests
 
-    func testOverlayManagerTimerSynchronization() async throws {
+    func testOverlayManagerTimeComputationConsistency() async throws {
         let event = TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(240))
 
         overlayManager.showOverlayImmediately(for: event)
@@ -304,7 +304,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         XCTAssertEqual(activeEvent.provider, complexEvent.provider)
     }
 
-    func testTimerAccuracyOverLongerPeriod() async throws {
+    func testComputedTimeAccuracyOverLongerPeriod() async throws {
         let event = TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(600))
 
         overlayManager.showOverlayImmediately(for: event)

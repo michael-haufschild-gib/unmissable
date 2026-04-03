@@ -150,7 +150,7 @@ final class AttendeeModelTests: XCTestCase {
         XCTAssertEqual(decodedAttendee.isOptional, attendee.isOptional)
         XCTAssertEqual(decodedAttendee.isOrganizer, attendee.isOrganizer)
         XCTAssertEqual(decodedAttendee.isSelf, attendee.isSelf)
-        // Note: UUID ids will be different, but that's expected
+        XCTAssertEqual(decodedAttendee.id, attendee.id)
     }
 
     func testAttendeeArrayCodable() throws {
