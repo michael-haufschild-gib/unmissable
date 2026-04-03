@@ -163,6 +163,9 @@ final class EventScheduler: ObservableObject {
         var missedAlertEvents: [Event] = []
 
         for event in events {
+            // Skip all-day events — they aren't joinable meetings
+            if event.isAllDay { continue }
+
             // Skip events that have already ended
             if event.endDate < currentTime {
                 continue

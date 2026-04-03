@@ -82,19 +82,21 @@ final class MenuBarPreviewManager: ObservableObject {
 
     /// Returns the most relevant meeting for the timer display:
     /// first any in-progress meeting (started but not ended), then the next upcoming one.
+    /// All-day events are excluded — they aren't joinable meetings.
     private func getNextMeeting() -> Event? {
         let now = Date()
+        let timedEvents = events.filter { !$0.isAllDay }
 
         // Prefer an in-progress meeting so the timer shows "Starting" instead of
         // disappearing the moment a meeting begins.
-        if let inProgress = events
+        if let inProgress = timedEvents
             .filter({ $0.startDate <= now && $0.endDate > now })
             .min(by: { $0.startDate < $1.startDate })
         {
             return inProgress
         }
 
-        return events
+        return timedEvents
             .filter { $0.startDate > now }
             .min { $0.startDate < $1.startDate }
     }
