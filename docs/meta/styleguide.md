@@ -1,7 +1,7 @@
 # Style Guide
 
 **Purpose**: Immutable formatting, naming, and design system rules. Violations are lint errors.
-**Enforced by**: `.swiftlint.yml`, `.swiftformat`, `LintGatePlugin` (SPM build tool plugin)
+**Enforced by**: `.swiftlint.yml`, `.swiftformat`, `Scripts/enforce-lint.sh`
 
 ---
 

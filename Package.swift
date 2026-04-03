@@ -89,10 +89,5 @@ let package = Package(
             ],
             path: "Tests/E2ETests",
         ),
-        .plugin(
-            name: "LintGatePlugin",
-            capability: .buildTool(),
-            path: "Plugins/LintGatePlugin",
-        ),
     ],
 )
