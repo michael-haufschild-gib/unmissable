@@ -30,7 +30,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         let event = TestUtilities.createTestEvent(
             title: "Test Meeting",
             startDate: specificStartTime,
-            endDate: specificStartTime.addingTimeInterval(3600)
+            endDate: specificStartTime.addingTimeInterval(3600),
         )
 
         overlayManager.showOverlayImmediately(for: event)
@@ -46,10 +46,10 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         let secondEventTime = Date().addingTimeInterval(900)
 
         let firstEvent = TestUtilities.createTestEvent(
-            title: "First Meeting", startDate: firstEventTime
+            title: "First Meeting", startDate: firstEventTime,
         )
         let secondEvent = TestUtilities.createTestEvent(
-            title: "Second Meeting", startDate: secondEventTime
+            title: "Second Meeting", startDate: secondEventTime,
         )
 
         overlayManager.showOverlayImmediately(for: firstEvent)
@@ -97,10 +97,10 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         overlayManager.showOverlayImmediately(for: event)
 
         XCTAssertGreaterThan(
-            overlayManager.timeUntilMeeting, 290, "Countdown should be initialized immediately"
+            overlayManager.timeUntilMeeting, 290, "Countdown should be initialized immediately",
         )
         XCTAssertLessThan(
-            overlayManager.timeUntilMeeting, 310, "Initial countdown should be close to 5 minutes"
+            overlayManager.timeUntilMeeting, 310, "Initial countdown should be close to 5 minutes",
         )
     }
 
@@ -133,10 +133,10 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         }
 
         XCTAssertLessThan(
-            overlayManager.timeUntilMeeting, 0, "Countdown should be negative for past events"
+            overlayManager.timeUntilMeeting, 0, "Countdown should be negative for past events",
         )
         XCTAssertGreaterThan(
-            overlayManager.timeUntilMeeting, -70, "Should be approximately -60 seconds"
+            overlayManager.timeUntilMeeting, -70, "Should be approximately -60 seconds",
         )
     }
 
@@ -207,7 +207,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         let secondEventTime = overlayManager.timeUntilMeeting
 
         XCTAssertGreaterThan(
-            secondEventTime, firstEventTime, "Second event should have more time remaining"
+            secondEventTime, firstEventTime, "Second event should have more time remaining",
         )
 
         // Verify timer is running for second event
@@ -216,7 +216,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         }
 
         XCTAssertLessThan(
-            overlayManager.timeUntilMeeting, secondEventTime, "Timer should be running for second event"
+            overlayManager.timeUntilMeeting, secondEventTime, "Timer should be running for second event",
         )
     }
 
@@ -282,15 +282,18 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
             location: "Conference Room A / Google Meet",
             attendees: [
                 Attendee(
-                    name: "John Doe", email: "john@example.com", status: .accepted, isOrganizer: true,
-                    isSelf: false
+                    name: "John Doe",
+                    email: "john@example.com",
+                    status: .accepted,
+                    isOrganizer: true,
+                    isSelf: false,
                 ),
                 Attendee(name: "Jane Smith", email: "jane@example.com", status: .tentative, isSelf: false),
                 Attendee(email: "user@example.com", status: .accepted, isSelf: true),
             ],
             calendarId: "primary",
             links: [XCTUnwrap(URL(string: "https://meet.google.com/test-room"))],
-            provider: .meet
+            provider: .meet,
         )
 
         overlayManager.showOverlayImmediately(for: complexEvent)
@@ -300,7 +303,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
         XCTAssertEqual(activeEvent.id, complexEvent.id)
         XCTAssertEqual(activeEvent.title, complexEvent.title)
         XCTAssertEqual(activeEvent.organizer, complexEvent.organizer)
-        XCTAssertEqual(activeEvent.attendees.count, complexEvent.attendees.count)
+        XCTAssertEqual(activeEvent.attendees.map(\.email), complexEvent.attendees.map(\.email))
         XCTAssertEqual(activeEvent.provider, complexEvent.provider)
     }
 
@@ -343,7 +346,7 @@ final class OverlayAccuracyAndInteractionTests: XCTestCase {
 
         XCTAssertLessThan(overlayManager.timeUntilMeeting, 1, "Should handle zero/negative time")
         XCTAssertTrue(
-            overlayManager.isOverlayVisible, "Overlay should still be visible briefly after start"
+            overlayManager.isOverlayVisible, "Overlay should still be visible briefly after start",
         )
     }
 

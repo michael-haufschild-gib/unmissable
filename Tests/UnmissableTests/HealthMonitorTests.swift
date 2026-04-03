@@ -22,15 +22,16 @@ final class HealthMonitorTests: XCTestCase {
         let dbURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("health-test-\(UUID().uuidString).db")
         let calendarService = CalendarService(
-            preferencesManager: preferences, databaseManager: DatabaseManager(databaseURL: dbURL),
-            linkParser: LinkParser()
+            preferencesManager: preferences,
+            databaseManager: DatabaseManager(databaseURL: dbURL),
+            linkParser: LinkParser(),
         )
         let overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         let monitor = HealthMonitor()
 
         monitor.setup(
             calendarService: calendarService,
-            overlayManager: overlayManager
+            overlayManager: overlayManager,
         )
 
         try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
@@ -44,8 +45,9 @@ final class HealthMonitorTests: XCTestCase {
         let dbURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("health-test-\(UUID().uuidString).db")
         let calendarService = CalendarService(
-            preferencesManager: preferences, databaseManager: DatabaseManager(databaseURL: dbURL),
-            linkParser: LinkParser()
+            preferencesManager: preferences,
+            databaseManager: DatabaseManager(databaseURL: dbURL),
+            linkParser: LinkParser(),
         )
         let overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         let monitor = HealthMonitor()
@@ -57,7 +59,7 @@ final class HealthMonitorTests: XCTestCase {
 
         monitor.setup(
             calendarService: calendarService,
-            overlayManager: overlayManager
+            overlayManager: overlayManager,
         )
 
         try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in

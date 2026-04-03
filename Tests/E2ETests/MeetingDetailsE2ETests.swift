@@ -25,7 +25,7 @@ final class MeetingDetailsE2ETests: XCTestCase {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-popup-1",
             title: "Popup Test Meeting",
-            minutesFromNow: 15
+            minutesFromNow: 15,
         )
         try await env.seedEvents([event])
 
@@ -61,7 +61,7 @@ final class MeetingDetailsE2ETests: XCTestCase {
             id: "e2e-popup-meet",
             title: "Google Meet Popup",
             minutesFromNow: 20,
-            provider: .meet
+            provider: .meet,
         )
         try await env.seedEvents([meetEvent])
 
@@ -81,7 +81,7 @@ final class MeetingDetailsE2ETests: XCTestCase {
         let inPersonEvent = E2EEventBuilder.futureEvent(
             id: "e2e-popup-nlink",
             title: "In-Person Popup Meeting",
-            minutesFromNow: 25
+            minutesFromNow: 25,
         )
         try await env.seedEvents([inPersonEvent])
 
@@ -104,19 +104,24 @@ final class MeetingDetailsE2ETests: XCTestCase {
             organizer: "boss@company.com",
             attendees: [
                 Attendee(
-                    name: "Alice", email: "alice@company.com",
-                    status: .accepted, isSelf: false
+                    name: "Alice",
+                    email: "alice@company.com",
+                    status: .accepted,
+                    isSelf: false,
                 ),
                 Attendee(
-                    name: "Bob", email: "bob@company.com",
-                    status: .tentative, isSelf: false
+                    name: "Bob",
+                    email: "bob@company.com",
+                    status: .tentative,
+                    isSelf: false,
                 ),
                 Attendee(
                     email: "me@company.com",
-                    status: .accepted, isSelf: true
+                    status: .accepted,
+                    isSelf: true,
                 ),
             ],
-            calendarId: "e2e-cal"
+            calendarId: "e2e-cal",
         )
 
         try await env.seedEvents([event])
@@ -127,7 +132,10 @@ final class MeetingDetailsE2ETests: XCTestCase {
         env.meetingDetailsPopupManager.showPopup(for: dbEvent)
 
         let shownEvent = try XCTUnwrap(env.meetingDetailsPopupManager.lastShownEvent)
-        XCTAssertEqual(shownEvent.attendees.count, 3)
+        XCTAssertEqual(
+            Set(shownEvent.attendees.map(\.email)),
+            Set(["alice@company.com", "bob@company.com", "me@company.com"]),
+        )
         XCTAssertEqual(shownEvent.organizer, "boss@company.com")
     }
 

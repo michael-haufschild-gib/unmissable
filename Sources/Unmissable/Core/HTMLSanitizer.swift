@@ -132,14 +132,14 @@ enum HTMLSanitizer {
             tagName: tagName,
             fullTag: fullTag,
             isClosing: isClosing,
-            afterTag: tagEnd
+            afterTag: tagEnd,
         )
     }
 
     /// Advances past the closing tag `</tagName>` for a dangerous paired element.
     /// Handles nested instances of the same tag.
     private static func skipToClosingTag(
-        _ html: String, from: String.Index, tagName: String
+        _ html: String, from: String.Index, tagName: String,
     ) -> String.Index {
         var i = from
         var depth = 1
@@ -183,6 +183,9 @@ enum HTMLSanitizer {
         let isEventHandler: Bool
     }
 
+    /// Minimum length for `on*` to be considered an event handler (e.g. "on" + at least one char).
+    private static let minEventHandlerPrefixLength = 2
+
     /// Removes event handler attributes (on*) and neutralizes javascript:/data: URIs
     /// within a tag string like `<a href="..." onclick="...">`.
     private static func sanitizeAttributes(_ tag: String) -> String {
@@ -223,7 +226,7 @@ enum HTMLSanitizer {
     /// Copies the tag opener (`<`, optional `/`, and tag name) into `result`.
     /// Returns the index immediately after the tag name.
     private static func copyTagPrefix(
-        _ tag: String, into result: inout String
+        _ tag: String, into result: inout String,
     ) -> String.Index {
         var i = tag.startIndex
         result.append(tag[i]) // '<'
@@ -243,7 +246,7 @@ enum HTMLSanitizer {
     /// Strips event handler attributes and neutralizes dangerous URIs.
     /// Returns the index after the processed attribute.
     private static func processAttribute(
-        _ tag: String, from start: String.Index, into result: inout String
+        _ tag: String, from start: String.Index, into result: inout String,
     ) -> String.Index {
         var i = start
 
@@ -267,7 +270,7 @@ enum HTMLSanitizer {
             nameLower: nameLower,
             wsStart: wsStart,
             attrStart: attrStart,
-            isEventHandler: nameLower.hasPrefix("on") && nameLower.count > 2
+            isEventHandler: nameLower.hasPrefix("on") && nameLower.count > Self.minEventHandlerPrefixLength,
         )
 
         // Look for `= value`
@@ -313,7 +316,7 @@ enum HTMLSanitizer {
         _ tag: String,
         attr: ParsedAttributeName,
         quoted: QuotedValue,
-        into result: inout String
+        into result: inout String,
     ) -> String.Index {
         if attr.isEventHandler {
             return quoted.afterQuote
@@ -338,7 +341,7 @@ enum HTMLSanitizer {
     /// Reads a quoted attribute value starting at the opening quote character.
     /// Returns nil if `from` does not point to a quote.
     private static func readQuotedValue(
-        _ tag: String, from: String.Index
+        _ tag: String, from: String.Index,
     ) -> QuotedValue? {
         guard from < tag.endIndex,
               tag[from] == "\"" || tag[from] == "'"
@@ -356,13 +359,13 @@ enum HTMLSanitizer {
         return QuotedValue(
             value: String(tag[valueStart ..< valueEnd]),
             quote: quote,
-            afterQuote: afterQuote
+            afterQuote: afterQuote,
         )
     }
 
     /// Advances past whitespace characters, returning the first non-whitespace index.
     private static func skipWhitespace(
-        _ tag: String, from: String.Index
+        _ tag: String, from: String.Index,
     ) -> String.Index {
         var i = from
         while i < tag.endIndex, tag[i].isWhitespace {
@@ -370,6 +373,17 @@ enum HTMLSanitizer {
         }
         return i
     }
+
+    /// Start of the ASCII graphic character range (printable, non-whitespace).
+    private static let asciiGraphicRangeStart: UInt32 = 0x21
+    /// End of the ASCII graphic character range (printable, non-whitespace).
+    private static let asciiGraphicRangeEnd: UInt32 = 0x7E
+    /// Maximum number of digits allowed in a numeric HTML entity.
+    private static let maxEntityDigits = 8
+    /// Radix for hexadecimal number parsing.
+    private static let hexRadix = 16
+    /// Radix for decimal number parsing.
+    private static let decimalRadix = 10
 
     /// Checks if a URI value starts with `javascript:` or `data:` (case-insensitive).
     /// Decodes HTML entities and strips all non-ASCII-graphic characters before the
@@ -383,7 +397,7 @@ enum HTMLSanitizer {
         // non-ASCII character that could be injected via undecoded named entities.
         // The original value is not modified — only the detection check uses this.
         let normalized = String(decoded.unicodeScalars.filter { scalar in
-            scalar.value >= 0x21 && scalar.value <= 0x7E
+            scalar.value >= asciiGraphicRangeStart && scalar.value <= asciiGraphicRangeEnd
         })
         let lowered = normalized.lowercased()
         return lowered.hasPrefix("javascript:") || lowered.hasPrefix("data:")
@@ -431,7 +445,7 @@ enum HTMLSanitizer {
     ]
 
     private static func tryDecodeEntity(
-        _ value: String, from start: String.Index
+        _ value: String, from start: String.Index,
     ) -> DecodedEntity? {
         let afterAmp = value.index(after: start)
         guard afterAmp < value.endIndex else { return nil }
@@ -441,18 +455,16 @@ enum HTMLSanitizer {
         }
 
         let remaining = String(value[afterAmp...]).lowercased()
-        for (suffix, char) in namedEntities {
-            if remaining.hasPrefix(suffix) {
-                let afterEntity = value.index(afterAmp, offsetBy: suffix.count)
-                return DecodedEntity(character: char, afterEntity: afterEntity)
-            }
+        for (suffix, char) in namedEntities where remaining.hasPrefix(suffix) {
+            let afterEntity = value.index(afterAmp, offsetBy: suffix.count)
+            return DecodedEntity(character: char, afterEntity: afterEntity)
         }
 
         return nil
     }
 
     private static func tryDecodeNumericEntity(
-        _ value: String, afterHash: String.Index
+        _ value: String, afterHash: String.Index,
     ) -> DecodedEntity? {
         guard afterHash < value.endIndex else { return nil }
 
@@ -466,16 +478,16 @@ enum HTMLSanitizer {
         while i < value.endIndex, value[i] != ";" {
             digits.append(value[i])
             i = value.index(after: i)
-            if digits.count > 8 { return nil }
+            if digits.count > maxEntityDigits { return nil }
         }
 
         guard i < value.endIndex, value[i] == ";" else { return nil }
         let afterSemicolon = value.index(after: i)
 
         let codePoint: UInt32? = if isHex {
-            UInt32(digits, radix: 16)
+            UInt32(digits, radix: hexRadix)
         } else {
-            UInt32(digits, radix: 10)
+            UInt32(digits, radix: decimalRadix)
         }
 
         guard let cp = codePoint, let scalar = Unicode.Scalar(cp) else { return nil }

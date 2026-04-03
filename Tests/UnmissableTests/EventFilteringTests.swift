@@ -19,7 +19,7 @@ final class EventFilteringTests: XCTestCase {
             attendees: [],
             attachments: nil,
             conferenceData: nil,
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         let result = apiService.convertToEvent(from: entry, calendarId: "test-calendar")
@@ -46,7 +46,7 @@ final class EventFilteringTests: XCTestCase {
                     responseStatus: "declined",
                     isOptional: false,
                     isOrganizer: false,
-                    isSelf: true
+                    isSelf: true,
                 ),
                 GCalAttendee(
                     email: "other@example.com",
@@ -54,12 +54,12 @@ final class EventFilteringTests: XCTestCase {
                     responseStatus: "accepted",
                     isOptional: false,
                     isOrganizer: false,
-                    isSelf: false
+                    isSelf: false,
                 ),
             ],
             attachments: nil,
             conferenceData: nil,
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         let result = apiService.convertToEvent(from: entry, calendarId: "test-calendar")
@@ -86,17 +86,17 @@ final class EventFilteringTests: XCTestCase {
                     responseStatus: "accepted",
                     isOptional: false,
                     isOrganizer: false,
-                    isSelf: true
+                    isSelf: true,
                 ),
             ],
             attachments: nil,
             conferenceData: nil,
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         let result = try XCTUnwrap(
             apiService.convertToEvent(from: entry, calendarId: "test-calendar"),
-            "Events where user accepted should NOT be filtered"
+            "Events where user accepted should NOT be filtered",
         )
 
         XCTAssertEqual(result.title, "User Accepted Meeting")
@@ -123,17 +123,17 @@ final class EventFilteringTests: XCTestCase {
                     responseStatus: "tentative",
                     isOptional: false,
                     isOrganizer: false,
-                    isSelf: true
+                    isSelf: true,
                 ),
             ],
             attachments: nil,
             conferenceData: nil,
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         let result = try XCTUnwrap(
             apiService.convertToEvent(from: entry, calendarId: "test-calendar"),
-            "Events where user responded tentative should NOT be filtered"
+            "Events where user responded tentative should NOT be filtered",
         )
 
         XCTAssertEqual(result.title, "User Tentative Meeting")
@@ -159,7 +159,7 @@ final class EventFilteringTests: XCTestCase {
                     responseStatus: "accepted",
                     isOptional: false,
                     isOrganizer: false,
-                    isSelf: false
+                    isSelf: false,
                 ),
                 GCalAttendee(
                     email: "other2@example.com",
@@ -167,17 +167,17 @@ final class EventFilteringTests: XCTestCase {
                     responseStatus: "declined",
                     isOptional: false,
                     isOrganizer: false,
-                    isSelf: false
+                    isSelf: false,
                 ),
             ],
             attachments: nil,
             conferenceData: nil,
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         let result = try XCTUnwrap(
             apiService.convertToEvent(from: entry, calendarId: "test-calendar"),
-            "Events without current user as attendee should NOT be filtered"
+            "Events without current user as attendee should NOT be filtered",
         )
 
         XCTAssertEqual(result.title, "Other People Meeting")
@@ -199,12 +199,12 @@ final class EventFilteringTests: XCTestCase {
             attendees: [],
             attachments: nil,
             conferenceData: nil,
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         let result = try XCTUnwrap(
             apiService.convertToEvent(from: entry, calendarId: "test-calendar"),
-            "Events without status field should default to confirmed and not be filtered"
+            "Events without status field should default to confirmed and not be filtered",
         )
         XCTAssertEqual(result.title, "Meeting Without Status")
     }
@@ -229,7 +229,7 @@ final class EventFilteringTests: XCTestCase {
                     responseStatus: "accepted",
                     isOptional: false,
                     isOrganizer: false,
-                    isSelf: true
+                    isSelf: true,
                 ),
                 GCalAttendee(
                     email: "other-user@example.com",
@@ -237,7 +237,7 @@ final class EventFilteringTests: XCTestCase {
                     responseStatus: "accepted",
                     isOptional: false,
                     isOrganizer: false,
-                    isSelf: false
+                    isSelf: false,
                 ),
                 GCalAttendee(
                     email: "no-self-field@example.com",
@@ -245,20 +245,22 @@ final class EventFilteringTests: XCTestCase {
                     responseStatus: "tentative",
                     isOptional: nil,
                     isOrganizer: nil,
-                    isSelf: nil
+                    isSelf: nil,
                 ),
             ],
             attachments: nil,
             conferenceData: nil,
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         let event = try XCTUnwrap(
             apiService.convertToEvent(from: entry, calendarId: "test-calendar"),
-            "Event with attendees should parse successfully"
+            "Event with attendees should parse successfully",
         )
 
-        XCTAssertEqual(event.attendees.count, 3)
+        XCTAssertEqual(event.attendees.map(\.email).sorted(), [
+            "current-user@example.com", "no-self-field@example.com", "other-user@example.com",
+        ])
 
         let currentUser = try XCTUnwrap(event.attendees.first { $0.email == "current-user@example.com" })
         XCTAssertTrue(currentUser.isSelf)

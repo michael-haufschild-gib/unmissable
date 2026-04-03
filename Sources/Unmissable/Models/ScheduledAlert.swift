@@ -1,15 +1,21 @@
 import Foundation
 
-struct ScheduledAlert: Identifiable {
+struct ScheduledAlert: Identifiable, Equatable {
     let id = UUID()
     let event: Event
     let triggerDate: Date
     let alertType: AlertType
 
-    enum AlertType {
+    enum AlertType: Equatable {
         case reminder(minutesBefore: Int)
         case snooze(until: Date)
         case meetingStart
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.event == rhs.event
+            && lhs.triggerDate == rhs.triggerDate
+            && lhs.alertType == rhs.alertType
     }
 
     /// Whether the trigger date has passed relative to the given reference time.

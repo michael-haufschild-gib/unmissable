@@ -42,7 +42,7 @@ final class AppleCalendarAuthService: ObservableObject, CalendarAuthProviding {
         }
     }
 
-    // Protocol conformance: CalendarAuthProviding requires async
+    // Protocol conformance: CalendarAuthProviding requires async signature
     // swiftlint:disable:next async_without_await
     func validateAuthState() async {
         updateAuthStatus()

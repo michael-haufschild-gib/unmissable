@@ -36,7 +36,7 @@ struct EventAttachment: Codable, Equatable, Identifiable {
         iconLink: String? = nil,
         fileId: String? = nil,
         fileSize: Int64? = nil,
-        lastModified: Date? = nil
+        lastModified: Date? = nil,
     ) {
         self.fileUrl = fileUrl
         self.title = title

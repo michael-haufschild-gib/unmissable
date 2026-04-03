@@ -121,7 +121,7 @@ final class MeetingDetailsPopupTests: XCTestCase {
             title: "",
             startDate: Date(),
             endDate: Date().addingTimeInterval(3600),
-            calendarId: "test"
+            calendarId: "test",
         )
 
         pm.showPopup(for: emptyEvent)
@@ -140,7 +140,7 @@ final class MeetingDetailsPopupTests: XCTestCase {
                 email:
                 "very.long.email.address.for.testing.purposes.attendee\(index)@verylongdomainname.example.com",
                 status: .accepted,
-                isSelf: false
+                isSelf: false,
             )
         }
 
@@ -151,7 +151,7 @@ final class MeetingDetailsPopupTests: XCTestCase {
             endDate: Date().addingTimeInterval(3600),
             description: longDescription,
             attendees: manyAttendees,
-            calendarId: "test"
+            calendarId: "test",
         )
 
         pm.showPopup(for: longEvent)
@@ -196,7 +196,7 @@ final class MeetingDetailsPopupTests: XCTestCase {
         XCTAssertEqual(shownEvent.id, sampleEvent.id)
         XCTAssertEqual(shownEvent.title, sampleEvent.title)
         XCTAssertEqual(shownEvent.organizer, sampleEvent.organizer)
-        XCTAssertEqual(shownEvent.attendees.count, sampleEvent.attendees.count)
+        XCTAssertEqual(shownEvent.attendees.map(\.email), sampleEvent.attendees.map(\.email))
 
         pm.hidePopup()
     }
@@ -224,11 +224,13 @@ final class MeetingDetailsPopupTests: XCTestCase {
             description: String(repeating: "Performance test description. ", count: 1000),
             attendees: (1 ... 200).map { index in
                 Attendee(
-                    name: "Attendee \(index)", email: "attendee\(index)@example.com", status: .accepted,
-                    isSelf: false
+                    name: "Attendee \(index)",
+                    email: "attendee\(index)@example.com",
+                    status: .accepted,
+                    isSelf: false,
                 )
             },
-            calendarId: "performance"
+            calendarId: "performance",
         )
 
         let startTime = CFAbsoluteTimeGetCurrent()
@@ -254,17 +256,28 @@ final class MeetingDetailsPopupTests: XCTestCase {
             location: "Conference Room A",
             attendees: [
                 Attendee(
-                    name: "John Doe", email: "john@example.com", status: .accepted, isOrganizer: true,
-                    isSelf: false
+                    name: "John Doe",
+                    email: "john@example.com",
+                    status: .accepted,
+                    isOrganizer: true,
+                    isSelf: false,
                 ),
-                Attendee(name: "Jane Smith", email: "jane@example.com", status: .tentative, isSelf: false),
                 Attendee(
-                    email: "contractor@external.com", status: .needsAction, isOptional: true, isSelf: false
+                    name: "Jane Smith",
+                    email: "jane@example.com",
+                    status: .tentative,
+                    isSelf: false,
+                ),
+                Attendee(
+                    email: "contractor@external.com",
+                    status: .needsAction,
+                    isOptional: true,
+                    isSelf: false,
                 ),
             ],
             calendarId: "primary",
             // swiftlint:disable:next force_unwrapping
-            links: [URL(string: "https://meet.google.com/abc-defg-hij")!]
+            links: [URL(string: "https://meet.google.com/abc-defg-hij")!],
         )
     }
 }

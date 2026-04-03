@@ -7,7 +7,7 @@ private let attachmentsLogger = Logger(category: "AttachmentsView")
 /// A SwiftUI view that displays event attachments with links to open them
 struct AttachmentsView: View {
     let attachments: [EventAttachment]
-    @Environment(\.customDesign)
+    @Environment(\.design)
     private var design
 
     var body: some View {
@@ -35,44 +35,52 @@ struct AttachmentsView: View {
 /// Individual attachment row component
 struct AttachmentRow: View {
     let attachment: EventAttachment
-    @Environment(\.customDesign)
+    @Environment(\.design)
     private var design
     @State
     private var isHovered = false
+
+    private static let iconSize: CGFloat = 16
+    private static let nameLineLimit = 2
+    private static let hoverVisibleOpacity: Double = 1.0
+    private static let hoverHiddenOpacity: Double = 0.6
+    private static let borderLineWidth: CGFloat = 1
+    private static let hoverAnimationDuration: Double = 0.2
+    private static let accentBackgroundOpacity: Double = 0.1
 
     var body: some View {
         Button(action: openAttachment) {
             HStack(spacing: design.spacing.sm) {
                 Image(systemName: attachment.systemIconName)
                     .foregroundColor(iconColor)
-                    .frame(width: 16, height: 16)
+                    .frame(width: Self.iconSize, height: Self.iconSize)
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: design.spacing.xs) {
                     Text(attachment.title)
                         .font(design.fonts.callout)
                         .foregroundColor(design.colors.textPrimary)
-                        .lineLimit(2)
+                        .lineLimit(Self.nameLineLimit)
                         .multilineTextAlignment(.leading)
 
                     HStack(spacing: design.spacing.xs) {
                         if let fileSize = attachment.fileSizeString {
                             Text(fileSize)
-                                .font(design.fonts.caption2)
+                                .font(design.fonts.caption)
                                 .foregroundColor(design.colors.textSecondary)
                         }
 
                         if attachment.isGoogleDriveFile {
                             Text("Google Drive")
-                                .font(design.fonts.caption2)
+                                .font(design.fonts.caption)
                                 .foregroundColor(design.colors.textSecondary)
                         }
 
                         Spacer()
 
                         Image(systemName: "arrow.up.right.square")
-                            .font(design.fonts.caption1)
+                            .font(design.fonts.caption)
                             .foregroundColor(design.colors.textSecondary)
-                            .opacity(isHovered ? 1.0 : 0.6)
+                            .opacity(isHovered ? Self.hoverVisibleOpacity : Self.hoverHiddenOpacity)
                     }
                 }
 
@@ -81,15 +89,15 @@ struct AttachmentRow: View {
             .padding(.horizontal, design.spacing.sm)
             .padding(.vertical, design.spacing.sm)
             .background(backgroundColor)
-            .cornerRadius(design.corners.medium)
+            .cornerRadius(design.corners.md)
             .overlay(
-                RoundedRectangle(cornerRadius: design.corners.medium)
-                    .stroke(borderColor, lineWidth: 1)
+                RoundedRectangle(cornerRadius: design.corners.md)
+                    .stroke(borderColor, lineWidth: Self.borderLineWidth),
             )
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(UMButtonStyle(.ghost, size: .sm))
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(.easeInOut(duration: Self.hoverAnimationDuration)) {
                 isHovered = hovering
             }
         }
@@ -106,18 +114,18 @@ struct AttachmentRow: View {
         } else if attachment.mimeType.hasPrefix("video/") {
             design.colors.warning
         } else if attachment.mimeType.hasPrefix("audio/") {
-            design.colors.accentSecondary
+            design.colors.accentHover
         } else {
             design.colors.textTertiary
         }
     }
 
     private var backgroundColor: Color {
-        isHovered ? design.colors.backgroundSecondary : Color.clear
+        isHovered ? design.colors.surface : Color.clear
     }
 
     private var borderColor: Color {
-        isHovered ? design.colors.border : design.colors.borderSecondary
+        isHovered ? design.colors.borderDefault : design.colors.borderSubtle
     }
 
     // MARK: - Actions
@@ -147,6 +155,12 @@ struct AttachmentRow: View {
 // MARK: - Preview
 
 #if DEBUG
+    private enum AttachmentsPreviewConstants {
+        static let pdfFileSize: Int64 = 2_548_736
+        static let spreadsheetFileSize: Int64 = 1_024_000
+        static let previewWidth: CGFloat = 400
+    }
+
     struct AttachmentsView_Previews: PreviewProvider {
         static var previews: some View {
             let sampleAttachments = [
@@ -156,7 +170,7 @@ struct AttachmentRow: View {
                     mimeType: "application/pdf",
                     iconLink: "https://drive-thirdparty.googleusercontent.com/16/type/application/pdf",
                     fileId: "abc123",
-                    fileSize: 2_548_736
+                    fileSize: AttachmentsPreviewConstants.pdfFileSize,
                 ),
                 EventAttachment(
                     fileUrl: "https://docs.google.com/document/d/def456/edit",
@@ -164,7 +178,7 @@ struct AttachmentRow: View {
                     mimeType: "application/vnd.google-apps.document",
                     iconLink:
                     "https://drive-thirdparty.googleusercontent.com/16/type/application/vnd.google-apps.document",
-                    fileId: "def456"
+                    fileId: "def456",
                 ),
                 EventAttachment(
                     fileUrl: "https://sheets.google.com/spreadsheets/d/ghi789/edit",
@@ -173,14 +187,14 @@ struct AttachmentRow: View {
                     iconLink:
                     "https://drive-thirdparty.googleusercontent.com/16/type/application/vnd.google-apps.spreadsheet",
                     fileId: "ghi789",
-                    fileSize: 1_024_000
+                    fileSize: AttachmentsPreviewConstants.spreadsheetFileSize,
                 ),
             ]
 
             AttachmentsView(attachments: sampleAttachments)
                 .padding()
-                .frame(width: 400)
-                .customThemedEnvironment(themeManager: ThemeManager())
+                .frame(width: AttachmentsPreviewConstants.previewWidth)
+                .themed(themeManager: ThemeManager())
         }
     }
 #endif

@@ -27,26 +27,28 @@ final class DatabaseResilienceE2ETests: XCTestCase {
         try await env.seedEvents(events)
 
         let beforeReset = try await env.fetchUpcomingEvents()
-        XCTAssertEqual(beforeReset.count, 5)
+        let firstEvent = try XCTUnwrap(beforeReset.first)
+        XCTAssertEqual(firstEvent.title, "Batch Meeting 1")
+        XCTAssertEqual(beforeReset.map(\.id).sorted(), (0 ..< 5).map { "e2e-batch-\($0)" })
 
         // Reset database
         try await env.databaseManager.resetDatabase()
 
         // All events should be gone
         let afterReset = try await env.fetchUpcomingEvents()
-        XCTAssertTrue(afterReset.isEmpty)
+        XCTAssertEqual(afterReset, [])
 
         // Database should still be functional — can save new events
         let newEvent = E2EEventBuilder.futureEvent(
             id: "e2e-post-reset",
             title: "Post-Reset Meeting",
-            minutesFromNow: 20
+            minutesFromNow: 20,
         )
         try await env.seedEvents([newEvent])
 
         let postSave = try await env.fetchUpcomingEvents()
-        XCTAssertEqual(postSave.count, 1)
-        XCTAssertEqual(postSave.first?.id, "e2e-post-reset")
+        let postResetEvent = try XCTUnwrap(postSave.first)
+        XCTAssertEqual(postResetEvent.id, "e2e-post-reset")
     }
 
     // MARK: - Concurrent Database Access
@@ -59,7 +61,7 @@ final class DatabaseResilienceE2ETests: XCTestCase {
                     id: "e2e-concurrent-\(batchIndex)-\(eventIndex)",
                     title: "Batch \(batchIndex) Event \(eventIndex)",
                     minutesFromNow: 10 + batchIndex * 10 + eventIndex,
-                    calendarId: "concurrent-cal-\(batchIndex)"
+                    calendarId: "concurrent-cal-\(batchIndex)",
                 )
             }
             try await env.seedEvents(batch)
@@ -67,13 +69,14 @@ final class DatabaseResilienceE2ETests: XCTestCase {
 
         // All 25 events should be saved without corruption
         let allEvents = try await env.databaseManager.fetchEvents(
-            from: Date(), to: Date().addingTimeInterval(86_400)
+            from: Date(), to: Date().addingTimeInterval(86_400),
         )
-        XCTAssertEqual(allEvents.count, 25, "All 25 saved events should be present")
-
-        // Verify no duplicates
-        let uniqueIds = Set(allEvents.map(\.id))
-        XCTAssertEqual(uniqueIds.count, 25, "All event IDs should be unique")
+        // Verify no duplicates — all 25 events should be present with unique IDs
+        let expectedIds = Set((0 ..< 5).flatMap { batch in
+            (0 ..< 5).map { "e2e-concurrent-\(batch)-\($0)" }
+        })
+        let actualIds = Set(allEvents.map(\.id))
+        XCTAssertEqual(actualIds, expectedIds, "All 25 saved events should be present with unique IDs")
     }
 
     func testInterleavedReadAndWriteDoNotConflict() async throws {
@@ -85,21 +88,25 @@ final class DatabaseResilienceE2ETests: XCTestCase {
             // Write
             let newEvent = E2EEventBuilder.futureEvent(
                 id: "e2e-rw-\(i)",
-                minutesFromNow: 60 + i * 5
+                minutesFromNow: 60 + i * 5,
             )
             try await env.seedEvents([newEvent])
 
             // Read
             let fetched = try await env.fetchUpcomingEvents(limit: 100)
             XCTAssertGreaterThanOrEqual(
-                fetched.count, 10 + i,
-                "Should see at least \(10 + i) events after write \(i)"
+                fetched.count,
+                11 + i,
+                "Should see at least \(11 + i) events after write \(i)",
             )
         }
 
         // Final state should have all events
         let finalEvents = try await env.fetchUpcomingEvents(limit: 100)
-        XCTAssertEqual(finalEvents.count, 15, "Should have original 10 + 5 new events")
+        let finalIds = Set(finalEvents.map(\.id))
+        let numberOfFinalEvents = finalEvents.count
+        XCTAssertEqual(numberOfFinalEvents, 15, "Should have original 10 + 5 new events")
+        XCTAssertEqual(finalIds.intersection(["e2e-rw-0", "e2e-rw-4"]), ["e2e-rw-0", "e2e-rw-4"])
     }
 
     // MARK: - Replace Events Atomicity
@@ -109,7 +116,7 @@ final class DatabaseResilienceE2ETests: XCTestCase {
             E2EEventBuilder.futureEvent(
                 id: "e2e-atomic-old-\(i)",
                 minutesFromNow: 20 + i * 5,
-                calendarId: "atomic-cal"
+                calendarId: "atomic-cal",
             )
         }
         try await env.seedEvents(originalEvents)
@@ -118,25 +125,19 @@ final class DatabaseResilienceE2ETests: XCTestCase {
             E2EEventBuilder.futureEvent(
                 id: "e2e-atomic-new-\(i)",
                 minutesFromNow: 25 + i * 10,
-                calendarId: "atomic-cal"
+                calendarId: "atomic-cal",
             )
         }
 
         try await env.databaseManager.replaceEvents(for: "atomic-cal", with: newEvents)
 
         let afterReplace = try await env.databaseManager.fetchEvents(
-            from: Date(), to: Date().addingTimeInterval(86_400)
+            from: Date(), to: Date().addingTimeInterval(86_400),
         )
 
         // Should only have the new events, not a mix of old and new
-        let calEvents = afterReplace.filter { $0.calendarId == "atomic-cal" }
-        XCTAssertEqual(calEvents.count, 3)
-        for event in calEvents {
-            XCTAssertTrue(
-                event.id.hasPrefix("e2e-atomic-new"),
-                "Only new events should exist after replace"
-            )
-        }
+        let calEventIds = Set(afterReplace.filter { $0.calendarId == "atomic-cal" }.map(\.id))
+        XCTAssertEqual(calEventIds, Set(["e2e-atomic-new-0", "e2e-atomic-new-1", "e2e-atomic-new-2"]))
     }
 
     // MARK: - Scheduler Resilience
@@ -144,10 +145,10 @@ final class DatabaseResilienceE2ETests: XCTestCase {
     func testSchedulerHandlesEmptyEventList() async {
         // Start scheduling with no events
         await env.eventScheduler.startScheduling(
-            events: [], overlayManager: env.overlayManager
+            events: [], overlayManager: env.overlayManager,
         )
 
-        XCTAssertTrue(env.eventScheduler.scheduledAlerts.isEmpty)
+        XCTAssertEqual(env.eventScheduler.scheduledAlerts, [])
         XCTAssertFalse(env.overlayManager.isOverlayVisible)
     }
 
@@ -155,11 +156,14 @@ final class DatabaseResilienceE2ETests: XCTestCase {
         let events = E2EEventBuilder.eventBatch(count: 10, startingMinutesFromNow: 10)
         try await env.seedAndSchedule(events)
 
-        XCTAssertFalse(env.eventScheduler.scheduledAlerts.isEmpty)
+        XCTAssertFalse(
+            env.eventScheduler.scheduledAlerts.isEmpty,
+            "Should have scheduled alerts after seeding",
+        )
 
         // Stop mid-execution
         env.eventScheduler.stopScheduling()
-        XCTAssertTrue(env.eventScheduler.scheduledAlerts.isEmpty)
+        XCTAssertEqual(env.eventScheduler.scheduledAlerts, [])
 
         // Overlay state should be clean
         env.overlayManager.hideOverlay()
@@ -170,8 +174,8 @@ final class DatabaseResilienceE2ETests: XCTestCase {
         let firstBatch = E2EEventBuilder.eventBatch(count: 3, startingMinutesFromNow: 10)
         try await env.seedAndSchedule(firstBatch)
 
-        let firstAlertCount = env.eventScheduler.scheduledAlerts.count
-        XCTAssertEqual(firstAlertCount, 3)
+        let alertIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
+        XCTAssertEqual(alertIds, Set(["e2e-batch-0", "e2e-batch-1", "e2e-batch-2"]))
 
         // Stop and restart with different events
         env.eventScheduler.stopScheduling()
@@ -181,18 +185,23 @@ final class DatabaseResilienceE2ETests: XCTestCase {
                 id: "e2e-restart-\(i)",
                 title: "Restart Meeting \(i)",
                 minutesFromNow: 50 + (i * 10),
-                calendarId: "e2e-calendar"
+                calendarId: "e2e-calendar",
             )
         }
         try await env.seedEvents(secondBatch)
 
         let allUpcoming = try await env.fetchUpcomingEvents(limit: 100)
         await env.eventScheduler.startScheduling(
-            events: allUpcoming, overlayManager: env.overlayManager
+            events: allUpcoming, overlayManager: env.overlayManager,
         )
 
         // Should have alerts for ALL events in the DB
-        XCTAssertGreaterThanOrEqual(env.eventScheduler.scheduledAlerts.count, 5)
+        let restartedAlertIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
+        XCTAssertEqual(
+            restartedAlertIds,
+            Set(allUpcoming.map(\.id)),
+            "Restart should reschedule exactly the events currently in the database",
+        )
     }
 
     // MARK: - Maintenance Lifecycle
@@ -206,13 +215,13 @@ final class DatabaseResilienceE2ETests: XCTestCase {
             endDate: Date().addingTimeInterval(-45 * 86_400 + 3600),
             calendarId: "e2e-maint-cal",
             createdAt: Date().addingTimeInterval(-45 * 86_400),
-            updatedAt: Date().addingTimeInterval(-45 * 86_400)
+            updatedAt: Date().addingTimeInterval(-45 * 86_400),
         )
         let recentEvent = E2EEventBuilder.futureEvent(
             id: "e2e-maint-recent",
             title: "Recent Meeting",
             minutesFromNow: 30,
-            calendarId: "e2e-maint-cal"
+            calendarId: "e2e-maint-cal",
         )
 
         try await env.seedEvents([oldEvent, recentEvent])
@@ -220,7 +229,7 @@ final class DatabaseResilienceE2ETests: XCTestCase {
         // Verify both are in DB
         let allBeforeMaint = try await env.databaseManager.fetchEvents(
             from: Date().addingTimeInterval(-90 * 86_400),
-            to: Date().addingTimeInterval(86_400)
+            to: Date().addingTimeInterval(86_400),
         )
         XCTAssertTrue(allBeforeMaint.contains { $0.id == "e2e-maint-old" })
         XCTAssertTrue(allBeforeMaint.contains { $0.id == "e2e-maint-recent" })
@@ -231,7 +240,7 @@ final class DatabaseResilienceE2ETests: XCTestCase {
         // Old event should be purged
         let allAfterMaint = try await env.databaseManager.fetchEvents(
             from: Date().addingTimeInterval(-90 * 86_400),
-            to: Date().addingTimeInterval(86_400)
+            to: Date().addingTimeInterval(86_400),
         )
         XCTAssertFalse(allAfterMaint.contains { $0.id == "e2e-maint-old" })
         XCTAssertTrue(allAfterMaint.contains { $0.id == "e2e-maint-recent" })
@@ -240,7 +249,7 @@ final class DatabaseResilienceE2ETests: XCTestCase {
         let upcoming = try await env.fetchUpcomingEvents()
         env.eventScheduler.stopScheduling()
         await env.eventScheduler.startScheduling(
-            events: upcoming, overlayManager: env.overlayManager
+            events: upcoming, overlayManager: env.overlayManager,
         )
 
         // Only recent event should have alert
@@ -266,7 +275,7 @@ final class DatabaseResilienceE2ETests: XCTestCase {
     func testDatabaseDeleteOldEventsPreservesRecent() async throws {
         let recentEvent = E2EEventBuilder.futureEvent(
             id: "e2e-recent",
-            minutesFromNow: 30
+            minutesFromNow: 30,
         )
         let oldEvent = Event(
             id: "e2e-old-event",
@@ -275,7 +284,7 @@ final class DatabaseResilienceE2ETests: XCTestCase {
             endDate: Date().addingTimeInterval(-60 * 86_400 + 3600),
             calendarId: "e2e-cal",
             createdAt: Date().addingTimeInterval(-60 * 86_400),
-            updatedAt: Date().addingTimeInterval(-60 * 86_400)
+            updatedAt: Date().addingTimeInterval(-60 * 86_400),
         )
 
         try await env.seedEvents([recentEvent, oldEvent])
@@ -286,7 +295,7 @@ final class DatabaseResilienceE2ETests: XCTestCase {
 
         let remaining = try await env.databaseManager.fetchEvents(
             from: Date().addingTimeInterval(-365 * 86_400),
-            to: Date().addingTimeInterval(86_400)
+            to: Date().addingTimeInterval(86_400),
         )
 
         let ids = Set(remaining.map(\.id))

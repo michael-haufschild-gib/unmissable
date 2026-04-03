@@ -32,7 +32,7 @@ final class LinkParser: Sendable {
         }
 
         let matches = detector.matches(
-            in: text, options: [], range: NSRange(location: 0, length: text.utf16.count)
+            in: text, options: [], range: NSRange(location: 0, length: text.utf16.count),
         )
 
         for match in matches {
@@ -143,12 +143,12 @@ final class LinkParser: Sendable {
     /// Extracts all URLs from a text string using NSDataDetector
     func extractURLs(from text: String) -> [URL] {
         guard let detector = try? NSDataDetector(
-            types: NSTextCheckingResult.CheckingType.link.rawValue
+            types: NSTextCheckingResult.CheckingType.link.rawValue,
         ) else {
             return []
         }
         let matches = detector.matches(
-            in: text, options: [], range: NSRange(location: 0, length: text.utf16.count)
+            in: text, options: [], range: NSRange(location: 0, length: text.utf16.count),
         )
         return matches.compactMap(\.url)
     }
@@ -170,12 +170,15 @@ final class LinkParser: Sendable {
         isOnlineMeeting(links: event.links)
     }
 
+    /// Join button visibility window before meeting start (seconds).
+    private static let joinButtonLeadTimeSeconds: TimeInterval = 600
+
     /// Whether the join button should be shown for this event.
     func shouldShowJoinButton(for event: Event) -> Bool {
         guard isOnlineMeeting(event) else { return false }
 
         let now = Date()
-        let tenMinutesBeforeStart = event.startDate.addingTimeInterval(-600)
-        return now >= tenMinutesBeforeStart && now < event.endDate
+        let joinWindowStart = event.startDate.addingTimeInterval(-Self.joinButtonLeadTimeSeconds)
+        return now >= joinWindowStart && now < event.endDate
     }
 }

@@ -18,6 +18,7 @@ final class MockCalendarAuthProvider: CalendarAuthProviding {
         isAuthenticated = true
     }
 
+    // swiftlint:disable:next async_without_await
     func validateAuthState() async {
         // No-op for tests
     }
@@ -39,10 +40,12 @@ final class MockCalendarAPIProvider: CalendarAPIProviding {
     /// `.success` results by grouping `events` by calendarId.
     var fetchResults: CalendarFetchResults?
 
+    // swiftlint:disable:next async_without_await
     func fetchCalendars() async -> [CalendarInfo] {
         calendars
     }
 
+    // swiftlint:disable:next async_without_await
     func fetchEvents(for calendarIds: [String], from _: Date, to _: Date) async -> CalendarFetchResults {
         if let fetchResults {
             return fetchResults
@@ -71,14 +74,14 @@ final class MultiProviderIntegrationTests: XCTestCase {
 
         let tempDir = FileManager.default.temporaryDirectory
         tempDatabaseURL = tempDir.appendingPathComponent(
-            "unmissable-multiprovider-\(UUID().uuidString).db"
+            "unmissable-multiprovider-\(UUID().uuidString).db",
         )
         databaseManager = DatabaseManager(databaseURL: tempDatabaseURL)
         preferencesManager = PreferencesManager(themeManager: ThemeManager())
         calendarService = CalendarService(
             preferencesManager: preferencesManager,
             databaseManager: databaseManager,
-            linkParser: LinkParser()
+            linkParser: LinkParser(),
         )
     }
 
@@ -102,7 +105,7 @@ final class MultiProviderIntegrationTests: XCTestCase {
         _ type: CalendarProviderType,
         authenticated: Bool = true,
         email: String? = nil,
-        authError: String? = nil
+        authError: String? = nil,
     ) -> (auth: MockCalendarAuthProvider, api: MockCalendarAPIProvider, sync: SyncManager) {
         let auth = MockCalendarAuthProvider()
         auth.isAuthenticated = authenticated
@@ -114,7 +117,7 @@ final class MultiProviderIntegrationTests: XCTestCase {
         let sync = SyncManager(
             apiService: api,
             databaseManager: databaseManager,
-            preferencesManager: preferencesManager
+            preferencesManager: preferencesManager,
         )
 
         calendarService.injectTestBackend(type: type, auth: auth, api: api, sync: sync)
@@ -223,7 +226,7 @@ final class MultiProviderIntegrationTests: XCTestCase {
         XCTAssertEqual(calendarService.connectedProviders, Set([.google]))
 
         calendarService.removeTestBackend(type: .google)
-        XCTAssertTrue(calendarService.connectedProviders.isEmpty)
+        XCTAssertEqual(calendarService.connectedProviders, Set<CalendarProviderType>())
 
         // Reconnect
         injectProvider(.google, authenticated: true, email: "user@gmail.com")
@@ -251,8 +254,9 @@ final class MultiProviderIntegrationTests: XCTestCase {
         appleSync.syncStatus = .error("Apple error")
 
         XCTAssertEqual(
-            calendarService.syncStatus, .syncing,
-            "Syncing should take priority over error"
+            calendarService.syncStatus,
+            .syncing,
+            "Syncing should take priority over error",
         )
     }
 

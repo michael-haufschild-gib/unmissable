@@ -58,7 +58,7 @@ struct GCalEventListResponse: Codable {
     let nextPageToken: String?
 }
 
-struct GCalEventEntry: Codable {
+struct GCalEventEntry: Codable, Equatable {
     let id: String?
     let summary: String?
     let status: String?
@@ -73,17 +73,17 @@ struct GCalEventEntry: Codable {
     let hangoutLink: String?
 }
 
-struct GCalDateTime: Codable {
+struct GCalDateTime: Codable, Equatable {
     let dateTime: String?
     let date: String?
     let timeZone: String?
 }
 
-struct GCalOrganizer: Codable {
+struct GCalOrganizer: Codable, Equatable {
     let email: String?
 }
 
-struct GCalAttendee: Codable {
+struct GCalAttendee: Codable, Equatable {
     let email: String?
     let displayName: String?
     let responseStatus: String?
@@ -99,7 +99,7 @@ struct GCalAttendee: Codable {
     }
 }
 
-struct GCalAttachment: Codable {
+struct GCalAttachment: Codable, Equatable {
     let fileUrl: String?
     let title: String?
     let mimeType: String?
@@ -107,11 +107,11 @@ struct GCalAttachment: Codable {
     let fileId: String?
 }
 
-struct GCalConferenceData: Codable {
+struct GCalConferenceData: Codable, Equatable {
     let entryPoints: [GCalEntryPoint]?
 }
 
-struct GCalEntryPoint: Codable {
+struct GCalEntryPoint: Codable, Equatable {
     let uri: String?
     let entryPointType: String?
 }

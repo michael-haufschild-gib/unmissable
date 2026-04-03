@@ -28,44 +28,44 @@ private enum PreferencesTab: Int, CaseIterable {
 struct PreferencesView: View {
     @EnvironmentObject
     var appState: AppState
-    @Environment(\.customDesign)
+    @Environment(\.design)
     private var design
     @State
     private var selectedTab: PreferencesTab = .general
+
+    private static let windowWidth: CGFloat = 650
+    private static let windowHeight: CGFloat = 450
+    private static let headerBorderHeight: CGFloat = 1
 
     var body: some View {
         VStack(spacing: 0) {
             // Custom Tab Bar
             HStack {
                 ForEach(PreferencesTab.allCases, id: \.rawValue) { tab in
-                    Button(action: { selectedTab = tab }) {
+                    Button {
+                        selectedTab = tab
+                    } label: {
                         HStack(spacing: design.spacing.sm) {
                             Image(systemName: tab.icon)
-                                .font(.system(size: 14, weight: .medium))
+                                .font(design.fonts.body)
+                                .fontWeight(.medium)
 
                             Text(tab.title)
                                 .font(design.fonts.callout)
                                 .fontWeight(.medium)
                         }
-                        .foregroundColor(
-                            selectedTab == tab ? design.colors.textInverse : design.colors.textSecondary
-                        )
-                        .padding(.horizontal, design.spacing.lg)
-                        .padding(.vertical, design.spacing.md)
-                        .background(
-                            selectedTab == tab ? design.colors.accent : Color.clear
-                        )
-                        .cornerRadius(design.corners.medium)
                     }
-                    .buttonStyle(PlainButtonStyle())
+                    .buttonStyle(
+                        UMButtonStyle(selectedTab == tab ? .primary : .ghost),
+                    )
                 }
             }
             .padding(design.spacing.sm)
-            .background(design.colors.backgroundSecondary)
+            .background(design.colors.surface)
 
             Rectangle()
-                .fill(design.colors.divider)
-                .frame(height: 1)
+                .fill(design.colors.borderSubtle)
+                .frame(height: Self.headerBorderHeight)
 
             // Tab Content
             Group {
@@ -83,7 +83,7 @@ struct PreferencesView: View {
             .environmentObject(appState.preferences)
         }
         .background(design.colors.background)
-        .frame(width: 650, height: 450)
+        .frame(width: Self.windowWidth, height: Self.windowHeight)
     }
 }
 
@@ -92,8 +92,25 @@ struct PreferencesView: View {
 struct GeneralPreferencesView: View {
     @EnvironmentObject
     var preferences: PreferencesManager
-    @Environment(\.customDesign)
+    @Environment(\.design)
     private var design
+
+    private static let defaultAlertPickerWidth: CGFloat = 140
+    private static let lengthBasedPickerWidth: CGFloat = 80
+    private static let syncPickerWidth: CGFloat = 120
+
+    // Picker tag values (minutes)
+    private static let alertTag1Min = 1
+    private static let alertTag2Min = 2
+    private static let alertTag5Min = 5
+    private static let alertTag10Min = 10
+    private static let alertTag15Min = 15
+
+    // Sync interval tag values (seconds)
+    private static let syncTag30Sec = 30
+    private static let syncTag1Min = 60
+    private static let syncTag2Min = 120
+    private static let syncTag5Min = 300
 
     var body: some View {
         ScrollView {
@@ -105,7 +122,7 @@ struct GeneralPreferencesView: View {
                         .foregroundColor(design.colors.textPrimary)
 
                     Text("Configure alert timing and sync behavior")
-                        .font(design.fonts.caption1)
+                        .font(design.fonts.caption)
                         .foregroundColor(design.colors.textSecondary)
                 }
 
@@ -122,28 +139,15 @@ struct GeneralPreferencesView: View {
     // MARK: - Alert Timing
 
     private var alertTimingSection: some View {
-        CustomCard(style: .standard) {
-            VStack(alignment: .leading, spacing: design.spacing.lg) {
-                HStack(spacing: design.spacing.sm) {
-                    Image(systemName: "bell.fill")
-                        .foregroundColor(design.colors.accent)
-                        .font(.system(size: 16, weight: .medium))
+        UMSection("Alert Timing", icon: "bell.fill") {
+            VStack(spacing: design.spacing.lg) {
+                defaultAlertRow
+                lengthBasedTimingRow
 
-                    Text("Alert Timing")
-                        .font(design.fonts.headline)
-                        .foregroundColor(design.colors.textPrimary)
-                }
-
-                VStack(spacing: design.spacing.lg) {
-                    defaultAlertRow
-                    lengthBasedTimingRow
-
-                    if preferences.useLengthBasedTiming {
-                        lengthBasedTimingDetail
-                    }
+                if preferences.useLengthBasedTiming {
+                    lengthBasedTimingDetail
                 }
             }
-            .padding(design.spacing.lg)
         }
     }
 
@@ -155,24 +159,22 @@ struct GeneralPreferencesView: View {
                     .foregroundColor(design.colors.textPrimary)
 
                 Text("How early to show alerts before meetings")
-                    .font(design.fonts.caption1)
+                    .font(design.fonts.caption)
                     .foregroundColor(design.colors.textSecondary)
             }
 
             Spacer()
 
-            CustomPicker(
-                "Minutes",
-                selection: preferences.defaultAlertMinutesBinding,
-                options: [
-                    (1, "1 minute"),
-                    (2, "2 minutes"),
-                    (5, "5 minutes"),
-                    (10, "10 minutes"),
-                    (15, "15 minutes"),
-                ]
-            )
-            .frame(width: 140)
+            Picker("Minutes", selection: preferences.defaultAlertMinutesBinding) {
+                Text("1 minute").tag(Self.alertTag1Min)
+                Text("2 minutes").tag(Self.alertTag2Min)
+                Text("5 minutes").tag(Self.alertTag5Min)
+                Text("10 minutes").tag(Self.alertTag10Min)
+                Text("15 minutes").tag(Self.alertTag15Min)
+            }
+            .pickerStyle(.menu)
+            .umPickerStyle()
+            .frame(width: Self.defaultAlertPickerWidth)
         }
     }
 
@@ -184,128 +186,124 @@ struct GeneralPreferencesView: View {
                     .foregroundColor(design.colors.textPrimary)
 
                 Text("Use different alerts based on meeting duration")
-                    .font(design.fonts.caption1)
+                    .font(design.fonts.caption)
                     .foregroundColor(design.colors.textSecondary)
             }
 
             Spacer()
 
-            CustomToggle(isOn: preferences.useLengthBasedTimingBinding)
+            Toggle(isOn: preferences.useLengthBasedTimingBinding) {}
+                .toggleStyle(UMToggleStyle())
+                .labelsHidden()
+                .accessibilityLabel("Use length-based timing")
         }
     }
 
     private var lengthBasedTimingDetail: some View {
-        CustomCard(style: .flat) {
-            VStack(spacing: design.spacing.md) {
-                HStack {
-                    Text("Short meetings (<30 min)")
-                        .font(design.fonts.callout)
-                        .foregroundColor(design.colors.textPrimary)
+        VStack(spacing: design.spacing.md) {
+            HStack {
+                Text("Short meetings (<30 min)")
+                    .font(design.fonts.callout)
+                    .foregroundColor(design.colors.textPrimary)
 
-                    Spacer()
+                Spacer()
 
-                    CustomPicker(
-                        "Short",
-                        selection: preferences.shortMeetingAlertMinutesBinding,
-                        options: [(1, "1 min"), (2, "2 min"), (5, "5 min")]
-                    )
-                    .frame(width: 80)
+                Picker("Short", selection: preferences.shortMeetingAlertMinutesBinding) {
+                    Text("1 min").tag(Self.alertTag1Min)
+                    Text("2 min").tag(Self.alertTag2Min)
+                    Text("5 min").tag(Self.alertTag5Min)
                 }
-
-                HStack {
-                    Text("Medium meetings (30-60 min)")
-                        .font(design.fonts.callout)
-                        .foregroundColor(design.colors.textPrimary)
-
-                    Spacer()
-
-                    CustomPicker(
-                        "Medium",
-                        selection: preferences.mediumMeetingAlertMinutesBinding,
-                        options: [(2, "2 min"), (5, "5 min"), (10, "10 min")]
-                    )
-                    .frame(width: 80)
-                }
-
-                HStack {
-                    Text("Long meetings (>60 min)")
-                        .font(design.fonts.callout)
-                        .foregroundColor(design.colors.textPrimary)
-
-                    Spacer()
-
-                    CustomPicker(
-                        "Long",
-                        selection: preferences.longMeetingAlertMinutesBinding,
-                        options: [(5, "5 min"), (10, "10 min"), (15, "15 min")]
-                    )
-                    .frame(width: 80)
-                }
+                .pickerStyle(.menu)
+                .umPickerStyle()
+                .frame(width: Self.lengthBasedPickerWidth)
             }
-            .padding(design.spacing.lg)
+
+            HStack {
+                Text("Medium meetings (30-60 min)")
+                    .font(design.fonts.callout)
+                    .foregroundColor(design.colors.textPrimary)
+
+                Spacer()
+
+                Picker("Medium", selection: preferences.mediumMeetingAlertMinutesBinding) {
+                    Text("2 min").tag(Self.alertTag2Min)
+                    Text("5 min").tag(Self.alertTag5Min)
+                    Text("10 min").tag(Self.alertTag10Min)
+                }
+                .pickerStyle(.menu)
+                .umPickerStyle()
+                .frame(width: Self.lengthBasedPickerWidth)
+            }
+
+            HStack {
+                Text("Long meetings (>60 min)")
+                    .font(design.fonts.callout)
+                    .foregroundColor(design.colors.textPrimary)
+
+                Spacer()
+
+                Picker("Long", selection: preferences.longMeetingAlertMinutesBinding) {
+                    Text("5 min").tag(Self.alertTag5Min)
+                    Text("10 min").tag(Self.alertTag10Min)
+                    Text("15 min").tag(Self.alertTag15Min)
+                }
+                .pickerStyle(.menu)
+                .umPickerStyle()
+                .frame(width: Self.lengthBasedPickerWidth)
+            }
         }
+        .padding(design.spacing.lg)
+        .umCard(.flat)
     }
 
     // MARK: - Sync Settings
 
     private var syncSettingsSection: some View {
-        CustomCard(style: .standard) {
-            VStack(alignment: .leading, spacing: design.spacing.lg) {
-                HStack(spacing: design.spacing.sm) {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .foregroundColor(design.colors.accent)
-                        .font(.system(size: 16, weight: .medium))
+        UMSection("Sync Settings", icon: "arrow.triangle.2.circlepath") {
+            VStack(spacing: design.spacing.lg) {
+                HStack {
+                    VStack(alignment: .leading, spacing: design.spacing.xs) {
+                        Text("Sync interval")
+                            .font(design.fonts.callout)
+                            .foregroundColor(design.colors.textPrimary)
 
-                    Text("Sync Settings")
-                        .font(design.fonts.headline)
-                        .foregroundColor(design.colors.textPrimary)
+                        Text("How often to check for calendar updates")
+                            .font(design.fonts.caption)
+                            .foregroundColor(design.colors.textSecondary)
+                    }
+
+                    Spacer()
+
+                    Picker("Interval", selection: preferences.syncIntervalSecondsBinding) {
+                        Text("30 seconds").tag(Self.syncTag30Sec)
+                        Text("1 minute").tag(Self.syncTag1Min)
+                        Text("2 minutes").tag(Self.syncTag2Min)
+                        Text("5 minutes").tag(Self.syncTag5Min)
+                    }
+                    .pickerStyle(.menu)
+                    .umPickerStyle()
+                    .frame(width: Self.syncPickerWidth)
                 }
 
-                VStack(spacing: design.spacing.lg) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: design.spacing.xs) {
-                            Text("Sync interval")
-                                .font(design.fonts.callout)
-                                .foregroundColor(design.colors.textPrimary)
+                HStack {
+                    VStack(alignment: .leading, spacing: design.spacing.xs) {
+                        Text("All-day events")
+                            .font(design.fonts.callout)
+                            .foregroundColor(design.colors.textPrimary)
 
-                            Text("How often to check for calendar updates")
-                                .font(design.fonts.caption1)
-                                .foregroundColor(design.colors.textSecondary)
-                        }
-
-                        Spacer()
-
-                        CustomPicker(
-                            "Interval",
-                            selection: preferences.syncIntervalSecondsBinding,
-                            options: [
-                                (30, "30 seconds"),
-                                (60, "1 minute"),
-                                (120, "2 minutes"),
-                                (300, "5 minutes"),
-                            ]
-                        )
-                        .frame(width: 120)
+                        Text("Include all-day events in sync")
+                            .font(design.fonts.caption)
+                            .foregroundColor(design.colors.textSecondary)
                     }
 
-                    HStack {
-                        VStack(alignment: .leading, spacing: design.spacing.xs) {
-                            Text("All-day events")
-                                .font(design.fonts.callout)
-                                .foregroundColor(design.colors.textPrimary)
+                    Spacer()
 
-                            Text("Include all-day events in sync")
-                                .font(design.fonts.caption1)
-                                .foregroundColor(design.colors.textSecondary)
-                        }
-
-                        Spacer()
-
-                        CustomToggle(isOn: preferences.includeAllDayEventsBinding)
-                    }
+                    Toggle(isOn: preferences.includeAllDayEventsBinding) {}
+                        .toggleStyle(UMToggleStyle())
+                        .labelsHidden()
+                        .accessibilityLabel("Include all-day events")
                 }
             }
-            .padding(design.spacing.lg)
         }
     }
 }
@@ -315,8 +313,10 @@ struct GeneralPreferencesView: View {
 struct ShortcutsPreferencesView: View {
     @EnvironmentObject
     var preferences: PreferencesManager
-    @Environment(\.customDesign)
+    @Environment(\.design)
     private var design
+
+    private static let shortcutBorderWidth: CGFloat = 1
 
     var body: some View {
         ScrollView {
@@ -327,37 +327,24 @@ struct ShortcutsPreferencesView: View {
                         .foregroundColor(design.colors.textPrimary)
 
                     Text("Global shortcuts work even when other apps are focused")
-                        .font(design.fonts.caption1)
+                        .font(design.fonts.caption)
                         .foregroundColor(design.colors.textSecondary)
                 }
 
-                CustomCard(style: .standard) {
-                    VStack(alignment: .leading, spacing: design.spacing.lg) {
-                        HStack(spacing: design.spacing.sm) {
-                            Image(systemName: "keyboard")
-                                .foregroundColor(design.colors.accent)
-                                .font(.system(size: 16, weight: .medium))
+                UMSection("Global Shortcuts", icon: "keyboard") {
+                    VStack(spacing: design.spacing.lg) {
+                        shortcutRow(
+                            title: "Dismiss overlay",
+                            subtitle: "Close the current meeting alert",
+                            shortcut: ShortcutsManager.dismissShortcutDisplay,
+                        )
 
-                            Text("Global Shortcuts")
-                                .font(design.fonts.headline)
-                                .foregroundColor(design.colors.textPrimary)
-                        }
-
-                        VStack(spacing: design.spacing.lg) {
-                            shortcutRow(
-                                title: "Dismiss overlay",
-                                subtitle: "Close the current meeting alert",
-                                shortcut: ShortcutsManager.dismissShortcutDisplay
-                            )
-
-                            shortcutRow(
-                                title: "Join meeting",
-                                subtitle: "Quickly join the current meeting",
-                                shortcut: ShortcutsManager.joinShortcutDisplay
-                            )
-                        }
+                        shortcutRow(
+                            title: "Join meeting",
+                            subtitle: "Quickly join the current meeting",
+                            shortcut: ShortcutsManager.joinShortcutDisplay,
+                        )
                     }
-                    .padding(design.spacing.lg)
                 }
 
                 Spacer()
@@ -370,7 +357,7 @@ struct ShortcutsPreferencesView: View {
     private func shortcutRow(
         title: String,
         subtitle: String,
-        shortcut: String
+        shortcut: String,
     ) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: design.spacing.xs) {
@@ -379,22 +366,22 @@ struct ShortcutsPreferencesView: View {
                     .foregroundColor(design.colors.textPrimary)
 
                 Text(subtitle)
-                    .font(design.fonts.caption1)
+                    .font(design.fonts.caption)
                     .foregroundColor(design.colors.textSecondary)
             }
 
             Spacer()
 
             Text(shortcut)
-                .font(.system(.callout, design: .monospaced))
+                .font(design.fonts.mono)
                 .foregroundColor(design.colors.textPrimary)
                 .padding(.horizontal, design.spacing.md)
                 .padding(.vertical, design.spacing.sm)
-                .background(design.colors.backgroundSecondary)
-                .cornerRadius(design.corners.medium)
+                .background(design.colors.surface)
+                .cornerRadius(design.corners.md)
                 .overlay(
-                    RoundedRectangle(cornerRadius: design.corners.medium)
-                        .stroke(design.colors.border, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: design.corners.md)
+                        .stroke(design.colors.borderDefault, lineWidth: Self.shortcutBorderWidth),
                 )
         }
     }

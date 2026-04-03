@@ -71,15 +71,15 @@ final class EventAttachmentTests: XCTestCase {
         XCTAssertEqual(makeAttachment(mimeType: "application/pdf").systemIconName, "doc.richtext")
         XCTAssertEqual(
             makeAttachment(mimeType: "application/vnd.google-apps.spreadsheet").systemIconName,
-            "tablecells"
+            "tablecells",
         )
         XCTAssertEqual(
             makeAttachment(mimeType: "application/vnd.google-apps.presentation").systemIconName,
-            "rectangle.on.rectangle"
+            "rectangle.on.rectangle",
         )
         XCTAssertEqual(
             makeAttachment(mimeType: "application/vnd.google-apps.document").systemIconName,
-            "doc.text"
+            "doc.text",
         )
         XCTAssertEqual(makeAttachment(mimeType: "video/mp4").systemIconName, "video")
         XCTAssertEqual(makeAttachment(mimeType: "audio/mpeg").systemIconName, "music.note")
@@ -107,7 +107,7 @@ final class EventAttachmentTests: XCTestCase {
         let pdf = EventAttachment(
             fileUrl: "https://example.com/file",
             title: "Report.pdf",
-            mimeType: "application/pdf"
+            mimeType: "application/pdf",
         )
         XCTAssertEqual(pdf.fileExtension, "pdf")
     }
@@ -116,7 +116,7 @@ final class EventAttachmentTests: XCTestCase {
         let noTitleExt = EventAttachment(
             fileUrl: "https://example.com/file.docx",
             title: "Document",
-            mimeType: "application/msword"
+            mimeType: "application/msword",
         )
         XCTAssertEqual(noTitleExt.fileExtension, "docx")
     }
@@ -125,7 +125,7 @@ final class EventAttachmentTests: XCTestCase {
         let noExt = EventAttachment(
             fileUrl: "https://example.com/file",
             title: "Document",
-            mimeType: "application/octet-stream"
+            mimeType: "application/octet-stream",
         )
         XCTAssertNil(noExt.fileExtension)
     }
@@ -146,7 +146,7 @@ final class EventAttachmentTests: XCTestCase {
             mimeType: "application/pdf",
             iconLink: "https://drive.google.com/icon.png",
             fileId: "abc",
-            fileSize: 1_048_576
+            fileSize: 1_048_576,
         )
 
         let data = try JSONEncoder().encode(original)
@@ -164,7 +164,7 @@ final class EventAttachmentTests: XCTestCase {
         let original = EventAttachment(
             fileUrl: "https://example.com/file",
             title: "Minimal",
-            mimeType: "application/octet-stream"
+            mimeType: "application/octet-stream",
         )
 
         let data = try JSONEncoder().encode(original)
@@ -180,13 +180,13 @@ final class EventAttachmentTests: XCTestCase {
     private func makeAttachment(
         fileUrl: String = "https://example.com/file",
         mimeType: String = "application/octet-stream",
-        fileSize: Int64? = nil
+        fileSize: Int64? = nil,
     ) -> EventAttachment {
         EventAttachment(
             fileUrl: fileUrl,
             title: "Test File",
             mimeType: mimeType,
-            fileSize: fileSize
+            fileSize: fileSize,
         )
     }
 }

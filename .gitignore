@@ -18,6 +18,11 @@ xcuserdata/
 
 # Configuration files with secrets
 Config.plist
+*.p12
+*.p8
+*.pem
+*.key
+*.cer
 
 # Xcode automatically generated files
 *.xcodeproj/*
@@ -44,12 +49,26 @@ app_logs.txt
 ehthumbs.db
 Thumbs.db
 
-# IDE files
+# IDE and editor files
 .vscode/
 .idea/
+*.xcuserdatad/
+
+# AI coding tools
+.claude/
+.serena/
 .chatmodes/
 .specstory/
-.claude/
+.cursor/
+.cursorrules
+.cursorignore
+.aider*
+.continue/
+.codeium/
+.tabnine/
+.windsurf/
+.copilot/
+.github/copilot/
 
 # Local environment files
 .env
@@ -60,7 +79,8 @@ Thumbs.db
 *.ipa
 resource_bundle_accessor*
 
-# Agent exploration logs
+# Agent exploration logs and session artifacts
+docs/reports/
 ci-explore-log*.md
 task_state.md
 task_*.md
@@ -79,3 +99,7 @@ test-reports/
 
 # Debug logs
 /tmp/unmissable_debug.log
+
+
+# SwiftLint Remote Config Cache
+.swiftlint/RemoteConfigCache

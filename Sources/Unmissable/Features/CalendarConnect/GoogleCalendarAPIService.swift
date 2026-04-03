@@ -7,6 +7,19 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     private let oauth2Service: OAuth2Service
     private let linkParser: LinkParser
 
+    // MARK: - Constants
+
+    private nonisolated static let requestTimeoutSeconds: TimeInterval = 30
+    private nonisolated static let resourceTimeoutSeconds: TimeInterval = 60
+    private nonisolated static let httpOK = 200
+    private nonisolated static let httpForbidden = 403
+    private nonisolated static let httpNotFound = 404
+    private nonisolated static let maxEventsPerCalendar = 2000
+    private nonisolated static let maxTitleLength = 500
+    private nonisolated static let maxDescriptionLength = 10_000
+    private nonisolated static let maxLocationLength = 1000
+    private nonisolated static let maxOrganizerLength = 320
+
     @Published
     var calendars: [CalendarInfo] = []
     @Published
@@ -19,8 +32,8 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     /// URLSession with timeout configuration to prevent indefinite hangs.
     private static let urlSession: URLSession = {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 30 // 30 seconds per request
-        config.timeoutIntervalForResource = 60 // 60 seconds total
+        config.timeoutIntervalForRequest = requestTimeoutSeconds
+        config.timeoutIntervalForResource = resourceTimeoutSeconds
         return URLSession(configuration: config)
     }()
 
@@ -55,9 +68,9 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
                 return calendars
             }
 
-            guard httpResponse.statusCode == 200 else {
+            guard httpResponse.statusCode == Self.httpOK else {
                 let errorMessage = "HTTP \(httpResponse.statusCode)"
-                if httpResponse.statusCode == 404 {
+                if httpResponse.statusCode == Self.httpNotFound {
                     logger.error("Calendar list 404: \(url)")
                     if let errorBody = String(data: data, encoding: .utf8) {
                         logger.error("Response: \(errorBody)")
@@ -65,7 +78,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
                 }
                 logger.error("Calendar list fetch failed: \(errorMessage)")
                 lastError = GoogleCalendarAPIError.requestFailed(
-                    httpResponse.statusCode, errorMessage
+                    httpResponse.statusCode, errorMessage,
                 ).localizedDescription
                 return calendars
             }
@@ -119,7 +132,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
                             calendarId: calendarId,
                             startDate: startDate,
                             endDate: endDate,
-                            accessToken: prefetchedToken
+                            accessToken: prefetchedToken,
                         )
                         return (calendarId, .success(calendarEvents))
                     } catch {
@@ -138,7 +151,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
                 case let .failure(error):
                     calendarErrors[calendarId] = error.localizedDescription
                     logger.warning(
-                        "Skipping calendar \(calendarId): \(error.localizedDescription)"
+                        "Skipping calendar \(Self.redactedCalendarId(calendarId)): \(error.localizedDescription)",
                     )
                 }
             }
@@ -148,18 +161,31 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         events = allEvents
 
         if !calendarErrors.isEmpty {
-            let failedIds = calendarErrors.keys.sorted().joined(separator: ", ")
-            lastError = "Failed to fetch \(calendarErrors.count) calendar(s): \(failedIds)"
+            lastError = "Failed to fetch \(calendarErrors.count) calendar(s)"
         }
 
         logger.debug(
-            "Fetched \(allEvents.count) events from \(successfulCalendars)/\(calendarIds.count) calendars"
+            "Fetched \(allEvents.count) events from \(successfulCalendars)/\(calendarIds.count) calendars",
         )
 
         return results
     }
 
     // MARK: - Private Methods
+
+    /// Redacts a calendar ID for logging. Google Calendar IDs often contain
+    /// user email addresses, which must not appear in logs.
+    private nonisolated static let redactedPrefixLength = 2
+    private nonisolated static let redactedIdLength = 8
+
+    private nonisolated static func redactedCalendarId(_ id: String) -> String {
+        if id.contains("@") {
+            let parts = id.split(separator: "@", maxSplits: 1)
+            let prefix = parts.first.map { $0.prefix(redactedPrefixLength) } ?? ""
+            return "\(prefix)***@\(parts.last ?? "***")"
+        }
+        return String(id.prefix(redactedIdLength)) + "..."
+    }
 
     /// Characters allowed in percent-encoded calendar IDs.
     /// Based on `.urlPathAllowed` with `#` explicitly removed — calendar IDs like
@@ -177,9 +203,8 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         calendarId: String,
         startDate: Date,
         endDate: Date,
-        accessToken: String
+        accessToken: String,
     ) async throws -> [Event] {
-        let maxEvents = 2000
         let dateFormatter = ISO8601DateFormatter()
         let timeMin = dateFormatter.string(from: startDate)
         let timeMax = dateFormatter.string(from: endDate)
@@ -193,7 +218,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
 
         repeat {
             guard var urlComponents = URLComponents(
-                string: "\(GoogleCalendarConfig.calendarAPIBaseURL)/calendars/\(encodedCalendarId)/events"
+                string: "\(GoogleCalendarConfig.calendarAPIBaseURL)/calendars/\(encodedCalendarId)/events",
             ) else {
                 throw GoogleCalendarAPIError.invalidURL
             }
@@ -210,7 +235,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
                         "items(id,summary,start,end,organizer,description,",
                         "location,attendees,attachments,hangoutLink,",
                         "conferenceData,status),nextPageToken",
-                    ].joined()
+                    ].joined(),
                 ),
             ]
             if let pageToken {
@@ -232,17 +257,20 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
                 throw GoogleCalendarAPIError.invalidResponse
             }
 
-            guard httpResponse.statusCode == 200 else {
-                if httpResponse.statusCode == 404 {
-                    logger.warning("Calendar \(calendarId) not found or not accessible, skipping")
+            guard httpResponse.statusCode == Self.httpOK else {
+                if httpResponse.statusCode == Self.httpNotFound {
+                    logger
+                        .warning(
+                            "Calendar \(Self.redactedCalendarId(calendarId)) not found or not accessible, skipping",
+                        )
                     return []
                 }
-                if httpResponse.statusCode == 403 {
-                    logger.warning("Access denied to calendar \(calendarId), skipping")
+                if httpResponse.statusCode == Self.httpForbidden {
+                    logger.warning("Access denied to calendar \(Self.redactedCalendarId(calendarId)), skipping")
                     return []
                 }
                 let errorMessage = "HTTP \(httpResponse.statusCode)"
-                logger.error("Events fetch failed for calendar \(calendarId): \(errorMessage)")
+                logger.error("Events fetch failed for calendar \(Self.redactedCalendarId(calendarId)): \(errorMessage)")
                 throw GoogleCalendarAPIError.requestFailed(httpResponse.statusCode, errorMessage)
             }
 
@@ -250,9 +278,9 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
             allEvents.append(contentsOf: events)
             pageToken = nextToken
 
-            if allEvents.count >= maxEvents {
+            if allEvents.count >= Self.maxEventsPerCalendar {
                 logger.warning(
-                    "Hit safety cap of \(maxEvents) events for calendar \(calendarId), stopping pagination"
+                    "Hit safety cap of \(Self.maxEventsPerCalendar) events for calendar \(Self.redactedCalendarId(calendarId)), stopping pagination",
                 )
                 break
             }
@@ -278,7 +306,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
                 isSelected: isPrimary,
                 isPrimary: isPrimary,
                 colorHex: entry.colorHex,
-                sourceProvider: .google
+                sourceProvider: .google,
             )
         }
     }
@@ -346,7 +374,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
                 status: AttendeeStatus(rawValue: attendee.responseStatus ?? "needsAction"),
                 isOptional: attendee.isOptional ?? false,
                 isOrganizer: attendee.isOrganizer ?? false,
-                isSelf: attendee.isSelf ?? false
+                isSelf: attendee.isSelf ?? false,
             )
         }
 
@@ -368,7 +396,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
                 title: title,
                 mimeType: mimeType,
                 iconLink: attachment.iconLink,
-                fileId: attachment.fileId
+                fileId: attachment.fileId,
             )
         }
 
@@ -378,10 +406,10 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         let timezone = start.timeZone ?? TimeZone.current.identifier
 
         // Truncate API response fields to defend against oversized payloads
-        let truncatedTitle = Self.truncate(summary, maxLength: 500) ?? summary
-        let truncatedDescription = Self.truncate(entry.description, maxLength: 10_000)
-        let truncatedLocation = Self.truncate(entry.location, maxLength: 1000)
-        let truncatedOrganizer = Self.truncate(entry.organizer?.email, maxLength: 320)
+        let truncatedTitle = Self.truncate(summary, maxLength: Self.maxTitleLength) ?? summary
+        let truncatedDescription = Self.truncate(entry.description, maxLength: Self.maxDescriptionLength)
+        let truncatedLocation = Self.truncate(entry.location, maxLength: Self.maxLocationLength)
+        let truncatedOrganizer = Self.truncate(entry.organizer?.email, maxLength: Self.maxOrganizerLength)
 
         return Event(
             id: id,
@@ -397,7 +425,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
             calendarId: calendarId,
             timezone: timezone,
             links: links,
-            provider: provider
+            provider: provider,
         )
     }
 

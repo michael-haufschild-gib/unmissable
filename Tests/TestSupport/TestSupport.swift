@@ -1,75 +1,93 @@
 import AppKit
+import Clocks
+import ConcurrencyExtras
 import Foundation
 import OSLog
 @testable import Unmissable
 
 // MARK: - Controllable Test Clock
 
-/// Provides deterministic `sleep` and `now` closures for EventScheduler tests.
-/// Advance `currentTime` to simulate passage of time without real delays.
-/// `sleep` is a no-op by default — it yields once to let other tasks run,
-/// then returns immediately, making timer-dependent tests instant.
-@MainActor
+/// Bridges PointFree's `TestClock<Duration>` to EventScheduler's closure-based
+/// `sleepForSeconds` / `now` interface.
+///
+/// PointFree's TestClock uses continuation-based suspension: `sleep` suspends
+/// the caller until the test explicitly calls `advance(by:)`. This eliminates
+/// MainActor starvation — the monitoring loop simply suspends and never spins.
+///
+/// Usage:
+/// ```swift
+/// let clock = TestClock()
+/// let scheduler = EventScheduler(sleepForSeconds: clock.sleepForSeconds,
+///                                 now: clock.nowProvider)
+/// // ... trigger scheduling ...
+/// await clock.advance(by: .seconds(600))  // fires alerts 10 min in the future
+/// ```
+@preconcurrency @MainActor
 public final class TestClock {
-    /// The simulated current time. Advance this to move time forward for the scheduler.
-    public var currentTime: Date
+    /// The underlying PointFree TestClock that handles continuation-based sleep.
+    public let underlying = Clocks.TestClock<Duration>()
 
-    /// When true, `sleep` advances `currentTime` by the requested duration
-    /// before returning. This makes the monitoring loop's drift detection
-    /// see consistent elapsed time.
-    public var autoAdvance: Bool
+    /// Wall-clock anchor: the real Date at the moment this TestClock was created.
+    /// Used to convert between Duration offsets and absolute Dates.
+    private let anchorDate: Date
 
-    /// Creates a test clock starting at the given time.
-    /// - Parameters:
-    ///   - startTime: Initial simulated time (defaults to now).
-    ///   - autoAdvance: Whether `sleep` auto-advances `currentTime`.
-    public init(
-        startTime: Date = Date(),
-        autoAdvance: Bool = true
-    ) {
-        currentTime = startTime
-        self.autoAdvance = autoAdvance
+    /// Accumulated Duration offset from anchor. Updated whenever `advance` is called.
+    private var elapsed: Duration = .zero
+
+    private static let attosecondsPerSecond: Double = 1e18
+    private static let millisecondsPerSecond: Double = 1000
+
+    /// Creates a test clock anchored at the given time.
+    public init(startTime: Date = Date()) {
+        anchorDate = startTime
+    }
+
+    /// The simulated current time as a Date.
+    public var currentTime: Date {
+        anchorDate.addingTimeInterval(Double(elapsed.components.seconds)
+            + Double(elapsed.components.attoseconds) / Self.attosecondsPerSecond)
     }
 
     /// Closure suitable for `EventScheduler(sleepForSeconds:)`.
-    /// Yields once so the caller's Task can be cancelled, then returns.
-    public var sleep: @Sendable (TimeInterval) async throws -> Void {
-        { [weak self] seconds in
-            // Yield to allow cancellation and other tasks to run
-            try Task.checkCancellation()
-            await Task.yield()
-            try Task.checkCancellation()
-
-            // Advance time on the main actor if autoAdvance is on
-            if let self {
-                await MainActor.run {
-                    if self.autoAdvance {
-                        self.currentTime = self.currentTime.addingTimeInterval(seconds)
-                    }
-                }
-            }
+    /// Suspends via PointFree's TestClock — the caller blocks until
+    /// `advance(by:)` is called from the test. No spinning, no starvation.
+    public var sleepForSeconds: @Sendable (TimeInterval) async throws -> Void {
+        { [weak underlying] seconds in
+            guard let clock = underlying else { throw CancellationError() }
+            try await clock.sleep(for: .milliseconds(Int(seconds * Self.millisecondsPerSecond)))
         }
     }
 
     /// Closure suitable for `EventScheduler(now:)`.
-    public var nowProvider: () -> Date {
+    public var nowProvider: @Sendable () -> Date {
         { [weak self] in
-            // Safe to read from MainActor-isolated property via
-            // the nonisolated(unsafe) slot in EventScheduler
-            self?.currentTime ?? Date()
+            guard let self else { return Date() }
+            return MainActor.assumeIsolated { self.currentTime }
         }
     }
 
-    /// Advance time by a specific interval without going through sleep.
-    public func advance(by seconds: TimeInterval) {
-        currentTime = currentTime.addingTimeInterval(seconds)
+    /// Advance the clock by a Duration, releasing any suspended sleepers
+    /// whose deadline falls within the advanced range.
+    public func advance(by duration: Duration) async {
+        elapsed += duration
+        await underlying.advance(by: duration)
+    }
+
+    /// Advance by seconds (convenience).
+    public func advance(bySeconds seconds: TimeInterval) async {
+        await advance(by: .milliseconds(Int(seconds * Self.millisecondsPerSecond)))
+    }
+
+    /// Run all pending suspensions to completion.
+    public func runToCompletion() async {
+        await underlying.run()
     }
 }
 
 // MARK: - Test-Safe Implementations
 
 /// Test-safe overlay manager that doesn't create actual UI elements
-@MainActor
+@preconcurrency @MainActor
 public final class TestSafeOverlayManager: OverlayManaging {
     private let logger = Logger(category: "TestSupport")
 
@@ -99,13 +117,18 @@ public final class TestSafeOverlayManager: OverlayManaging {
             return
         }
 
-        // Auto-dismiss for meetings that started too long ago
+        // Auto-dismiss for meetings that started too long ago.
+        // Uses wall-clock Date() intentionally — this guards against real-world staleness,
+        // not simulated time. Events created relative to Date() should not be dismissed
+        // just because a TestClock advanced virtual time past their start.
         let timeSinceStart = Date().timeIntervalSince(event.startDate)
-        let maxAge: TimeInterval = fromSnooze ? 30 * 60 : 5 * 60
+        let snoozeMaxAgeSeconds: TimeInterval = 1800
+        let normalMaxAgeSeconds: TimeInterval = 300
+        let maxAge: TimeInterval = fromSnooze ? snoozeMaxAgeSeconds : normalMaxAgeSeconds
         if timeSinceStart > maxAge {
             logger
                 .debug(
-                    "TEST-SAFE: Skipping overlay — meeting started \(Int(timeSinceStart))s ago (max \(Int(maxAge))s)"
+                    "TEST-SAFE: Skipping overlay — meeting started \(Int(timeSinceStart))s ago (max \(Int(maxAge))s)",
                 )
             activeEvent = nil
             isOverlayVisible = false
@@ -137,7 +160,7 @@ public final class TestSafeOverlayManager: OverlayManaging {
 
 // MARK: - Test-Safe Meeting Details Popup
 
-@MainActor
+@preconcurrency @MainActor
 public final class TestSafeMeetingDetailsPopupManager: MeetingDetailsPopupManaging {
     private let logger = Logger(category: "TestSupport")
 

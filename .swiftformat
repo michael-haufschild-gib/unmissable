@@ -1,4 +1,4 @@
---swiftversion 6.0
+--swiftversion 6.1
 --disable redundantSelf
 --indent 4
 --indentcase false

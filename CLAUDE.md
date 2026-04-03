@@ -1,78 +1,47 @@
-# Unmissable - Project Context
+# Unmissable
 
-## Overview
-**Unmissable** is a macOS menu bar application designed to ensure users never miss meetings. It features a full-screen blocking overlay with a countdown timer, Google and Apple Calendar integration, smart meeting link detection, and one-click join.
+## Identity
+macOS menu bar app that ensures users never miss meetings via full-screen blocking overlays, calendar integration (Google + Apple), smart meeting link detection, and one-click join.
 
 ## Tech Stack
-- **Platform**: macOS 14.0+ (Sonoma)
-- **Language**: Swift 6.0 with StrictConcurrency enabled
-- **UI Frameworks**: SwiftUI (App UI), AppKit (Overlay/Windows)
-- **Data Persistence**: SQLite (via GRDB.swift)
-- **Authentication**: OAuth 2.0 (via AppAuth-iOS)
-- **Build System**: Swift Package Manager (SPM)
+Swift 6.1 (StrictConcurrency) | macOS 14.0+ | SwiftUI + AppKit | GRDB.swift | SPM
 
-## Architecture
-The project follows a modular architecture within `Sources/Unmissable/`:
-- **App/**: Entry point (`UnmissableApp.swift`), `AppDelegate`, `AppState`, `MenuBarView`.
-- **Core/**: Business logic (`EventScheduler`, `DatabaseManager`, `SyncManager`, `LinkParser`).
-- **Features/**: Feature-specific logic (`Overlay`, `CalendarConnect`, `FocusMode`, `Shortcuts`).
-- **Models/**: Data structures (`Event`, `Provider`, `ScheduledAlert`).
-- **Config/**: Configuration handling.
+## Constraints
 
-## Key Dependencies
-- **AppAuth-iOS**: Google Calendar OAuth 2.0.
-- **GRDB.swift**: Local SQLite database.
-- **KeychainAccess**: Secure token storage.
-- **Magnet**: Global keyboard shortcuts.
-- **Sparkle**: Auto-updates.
-- **SnapshotTesting**: UI visual regression testing.
+| Constraint | Rule |
+|-----------|------|
+| Concurrency | Swift 6.1 strict concurrency in `Sources/`. Tests use Swift 5 mode. |
+| UI tokens | All UI must use design system tokens. Raw values are lint errors. See `docs/meta/styleguide.md`. |
+| Test safety | Never instantiate `OverlayManager` or `AppState()` in tests. Use `TestSafeOverlayManager` / `isTestEnvironment: true`. |
+| Logging | `OSLog` only (subsystem `com.unmissable.app`). No `print()`. No PII. |
+| IUO ban | No `!` (implicitly unwrapped optionals) in `Sources/`. Tests may use IUO for `setUp`/`tearDown`. |
+| Privacy | No external telemetry. Redact sensitive data in logs. |
 
-## Development Workflow
+## Dependencies
+AppAuth-iOS (OAuth 2.0) | GRDB.swift (SQLite) | KeychainAccess | Magnet (shortcuts) | Sparkle (updates) | SnapshotTesting
 
-### Prerequisites
-- Xcode 16+
-- Swift 6.0+
-- `swiftlint` and `swiftformat` (via Homebrew)
+## Commands
 
-### Build & Run
-- **Build**: `swift build` or `./Scripts/build.sh` (builds + runs checks)
-- **Run**: `swift run`
-- **Format Code**: `./Scripts/format.sh`
+| Task | Command |
+|------|---------|
+| Build | `swift build` |
+| Build + lint + test | `./Scripts/build.sh` |
+| Lint only | `./Scripts/enforce-lint.sh` |
+| Run | `swift run` |
+| Format | `./Scripts/format.sh` |
+| Test (all) | `./Scripts/test.sh` |
+| Test (specific target) | `./Scripts/test.sh UnmissableTests` |
+| Test (specific class) | Not supported in Swift 6.3 — use target-level filters |
+| Test (skip lint) | `./Scripts/test.sh --skip-lint` |
+| Test (clean build) | `./Scripts/test.sh --clean` |
+| Test (comprehensive) | `./Scripts/run-comprehensive-tests.sh` |
 
-### Testing
-The project has a comprehensive test suite.
-- **Run All Tests**: `./Scripts/run-comprehensive-tests.sh` (Includes Unit, Integration, UI, Performance, Memory)
-- **Run Unit Tests**: `swift test`
-- **Run Specific Test Suite**: `xcodebuild -scheme Unmissable -destination 'platform=macOS' test -only-testing:"UnmissableTests"`
+Do **not** run bare `swift test` — it has no worker limit. `test.sh` outputs `PASS`/`FAIL`/`BUILD_FAIL`/`LINT_FAIL`/`TIMEOUT` and writes `.build/test-result.json`.
 
-### Configuration
-Google Calendar API requires OAuth credentials.
-- **Local Dev**: Copy `Config.plist.example` to `Config.plist` and add credentials.
-- **CI/Deployment**: Use `GOOGLE_OAUTH_CLIENT_ID` environment variable.
+## Configuration
+Google Calendar OAuth: copy `Config.plist.example` to `Config.plist` (gitignored) and add credentials. CI uses `GOOGLE_OAUTH_CLIENT_ID` env var.
 
-## Project Conventions
-- **Formatting**: Strict adherence to `.swiftformat` and `.swiftlint.yml`. Run `./Scripts/format.sh` before committing.
-- **Testing**: New features must include tests.
-    - **Unit**: Core logic.
-    - **Snapshot**: UI components.
-    - **Integration**: Service interactions.
-- **Privacy**: PII must be redacted in logs (using `OSLog`). No external telemetry.
-
-## Directory Structure
-```text
-Sources/Unmissable/
-├── App/            # Main application lifecycle & Menu Bar UI
-├── Config/         # Configuration & Secrets
-├── Core/           # Shared Services (DB, Sync, Audio, Time)
-├── Features/       # Isolated feature modules
-│   ├── Overlay/    # Full-screen alert implementation
-│   ├── ...
-├── Models/         # Codable structs & GRDB records
-├── Resources/      # Assets
-```
-
-## Script Reference
-- `Scripts/build.sh`: Full build/lint/test cycle.
-- `Scripts/run-comprehensive-tests.sh`: Deep testing suite for production readiness.
-- `Scripts/format.sh`: Auto-formatter.
-- `Scripts/cleanup-test-data.sh`: Helper to reset state.
+## Required Reading
+@docs/architecture.md
+@docs/testing.md
+@docs/meta/styleguide.md

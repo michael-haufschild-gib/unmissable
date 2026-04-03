@@ -13,33 +13,35 @@
 | Integration tests | `Tests/IntegrationTests/` | `[Feature]IntegrationTests.swift` |
 | E2E tests | `Tests/E2ETests/` | `[Flow]E2ETests.swift` |
 | Snapshot tests | `Tests/SnapshotTests/` | `[View]SnapshotTests.swift` |
+| Test support | `Tests/TestSupport/` | Shared test doubles |
 
 ---
 
 ## Running Tests
 
+All test commands go through `Scripts/test.sh`, which enforces a **4-worker parallel limit**, kills zombie processes, separates lint/build/test phases, and writes machine-readable results. Do **not** run bare `swift test` — it spawns unlimited parallel processes.
+
 ```bash
-# Run all XCTest suites (authoritative)
-xcodebuild -scheme Unmissable -destination 'platform=macOS' test
+# Run all tests (recommended)
+./Scripts/test.sh
 
-# Run all tests with full build cycle
+# Run a specific test target
+./Scripts/test.sh UnmissableTests
+
+# Skip lint (useful when iterating on test fixes)
+./Scripts/test.sh --skip-lint
+
+# Clean build + all tests (fixes SPM lock issues)
+./Scripts/test.sh --clean
+
+# Lint only (strict — all warnings are errors)
+./Scripts/enforce-lint.sh
+
+# Full build + lint + format + test cycle
 ./Scripts/build.sh
-
-# Run comprehensive test suite (unit + integration + UI + performance + memory)
-./Scripts/run-comprehensive-tests.sh
-
-# Run specific test class
-xcodebuild -scheme Unmissable -destination 'platform=macOS' test -only-testing:[TestTarget]/[TestClassName]
-
-# Run specific test method
-xcodebuild -scheme Unmissable -destination 'platform=macOS' test -only-testing:[TestTarget]/[TestClassName]/[testMethodName]
-
-# Run only unit tests
-xcodebuild -scheme Unmissable -destination 'platform=macOS' test -only-testing:UnmissableTests
-
-# Optional fast smoke check (non-authoritative in this repo setup)
-swift test
 ```
+
+The script outputs a clear status line (`PASS`, `FAIL`, `BUILD_FAIL`, `LINT_FAIL`, or `TIMEOUT`) and writes a JSON summary to `.build/test-result.json`.
 
 ---
 
@@ -47,19 +49,13 @@ swift test
 
 **Location**: `Tests/UnmissableTests/[ClassName]Tests.swift`
 
-**Template**:
 ```swift
 import XCTest
-
 @testable import Unmissable
 
 final class [ClassName]Tests: XCTestCase {
 
-    // MARK: - Properties
-
-    var sut: [ClassUnderTest]!  // System Under Test
-
-    // MARK: - Setup/Teardown
+    var sut: [ClassUnderTest]!
 
     override func setUp() {
         super.setUp()
@@ -70,8 +66,6 @@ final class [ClassName]Tests: XCTestCase {
         sut = nil
         super.tearDown()
     }
-
-    // MARK: - Tests
 
     func test[MethodName]_[Scenario]_[ExpectedResult]() {
         // Given
@@ -86,135 +80,27 @@ final class [ClassName]Tests: XCTestCase {
 }
 ```
 
-**Steps**:
-1. Create file at `Tests/UnmissableTests/[ClassName]Tests.swift`
-2. Import `XCTest` and `@testable import Unmissable`
-3. Create class inheriting from `XCTestCase`
-4. Add `setUp()` to initialize system under test
-5. Add `tearDown()` to clean up
-6. Write test methods starting with `test`
-
 ---
 
 ## Test Naming Convention
 
 **Pattern**: `test[MethodName]_[Scenario]_[ExpectedResult]`
 
-**Examples**:
 ```swift
 func testExtractLinks_withValidMeetURL_returnsOneLink()
 func testExtractLinks_withNoLinks_returnsEmptyArray()
-func testEventInit_withRequiredFields_setsPropertiesCorrectly()
 func testShowOverlay_whenFocusModeActive_doesNotShow()
 ```
 
 ---
 
-## How to Test Models
+## Testing @MainActor / Async Code
 
-**Template**:
-```swift
-import XCTest
-
-@testable import Unmissable
-
-final class [Model]Tests: XCTestCase {
-
-    func test[Model]Initialization() {
-        // Given
-        let id = "test-123"
-        let title = "Test Item"
-
-        // When
-        let model = [Model](
-            id: id,
-            title: title
-            // ... other required fields
-        )
-
-        // Then
-        XCTAssertEqual(model.id, id)
-        XCTAssertEqual(model.title, title)
-    }
-
-    func test[Model]Equality() {
-        // Given
-        let model1 = [Model](id: "same-id", ...)
-        let model2 = [Model](id: "same-id", ...)
-        let model3 = [Model](id: "different-id", ...)
-
-        // Then
-        XCTAssertEqual(model1, model2)
-        XCTAssertNotEqual(model1, model3)
-    }
-
-    func test[Model]ComputedProperty() {
-        // Given
-        let model = [Model](...)
-
-        // When
-        let result = model.[computedProperty]
-
-        // Then
-        XCTAssertEqual(result, [expected])
-    }
-}
-```
-
----
-
-## How to Test Managers/Services
-
-**Template for @MainActor classes**:
-```swift
-import XCTest
-
-@testable import Unmissable
-
-final class [Manager]Tests: XCTestCase {
-
-    var sut: [ManagerClass]!
-
-    override func setUp() {
-        super.setUp()
-        // Use factory to create test-safe version
-        sut = [ManagerClass](isTestEnvironment: true)
-    }
-
-    override func tearDown() {
-        sut = nil
-        super.tearDown()
-    }
-
-    @MainActor
-    func testSomeMethod() async {
-        // Given
-        let input = [testData]
-
-        // When
-        await sut.someAsyncMethod(input)
-
-        // Then
-        XCTAssertTrue(sut.someState)
-    }
-}
-```
-
-**Key patterns**:
-- Use `@MainActor` on test methods that test `@MainActor` classes
-- Use `async` test methods for testing async code
-- Use `isTestEnvironment: true` when creating managers
-
----
-
-## How to Test Async Code
-
-**Template**:
 ```swift
 @MainActor
 func testAsyncOperation() async {
     // Given
-    let sut = SomeManager()
+    let sut = SomeManager(isTestEnvironment: true)
 
     // When
     await sut.performAsyncOperation()
@@ -224,56 +110,15 @@ func testAsyncOperation() async {
 }
 ```
 
-**For expectations (when async/await isn't available)**:
-```swift
-func testWithExpectation() {
-    // Given
-    let expectation = expectation(description: "Operation completes")
-    var result: String?
-
-    // When
-    sut.performOperation { value in
-        result = value
-        expectation.fulfill()
-    }
-
-    // Then
-    waitForExpectations(timeout: 5.0)
-    XCTAssertEqual(result, "expected")
-}
-```
-
----
-
-## How to Test Protocol Implementations
-
-**Template**:
-```swift
-import XCTest
-
-@testable import Unmissable
-
-final class [Protocol]ConformanceTests: XCTestCase {
-
-    @MainActor
-    func testConformsToProtocol() {
-        // Given
-        let sut: any [Protocol] = [ConcreteClass]()
-
-        // When
-        sut.[protocolMethod]()
-
-        // Then
-        XCTAssertTrue(sut.[expectedState])
-    }
-}
-```
+Key rules:
+- Use `@MainActor` on test methods that test `@MainActor` classes
+- Use `async` test methods for async code
+- Use `isTestEnvironment: true` when creating managers
 
 ---
 
 ## Test Data Helpers
 
-**Create test fixtures**:
 ```swift
 extension Event {
     static func testEvent(
@@ -282,19 +127,37 @@ extension Event {
         startDate: Date = Date(),
         endDate: Date = Date().addingTimeInterval(3600)
     ) -> Event {
-        Event(
-            id: id,
-            title: title,
-            startDate: startDate,
-            endDate: endDate,
-            calendarId: "primary"
+        Event(id: id, title: title, startDate: startDate,
+              endDate: endDate, calendarId: "primary")
+    }
+}
+```
+
+---
+
+## Snapshot Testing
+
+For UI components (requires SnapshotTesting dependency):
+
+```swift
+import SnapshotTesting
+import SwiftUI
+import XCTest
+@testable import Unmissable
+
+final class [View]SnapshotTests: XCTestCase {
+
+    func testViewAppearance() {
+        let view = [SomeView]()
+        assertSnapshot(
+            of: view,
+            as: .image(layout: .fixed(width: 400, height: 300))
         )
     }
 }
-
-// Usage in tests:
-let event = Event.testEvent(title: "Custom Title")
 ```
+
+First run creates reference snapshot in `__Snapshots__/`. Subsequent runs compare against it.
 
 ---
 
@@ -313,67 +176,44 @@ let event = Event.testEvent(title: "Custom Title")
 
 ---
 
-## Snapshot Testing
+## Lint-Enforced Test Quality
 
-**For UI components** (requires SnapshotTesting dependency):
+These patterns produce **errors** in test files:
 
-```swift
-import SnapshotTesting
-import SwiftUI
-import XCTest
-
-@testable import Unmissable
-
-final class [View]SnapshotTests: XCTestCase {
-
-    func testViewAppearance() {
-        let view = [SomeView]()
-
-        assertSnapshot(
-            of: view,
-            as: .image(layout: .fixed(width: 400, height: 300))
-        )
-    }
-}
-```
-
-**First run**: Creates reference snapshot in `__Snapshots__/` folder
-**Subsequent runs**: Compares against reference
+| Banned Pattern | Why | Use Instead |
+|---------------|-----|-------------|
+| `XCTAssertNotNil(x)` alone | Shallow — proves existence, not correctness | `XCTUnwrap` + assert the value |
+| `XCTAssertTrue(.contains(...))` | Poor failure messages | `XCTAssertEqual` or specific matcher |
+| `XCTAssert(x is Type)` | Type-only check is shallow | Assert behavior or values |
+| `Task.sleep(...)` | Causes flaky tests | `TestUtilities.waitForAsync` |
+| `OverlayManager()` | Creates real fullscreen UI | `TestSafeOverlayManager` |
+| `AppState()` | Creates real OverlayManager | Inject dependencies |
+| `NSApplication.shared` | Interacts with window server | Mock the window layer |
+| `print("debug...")` | Noise in test output | `XCTAssert` to verify values |
 
 ---
 
 ## Common Mistakes
 
-**Test setup**:
-- Don't create real UI in tests
-- Do use `isTestEnvironment: true` for managers
-- Don't forget to set `sut = nil` in `tearDown()`
-- Do clean up state between tests
+**Setup**:
+- Don't create real UI managers in tests. Do use `isTestEnvironment: true`.
+- Don't forget `sut = nil` in `tearDown()`. Do clean up state between tests.
 
-**Async testing**:
-- Don't use `sleep()` to wait for async operations
-- Do use `async/await` or `XCTestExpectation`
-- Don't forget `@MainActor` when testing `@MainActor` classes
-- Do mark test methods as `async` when needed
-
-**Naming**:
-- Don't use vague names: `testMethod1`, `testThing`
-- Do use descriptive names: `testExtractLinks_withEmptyString_returnsEmptyArray`
+**Async**:
+- Don't use `sleep()` or `Task.sleep()`. Do use `async/await` or `TestUtilities.waitForAsync`.
+- Don't forget `@MainActor` when testing `@MainActor` classes.
 
 **Assertions**:
-- Don't use bare `XCTAssert(condition)` for equality checks
-- Do use `XCTAssertEqual(actual, expected)` for better failure messages
-- Don't ignore test failures
-- Do fix failing tests before committing
+- Don't use bare `XCTAssert(condition)` for equality. Do use `XCTAssertEqual(actual, expected)`.
+- Don't skip edge cases (nil, empty, boundary). Do test happy path AND error paths.
 
 **Isolation**:
-- Don't rely on test execution order
-- Do make each test independent
-- Don't share mutable state between tests
-- Do reset state in `setUp()` and `tearDown()`
+- Don't rely on test execution order. Do make each test independent.
+- Don't share mutable state between tests. Do reset state in `setUp()`/`tearDown()`.
 
-**Coverage**:
-- Don't skip edge cases (nil, empty, boundary values)
-- Do test happy path AND error paths
-- Don't test implementation details
-- Do test behavior/outcomes
+## On-Demand References
+
+| Domain | Serena Memory |
+|--------|---------------|
+| Test pruning decisions | `test_pruning_nonlegacy_overlay_pass2` |
+| Overlay test stabilization | `system_integration_overlay_visibility_stabilization_2026_02_21` |

@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.1
 import PackageDescription
 
 let package = Package(
@@ -9,7 +9,7 @@ let package = Package(
     products: [
         .executable(
             name: "Unmissable",
-            targets: ["Unmissable"]
+            targets: ["Unmissable"],
         ),
     ],
     dependencies: [
@@ -23,6 +23,9 @@ let package = Package(
         .package(url: "https://github.com/Clipy/Magnet.git", from: "3.4.0"),
         // Snapshot testing
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing.git", from: "1.19.1"),
+        // Deterministic clocks and concurrency testing utilities
+        .package(url: "https://github.com/pointfreeco/swift-clocks.git", from: "1.0.0"),
+        .package(url: "https://github.com/pointfreeco/swift-concurrency-extras.git", from: "1.0.0"),
         // Auto-updates
         .package(url: "https://github.com/sparkle-project/Sparkle.git", from: "2.9.0"),
         // Note: SwiftFormat and SwiftLint installed via Homebrew (brew install swiftformat swiftlint)
@@ -40,14 +43,16 @@ let package = Package(
             path: "Sources/Unmissable",
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency"),
-            ]
+            ],
         ),
-        .testTarget(
+        .target(
             name: "TestSupport",
             dependencies: [
                 "Unmissable",
+                .product(name: "Clocks", package: "swift-clocks"),
+                .product(name: "ConcurrencyExtras", package: "swift-concurrency-extras"),
             ],
-            path: "Tests/TestSupport"
+            path: "Tests/TestSupport",
         ),
         .testTarget(
             name: "UnmissableTests",
@@ -57,9 +62,6 @@ let package = Package(
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
             ],
             path: "Tests/UnmissableTests",
-            plugins: [
-                .plugin(name: "LintGatePlugin"),
-            ]
         ),
         .testTarget(
             name: "IntegrationTests",
@@ -67,9 +69,6 @@ let package = Package(
                 "Unmissable",
             ],
             path: "Tests/IntegrationTests",
-            plugins: [
-                .plugin(name: "LintGatePlugin"),
-            ]
         ),
         .testTarget(
             name: "SnapshotTests",
@@ -81,9 +80,6 @@ let package = Package(
             exclude: [
                 "__Snapshots__",
             ],
-            plugins: [
-                .plugin(name: "LintGatePlugin"),
-            ]
         ),
         .testTarget(
             name: "E2ETests",
@@ -92,14 +88,6 @@ let package = Package(
                 "TestSupport",
             ],
             path: "Tests/E2ETests",
-            plugins: [
-                .plugin(name: "LintGatePlugin"),
-            ]
         ),
-        .plugin(
-            name: "LintGatePlugin",
-            capability: .buildTool(),
-            path: "Plugins/LintGatePlugin"
-        ),
-    ]
+    ],
 )

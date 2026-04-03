@@ -47,6 +47,8 @@ extension DatabaseManaging {
         nil
     }
 
+    // Protocol default provides no-op for optional capability
+    // swiftlint:disable:next async_without_await
     func reinitialize() async -> String? {
         nil
     }
@@ -54,6 +56,18 @@ extension DatabaseManaging {
 
 actor DatabaseManager: DatabaseManaging {
     private let logger = Logger(category: "DatabaseManager")
+
+    private static let redactedPrefixLength = 2
+    private static let redactedIdLength = 8
+
+    private static func redactedCalendarId(_ id: String) -> String {
+        if id.contains("@") {
+            let parts = id.split(separator: "@", maxSplits: 1)
+            let prefix = parts.first.map { $0.prefix(redactedPrefixLength) } ?? ""
+            return "\(prefix)***@\(parts.last ?? "***")"
+        }
+        return String(id.prefix(redactedIdLength)) + "..."
+    }
 
     private(set) var dbQueue: DatabaseQueue?
     private(set) var isInitialized: Bool = false
@@ -68,7 +82,7 @@ actor DatabaseManager: DatabaseManaging {
                 for: .applicationSupportDirectory,
                 in: .userDomainMask,
                 appropriateFor: nil,
-                create: true
+                create: true,
             )
             let unmissableURL = appSupportURL.appendingPathComponent("Unmissable")
             try fileManager.createDirectory(at: unmissableURL, withIntermediateDirectories: true)
@@ -122,7 +136,7 @@ actor DatabaseManager: DatabaseManaging {
                 for: .applicationSupportDirectory,
                 in: .userDomainMask,
                 appropriateFor: nil,
-                create: true
+                create: true,
             )
             let unmissableURL = appSupportURL.appendingPathComponent("Unmissable")
             try fileManager.createDirectory(at: unmissableURL, withIntermediateDirectories: true)
@@ -179,12 +193,16 @@ actor DatabaseManager: DatabaseManaging {
             }
 
             try db.create(
-                index: "idx_events_startDate", on: Event.databaseTableName,
-                columns: ["startDate"], ifNotExists: true
+                index: "idx_events_startDate",
+                on: Event.databaseTableName,
+                columns: ["startDate"],
+                ifNotExists: true,
             )
             try db.create(
-                index: "idx_events_calendarId", on: Event.databaseTableName,
-                columns: ["calendarId"], ifNotExists: true
+                index: "idx_events_calendarId",
+                on: Event.databaseTableName,
+                columns: ["calendarId"],
+                ifNotExists: true,
             )
 
             try db.create(table: CalendarInfo.databaseTableName, ifNotExists: true) { t in
@@ -202,7 +220,7 @@ actor DatabaseManager: DatabaseManaging {
             // FTS for event search
             let ftsExists = try Bool.fetchOne(
                 db,
-                sql: "SELECT 1 FROM sqlite_master WHERE type='table' AND name='events_fts'"
+                sql: "SELECT 1 FROM sqlite_master WHERE type='table' AND name='events_fts'",
             ) ?? false
             if !ftsExists {
                 try db.create(virtualTable: "events_fts", using: FTS5()) { t in
@@ -286,7 +304,10 @@ actor DatabaseManager: DatabaseManaging {
             }
         }
 
-        logger.info("Atomically replaced events for calendar \(calendarId): \(events.count) events saved")
+        logger
+            .info(
+                "Atomically replaced events for calendar \(Self.redactedCalendarId(calendarId)): \(events.count) events saved",
+            )
     }
 
     func fetchEvents(from startDate: Date, to endDate: Date) async throws -> [Event] {
@@ -352,7 +373,7 @@ actor DatabaseManager: DatabaseManaging {
             }
         }
 
-        logger.info("Deleted events for calendar: \(calendarId)")
+        logger.info("Deleted events for calendar: \(Self.redactedCalendarId(calendarId))")
     }
 
     func deleteOldEvents(before date: Date) async throws {
@@ -415,7 +436,7 @@ actor DatabaseManager: DatabaseManaging {
                     UPDATE calendars
                     SET lastSyncAt = ?, updatedAt = ?
                     WHERE id = ?
-                    """, arguments: [Date(), Date(), calendarId]
+                    """, arguments: [Date(), Date(), calendarId],
                 )
             }
         }
@@ -472,14 +493,14 @@ actor DatabaseManager: DatabaseManaging {
                         SELECT id FROM calendars WHERE sourceProvider = ?
                     )
                     """,
-                    arguments: [providerRaw]
+                    arguments: [providerRaw],
                 )
                 return db.changesCount
             }
         }
 
         logger.info(
-            "Deleted \(deletedCount) events for provider \(provider.rawValue)"
+            "Deleted \(deletedCount) events for provider \(provider.rawValue)",
         )
     }
 
@@ -496,7 +517,7 @@ actor DatabaseManager: DatabaseManaging {
     /// Executes an async operation with a timeout to prevent indefinite hangs
     func withTimeout<T: Sendable>(
         _ seconds: TimeInterval,
-        _ operation: @escaping @Sendable () async throws -> T
+        _ operation: @escaping @Sendable () async throws -> T,
     ) async throws -> T {
         try await withThrowingTaskGroup(of: T.self) { group in
             group.addTask {

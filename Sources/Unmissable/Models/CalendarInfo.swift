@@ -1,6 +1,6 @@
 import Foundation
 
-struct CalendarInfo: Identifiable, Codable {
+struct CalendarInfo: Identifiable, Codable, Equatable {
     let id: String
     let name: String
     let description: String?
@@ -22,7 +22,7 @@ struct CalendarInfo: Identifiable, Codable {
         sourceProvider: CalendarProviderType = .google,
         lastSyncAt: Date? = nil,
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
     ) {
         self.id = id
         self.name = name
@@ -52,7 +52,7 @@ struct CalendarInfo: Identifiable, Codable {
             sourceProvider: sourceProvider,
             lastSyncAt: lastSyncAt,
             createdAt: createdAt,
-            updatedAt: Date()
+            updatedAt: Date(),
         )
     }
 }

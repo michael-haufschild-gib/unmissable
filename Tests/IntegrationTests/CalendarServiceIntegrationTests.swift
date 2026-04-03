@@ -12,14 +12,15 @@ final class CalendarServiceIntegrationTests: XCTestCase {
         // Use isolated temp database to avoid polluting production data
         let tempDir = FileManager.default.temporaryDirectory
         tempDatabaseURL = tempDir.appendingPathComponent(
-            "unmissable-integration-\(UUID().uuidString).db"
+            "unmissable-integration-\(UUID().uuidString).db",
         )
         databaseManager = DatabaseManager(databaseURL: tempDatabaseURL)
 
         preferencesManager = PreferencesManager(themeManager: ThemeManager())
         calendarService = CalendarService(
-            preferencesManager: preferencesManager, databaseManager: databaseManager,
-            linkParser: LinkParser()
+            preferencesManager: preferencesManager,
+            databaseManager: databaseManager,
+            linkParser: LinkParser(),
         )
         try await super.setUp()
     }
@@ -39,8 +40,8 @@ final class CalendarServiceIntegrationTests: XCTestCase {
     func testCalendarServiceInitialization() {
         XCTAssertFalse(calendarService.isConnected)
         XCTAssertEqual(calendarService.syncStatus, .idle)
-        XCTAssertTrue(calendarService.events.isEmpty)
-        XCTAssertTrue(calendarService.calendars.isEmpty)
+        XCTAssertEqual(calendarService.events, [])
+        XCTAssertEqual(calendarService.calendars, [])
     }
 
     @MainActor
@@ -56,14 +57,14 @@ final class CalendarServiceIntegrationTests: XCTestCase {
             id: "test-calendar",
             name: "Test Calendar",
             isSelected: false,
-            isPrimary: false
+            isPrimary: false,
         )
 
         calendarService.calendars = [mockCalendar]
         calendarService.updateCalendarSelection("test-calendar", isSelected: true)
 
         let updatedCalendar = try XCTUnwrap(
-            calendarService.calendars.first { $0.id == "test-calendar" }
+            calendarService.calendars.first { $0.id == "test-calendar" },
         )
         XCTAssertTrue(updatedCalendar.isSelected)
     }
@@ -73,7 +74,7 @@ final class CalendarServiceIntegrationTests: XCTestCase {
         await calendarService.syncEvents()
 
         XCTAssertTrue(
-            calendarService.syncStatus == .idle || calendarService.syncStatus == .offline
+            calendarService.syncStatus == .idle || calendarService.syncStatus == .offline,
         )
     }
 
@@ -82,7 +83,7 @@ final class CalendarServiceIntegrationTests: XCTestCase {
         await calendarService.disconnectAll()
 
         XCTAssertFalse(calendarService.isConnected)
-        XCTAssertTrue(calendarService.events.isEmpty)
-        XCTAssertTrue(calendarService.calendars.isEmpty)
+        XCTAssertEqual(calendarService.events, [])
+        XCTAssertEqual(calendarService.calendars, [])
     }
 }

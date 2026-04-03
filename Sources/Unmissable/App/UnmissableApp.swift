@@ -12,7 +12,7 @@ struct UnmissableApp: App {
             MenuBarView()
                 .environmentObject(appState)
                 .environmentObject(appState.calendar)
-                .customThemedEnvironment(themeManager: appState.themeManager)
+                .themed(themeManager: appState.themeManager)
         } label: {
             MenuBarLabelView()
                 .environmentObject(appState.menuBarPreview)
@@ -24,6 +24,8 @@ struct UnmissableApp: App {
 struct MenuBarLabelView: View {
     @EnvironmentObject
     var menuBarPreview: MenuBarPreviewManager
+    @Environment(\.design)
+    private var design
 
     var body: some View {
         Group {
@@ -31,7 +33,7 @@ struct MenuBarLabelView: View {
                 Image(systemName: "calendar.badge.clock")
             } else if let text = menuBarPreview.menuBarText {
                 Text(text)
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .font(design.fonts.monoSmall)
             } else {
                 Image(systemName: "calendar.badge.clock")
             }

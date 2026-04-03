@@ -6,12 +6,31 @@ import XCTest
 
 /// Centralized test utilities for creating test data, mocking services, and testing async operations
 enum TestUtilities {
+    // MARK: - Constants
+
+    private static let defaultStartOffset: TimeInterval = 300
+    private static let oneHour: TimeInterval = 3600
+    private static let halfHour: TimeInterval = 1800
+    private static let hoursInDay = 24
+    private static let minutesInHour = 60
+    private static let secondsInMinute = 60
+    private static let secondsPerDay = TimeInterval(hoursInDay * minutesInHour * secondsInMinute)
+    private static let pollingInterval: UInt64 = 100_000_000
+    private static let gcIterations = 3
+    private static let gcArraySize = 1000
+    private static let defaultAlertMinutes = 1
+    private static let defaultMediumAlertMinutes = 2
+    private static let defaultLongAlertMinutes = 5
+    private static let defaultOverlayMinutesBefore = 2
+    static let secondsPerMinute: TimeInterval = 60
+    private static let runLoopPollInterval: TimeInterval = 0.1
+
     // MARK: - Test Data Creation
 
     static func createTestEvent(
         id: String = "test-event-\(UUID())",
         title: String = "Test Meeting",
-        startDate: Date = Date().addingTimeInterval(300), // 5 minutes from now
+        startDate: Date = Date().addingTimeInterval(defaultStartOffset),
         endDate: Date? = nil,
         organizer: String? = "test@example.com",
         calendarId: String = "primary",
@@ -19,9 +38,9 @@ enum TestUtilities {
         provider: Provider? = nil,
         snoozeUntil: Date? = nil,
         autoJoinEnabled: Bool = false,
-        timezone: String = "UTC"
+        timezone: String = "UTC",
     ) -> Event {
-        let actualEndDate = endDate ?? startDate.addingTimeInterval(3600) // 1 hour default
+        let actualEndDate = endDate ?? startDate.addingTimeInterval(oneHour)
 
         return Event(
             id: id,
@@ -37,13 +56,13 @@ enum TestUtilities {
             snoozeUntil: snoozeUntil,
             autoJoinEnabled: autoJoinEnabled,
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
     }
 
     static func createMeetingEvent(
         provider: Provider = .meet,
-        startDate: Date = Date().addingTimeInterval(300)
+        startDate: Date = Date().addingTimeInterval(defaultStartOffset),
     ) -> Event {
         // swiftlint:disable force_unwrapping
         // Test-only compile-time constant URLs.
@@ -69,15 +88,15 @@ enum TestUtilities {
             title: "\(provider.rawValue.capitalized) Meeting",
             startDate: startDate,
             links: links,
-            provider: provider
+            provider: provider,
         )
     }
 
     static func createPastEvent() -> Event {
         createTestEvent(
             title: "Past Meeting",
-            startDate: Date().addingTimeInterval(-3600), // 1 hour ago
-            endDate: Date().addingTimeInterval(-1800) // 30 minutes ago
+            startDate: Date().addingTimeInterval(-oneHour),
+            endDate: Date().addingTimeInterval(-halfHour),
         )
     }
 
@@ -89,7 +108,7 @@ enum TestUtilities {
             id: "all-day-\(UUID())",
             title: "All Day Event",
             startDate: startOfDay,
-            endDate: startOfDay.addingTimeInterval(24 * 60 * 60), // 24 hours
+            endDate: startOfDay.addingTimeInterval(secondsPerDay),
             organizer: nil,
             isAllDay: true,
             calendarId: "primary",
@@ -99,7 +118,7 @@ enum TestUtilities {
             snoozeUntil: nil,
             autoJoinEnabled: false,
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
     }
 
@@ -107,7 +126,7 @@ enum TestUtilities {
         id: String = "test-calendar-\(UUID())",
         name: String = "Test Calendar",
         isSelected: Bool = true,
-        isPrimary: Bool = false
+        isPrimary: Bool = false,
     ) -> CalendarInfo {
         CalendarInfo(
             id: id,
@@ -118,7 +137,7 @@ enum TestUtilities {
             colorHex: "#1a73e8",
             lastSyncAt: Date(),
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
     }
 
@@ -132,15 +151,16 @@ enum TestUtilities {
     @MainActor
     static func createTestPreferencesManager() -> PreferencesManager {
         let suiteName = "com.unmissable.test.\(UUID().uuidString)"
-        let testDefaults = UserDefaults(suiteName: suiteName)! // swiftlint:disable:this force_unwrapping
+        // swiftlint:disable:next force_unwrapping
+        let testDefaults = UserDefaults(suiteName: suiteName)!
         let prefs = PreferencesManager(userDefaults: testDefaults, themeManager: ThemeManager())
         // Set test-specific defaults
-        prefs.setDefaultAlertMinutes(1)
+        prefs.setDefaultAlertMinutes(defaultAlertMinutes)
         prefs.setUseLengthBasedTiming(false)
-        prefs.setShortMeetingAlertMinutes(1)
-        prefs.setMediumMeetingAlertMinutes(2)
-        prefs.setLongMeetingAlertMinutes(5)
-        prefs.setOverlayShowMinutesBefore(2)
+        prefs.setShortMeetingAlertMinutes(defaultAlertMinutes)
+        prefs.setMediumMeetingAlertMinutes(defaultMediumAlertMinutes)
+        prefs.setLongMeetingAlertMinutes(defaultLongAlertMinutes)
+        prefs.setOverlayShowMinutesBefore(defaultOverlayMinutesBefore)
         prefs.setPlayAlertSound(true)
         prefs.setAutoJoinEnabled(false)
         prefs.setShowOnAllDisplays(true)
@@ -206,7 +226,7 @@ extension EventScheduler {
             if case let .snooze(until) = alert.alertType {
                 // Use ceil for future intervals so assertions don't intermittently
                 // read N-1 minutes due sub-second execution delays.
-                let minutesUntilSnooze = until.timeIntervalSinceNow / 60
+                let minutesUntilSnooze = until.timeIntervalSinceNow / TestUtilities.secondsPerMinute
                 return minutesUntilSnooze >= 0
                     ? Int(ceil(minutesUntilSnooze))
                     : Int(floor(minutesUntilSnooze))
@@ -247,7 +267,7 @@ extension TestUtilities {
     /// Wait for async operations with timeout
     static func waitForAsync(
         timeout: TimeInterval = 5.0,
-        condition: @escaping @Sendable () async -> Bool
+        condition: @escaping @Sendable () async -> Bool,
     ) async throws {
         let startTime = Date()
 
@@ -256,7 +276,7 @@ extension TestUtilities {
                 return
             }
             // swiftlint:disable:next no_raw_task_sleep_in_tests - this IS the polling infrastructure
-            try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+            try await Task.sleep(nanoseconds: pollingInterval)
         }
 
         throw XCTestError(.timeoutWhileWaiting)
@@ -271,7 +291,7 @@ extension TestUtilities {
     static func testForMemoryLeaks(
         instance: @autoclosure () -> (some AnyObject)?,
         after: () throws -> Void,
-        timeout: TimeInterval = 5.0
+        timeout: TimeInterval = 5.0,
     ) throws {
         weak var weakInstance: AnyObject?
         weakInstance = instance()
@@ -279,15 +299,15 @@ extension TestUtilities {
         try after()
 
         // Force garbage collection
-        for _ in 0 ..< 3 {
+        for _ in 0 ..< gcIterations {
             autoreleasepool {
-                _ = Array(repeating: 0, count: 1000)
+                _ = Array(repeating: 0, count: gcArraySize)
             }
         }
 
         let startTime = Date()
         while weakInstance != nil, Date().timeIntervalSince(startTime) < timeout {
-            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(runLoopPollInterval))
         }
 
         XCTAssertNil(weakInstance, "Memory leak detected: instance was not deallocated")
@@ -296,16 +316,16 @@ extension TestUtilities {
     // MARK: - UI Testing Utilities
 
     /// Create test environment for SwiftUI views
-    static func createTestEnvironment() -> CustomDesign {
+    static func createTestEnvironment() -> DesignTokens {
         // Return a consistent design for testing
-        CustomDesign.design(for: .light) // Use light theme for consistent testing
+        DesignTokens.tokens(for: .light, accent: .blue)
     }
 
     // MARK: - Performance Testing
 
     /// Measure execution time of operations
     static func measureTime<T>(
-        operation: () throws -> T
+        operation: () throws -> T,
     ) rethrows -> (result: T, time: TimeInterval) {
         let startTime = CFAbsoluteTimeGetCurrent()
         let result = try operation()
@@ -315,7 +335,7 @@ extension TestUtilities {
 
     /// Measure async execution time
     static func measureTimeAsync<T: Sendable>(
-        operation: @Sendable () async throws -> T
+        operation: @Sendable () async throws -> T,
     ) async rethrows -> (result: T, time: TimeInterval) {
         let startTime = CFAbsoluteTimeGetCurrent()
         let result = try await operation()
@@ -330,7 +350,7 @@ extension XCTestCase {
     /// Wait for expectation with async block
     func waitForAsync(
         timeout: TimeInterval = 5.0,
-        _ block: @escaping @Sendable () async -> Void
+        _ block: @escaping @Sendable () async -> Void,
     ) {
         let expectation = expectation(description: "Async operation")
 
@@ -345,7 +365,7 @@ extension XCTestCase {
     /// Assert that an async operation throws an error
     func assertThrowsErrorAsync(
         _ operation: () async throws -> some Any,
-        _ errorHandler: (Error) -> Void = { _ in }
+        _ errorHandler: (Error) -> Void = { _ in },
     ) async {
         do {
             _ = try await operation()

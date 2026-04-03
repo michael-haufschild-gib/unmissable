@@ -29,14 +29,14 @@ final class MultiEventE2ETests: XCTestCase {
                 title: "Meeting A",
                 startDate: baseTime,
                 endDate: baseTime.addingTimeInterval(3600),
-                calendarId: "e2e-cal"
+                calendarId: "e2e-cal",
             ),
             Event(
                 id: "e2e-overlap-2",
                 title: "Meeting B",
                 startDate: baseTime.addingTimeInterval(1800), // Starts 30 min into Meeting A
                 endDate: baseTime.addingTimeInterval(5400),
-                calendarId: "e2e-cal"
+                calendarId: "e2e-cal",
             ),
         ]
 
@@ -44,20 +44,19 @@ final class MultiEventE2ETests: XCTestCase {
 
         // Both overlapping events should be scheduled
         let alertIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
-        XCTAssert(alertIds.isSuperset(of: ["e2e-overlap-1", "e2e-overlap-2"]))
-        XCTAssertEqual(alertIds.count, 2)
+        XCTAssertEqual(alertIds, Set(["e2e-overlap-1", "e2e-overlap-2"]))
     }
 
     func testOverlayReplacementForOverlappingEvents() async throws {
         let event1 = E2EEventBuilder.futureEvent(
             id: "e2e-overlap-show-1",
             title: "First Overlapping",
-            minutesFromNow: 10
+            minutesFromNow: 10,
         )
         let event2 = E2EEventBuilder.futureEvent(
             id: "e2e-overlap-show-2",
             title: "Second Overlapping",
-            minutesFromNow: 15
+            minutesFromNow: 15,
         )
 
         try await env.seedAndSchedule([event1, event2])
@@ -82,7 +81,7 @@ final class MultiEventE2ETests: XCTestCase {
                 title: "Concurrent Meeting \(i)",
                 startDate: sameTime,
                 endDate: sameTime.addingTimeInterval(3600),
-                calendarId: "e2e-cal"
+                calendarId: "e2e-cal",
             )
         }
 
@@ -102,7 +101,7 @@ final class MultiEventE2ETests: XCTestCase {
                 id: "e2e-work-\(i)",
                 title: "Work Meeting \(i)",
                 minutesFromNow: 20 + (i * 15),
-                calendarId: "work-calendar"
+                calendarId: "work-calendar",
             )
         }
         let personalEvents = (0 ..< 2).map { i in
@@ -110,7 +109,7 @@ final class MultiEventE2ETests: XCTestCase {
                 id: "e2e-personal-\(i)",
                 title: "Personal Event \(i)",
                 minutesFromNow: 25 + (i * 20),
-                calendarId: "personal-calendar"
+                calendarId: "personal-calendar",
             )
         }
 
@@ -118,6 +117,7 @@ final class MultiEventE2ETests: XCTestCase {
 
         // All 5 events should be scheduled
         XCTAssertGreaterThanOrEqual(env.eventScheduler.scheduledAlerts.count, 5)
+        XCTAssertTrue(env.eventScheduler.scheduledAlerts.contains { $0.event.id == "e2e-work-0" })
 
         // Verify interleaved ordering by trigger time
         let triggerTimes = env.eventScheduler.scheduledAlerts.map(\.triggerDate)
@@ -130,22 +130,25 @@ final class MultiEventE2ETests: XCTestCase {
         let events = E2EEventBuilder.eventBatch(
             count: 100,
             startingMinutesFromNow: 10,
-            spacingMinutes: 5
+            spacingMinutes: 5,
         )
 
         try await env.seedEvents(events)
 
         let fetched = try await env.fetchUpcomingEvents(limit: 100)
-        XCTAssertEqual(fetched.count, 100)
+        let numberOfFetched = fetched.count
+        XCTAssertEqual(numberOfFetched, 100)
+        XCTAssertEqual(fetched.first?.id, "e2e-batch-0")
 
         let startTime = CFAbsoluteTimeGetCurrent()
         await env.eventScheduler.startScheduling(
-            events: fetched, overlayManager: env.overlayManager
+            events: fetched, overlayManager: env.overlayManager,
         )
         let elapsed = CFAbsoluteTimeGetCurrent() - startTime
 
         XCTAssertLessThan(elapsed, 2.0, "Scheduling 100 events should complete in under 2 seconds")
         XCTAssertGreaterThanOrEqual(env.eventScheduler.scheduledAlerts.count, 100)
+        XCTAssertTrue(env.eventScheduler.scheduledAlerts.contains { $0.event.id == "e2e-batch-0" })
     }
 
     // MARK: - Sequential Overlay Through Multiple Events
@@ -154,7 +157,7 @@ final class MultiEventE2ETests: XCTestCase {
         let events = E2EEventBuilder.eventBatch(
             count: 5,
             startingMinutesFromNow: 10,
-            spacingMinutes: 10
+            spacingMinutes: 10,
         )
 
         try await env.seedAndSchedule(events)
@@ -176,7 +179,7 @@ final class MultiEventE2ETests: XCTestCase {
             E2EEventBuilder.futureEvent(
                 id: "e2e-seq-snooze-\(i)",
                 title: "Sequential Snooze Meeting \(i)",
-                minutesFromNow: 15 + (i * 10)
+                minutesFromNow: 15 + (i * 10),
             )
         }
 
@@ -192,10 +195,11 @@ final class MultiEventE2ETests: XCTestCase {
                 }
                 return false
             }
-            XCTAssertEqual(
-                snoozeAlerts.count, 1,
-                "Event \(index) should have exactly 1 snooze alert"
+            let snoozeAlert = try XCTUnwrap(
+                snoozeAlerts.first,
+                "Event \(index) should have exactly 1 snooze alert",
             )
+            XCTAssertEqual(snoozeAlert.event.id, event.id)
         }
     }
 
@@ -206,29 +210,29 @@ final class MultiEventE2ETests: XCTestCase {
             id: "e2e-mixed-meet",
             title: "Google Meet",
             minutesFromNow: 15,
-            provider: .meet
+            provider: .meet,
         )
         let zoomEvent = E2EEventBuilder.onlineMeeting(
             id: "e2e-mixed-zoom",
             title: "Zoom Call",
             minutesFromNow: 30,
-            provider: .zoom
+            provider: .zoom,
         )
         let inPersonEvent = E2EEventBuilder.futureEvent(
             id: "e2e-mixed-inperson",
             title: "In-Person Meeting",
-            minutesFromNow: 45
+            minutesFromNow: 45,
         )
         let allDayEvent = E2EEventBuilder.allDayEvent(
             id: "e2e-mixed-allday",
-            title: "Team Offsite"
+            title: "Team Offsite",
         )
 
         try await env.seedEvents([meetEvent, zoomEvent, inPersonEvent, allDayEvent])
 
         let upcoming = try await env.fetchUpcomingEvents(limit: 50)
         await env.eventScheduler.startScheduling(
-            events: upcoming, overlayManager: env.overlayManager
+            events: upcoming, overlayManager: env.overlayManager,
         )
 
         // Online meetings should preserve their provider info
@@ -251,23 +255,24 @@ final class MultiEventE2ETests: XCTestCase {
         let events = E2EEventBuilder.eventBatch(count: 3, startingMinutesFromNow: 10)
         try await env.seedAndSchedule(events)
 
-        XCTAssertEqual(env.eventScheduler.scheduledAlerts.count, 3)
+        let batchAlertIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
+        XCTAssertEqual(batchAlertIds, Set(["e2e-batch-0", "e2e-batch-1", "e2e-batch-2"]))
 
         // Stop scheduling
         env.eventScheduler.stopScheduling()
-        XCTAssertTrue(env.eventScheduler.scheduledAlerts.isEmpty)
+        XCTAssertEqual(env.eventScheduler.scheduledAlerts, [])
 
         // Re-schedule with updated events
         let newEvent = E2EEventBuilder.futureEvent(
             id: "e2e-restart",
             title: "After Restart",
-            minutesFromNow: 20
+            minutesFromNow: 20,
         )
         try await env.seedEvents([newEvent])
 
         let allUpcoming = try await env.fetchUpcomingEvents()
         await env.eventScheduler.startScheduling(
-            events: allUpcoming, overlayManager: env.overlayManager
+            events: allUpcoming, overlayManager: env.overlayManager,
         )
 
         // Should have alerts for all events (original 3 + new 1)

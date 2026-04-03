@@ -16,7 +16,7 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
         let testEvent = TestUtilities.createTestEvent(
             id: "snooze-after-start-test",
             title: "Snooze After Start Test Meeting",
-            startDate: meetingStartTime
+            startDate: meetingStartTime,
         )
 
         // Show initial overlay
@@ -40,7 +40,7 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
 
         XCTAssertTrue(
             overlayManager.isOverlayVisible,
-            "Snoozed overlay should be visible even after meeting started"
+            "Snoozed overlay should be visible even after meeting started",
         )
         let activeEvent = try XCTUnwrap(overlayManager.activeEvent)
         XCTAssertEqual(activeEvent.id, testEvent.id, "Should show correct event")
@@ -52,7 +52,7 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
 
         XCTAssertTrue(
             overlayManager.isOverlayVisible,
-            "Snoozed overlay should remain visible longer than regular overlays"
+            "Snoozed overlay should remain visible longer than regular overlays",
         )
 
         overlayManager.hideOverlay()
@@ -66,7 +66,7 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
         let testEvent = TestUtilities.createTestEvent(
             id: "auto-hide-threshold-test",
             title: "Auto-Hide Threshold Test",
-            startDate: meetingStartTime
+            startDate: meetingStartTime,
         )
 
         // Regular overlay should auto-hide quickly (5 minute threshold)
@@ -78,7 +78,7 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
 
         XCTAssertFalse(
             overlayManager.isOverlayVisible,
-            "Regular overlay should auto-hide for meetings that started >5 minutes ago"
+            "Regular overlay should auto-hide for meetings that started >5 minutes ago",
         )
 
         // Snoozed overlay should be more lenient (30 minute threshold)
@@ -90,7 +90,7 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
 
         XCTAssertTrue(
             overlayManager.isOverlayVisible,
-            "Snoozed overlay should remain visible for meetings that started <30 minutes ago"
+            "Snoozed overlay should remain visible for meetings that started <30 minutes ago",
         )
 
         overlayManager.hideOverlay()
@@ -105,7 +105,7 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
         let testEvent = TestUtilities.createTestEvent(
             id: "snooze-logging-test",
             title: "Snooze Logging Test",
-            startDate: Date().addingTimeInterval(300)
+            startDate: Date().addingTimeInterval(300),
         )
 
         eventScheduler.scheduleSnooze(for: testEvent, minutes: 1)
@@ -116,7 +116,7 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
                     return alert.event.id == testEvent.id
                 }
                 return false
-            }, "Snooze alert should be scheduled"
+            }, "Snooze alert should be scheduled",
         )
 
         overlayManager.showOverlayImmediately(for: testEvent, fromSnooze: true)
@@ -132,39 +132,39 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
             event: TestUtilities.createTestEvent(
                 id: "snooze-future-test",
                 title: "Future Snoozed Meeting",
-                startDate: Date().addingTimeInterval(300)
+                startDate: Date().addingTimeInterval(300),
             ),
             linkParser: LinkParser(),
             onDismiss: {},
             onJoin: {},
             onSnooze: { _ in },
-            isFromSnooze: true
+            isFromSnooze: true,
         )
 
         let recentView = OverlayContentView(
             event: TestUtilities.createTestEvent(
                 id: "snooze-recent-test",
                 title: "Recently Started Snoozed Meeting",
-                startDate: Date().addingTimeInterval(-120)
+                startDate: Date().addingTimeInterval(-120),
             ),
             linkParser: LinkParser(),
             onDismiss: {},
             onJoin: {},
             onSnooze: { _ in },
-            isFromSnooze: true
+            isFromSnooze: true,
         )
 
         let ongoingView = OverlayContentView(
             event: TestUtilities.createTestEvent(
                 id: "snooze-ongoing-test",
                 title: "Long Running Snoozed Meeting",
-                startDate: Date().addingTimeInterval(-900)
+                startDate: Date().addingTimeInterval(-900),
             ),
             linkParser: LinkParser(),
             onDismiss: {},
             onJoin: {},
             onSnooze: { _ in },
-            isFromSnooze: true
+            isFromSnooze: true,
         )
 
         // Verify all views constructed without issues by checking a meaningful property

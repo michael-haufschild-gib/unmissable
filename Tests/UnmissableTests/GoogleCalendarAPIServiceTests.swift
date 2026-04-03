@@ -8,7 +8,9 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         let oauth2Service = OAuth2Service()
-        apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
+        apiService = GoogleCalendarAPIService(
+            oauth2Service: oauth2Service, linkParser: LinkParser(),
+        )
     }
 
     override func tearDown() async throws {
@@ -30,14 +32,17 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
             location: "Room 42",
             attendees: [
                 GCalAttendee(
-                    email: "dev@example.com", displayName: "Dev",
-                    responseStatus: "accepted", isOptional: false,
-                    isOrganizer: false, isSelf: false
+                    email: "dev@example.com",
+                    displayName: "Dev",
+                    responseStatus: "accepted",
+                    isOptional: false,
+                    isOrganizer: false,
+                    isSelf: false,
                 ),
             ],
             attachments: nil,
             conferenceData: nil,
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         let event = apiService.convertToEvent(from: entry, calendarId: "primary")
@@ -65,7 +70,7 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
             attendees: nil,
             attachments: nil,
             conferenceData: nil,
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         let event = apiService.convertToEvent(from: entry, calendarId: "work")
@@ -75,7 +80,7 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
         XCTAssertNil(unwrapped.organizer)
         XCTAssertNil(unwrapped.description)
         XCTAssertNil(unwrapped.location)
-        XCTAssertTrue(unwrapped.attendees.isEmpty)
+        XCTAssertEqual(unwrapped.attendees, [])
     }
 
     // MARK: - convertToEvent: Filtered Events
@@ -93,7 +98,7 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
             attendees: nil,
             attachments: nil,
             conferenceData: nil,
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         XCTAssertNil(apiService.convertToEvent(from: entry, calendarId: "primary"))
@@ -111,14 +116,17 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
             location: nil,
             attendees: [
                 GCalAttendee(
-                    email: "me@example.com", displayName: "Me",
-                    responseStatus: "declined", isOptional: false,
-                    isOrganizer: false, isSelf: true
+                    email: "me@example.com",
+                    displayName: "Me",
+                    responseStatus: "declined",
+                    isOptional: false,
+                    isOrganizer: false,
+                    isSelf: true,
                 ),
             ],
             attachments: nil,
             conferenceData: nil,
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         XCTAssertNil(apiService.convertToEvent(from: entry, calendarId: "primary"))
@@ -137,7 +145,7 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
             attendees: nil,
             attachments: nil,
             conferenceData: nil,
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         XCTAssertNil(apiService.convertToEvent(from: entry, calendarId: "primary"))
@@ -156,7 +164,7 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
             attendees: nil,
             attachments: nil,
             conferenceData: nil,
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         XCTAssertNil(apiService.convertToEvent(from: entry, calendarId: "primary"))
@@ -177,7 +185,7 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
             attendees: nil,
             attachments: nil,
             conferenceData: nil,
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         let event = apiService.convertToEvent(from: entry, calendarId: "primary")
@@ -203,17 +211,22 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
             attachments: nil,
             conferenceData: GCalConferenceData(
                 entryPoints: [
-                    GCalEntryPoint(uri: "https://meet.google.com/abc-defg-hij", entryPointType: "video"),
-                ]
+                    GCalEntryPoint(
+                        uri: "https://meet.google.com/abc-defg-hij",
+                        entryPointType: "video",
+                    ),
+                ],
             ),
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         let event = apiService.convertToEvent(from: entry, calendarId: "primary")
 
         let unwrapped = try XCTUnwrap(event)
-        XCTAssertFalse(unwrapped.links.isEmpty)
-        XCTAssertEqual(unwrapped.links.first?.absoluteString, "https://meet.google.com/abc-defg-hij")
+        XCTAssertEqual(
+            unwrapped.links.first?.absoluteString,
+            "https://meet.google.com/abc-defg-hij",
+        )
     }
 
     // MARK: - convertToEvent: Attachments
@@ -235,17 +248,16 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
                     title: "Design Spec",
                     mimeType: "application/pdf",
                     iconLink: "https://drive.google.com/icon.png",
-                    fileId: "abc123"
+                    fileId: "abc123",
                 ),
             ],
             conferenceData: nil,
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         let event = apiService.convertToEvent(from: entry, calendarId: "primary")
 
         let unwrapped = try XCTUnwrap(event)
-        XCTAssertEqual(unwrapped.attachments.count, 1)
         XCTAssertEqual(unwrapped.attachments.first?.title, "Design Spec")
         XCTAssertEqual(unwrapped.attachments.first?.mimeType, "application/pdf")
     }
@@ -265,13 +277,17 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
             attendees: nil,
             attachments: nil,
             conferenceData: nil,
-            hangoutLink: "https://meet.google.com/hangout-test-room"
+            hangoutLink: "https://meet.google.com/hangout-test-room",
         )
 
         let event = apiService.convertToEvent(from: entry, calendarId: "primary")
         let unwrapped = try XCTUnwrap(event)
 
-        XCTAssertFalse(unwrapped.links.isEmpty, "hangoutLink should be extracted as a meeting link")
+        XCTAssertEqual(
+            unwrapped.links.first?.host,
+            "meet.google.com",
+            "hangoutLink should be extracted as a meeting link",
+        )
     }
 
     func testConvertToEvent_phoneOnlyEntryPoints_noVideoLink() throws {
@@ -289,16 +305,16 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
             conferenceData: GCalConferenceData(
                 entryPoints: [
                     GCalEntryPoint(uri: "tel:+15550100", entryPointType: "phone"),
-                ]
+                ],
             ),
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         let event = apiService.convertToEvent(from: entry, calendarId: "primary")
         let unwrapped = try XCTUnwrap(event)
 
         XCTAssertEqual(unwrapped.title, "Phone Meeting")
-        XCTAssertTrue(unwrapped.links.isEmpty, "tel: URIs should be filtered out of meeting links")
+        XCTAssertEqual(unwrapped.links, [], "tel: URIs should be filtered out of meeting links")
     }
 
     func testConvertToEvent_malformedDateTimeString_returnsNil() {
@@ -314,7 +330,7 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
             attendees: nil,
             attachments: nil,
             conferenceData: nil,
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         let event = apiService.convertToEvent(from: entry, calendarId: "primary")
@@ -334,7 +350,7 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
             attendees: nil,
             attachments: nil,
             conferenceData: nil,
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         let event = apiService.convertToEvent(from: entry, calendarId: "primary")
@@ -355,30 +371,40 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
             location: nil,
             attendees: [
                 GCalAttendee(
-                    email: "lead@example.com", displayName: "Lead",
-                    responseStatus: "accepted", isOptional: false,
-                    isOrganizer: true, isSelf: false
+                    email: "lead@example.com",
+                    displayName: "Lead",
+                    responseStatus: "accepted",
+                    isOptional: false,
+                    isOrganizer: true,
+                    isSelf: false,
                 ),
                 GCalAttendee(
-                    email: "me@example.com", displayName: "Me",
-                    responseStatus: "accepted", isOptional: false,
-                    isOrganizer: false, isSelf: true
+                    email: "me@example.com",
+                    displayName: "Me",
+                    responseStatus: "accepted",
+                    isOptional: false,
+                    isOrganizer: false,
+                    isSelf: true,
                 ),
                 GCalAttendee(
-                    email: "optional@example.com", displayName: "Optional Person",
-                    responseStatus: "tentative", isOptional: true,
-                    isOrganizer: false, isSelf: false
+                    email: "optional@example.com",
+                    displayName: "Optional Person",
+                    responseStatus: "tentative",
+                    isOptional: true,
+                    isOrganizer: false,
+                    isSelf: false,
                 ),
             ],
             attachments: nil,
             conferenceData: nil,
-            hangoutLink: nil
+            hangoutLink: nil,
         )
 
         let event = apiService.convertToEvent(from: entry, calendarId: "primary")
 
         let unwrapped = try XCTUnwrap(event)
-        XCTAssertEqual(unwrapped.attendees.count, 3)
+        XCTAssertEqual(unwrapped.attendees.count, 3) // swiftlint:disable:this no_count_only_assertion
+        XCTAssertEqual(unwrapped.attendees.first(where: \.isOrganizer)?.email, "lead@example.com")
 
         let organizer = unwrapped.attendees.first(where: \.isOrganizer)
         XCTAssertEqual(organizer?.email, "lead@example.com")

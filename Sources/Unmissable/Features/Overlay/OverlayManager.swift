@@ -35,6 +35,12 @@ final class OverlayManager: ObservableObject, OverlayManaging {
     /// Required dependency for snooze scheduling — must be provided at init.
     private let eventScheduler: EventScheduler
 
+    private static let normalMaxAgeMinutes = 5
+    private static let snoozeMaxAgeMinutes = 30
+    private static let secondsPerMinute = 60
+    private static let normalMaxAgeSeconds = TimeInterval(normalMaxAgeMinutes * secondsPerMinute)
+    private static let snoozeMaxAgeSeconds = TimeInterval(snoozeMaxAgeMinutes * secondsPerMinute)
+
     init(
         preferencesManager: PreferencesManager,
         eventScheduler: EventScheduler,
@@ -42,7 +48,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         focusModeManager: FocusModeManager? = nil,
         linkParser: LinkParser = LinkParser(),
         themeManager: ThemeManager,
-        isTestMode: Bool = false
+        isTestMode: Bool = false,
     ) {
         self.preferencesManager = preferencesManager
         self.eventScheduler = eventScheduler
@@ -72,10 +78,10 @@ final class OverlayManager: ObservableObject, OverlayManaging {
 
         // Auto-dismiss for meetings that started too long ago
         let timeSinceStart = Date().timeIntervalSince(event.startDate)
-        let maxAge: TimeInterval = fromSnooze ? 30 * 60 : 5 * 60
+        let maxAge: TimeInterval = fromSnooze ? Self.snoozeMaxAgeSeconds : Self.normalMaxAgeSeconds
         if timeSinceStart > maxAge {
             logger.info(
-                "SKIP: Meeting \(event.id) started \(Int(timeSinceStart / 60))min ago (max \(Int(maxAge / 60))min)"
+                "SKIP: Meeting \(event.id) started \(Int(timeSinceStart) / Self.secondsPerMinute)min ago (max \(Int(maxAge) / Self.secondsPerMinute)min)",
             )
             return
         }
@@ -91,7 +97,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         isOverlayVisible = true
 
         logger.info(
-            "OVERLAY STATE: Set isOverlayVisible = true for event \(event.id), isSnoozed = \(self.isSnoozedAlert)"
+            "OVERLAY STATE: Set isOverlayVisible = true for event \(event.id), isSnoozed = \(self.isSnoozedAlert)",
         )
 
         // Play alert sound if enabled and allowed by focus mode
@@ -104,7 +110,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
 
         let responseTime = Date().timeIntervalSince(startTime)
         logger.info(
-            "SHOW OVERLAY: Completed for event \(event.id) in \(responseTime)s"
+            "SHOW OVERLAY: Completed for event \(event.id) in \(responseTime)s",
         )
     }
 
@@ -185,7 +191,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
             styleMask: [.borderless],
             backing: .buffered,
             defer: false,
-            screen: screen
+            screen: screen,
         )
 
         window.level = .screenSaver
@@ -218,10 +224,10 @@ final class OverlayManager: ObservableObject, OverlayManaging {
                     self?.snoozeOverlay(for: minutes)
                 }
             },
-            isFromSnooze: isSnoozedAlert
+            isFromSnooze: isSnoozedAlert,
         )
         .environmentObject(preferencesManager)
-        .customThemedEnvironment(themeManager: themeManager)
+        .themed(themeManager: themeManager)
 
         let hostingView = NSHostingView(rootView: overlayContent)
         window.contentView = hostingView

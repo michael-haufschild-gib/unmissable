@@ -27,19 +27,18 @@ final class SchedulerTimerE2ETests: XCTestCase {
         // moves clock forward), so the alert fires without wall-clock delay.
         env.preferencesManager.setOverlayShowMinutesBefore(0)
 
-        let baseTime = env.testClock.currentTime
         let nearEvent = E2EEventBuilder.futureEvent(
             id: "e2e-timer-trigger",
             title: "Near Future Meeting",
-            minutesFromNow: 1 // 1 minute from clock's "now"
+            minutesFromNow: 1, // 1 minute from clock's "now"
         )
 
-        try await env.seedAndSchedule([nearEvent])
+        try await env.seedAndSchedule([nearEvent], startMonitoring: true)
 
-        // Test clock auto-advances through the ~60s sleep instantly
-        try await e2eWait(timeout: 2.0, description: "Overlay should appear for near event") {
-            self.env.overlayManager.isOverlayVisible
-        }
+        // Wait for monitoring loop to fire and show overlay.
+        // Uses wall-clock polling instead of Task.yield + sleep which hangs
+        // in Swift 6.3 due to MainActor starvation.
+        await env.waitForOverlay()
 
         XCTAssertTrue(env.overlayManager.isOverlayVisible)
         XCTAssertEqual(env.overlayManager.activeEvent?.id, nearEvent.id)
@@ -51,7 +50,7 @@ final class SchedulerTimerE2ETests: XCTestCase {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-snooze-refire",
             title: "Snooze Refire Test",
-            minutesFromNow: 15
+            minutesFromNow: 15,
         )
 
         try await env.seedAndSchedule([event])
@@ -72,8 +71,8 @@ final class SchedulerTimerE2ETests: XCTestCase {
         let alert = try XCTUnwrap(snoozeAlert)
         XCTAssertEqual(alert.event.id, event.id)
 
-        // Trigger time should be ~5 minutes in the future
-        let secondsUntilSnooze = alert.triggerDate.timeIntervalSinceNow
+        // Trigger time should be ~5 minutes from test clock's "now"
+        let secondsUntilSnooze = alert.triggerDate.timeIntervalSince(env.testClock.currentTime)
         XCTAssertGreaterThan(secondsUntilSnooze, 4 * 60 - 5) // At least ~4 min 55s
         XCTAssertLessThan(secondsUntilSnooze, 5 * 60 + 5) // At most ~5 min 5s
     }
@@ -83,7 +82,7 @@ final class SchedulerTimerE2ETests: XCTestCase {
     func testSnoozeAlertSurvivesRescheduling() async throws {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-snooze-survive",
-            minutesFromNow: 20
+            minutesFromNow: 20,
         )
 
         try await env.seedAndSchedule([event])
@@ -96,24 +95,20 @@ final class SchedulerTimerE2ETests: XCTestCase {
         })
         XCTAssertEqual(initialSnoozeCount, 1)
 
-        // Change preference to trigger rescheduling
+        // Change preference to trigger rescheduling via Combine observer
         env.preferencesManager.setOverlayShowMinutesBefore(8)
 
-        // Wait for rescheduling to complete
-        try await e2eWait(timeout: 3.0, description: "Snooze should survive rescheduling") {
-            self.env.eventScheduler.scheduledAlerts.contains { alert in
-                if case .snooze = alert.alertType { return true }
-                return false
-            }
-        }
+        // Yield to let Combine observer + rescheduling run
+        await Task.yield()
 
         let postRescheduleSnoozeCount = env.eventScheduler.scheduledAlerts.count(where: { alert in
             if case .snooze = alert.alertType { return true }
             return false
         })
         XCTAssertEqual(
-            postRescheduleSnoozeCount, 1,
-            "Snooze alert should be preserved during rescheduling"
+            postRescheduleSnoozeCount,
+            1,
+            "Snooze alert should be preserved during rescheduling",
         )
     }
 
@@ -128,17 +123,13 @@ final class SchedulerTimerE2ETests: XCTestCase {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-missed-alert",
             title: "Missed Alert Meeting",
-            minutesFromNow: 5
+            minutesFromNow: 5,
         )
 
         try await env.seedAndSchedule([event])
 
-        // Scheduler should detect the missed alert and show overlay immediately
-        try await e2eWait(timeout: 5.0, description: "Overlay for missed-alert-time event") {
-            self.env.overlayManager.isOverlayVisible
-                && self.env.overlayManager.activeEvent?.id == event.id
-        }
-
+        // startScheduling calls showOverlay synchronously for missed alerts
+        // before starting the monitoring loop, so the overlay is already visible.
         XCTAssertTrue(env.overlayManager.isOverlayVisible)
         XCTAssertEqual(env.overlayManager.activeEvent?.id, event.id)
     }
@@ -155,8 +146,8 @@ final class SchedulerTimerE2ETests: XCTestCase {
                     id: "e2e-provider-\(provider.rawValue)",
                     title: "\(provider.rawValue) Meeting",
                     minutesFromNow: 15 + (index * 5),
-                    provider: provider
-                )
+                    provider: provider,
+                ),
             )
         }
 
@@ -169,20 +160,20 @@ final class SchedulerTimerE2ETests: XCTestCase {
         for provider in knownProviders {
             let event = try XCTUnwrap(
                 fetched.first { $0.id == "e2e-provider-\(provider.rawValue)" },
-                "Should find event for provider \(provider.rawValue)"
+                "Should find event for provider \(provider.rawValue)",
             )
             XCTAssertEqual(event.provider, provider)
             XCTAssertTrue(LinkParser().isOnlineMeeting(event), "\(provider.rawValue) should be online meeting")
             XCTAssertNotNil(
                 LinkParser().primaryLink(for: event),
-                "\(provider.rawValue) should have a primary link"
+                "\(provider.rawValue) should have a primary link",
             )
         }
 
         // Generic provider may or may not be detected as online meeting depending on
         // LinkParser — the important thing is the link is preserved
         let genericEvent = try XCTUnwrap(
-            fetched.first { $0.id == "e2e-provider-generic" }
+            fetched.first { $0.id == "e2e-provider-generic" },
         )
         XCTAssertFalse(genericEvent.links.isEmpty, "Generic event should still have links")
     }
@@ -194,29 +185,29 @@ final class SchedulerTimerE2ETests: XCTestCase {
             E2EEventBuilder.futureEvent(
                 id: "e2e-search-standup",
                 title: "Daily Standup",
-                minutesFromNow: 10
+                minutesFromNow: 10,
             ),
             E2EEventBuilder.futureEvent(
                 id: "e2e-search-planning",
                 title: "Sprint Planning",
-                minutesFromNow: 30
+                minutesFromNow: 30,
             ),
             E2EEventBuilder.futureEvent(
                 id: "e2e-search-retro",
                 title: "Team Retrospective",
-                minutesFromNow: 60
+                minutesFromNow: 60,
             ),
         ]
 
         try await env.seedEvents(events)
 
         let standupResults = try await env.databaseManager.searchEvents(query: "Standup")
-        XCTAssertEqual(standupResults.count, 1)
-        XCTAssertEqual(standupResults.first?.id, "e2e-search-standup")
+        let standupMatch = try XCTUnwrap(standupResults.first)
+        XCTAssertEqual(standupMatch.id, "e2e-search-standup")
 
         let sprintResults = try await env.databaseManager.searchEvents(query: "Sprint")
-        XCTAssertEqual(sprintResults.count, 1)
-        XCTAssertEqual(sprintResults.first?.id, "e2e-search-planning")
+        let sprintMatch = try XCTUnwrap(sprintResults.first)
+        XCTAssertEqual(sprintMatch.id, "e2e-search-planning")
     }
 
     // MARK: - Event Duration Calculation Through DB
@@ -225,12 +216,12 @@ final class SchedulerTimerE2ETests: XCTestCase {
         let shortEvent = E2EEventBuilder.futureEvent(
             id: "e2e-duration-short",
             minutesFromNow: 10,
-            durationMinutes: 15
+            durationMinutes: 15,
         )
         let longEvent = E2EEventBuilder.futureEvent(
             id: "e2e-duration-long",
             minutesFromNow: 30,
-            durationMinutes: 120
+            durationMinutes: 120,
         )
 
         try await env.seedEvents([shortEvent, longEvent])

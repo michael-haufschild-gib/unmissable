@@ -16,6 +16,17 @@ final class MenuBarPreviewManager: ObservableObject {
     private var timerTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
 
+    /// Maximum characters shown for a meeting name before truncation.
+    private static let maxMeetingNameLength = 12
+    /// Number of prefix characters kept when truncating a meeting name.
+    private static let truncatedPrefixLength = 9
+    /// Seconds per minute, used to convert TimeInterval to minutes.
+    private static let secondsPerMinute = 60
+    /// Minutes per hour, used for time display formatting.
+    private static let minutesPerHour = 60
+    /// Minutes per day, used for time display formatting.
+    private static let minutesPerDay = 1440
+
     init(preferencesManager: PreferencesManager) {
         self.preferencesManager = preferencesManager
         setupBindings()
@@ -165,10 +176,10 @@ final class MenuBarPreviewManager: ObservableObject {
     }
 
     private func truncateMeetingName(_ name: String) -> String {
-        if name.count <= 12 {
+        if name.count <= Self.maxMeetingNameLength {
             return name
         }
-        let truncated = String(name.prefix(9))
+        let truncated = String(name.prefix(Self.truncatedPrefixLength))
         return "\(truncated)..."
     }
 
@@ -177,16 +188,16 @@ final class MenuBarPreviewManager: ObservableObject {
             return "Starting"
         }
 
-        let totalMinutes = Int(timeInterval / 60)
+        let totalMinutes = Int(timeInterval / Double(Self.secondsPerMinute))
 
         if totalMinutes < 1 { return "< 1 min" }
-        if totalMinutes < 60 { return "\(totalMinutes) min" }
-        if totalMinutes < 1440 {
-            let hours = totalMinutes / 60
-            let minutes = totalMinutes % 60
+        if totalMinutes < Self.minutesPerHour { return "\(totalMinutes) min" }
+        if totalMinutes < Self.minutesPerDay {
+            let hours = totalMinutes / Self.minutesPerHour
+            let minutes = totalMinutes % Self.minutesPerHour
             return String(format: "%d:%02d h", hours, minutes)
         }
-        let days = totalMinutes / 1440
+        let days = totalMinutes / Self.minutesPerDay
         return "\(days) d"
     }
 

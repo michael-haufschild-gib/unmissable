@@ -1,86 +1,82 @@
-# SwiftLint Configuration — vibecoded with Claude Code
-# Strict rules for complexity, length, and code quality
+# SwiftLint Configuration — Unmissable
+# Inherits Infinum's strict Swift style guide as baseline
+strict: true
 
+parent_config: https://raw.githubusercontent.com/infinum/swift-style-guide/5f8c294b5bb6b19a478611dcb6d95f2a22fe3e6b/.swiftlint.yml
+
+# ── DISABLED (from parent or default) ────────────────────────────────
 disabled_rules:
-  - trailing_whitespace
-  - multiple_closures_with_trailing_closure
-  - closure_parameter_position
-  # opening_brace disabled: conflicts with SwiftFormat brace placement
-  - opening_brace
+  - opening_brace              # conflicts with SwiftFormat brace placement
+  - closure_parameter_position # conflicts with SwiftFormat
+  - multiple_closures_with_trailing_closure # too restrictive for SwiftUI
+  - todo                       # replaced by custom todo_must_have_issue
 
+# ── OPT-IN RULES (beyond parent) ────────────────────────────────────
 opt_in_rules:
-  # Code quality
-  - empty_count
+  # Safety
+  - force_unwrapping
+  - force_cast
+  - unowned_variable_capture
+  - return_value_from_void_function
+  - unhandled_throwing_task
+  - discouraged_optional_boolean
+  - discouraged_optional_collection
+  - async_without_await         # NOTE: may false-positive on protocol conformances — disable per-file if needed
+  - incompatible_concurrency_annotation
+
+  # Clarity
+  - no_magic_numbers
   - explicit_init
-  - first_where
-  - last_where
-  # modifier_order removed: conflicts with SwiftFormat modifier ordering
+  - prefer_zero_over_explicit_init
+  - yoda_condition
   - redundant_nil_coalescing
-  - sorted_first_last
-  - unneeded_parentheses_in_closure_argument
-  - contains_over_first_not_nil
+
+  # Modern Swift
   - contains_over_filter_count
   - contains_over_filter_is_empty
+  - contains_over_first_not_nil
   - contains_over_range_nil_comparison
   - flatmap_over_map_reduce
   - reduce_boolean
   - reduce_into
   - direct_return
-  - identical_operands
-  # no_empty_block removed: produces false positives for standard Swift patterns
-  # (empty init(), no-op closures, SwiftUI preview callbacks)
-  - sorted_imports
-  - yoda_condition
   - prefer_key_path
   - superfluous_else
   - shorthand_optional_binding
   - self_binding
 
-  # Documentation
-  - missing_docs
+  # Redundancy
+  - redundant_type_annotation
+  - unused_parameter
+  - unneeded_throws_rethrows
 
-  # Safety
-  - unowned_variable_capture
-  - overridden_super_call
-  - prohibited_super_call
-  - fatal_error_message
-  - discouraged_optional_boolean
-  - discouraged_optional_collection
-  - force_unwrapping
-  # implicitly_unwrapped_optional: replaced by custom rule scoped to Sources only
-  - weak_delegate
-  - discarded_notification_center_observer
-  - return_value_from_void_function
-  # Concurrency
-  # async_without_await: removed — protocol conformance legitimately requires async
-  # on synchronous implementations (e.g. AppleCalendarAPIService conforming to
-  # CalendarAPIProviding). SwiftLint cannot exclude protocol conformance cases.
-  - unhandled_throwing_task
-
-  # SwiftUI specific
-  - private_swiftui_state
-  - accessibility_trait_for_button
-
-  # Code style
+  # Style
+  - trailing_comma
+  - multiline_arguments
+  - modifier_order
+  - sorted_imports
   - closure_end_indentation
   - closure_spacing
   - closure_body_length
   - operator_usage_whitespace
   - vertical_whitespace_closing_braces
   - vertical_whitespace_opening_braces
-  # vertical_whitespace_between_cases: disabled — conflicts with SwiftFormat's
-  # blankLineAfterSwitchCase rule for single-expression cases. Multi-line cases
-  # already get blank lines via SwiftFormat's blankLineAfterSwitchCase.
   - number_separator
   - shorthand_operator
   - toggle_bool
   - joined_default_parameter
-  - redundant_type_annotation
   - prefer_self_in_static_references
   - prefer_self_type_over_type_of_self
   - period_spacing
 
-  # Test quality - catch shallow/empty tests
+  # Documentation
+  - missing_docs
+
+  # SwiftUI
+  - private_swiftui_state
+  - accessibility_trait_for_button
+
+  # Test quality
   - empty_xctest_method
   - final_test_case
   - balanced_xctest_lifecycle
@@ -88,17 +84,27 @@ opt_in_rules:
   - test_case_accessibility
   - xct_specific_matcher
 
-  # Unused code
-  - unused_parameter
-  - unneeded_throws_rethrows
+  # Safety (prod quality)
+  - discouraged_assert
   - convenience_type
+  - fatal_error_message
+  - discarded_notification_center_observer
+  - overridden_super_call
+  - prohibited_super_call
+  - weak_delegate
 
-# Analyzer rules (requires --analyze flag)
+  # Default rules excluded by parent's only_rules — re-enable
+  - cyclomatic_complexity
+  - nesting
+
+# ── ANALYZER RULES ───────────────────────────────────────────────────
 analyzer_rules:
   - unused_import
   - unused_declaration
+  - unused_closure_parameter
   - capture_variable
 
+# ── SCOPE ────────────────────────────────────────────────────────────
 included:
   - Sources
   - Tests
@@ -111,9 +117,7 @@ excluded:
   - Carthage
   - DerivedData
 
-# -------------------------------------------------------------------
-# STRICT LENGTH & COMPLEXITY THRESHOLDS
-# -------------------------------------------------------------------
+# ── STRICT THRESHOLDS (warning = error everywhere) ───────────────────
 
 line_length:
   warning: 120
@@ -157,9 +161,11 @@ large_tuple:
   warning: 4
   error: 4
 
-# -------------------------------------------------------------------
-# NAMING
-# -------------------------------------------------------------------
+function_parameter_count:
+  warning: 8
+  error: 8
+
+# ── NAMING ───────────────────────────────────────────────────────────
 
 identifier_name:
   min_length:
@@ -187,9 +193,7 @@ type_name:
   max_length:
     error: 60
 
-# -------------------------------------------------------------------
-# RULE CONFIGURATIONS
-# -------------------------------------------------------------------
+# ── RULE CONFIGURATIONS ─────────────────────────────────────────────
 
 trailing_comma:
   mandatory_comma: true
@@ -201,11 +205,28 @@ number_separator:
 force_unwrapping:
   severity: error
 
-# implicitly_unwrapped_optional: disabled in favor of custom rule below that
-# excludes test files — IUO is the standard XCTest setUp/tearDown pattern.
+force_cast:
+  severity: error
+
+force_try:
+  severity: error
 
 xct_specific_matcher:
   severity: error
+
+modifier_order:
+  preferred_modifier_order:
+    - override
+    - acl
+    - setterACL
+    - dynamic
+    - mutators
+    - lazy
+    - final
+    - required
+    - convenience
+    - typeMethods
+    - owned
 
 missing_docs:
   error:
@@ -218,11 +239,32 @@ missing_docs:
 deployment_target:
   macOS_deployment_target: '14.0'
 
-# -------------------------------------------------------------------
-# CUSTOM RULES
-# -------------------------------------------------------------------
+no_magic_numbers:
+  test_parent_classes:
+    - XCTestCase
+    - QuickSpec
+
+# ── CUSTOM RULES ─────────────────────────────────────────────────────
 
 custom_rules:
+
+  # ── Production safety ──
+
+  no_print_in_prod:
+    name: "No print() in production code"
+    included: "Sources/.*\\.swift"
+    regex: "\\bprint\\s*\\("
+    message: "Use os_log or OSLog-based logger instead of print(). print() is not stripped from release builds."
+    severity: error
+
+  todo_must_have_issue:
+    name: "TODOs Must Link to an Issue"
+    regex: "(TODO|FIXME)(?!.*(?:https?://|#\\d|[A-Z]+-\\d))"
+    message: "TODOs/FIXMEs must link to a tracking issue (URL, #number, or JIRA-123)."
+    severity: error
+
+  # ── Test safety (prevent overlay/AppState in tests) ──
+
   no_real_overlay_manager_in_tests:
     name: "No Real OverlayManager in Tests"
     included: "Tests/.*\\.swift"
@@ -234,42 +276,7 @@ custom_rules:
     name: "No Real AppState in Tests"
     included: "Tests/.*\\.swift"
     regex: "AppState\\(\\)"
-    message: "Tests must not instantiate AppState() directly — it creates a real OverlayManager that blocks the screen. Inject dependencies instead."
-    severity: error
-
-  no_assert_not_nil_without_unwrap:
-    name: "No Bare XCTAssertNotNil"
-    included: "Tests/.*\\.swift"
-    regex: "XCTAssertNotNil\\([^)]+\\)\\s*$"
-    message: "XCTAssertNotNil alone is shallow. Use XCTUnwrap + assert the value, or assert a specific property."
-    severity: error
-
-  no_assert_true_contains:
-    name: "No XCTAssertTrue with .contains"
-    included: "Tests/.*\\.swift"
-    regex: "XCTAssertTrue\\([^)]*\\.contains\\("
-    message: "Use XCTAssertEqual or XCTAssert with a specific matcher instead of XCTAssertTrue(.contains(...))."
-    severity: error
-
-  no_type_check_assertions:
-    name: "No Type-Only Assertions"
-    included: "Tests/.*\\.swift"
-    regex: "XCTAssert(True|Equal)\\([^,\"]*\\b(is [A-Z]|typeof |type\\(of:)"
-    message: "Asserting type alone is shallow. Assert behavior or specific values."
-    severity: error
-
-  no_implicitly_unwrapped_optional_in_sources:
-    name: "No IUO in Production Code"
-    included: "Sources/.*\\.swift"
-    regex: ":\\s*\\w+!"
-    message: "Implicitly unwrapped optionals are not allowed in production code. Use optional (?) instead."
-    severity: error
-
-  no_debug_print_in_tests:
-    name: "No Debug Prints in Tests"
-    included: "Tests/.*\\.swift"
-    regex: "print\\(\"[Dd][Ee][Bb][Uu][Gg]"
-    message: "Remove debug print statements from tests. Use XCTAssert to verify values instead."
+    message: "Tests must not instantiate AppState() directly — it creates a real OverlayManager. Inject dependencies instead."
     severity: error
 
   no_nsapplication_in_tests:
@@ -286,15 +293,147 @@ custom_rules:
     message: "Use TestUtilities.waitForAsync instead of raw Task.sleep. Bare sleeps cause flaky tests."
     severity: error
 
-  no_emoji_in_test_output:
-    name: "No Emoji in Test Output"
+  # ── IUO ban (Sources only — tests may use IUO for setUp/tearDown) ──
+
+  no_implicitly_unwrapped_optional_in_sources:
+    name: "No IUO in Production Code"
+    included: "Sources/.*\\.swift"
+    regex: ":[ \\t]*[\\w\\[\\]<>().:\\- >]+!"
+    message: "Implicitly unwrapped optionals are not allowed in production code. Use optional (?) instead."
+    severity: error
+
+  # ── UI design system enforcement ──
+
+  no_raw_font_system_call:
+    name: "Use Design Tokens for Fonts"
+    included: "Sources/(?!.*/DesignTokens\\.swift).*\\.swift"
+    regex: "\\.system\\(size:\\s*\\d"
+    message: "Use design.fonts.* tokens instead of raw .system(size:). Define new tokens in DesignFonts if needed."
+    severity: error
+
+  no_raw_color_rgb:
+    name: "Use Design Tokens for Colors"
+    included: "Sources/(?!.*/DesignTokens\\.swift).*\\.swift"
+    regex: "Color\\(red:|Color\\(hue:|Color\\(white:"
+    message: "Use design.colors.* tokens instead of raw Color constructors. Define new tokens in DesignColors if needed."
+    severity: error
+
+  no_design_rounded:
+    name: "No Rounded Font Design"
+    included: "Sources/.*\\.swift"
+    regex: "design:\\s*\\.rounded"
+    message: "SF Rounded is not part of the design system. Use .default (SF Pro) or .monospaced."
+    severity: error
+
+  no_old_custom_components:
+    name: "No Legacy Custom Components"
+    included: "Sources/.*\\.swift"
+    regex: "\\b(CustomButton|CustomToggle|CustomCard|CustomPicker|CustomStatusIndicator|CustomDesign|customDesign|customThemedEnvironment|CustomThemeModifier)\\b"
+    message: "Legacy Custom* UI types have been replaced. Use UM*/Design* equivalents."
+    severity: error
+
+  no_hardcoded_animation_duration:
+    name: "Use DesignAnimations Tokens"
+    included: "Sources/(?!.*/DesignTokens\\.swift).*\\.swift"
+    regex: "\\.animation\\(\\.ease(In|Out|InOut)\\(duration:\\s*[0-9]"
+    message: "Use DesignAnimations.* tokens instead of hardcoded animation durations."
+    severity: error
+
+  no_hardcoded_corner_radius:
+    name: "Use Design Tokens for Corner Radius"
+    included: "Sources/(?!.*/Containers\\.swift).*\\.swift"
+    regex: "\\.cornerRadius\\(\\d"
+    message: "Use .clipShape(RoundedRectangle(cornerRadius: design.corners.*)) instead of deprecated .cornerRadius()."
+    severity: error
+
+  no_plain_button_style:
+    name: "Buttons Must Use UMButtonStyle"
+    included: "Sources/(?!.*/Styles\\.swift).*\\.swift"
+    regex: "\\.buttonStyle\\(\\s*(?:PlainButtonStyle\\(\\)|\\.plain\\b)\\s*\\)"
+    message: "Use .buttonStyle(UMButtonStyle(..)) instead of PlainButtonStyle. All buttons must use the design system."
+    severity: error
+
+  no_raw_shadow:
+    name: "Use Design Tokens for Shadows"
+    included: "Sources/(?!.*/DesignTokens\\.swift|.*/Containers\\.swift|.*/Styles\\.swift).*\\.swift"
+    regex: "\\.shadow\\(color:\\s*Color\\."
+    message: "Use design.shadows.* tokens instead of raw .shadow() with Color literals."
+    severity: error
+
+  # ── Shallow test detection (AI agent guardrails) ──
+
+  no_assert_not_nil_without_unwrap:
+    name: "No Bare XCTAssertNotNil"
     included: "Tests/.*\\.swift"
-    regex: "[\\x{1F300}-\\x{1F9FF}\\x{2600}-\\x{27BF}\\x{FE00}-\\x{FE0F}\\x{1FA00}-\\x{1FA6F}\\x{1FA70}-\\x{1FAFF}\\x{2702}-\\x{27B0}]"
-    message: "Remove emoji from test files. They are noise that obscures intent."
+    regex: "XCTAssertNotNil\\([^)]+\\)\\s*$"
+    message: "[AI Agent] XCTAssertNotNil alone catches zero bugs. Use XCTUnwrap then assert a specific property or value. What bug would make this fail?"
+    severity: error
+
+  no_assert_true_contains:
+    name: "No XCTAssertTrue with .contains"
+    included: "Tests/.*\\.swift"
+    regex: "XCTAssertTrue\\([^)]*\\.contains\\("
+    message: "[AI Agent] XCTAssertTrue(.contains()) is fragile and hides failures. Use XCTAssertEqual or XCTAssert with a specific matcher."
+    severity: error
+
+  no_type_check_assertions:
+    name: "No Type-Only Assertions"
+    included: "Tests/.*\\.swift"
+    regex: "XCTAssert(True|Equal)\\([^,\"]*\\b(is [A-Z]|typeof |type\\(of:)"
+    message: "[AI Agent] Asserting type alone is shallow — the compiler already guarantees types. Assert behavior, return values, or state changes."
+    severity: error
+
+  no_trivial_boolean_assertion:
+    name: "No Trivial Boolean Literals in Assertions"
+    included: "Tests/.*\\.swift"
+    regex: "XCTAssert(True|False)\\(\\s*(true|false)\\s*[,)]"
+    message: "[AI Agent] XCTAssertTrue(true) / XCTAssertFalse(false) always passes. This tests nothing. Assert a computed value that exercises real code."
+    severity: error
+
+  no_count_only_assertion:
+    name: "No Count-Only Assertions"
+    included: "Tests/.*\\.swift"
+    regex: "XCTAssertEqual\\([^,]+\\.count\\s*,"
+    message: "[AI Agent] Asserting only .count is weak — it passes with any N items regardless of content. Also assert specific elements or properties that prove correctness."
+    severity: error
+
+  no_is_empty_only_assertion:
+    name: "No isEmpty-Only Assertions"
+    included: "Tests/.*\\.swift"
+    regex: "XCTAssert(True|False)\\([^)]*\\.isEmpty\\s*\\)"
+    message: "[AI Agent] Asserting only isEmpty proves existence, not correctness. Assert specific values or properties of the collection contents."
+    severity: error
+
+  no_greater_than_zero_assertion:
+    name: "No Greater-Than-Zero Existence Checks"
+    included: "Tests/.*\\.swift"
+    regex: "XCTAssertGreaterThan\\([^,]+,\\s*0\\s*[,)]"
+    message: "[AI Agent] XCTAssertGreaterThan(x, 0) is a weak existence check. Assert the specific expected value or meaningful range."
+    severity: error
+
+  no_assert_equal_bool:
+    name: "No XCTAssertEqual with Bool Literal"
+    included: "Tests/.*\\.swift"
+    regex: "XCTAssertEqual\\([^,]+,\\s*(true|false)\\s*[,)]"
+    message: "[AI Agent] Use XCTAssertTrue/XCTAssertFalse instead of XCTAssertEqual(x, true/false). Better: assert the condition that produces the bool."
     severity: error
 
   no_empty_comments:
     name: "No Empty Comments"
     regex: "^\\s*//\\s*$"
     message: "Empty comments are noise. Write a meaningful comment or remove it."
+    severity: error
+
+  no_debug_print_in_tests:
+    name: "No Debug Prints in Tests"
+    included: "Tests/.*\\.swift"
+    regex: "print\\(\"[Dd][Ee][Bb][Uu][Gg]"
+    message: "Remove debug print statements from tests. Use XCTAssert to verify values instead."
+    severity: error
+
+  no_emoji_in_test_output:
+    name: "No Emoji in Test Output"
+    included: "Tests/.*\\.swift"
+    regex: "[\\x{1F300}-\\x{1F9FF}\\x{2600}-\\x{27BF}\\x{FE00}-\\x{FE0F}\\x{1FA00}-\\x{1FA6F}\\x{1FA70}-\\x{1FAFF}\\x{2702}-\\x{27B0}]"
+    message: "Remove emoji from test files. They are noise that obscures intent."
     severity: error

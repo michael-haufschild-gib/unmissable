@@ -15,6 +15,23 @@ struct ProviderBackend {
 final class CalendarService: ObservableObject {
     private let logger = Logger(category: "CalendarService")
 
+    // MARK: - Constants
+
+    private static let upcomingEventsLimit = 50
+    private static let startedMeetingsLimit = 20
+    private static let uiRefreshIntervalSeconds = 30
+    private static let redactedPrefixLength = 2
+    private static let redactedIdLength = 8
+
+    private static func redactedCalendarId(_ id: String) -> String {
+        if id.contains("@") {
+            let parts = id.split(separator: "@", maxSplits: 1)
+            let prefix = parts.first.map { $0.prefix(redactedPrefixLength) } ?? ""
+            return "\(prefix)***@\(parts.last ?? "***")"
+        }
+        return String(id.prefix(redactedIdLength)) + "..."
+    }
+
     // MARK: - Published State
 
     @Published
@@ -69,7 +86,7 @@ final class CalendarService: ObservableObject {
         preferencesManager: PreferencesManager,
         databaseManager: any DatabaseManaging,
         linkParser: LinkParser,
-        eventStore: EKEventStore = EKEventStore()
+        eventStore: EKEventStore = EKEventStore(),
     ) {
         self.preferencesManager = preferencesManager
         self.databaseManager = databaseManager
@@ -170,7 +187,7 @@ final class CalendarService: ObservableObject {
         type: CalendarProviderType,
         auth: any CalendarAuthProviding,
         api: any CalendarAPIProviding,
-        sync: SyncManager
+        sync: SyncManager,
     ) {
         let backend = ProviderBackend(type: type, auth: auth, api: api, sync: sync)
         providers[type] = backend
@@ -202,7 +219,7 @@ final class CalendarService: ObservableObject {
             calendars[index] = calendars[index].withSelection(isSelected)
             calendarUpdateError = nil
 
-            logger.debug("Updated calendar \(calendarId) selection to \(isSelected)")
+            logger.debug("Updated calendar \(Self.redactedCalendarId(calendarId)) selection to \(isSelected)")
 
             let updatedCalendar = calendars[index]
             let shouldSync = isConnected
@@ -277,8 +294,9 @@ final class CalendarService: ObservableObject {
         }
 
         let sync = SyncManager(
-            apiService: api, databaseManager: databaseManager,
-            preferencesManager: preferencesManager
+            apiService: api,
+            databaseManager: databaseManager,
+            preferencesManager: preferencesManager,
         )
 
         let backend = ProviderBackend(type: providerType, auth: auth, api: api, sync: sync)
@@ -361,7 +379,7 @@ final class CalendarService: ObservableObject {
     /// Aggregates sync status using `newStatus` for the provider that just changed
     /// and reading other providers' current values (which are stable during willSet).
     private func aggregateSyncStatus(
-        changedProvider: CalendarProviderType, newStatus: SyncStatus
+        changedProvider: CalendarProviderType, newStatus: SyncStatus,
     ) {
         var statuses: [SyncStatus] = []
         for (type, backend) in providers {
@@ -383,7 +401,7 @@ final class CalendarService: ObservableObject {
     private func aggregateSyncTimes(
         changedProvider: CalendarProviderType,
         newLastSync: Date? = nil,
-        newNextSync: Date? = nil
+        newNextSync: Date? = nil,
     ) {
         var lastSyncTimes: [Date] = []
         var nextSyncTimes: [Date] = []
@@ -405,11 +423,11 @@ final class CalendarService: ObservableObject {
     private func loadCachedData() async {
         do {
             calendars = try await databaseManager.fetchCalendars()
-            events = try await databaseManager.fetchUpcomingEvents(limit: 50)
-            startedEvents = try await databaseManager.fetchStartedMeetings(limit: 20)
+            events = try await databaseManager.fetchUpcomingEvents(limit: Self.upcomingEventsLimit)
+            startedEvents = try await databaseManager.fetchStartedMeetings(limit: Self.startedMeetingsLimit)
 
             logger.debug(
-                "Cache loaded: \(self.calendars.count) calendars, \(self.events.count) upcoming, \(self.startedEvents.count) started"
+                "Cache loaded: \(self.calendars.count) calendars, \(self.events.count) upcoming, \(self.startedEvents.count) started",
             )
         } catch {
             logger.error("Failed to load cached data: \(error.localizedDescription)")
@@ -436,7 +454,7 @@ final class CalendarService: ObservableObject {
         uiRefreshTask = Task { @MainActor in
             while !Task.isCancelled {
                 do {
-                    try await Task.sleep(for: .seconds(30))
+                    try await Task.sleep(for: .seconds(Self.uiRefreshIntervalSeconds))
                     if !Task.isCancelled, needsUIRefresh || hasTimeBoundaryChange() {
                         needsUIRefresh = false
                         await loadCachedData()

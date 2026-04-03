@@ -3,10 +3,22 @@ import SwiftUI
 struct MeetingDetailsView: View {
     let event: Event
     let onClose: () -> Void
-    @Environment(\.customDesign)
+    @Environment(\.design)
     private var design
     @EnvironmentObject
     private var themeManager: ThemeManager
+
+    private static let headerBorderHeight: CGFloat = 1
+    private static let descriptionMinHeight: CGFloat = 60
+    private static let descriptionMaxHeight: CGFloat = 150
+    private static let participantsMaxHeight: CGFloat = 200
+    private static let attendeeNameSpacing: CGFloat = 2
+    private static let organizerBadgeVerticalPadding: CGFloat = 2
+    private static let organizerBadgeBackgroundOpacity: Double = 0.1
+    private static let secondsPerMinute = 60
+    private static let secondsPerHour = 3600
+    private static let titleLineLimit = 2
+    private static let locationLineLimit = 3
 
     var body: some View {
         VStack(spacing: 0) {
@@ -42,14 +54,16 @@ struct MeetingDetailsView: View {
             }
         }
         .background(design.colors.background)
-        .cornerRadius(design.corners.large)
+        .clipShape(RoundedRectangle(cornerRadius: design.corners.lg))
         .shadow(
-            color: design.shadows.color, radius: design.shadows.radius, x: design.shadows.offset.width,
-            y: design.shadows.offset.height
+            color: design.shadows.soft.color,
+            radius: design.shadows.soft.radius,
+            x: design.shadows.soft.x,
+            y: design.shadows.soft.y,
         )
         .frame(
             width: MeetingDetailsLayout.popupSize.width,
-            height: MeetingDetailsLayout.popupSize.height
+            height: MeetingDetailsLayout.popupSize.height,
         )
     }
 
@@ -64,25 +78,29 @@ struct MeetingDetailsView: View {
                     .foregroundColor(design.colors.textPrimary)
 
                 Text(event.title)
-                    .font(design.fonts.subheadline)
+                    .font(design.fonts.callout)
+                    .fontWeight(.medium)
                     .foregroundColor(design.colors.textSecondary)
-                    .lineLimit(2)
+                    .lineLimit(Self.titleLineLimit)
                     .multilineTextAlignment(.leading)
             }
 
             Spacer()
 
-            CustomButton("", icon: "xmark", style: .minimal) {
+            Button {
                 onClose()
+            } label: {
+                Image(systemName: "xmark")
             }
+            .buttonStyle(UMButtonStyle(.ghost, size: .icon))
         }
         .padding(design.spacing.lg)
         .background(design.colors.background)
         .overlay(
             Rectangle()
-                .fill(design.colors.divider)
-                .frame(height: 1),
-            alignment: .bottom
+                .fill(design.colors.borderSubtle)
+                .frame(height: Self.headerBorderHeight),
+            alignment: .bottom,
         )
         .contentShape(Rectangle())
         // Empty gesture prevents taps from falling through to the scrollable
@@ -98,11 +116,12 @@ struct MeetingDetailsView: View {
             HStack(spacing: design.spacing.sm) {
                 Image(systemName: "calendar")
                     .foregroundColor(design.colors.accent)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(design.fonts.body)
+                    .fontWeight(.medium)
 
                 Text("When")
-                    .font(design.fonts.subheadline)
-                    .fontWeight(.semibold)
+                    .font(design.fonts.callout)
+                    .fontWeight(.medium)
                     .foregroundColor(design.colors.textPrimary)
             }
 
@@ -126,7 +145,7 @@ struct MeetingDetailsView: View {
                     }
 
                     Text(formatDuration(event.duration))
-                        .font(design.fonts.caption1)
+                        .font(design.fonts.caption)
                         .foregroundColor(design.colors.textTertiary)
                 }
             }
@@ -136,26 +155,26 @@ struct MeetingDetailsView: View {
                     HStack(spacing: design.spacing.sm) {
                         Image(systemName: "location")
                             .foregroundColor(design.colors.accent)
-                            .font(.system(size: 16, weight: .medium))
+                            .font(design.fonts.body)
+                            .fontWeight(.medium)
 
                         Text("Location")
-                            .font(design.fonts.subheadline)
-                            .fontWeight(.semibold)
+                            .font(design.fonts.callout)
+                            .fontWeight(.medium)
                             .foregroundColor(design.colors.textPrimary)
                     }
 
                     Text(location)
                         .font(design.fonts.callout)
                         .foregroundColor(design.colors.textSecondary)
-                        .lineLimit(3)
+                        .lineLimit(Self.locationLineLimit)
                 }
                 .padding(.top, design.spacing.sm)
             }
         }
         .padding(design.spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(design.colors.backgroundSecondary)
-        .cornerRadius(design.corners.medium)
+        .umCard(.flat)
     }
 
     // MARK: - Description Section
@@ -165,11 +184,12 @@ struct MeetingDetailsView: View {
             HStack(spacing: design.spacing.sm) {
                 Image(systemName: "text.alignleft")
                     .foregroundColor(design.colors.accent)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(design.fonts.body)
+                    .fontWeight(.medium)
 
                 Text("Description")
-                    .font(design.fonts.subheadline)
-                    .fontWeight(.semibold)
+                    .font(design.fonts.callout)
+                    .fontWeight(.medium)
                     .foregroundColor(design.colors.textPrimary)
             }
 
@@ -177,16 +197,21 @@ struct MeetingDetailsView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HTMLTextView(
                     htmlContent: description,
-                    effectiveTheme: themeManager.effectiveTheme,
+                    resolvedTheme: themeManager.resolvedTheme,
                     onLinkTap: { url in
                         NSWorkspace.shared.open(url)
-                    }
+                    },
                 )
             }
-            .frame(maxWidth: .infinity, minHeight: 60, maxHeight: 150, alignment: Alignment.topLeading)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: Self.descriptionMinHeight,
+                maxHeight: Self.descriptionMaxHeight,
+                alignment: Alignment.topLeading,
+            )
             .padding(.vertical, design.spacing.xs)
             .background(design.colors.background)
-            .cornerRadius(design.corners.small)
+            .clipShape(RoundedRectangle(cornerRadius: design.corners.sm))
 
             // Show attachments if available
             if !event.attachments.isEmpty {
@@ -196,15 +221,14 @@ struct MeetingDetailsView: View {
         }
         .padding(design.spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(design.colors.backgroundSecondary)
-        .cornerRadius(design.corners.medium)
+        .umCard(.flat)
     }
 
     private var emptyDescriptionSection: some View {
         HStack(spacing: design.spacing.sm) {
             Image(systemName: "text.alignleft")
                 .foregroundColor(design.colors.textTertiary)
-                .font(.system(size: 16))
+                .font(design.fonts.body)
 
             Text("No description available")
                 .font(design.fonts.callout)
@@ -212,8 +236,7 @@ struct MeetingDetailsView: View {
         }
         .padding(design.spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(design.colors.backgroundSecondary)
-        .cornerRadius(design.corners.medium)
+        .umCard(.flat)
     }
 
     // MARK: - Participants Section
@@ -223,11 +246,12 @@ struct MeetingDetailsView: View {
             HStack(spacing: design.spacing.sm) {
                 Image(systemName: "person.2")
                     .foregroundColor(design.colors.accent)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(design.fonts.body)
+                    .fontWeight(.medium)
 
                 Text("Participants (\(event.attendees.count))")
-                    .font(design.fonts.subheadline)
-                    .fontWeight(.semibold)
+                    .font(design.fonts.callout)
+                    .fontWeight(.medium)
                     .foregroundColor(design.colors.textPrimary)
             }
 
@@ -239,21 +263,20 @@ struct MeetingDetailsView: View {
                 }
                 .padding(.vertical, design.spacing.xs)
             }
-            .frame(maxHeight: 200)
+            .frame(maxHeight: Self.participantsMaxHeight)
             .background(design.colors.background)
-            .cornerRadius(design.corners.small)
+            .clipShape(RoundedRectangle(cornerRadius: design.corners.sm))
         }
         .padding(design.spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(design.colors.backgroundSecondary)
-        .cornerRadius(design.corners.medium)
+        .umCard(.flat)
     }
 
     private var emptyParticipantsSection: some View {
         HStack(spacing: design.spacing.sm) {
             Image(systemName: "person.2")
                 .foregroundColor(design.colors.textTertiary)
-                .font(.system(size: 16))
+                .font(design.fonts.body)
 
             Text("Participant information unavailable")
                 .font(design.fonts.callout)
@@ -261,8 +284,7 @@ struct MeetingDetailsView: View {
         }
         .padding(design.spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(design.colors.backgroundSecondary)
-        .cornerRadius(design.corners.medium)
+        .umCard(.flat)
     }
 
     private func attendeeRow(_ attendee: Attendee) -> some View {
@@ -270,10 +292,11 @@ struct MeetingDetailsView: View {
             if let status = attendee.status {
                 Image(systemName: status.iconName)
                     .foregroundColor(statusColor(for: status))
-                    .font(.system(size: 12, weight: .medium))
+                    .font(design.fonts.footnote)
+                    .fontWeight(.medium)
             }
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Self.attendeeNameSpacing) {
                 Text(attendee.displayName)
                     .font(design.fonts.callout)
                     .foregroundColor(design.colors.textPrimary)
@@ -281,7 +304,7 @@ struct MeetingDetailsView: View {
 
                 if attendee.name != nil, attendee.name != attendee.email {
                     Text(attendee.email)
-                        .font(design.fonts.caption1)
+                        .font(design.fonts.caption)
                         .foregroundColor(design.colors.textSecondary)
                         .lineLimit(1)
                 }
@@ -291,16 +314,16 @@ struct MeetingDetailsView: View {
 
             if attendee.isOrganizer {
                 Text("Organizer")
-                    .font(design.fonts.caption2)
+                    .font(design.fonts.caption)
                     .fontWeight(.medium)
                     .foregroundColor(design.colors.accent)
                     .padding(.horizontal, design.spacing.sm)
-                    .padding(.vertical, 2)
-                    .background(design.colors.accent.opacity(0.1))
-                    .cornerRadius(design.corners.small)
+                    .padding(.vertical, Self.organizerBadgeVerticalPadding)
+                    .background(design.colors.accent.opacity(Self.organizerBadgeBackgroundOpacity))
+                    .clipShape(RoundedRectangle(cornerRadius: design.corners.sm))
             } else if attendee.isOptional {
                 Text("Optional")
-                    .font(design.fonts.caption2)
+                    .font(design.fonts.caption)
                     .foregroundColor(design.colors.textTertiary)
             }
         }
@@ -315,38 +338,40 @@ struct MeetingDetailsView: View {
             HStack(spacing: design.spacing.sm) {
                 Image(systemName: "link")
                     .foregroundColor(design.colors.accent)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(design.fonts.body)
+                    .fontWeight(.medium)
 
                 Text("Join Meeting")
-                    .font(design.fonts.subheadline)
-                    .fontWeight(.semibold)
+                    .font(design.fonts.callout)
+                    .fontWeight(.medium)
                     .foregroundColor(design.colors.textPrimary)
             }
 
             VStack(spacing: design.spacing.sm) {
                 ForEach(event.links, id: \.absoluteString) { link in
                     let linkProvider = Provider.detect(from: link)
-                    CustomButton(
-                        "Join via \(linkProvider.displayName)",
-                        icon: linkProvider.iconName,
-                        style: .primary
-                    ) {
+                    Button {
                         NSWorkspace.shared.open(link)
+                    } label: {
+                        Label(
+                            "Join via \(linkProvider.displayName)",
+                            systemImage: linkProvider.iconName,
+                        )
                     }
+                    .buttonStyle(UMButtonStyle(.primary))
                 }
             }
         }
         .padding(design.spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(design.colors.backgroundSecondary)
-        .cornerRadius(design.corners.medium)
+        .umCard(.flat)
     }
 
     // MARK: - Helper Methods
 
     private func formatDuration(_ duration: TimeInterval) -> String {
-        let hours = Int(duration) / 3600
-        let minutes = (Int(duration) % 3600) / 60
+        let hours = Int(duration) / Self.secondsPerHour
+        let minutes = (Int(duration) % Self.secondsPerHour) / Self.secondsPerMinute
 
         if hours > 0 { return "\(hours)h \(minutes)m" }
         return "\(minutes)m"
@@ -369,30 +394,45 @@ struct MeetingDetailsView: View {
     }
 }
 
+private enum MeetingDetailsPreviewConstants {
+    static let halfHourSeconds: TimeInterval = 1800
+}
+
 #Preview {
     let sampleEvent = Event(
         id: "sample",
         title: "Team Standup Meeting",
         startDate: Date(),
-        endDate: Date().addingTimeInterval(1800),
+        endDate: Date().addingTimeInterval(MeetingDetailsPreviewConstants.halfHourSeconds),
         organizer: "manager@company.com",
         description:
         "Daily standup to discuss progress and blockers. Please come prepared with your updates.",
         location: "Conference Room A",
         attendees: [
             Attendee(
-                name: "John Doe", email: "john@company.com", status: .accepted, isOrganizer: true,
-                isSelf: false
+                name: "John Doe",
+                email: "john@company.com",
+                status: .accepted,
+                isOrganizer: true,
+                isSelf: false,
             ),
-            Attendee(name: "Jane Smith", email: "jane@company.com", status: .tentative, isSelf: false),
             Attendee(
-                email: "contractor@external.com", status: .needsAction, isOptional: true, isSelf: false
+                name: "Jane Smith",
+                email: "jane@company.com",
+                status: .tentative,
+                isSelf: false,
+            ),
+            Attendee(
+                email: "contractor@external.com",
+                status: .needsAction,
+                isOptional: true,
+                isSelf: false,
             ),
         ],
         calendarId: "primary",
-        links: [URL(string: "https://meet.google.com/abc-defg-hij")].compactMap(\.self)
+        links: [URL(string: "https://meet.google.com/abc-defg-hij")].compactMap(\.self),
     )
 
     MeetingDetailsView(event: sampleEvent, onClose: {})
-        .customThemedEnvironment(themeManager: ThemeManager())
+        .themed(themeManager: ThemeManager())
 }

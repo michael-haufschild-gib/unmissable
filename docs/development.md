@@ -1,7 +1,7 @@
 # Development Guide
 
 **Purpose**: Setup, building, running, and deploying Unmissable.
-**Platform**: macOS 14.0+ (Sonoma) | Swift 6.0 with StrictConcurrency | SPM
+**Platform**: macOS 14.0+ (Sonoma) | Swift 6.1 with StrictConcurrency | SPM
 
 ---
 
@@ -11,7 +11,7 @@
 |-------------|-----------------|-----------------|
 | macOS | 14.0 (Sonoma) | - |
 | Xcode | 16+ | App Store |
-| Swift | 6.0+ | Included with Xcode |
+| Swift | 6.1+ | Included with Xcode 16.3+ |
 | SwiftFormat | Latest | `brew install swiftformat` |
 | SwiftLint | Latest | `brew install swiftlint` |
 
