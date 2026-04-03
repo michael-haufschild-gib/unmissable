@@ -67,7 +67,9 @@ enum Provider: String, Codable, CaseIterable {
         if host == "zoom.us" || host.hasSuffix(".zoom.us") {
             return .zoom
         }
-        if host == "teams.microsoft.com" || host == "teams.live.com" {
+        if host == "teams.microsoft.com" || host.hasSuffix(".teams.microsoft.com")
+            || host == "teams.live.com" || host.hasSuffix(".teams.live.com")
+        {
             return .teams
         }
         if host == "webex.com" || host.hasSuffix(".webex.com") {

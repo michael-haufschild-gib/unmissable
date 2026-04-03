@@ -49,9 +49,9 @@ final class ShortcutsManager: ObservableObject {
             return
         }
 
-        let hotKey = HotKey(identifier: "dismiss_overlay", keyCombo: keyCombo) { _ in
+        let hotKey = HotKey(identifier: "dismiss_overlay", keyCombo: keyCombo) { [weak self] _ in
             Task { @MainActor in
-                self.dismissOverlay()
+                self?.dismissOverlay()
             }
         }
 
@@ -69,9 +69,9 @@ final class ShortcutsManager: ObservableObject {
             return
         }
 
-        let hotKey = HotKey(identifier: "join_meeting", keyCombo: keyCombo) { _ in
+        let hotKey = HotKey(identifier: "join_meeting", keyCombo: keyCombo) { [weak self] _ in
             Task { @MainActor in
-                self.joinMeeting()
+                self?.joinMeeting()
             }
         }
 

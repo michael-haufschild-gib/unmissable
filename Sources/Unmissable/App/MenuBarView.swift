@@ -27,30 +27,41 @@ struct MenuBarView: View {
         return groupEventsByDate(events, includingStarted: true)
     }
 
+    /// Applies the all-day event preference filter.
+    private func applyAllDayFilter(_ events: [Event]) -> [Event] {
+        if appState.preferences.includeAllDayEvents {
+            return events
+        }
+        return events.filter { !$0.isAllDay }
+    }
+
     private var filteredTodayEvents: [Event] {
         let calendar = Calendar.current
         let today = Date()
 
-        return calendarService.events.filter { event in
+        let dateFiltered = calendarService.events.filter { event in
             calendar.isDate(event.startDate, inSameDayAs: today)
         }
+        return applyAllDayFilter(dateFiltered)
     }
 
     private var filteredEventsForDisplay: [Event] {
         let calendar = Calendar.current
         let today = Date()
         guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else {
-            return calendarService.events.filter { event in
+            let dateFiltered = calendarService.events.filter { event in
                 calendar.isDate(event.startDate, inSameDayAs: today)
             }
+            return applyAllDayFilter(dateFiltered)
         }
         let monday = getNextMondayIfNeeded(from: tomorrow, calendar: calendar)
 
-        return calendarService.events.filter { event in
+        let dateFiltered = calendarService.events.filter { event in
             calendar.isDate(event.startDate, inSameDayAs: today)
                 || calendar.isDate(event.startDate, inSameDayAs: tomorrow)
                 || (monday.map { calendar.isDate(event.startDate, inSameDayAs: $0) } ?? false)
         }
+        return applyAllDayFilter(dateFiltered)
     }
 
     private func getNextMondayIfNeeded(from tomorrow: Date, calendar: Calendar) -> Date? {
@@ -69,15 +80,12 @@ struct MenuBarView: View {
     private func groupEventsByDate(_ events: [Event], includingStarted: Bool = false) -> [EventGroup] {
         let calendar = Calendar.current
         let today = Date()
-        guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else {
-            return []
-        }
 
         var groups: [EventGroup] = []
 
         // Add started meetings group if including started events
         if includingStarted {
-            let startedMeetings = calendarService.startedEvents
+            let startedMeetings = applyAllDayFilter(calendarService.startedEvents)
             if !startedMeetings.isEmpty {
                 groups.append(EventGroup(title: "Started", events: startedMeetings))
             }
@@ -85,12 +93,25 @@ struct MenuBarView: View {
 
         // Group events by date
         let todayEvents = events.filter { calendar.isDate($0.startDate, inSameDayAs: today) }
+
+        guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else {
+            // Fallback: show today's events even if tomorrow can't be computed
+            if !todayEvents.isEmpty {
+                groups.append(EventGroup(title: "Today", events: todayEvents))
+            }
+            return groups
+        }
+
         let tomorrowEvents = events.filter { calendar.isDate($0.startDate, inSameDayAs: tomorrow) }
 
-        // Get Monday events if tomorrow is Saturday
-        var mondayEvents: [Event] = []
-        if let monday = getNextMondayIfNeeded(from: tomorrow, calendar: calendar) {
-            mondayEvents = events.filter { calendar.isDate($0.startDate, inSameDayAs: monday) }
+        // Get next-workday events if tomorrow starts a weekend
+        var nextWorkdayEvents: [Event] = []
+        var nextWorkdayTitle = ""
+        if let nextWorkday = getNextMondayIfNeeded(from: tomorrow, calendar: calendar) {
+            nextWorkdayEvents = events.filter { calendar.isDate($0.startDate, inSameDayAs: nextWorkday) }
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEEE" // Full day name, locale-aware
+            nextWorkdayTitle = formatter.string(from: nextWorkday)
         }
 
         // Add non-empty groups
@@ -102,8 +123,8 @@ struct MenuBarView: View {
             groups.append(EventGroup(title: "Tomorrow", events: tomorrowEvents))
         }
 
-        if !mondayEvents.isEmpty {
-            groups.append(EventGroup(title: "Monday", events: mondayEvents))
+        if !nextWorkdayEvents.isEmpty {
+            groups.append(EventGroup(title: nextWorkdayTitle, events: nextWorkdayEvents))
         }
 
         return groups

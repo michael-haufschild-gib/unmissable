@@ -459,19 +459,27 @@ actor DatabaseManager: DatabaseManaging {
             throw DatabaseError.notInitialized
         }
 
-        let calendarIds = try await fetchCalendars(for: provider).map(\.id)
-        guard !calendarIds.isEmpty else { return }
-
+        // Single atomic query using a subquery instead of two-step read+delete.
+        // Prevents a reentrancy window where a calendar could be added between
+        // fetching IDs and deleting events.
+        let providerRaw = provider.rawValue
         let deletedCount = try await withTimeout(defaultTimeout) {
             try await dbQueue.write { db in
-                try Event
-                    .filter(calendarIds.contains(Event.Columns.calendarId))
-                    .deleteAll(db)
+                try db.execute(
+                    sql: """
+                    DELETE FROM events
+                    WHERE calendarId IN (
+                        SELECT id FROM calendars WHERE sourceProvider = ?
+                    )
+                    """,
+                    arguments: [providerRaw]
+                )
+                return db.changesCount
             }
         }
 
         logger.info(
-            "Deleted \(deletedCount) events for provider \(provider.rawValue) across \(calendarIds.count) calendars"
+            "Deleted \(deletedCount) events for provider \(provider.rawValue)"
         )
     }
 

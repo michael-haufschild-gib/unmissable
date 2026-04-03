@@ -297,9 +297,8 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
         let event = apiService.convertToEvent(from: entry, calendarId: "primary")
         let unwrapped = try XCTUnwrap(event)
 
-        // Phone URIs should be extracted but may not be valid meeting URLs
-        // The important thing is the conversion doesn't crash
         XCTAssertEqual(unwrapped.title, "Phone Meeting")
+        XCTAssertTrue(unwrapped.links.isEmpty, "tel: URIs should be filtered out of meeting links")
     }
 
     func testConvertToEvent_malformedDateTimeString_returnsNil() {

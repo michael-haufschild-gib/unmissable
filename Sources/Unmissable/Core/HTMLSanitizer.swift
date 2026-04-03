@@ -93,7 +93,9 @@ enum HTMLSanitizer {
         }
         let tagName = String(html[nameStart ..< i])
 
-        // Skip to end of tag (handling quoted attribute values)
+        // Skip to end of tag (handling quoted attribute values).
+        // Also stop at unquoted '<' — browsers treat it as ending the tag,
+        // and attackers use it to smuggle payloads past the tag boundary.
         while i < html.endIndex, html[i] != ">" {
             if html[i] == "\"" || html[i] == "'" {
                 let quote = html[i]
@@ -104,19 +106,27 @@ enum HTMLSanitizer {
                 if i < html.endIndex {
                     i = html.index(after: i) // skip closing quote
                 }
+            } else if html[i] == "<" {
+                // Unquoted '<' inside a tag means malformed HTML.
+                // End the tag here; the '<' starts the next token.
+                break
             } else {
                 i = html.index(after: i)
             }
         }
 
-        // Move past '>'
-        let tagEnd: String.Index = if i < html.endIndex {
-            html.index(after: i)
+        // Build the extracted tag. If we stopped at '>', include it and advance past.
+        // If we stopped at '<' or endIndex, synthesize a closing '>' so downstream
+        // attribute sanitization sees a well-formed tag.
+        let tagEnd: String.Index
+        let fullTag: String
+        if i < html.endIndex, html[i] == ">" {
+            tagEnd = html.index(after: i)
+            fullTag = String(html[from ..< tagEnd])
         } else {
-            i
+            tagEnd = i
+            fullTag = String(html[from ..< i]) + ">"
         }
-
-        let fullTag = String(html[from ..< tagEnd])
 
         return ParsedTag(
             tagName: tagName,
@@ -192,6 +202,15 @@ enum HTMLSanitizer {
 
             if tag[i].isWhitespace {
                 i = processAttribute(tag, from: i, into: &result)
+            } else if tag[i] == "/" {
+                // Browsers treat '/' between tag name and attributes as whitespace.
+                // Skip it and process what follows as an attribute to prevent XSS
+                // bypasses like <svg/onload=alert(1)>.
+                i = tag.index(after: i)
+                if i < tag.endIndex, tag[i].isASCIILetter {
+                    result.append(" ")
+                    i = processAttribute(tag, from: i, into: &result)
+                }
             } else {
                 result.append(tag[i])
                 i = tag.index(after: i)
@@ -269,10 +288,20 @@ enum HTMLSanitizer {
         }
 
         // Unquoted value — advance past it
+        let unquotedStart = tempI
         while tempI < tag.endIndex, !tag[tempI].isWhitespace, tag[tempI] != ">" {
             tempI = tag.index(after: tempI)
         }
-        if !attr.isEventHandler {
+        if attr.isEventHandler {
+            // Drop event handler entirely
+        } else if attr.nameLower == "href" || attr.nameLower == "src",
+                  isDangerousURI(String(tag[unquotedStart ..< tempI]))
+        {
+            // Neutralize dangerous URI in unquoted value
+            result.append(contentsOf: tag[attr.wsStart ..< attr.attrStart])
+            result.append(attr.name)
+            result.append("=\"about:blank\"")
+        } else {
             result.append(contentsOf: tag[wsStart ..< tempI])
         }
         return tempI
@@ -343,9 +372,114 @@ enum HTMLSanitizer {
     }
 
     /// Checks if a URI value starts with `javascript:` or `data:` (case-insensitive).
+    /// Decodes HTML entities and strips all non-ASCII-graphic characters before the
+    /// scheme check to prevent bypasses like `&#106;avascript:`, `java&#x0A;script:`,
+    /// or any undecoded named entity (e.g. `&nbsp;`, `&ZeroWidthSpace;`) that resolves
+    /// to a non-ASCII character browsers might strip from URL schemes.
     private static func isDangerousURI(_ value: String) -> Bool {
-        let trimmed = value.trimmingCharacters(in: .whitespaces).lowercased()
-        return trimmed.hasPrefix("javascript:") || trimmed.hasPrefix("data:")
+        let decoded = decodeHTMLEntities(value)
+        // Keep only ASCII graphic characters (0x21-0x7E) for the scheme check.
+        // This strips control chars, whitespace, NBSP, zero-width chars, and any
+        // non-ASCII character that could be injected via undecoded named entities.
+        // The original value is not modified — only the detection check uses this.
+        let normalized = String(decoded.unicodeScalars.filter { scalar in
+            scalar.value >= 0x21 && scalar.value <= 0x7E
+        })
+        let lowered = normalized.lowercased()
+        return lowered.hasPrefix("javascript:") || lowered.hasPrefix("data:")
+    }
+
+    /// Decodes numeric HTML entities (&#NNN; and &#xHH;) and common named entities
+    /// to their character equivalents for URI safety checks.
+    private static func decodeHTMLEntities(_ value: String) -> String {
+        guard value.contains("&") else { return value }
+
+        var result = ""
+        result.reserveCapacity(value.count)
+        var i = value.startIndex
+
+        while i < value.endIndex {
+            if value[i] == "&" {
+                if let decoded = tryDecodeEntity(value, from: i) {
+                    result.append(decoded.character)
+                    i = decoded.afterEntity
+                    continue
+                }
+            }
+            result.append(value[i])
+            i = value.index(after: i)
+        }
+
+        return result
+    }
+
+    private struct DecodedEntity {
+        let character: Character
+        let afterEntity: String.Index
+    }
+
+    /// Named entities relevant to URI bypass attacks.
+    /// Includes &colon; (used to obfuscate "javascript:" / "data:"),
+    /// &Tab;/&NewLine; (inline whitespace bypasses), and standard entities.
+    /// Comparison is case-insensitive because HTML5 named entities are case-sensitive
+    /// (e.g. &Tab; not &tab;) but attackers may use any casing — safer to match all.
+    private static let namedEntities: [(String, Character)] = [
+        ("amp;", "&"), ("lt;", "<"), ("gt;", ">"), ("quot;", "\""), ("apos;", "'"),
+        ("colon;", ":"), ("semi;", ";"), ("tab;", "\t"), ("newline;", "\n"),
+        ("lpar;", "("), ("rpar;", ")"), ("sol;", "/"), ("period;", "."),
+        ("comma;", ","), ("excl;", "!"), ("num;", "#"), ("equals;", "="),
+    ]
+
+    private static func tryDecodeEntity(
+        _ value: String, from start: String.Index
+    ) -> DecodedEntity? {
+        let afterAmp = value.index(after: start)
+        guard afterAmp < value.endIndex else { return nil }
+
+        if value[afterAmp] == "#" {
+            return tryDecodeNumericEntity(value, afterHash: value.index(after: afterAmp))
+        }
+
+        let remaining = String(value[afterAmp...]).lowercased()
+        for (suffix, char) in namedEntities {
+            if remaining.hasPrefix(suffix) {
+                let afterEntity = value.index(afterAmp, offsetBy: suffix.count)
+                return DecodedEntity(character: char, afterEntity: afterEntity)
+            }
+        }
+
+        return nil
+    }
+
+    private static func tryDecodeNumericEntity(
+        _ value: String, afterHash: String.Index
+    ) -> DecodedEntity? {
+        guard afterHash < value.endIndex else { return nil }
+
+        var i = afterHash
+        let isHex = value[i] == "x" || value[i] == "X"
+        if isHex {
+            i = value.index(after: i)
+        }
+
+        var digits = ""
+        while i < value.endIndex, value[i] != ";" {
+            digits.append(value[i])
+            i = value.index(after: i)
+            if digits.count > 8 { return nil }
+        }
+
+        guard i < value.endIndex, value[i] == ";" else { return nil }
+        let afterSemicolon = value.index(after: i)
+
+        let codePoint: UInt32? = if isHex {
+            UInt32(digits, radix: 16)
+        } else {
+            UInt32(digits, radix: 10)
+        }
+
+        guard let cp = codePoint, let scalar = Unicode.Scalar(cp) else { return nil }
+        return DecodedEntity(character: Character(scalar), afterEntity: afterSemicolon)
     }
 
     private static func nextChar(_ s: String, after i: String.Index) -> Character? {

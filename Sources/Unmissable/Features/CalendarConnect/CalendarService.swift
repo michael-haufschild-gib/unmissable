@@ -205,17 +205,17 @@ final class CalendarService: ObservableObject {
             logger.debug("Updated calendar \(calendarId) selection to \(isSelected)")
 
             let updatedCalendar = calendars[index]
+            let shouldSync = isConnected
             Task {
                 do {
                     try await databaseManager.saveCalendars([updatedCalendar])
                 } catch {
                     calendarUpdateError = "Failed to save calendar selection: \(error.localizedDescription)"
                     logger.error("Failed to save calendar selection: \(error.localizedDescription)")
+                    return
                 }
-            }
 
-            if isConnected {
-                Task {
+                if shouldSync {
                     await syncEvents()
                 }
             }

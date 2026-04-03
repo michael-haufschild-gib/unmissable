@@ -28,20 +28,21 @@ final class AppState: ObservableObject {
         let calendarService = services.calendarService
         let preferencesManager = services.preferencesManager
 
-        // Update menu bar preview when events change
+        // Update menu bar preview when events or started events change.
+        // Combine both arrays so getNextMeeting() can detect in-progress meetings.
         calendarService.$events
             .sink { [weak self] events in
-                self?.services.menuBarPreviewManager.updateEvents(events)
+                guard let self else { return }
+                let started = services.calendarService.startedEvents
+                services.menuBarPreviewManager.updateEvents(started + events)
             }
             .store(in: &cancellables)
 
-        // Update menu bar preview when started events change
         calendarService.$startedEvents
-            .sink { [weak self] _ in
+            .sink { [weak self] startedEvents in
                 guard let self else { return }
-                services.menuBarPreviewManager.updateEvents(
-                    services.calendarService.events
-                )
+                let upcoming = services.calendarService.events
+                services.menuBarPreviewManager.updateEvents(startedEvents + upcoming)
             }
             .store(in: &cancellables)
 

@@ -44,6 +44,11 @@ extension MeetingDetailsPopupManaging {
 
 // MARK: - Calendar Provider Protocols
 
+/// Per-calendar fetch results. Each requested calendar ID maps to either its events
+/// or the error that prevented fetching. Enables callers to make correct per-calendar
+/// decisions (clear cache on success-empty vs. preserve cache on failure).
+typealias CalendarFetchResults = [String: Result<[Event], any Error>]
+
 /// Protocol for calendar API data fetching, abstracting the provider (Google, Apple, etc.)
 @MainActor
 protocol CalendarAPIProviding {
@@ -55,7 +60,7 @@ protocol CalendarAPIProviding {
     func fetchCalendars() async -> [CalendarInfo]
     @discardableResult
     func fetchEvents(for calendarIds: [String], from startDate: Date, to endDate: Date) async
-        -> [Event]
+        -> CalendarFetchResults
 }
 
 /// Protocol for calendar authentication, abstracting the auth mechanism (OAuth, EventKit, etc.)
