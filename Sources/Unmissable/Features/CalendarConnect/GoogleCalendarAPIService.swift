@@ -420,7 +420,8 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
             for ep in entryPoints {
                 if let uri = ep.uri,
                    let url = URL(string: uri),
-                   url.scheme?.lowercased().hasPrefix("http") == true
+                   let scheme = url.scheme?.lowercased(),
+                   scheme == "http" || scheme == "https"
                 {
                     links.append(url)
                 }

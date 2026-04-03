@@ -44,7 +44,7 @@ final class SyncManager: ObservableObject {
     private let networkDebounceDelay: TimeInterval = 0.5 // 500ms debounce
 
     // Staleness TTL: clear cached events when the API consistently returns empty
-    private var lastSuccessfulNonEmptySync: Date?
+    private var stalenessReferenceDate: Date?
     private let stalenessTTL: TimeInterval = 2 * 60 * 60 // 2 hours
 
     init(
@@ -277,14 +277,14 @@ final class SyncManager: ObservableObject {
     /// Handles the case where the API returns zero events with no error.
     /// Uses a staleness TTL to decide whether to clear cached events or preserve them.
     private func handleEmptyFetchResult(for calendarIds: [String]) async {
-        if lastSuccessfulNonEmptySync == nil {
+        if stalenessReferenceDate == nil {
             // First empty result (e.g. after app restart) — start the staleness clock
             // so the TTL can trigger on subsequent empty fetches.
-            lastSuccessfulNonEmptySync = Date()
+            stalenessReferenceDate = Date()
         }
 
-        if let lastNonEmpty = lastSuccessfulNonEmptySync,
-           Date().timeIntervalSince(lastNonEmpty) > stalenessTTL
+        if let referenceDate = stalenessReferenceDate,
+           Date().timeIntervalSince(referenceDate) > stalenessTTL
         {
             logger.info(
                 "API returned zero events for >\(Int(self.stalenessTTL / 3600))h — clearing stale cache"
@@ -313,10 +313,12 @@ final class SyncManager: ObservableObject {
         selectedCalendarIds: [String]
     ) async {
         let eventsByCalendar = Dictionary(grouping: fetchedEvents) { $0.calendarId }
+        let hasPartialFailure = apiService.lastError != nil
 
         let failedCount = await saveEventsPerCalendar(
             eventsByCalendar: eventsByCalendar,
-            selectedCalendarIds: selectedCalendarIds
+            selectedCalendarIds: selectedCalendarIds,
+            hasPartialFailure: hasPartialFailure
         )
 
         if failedCount == selectedCalendarIds.count {
@@ -324,7 +326,7 @@ final class SyncManager: ObservableObject {
             return
         }
 
-        lastSuccessfulNonEmptySync = Date()
+        stalenessReferenceDate = Date()
         completeSync()
 
         logger.info(
@@ -353,18 +355,23 @@ final class SyncManager: ObservableObject {
 
     private func saveEventsPerCalendar(
         eventsByCalendar: [String: [Event]],
-        selectedCalendarIds: [String]
+        selectedCalendarIds: [String],
+        hasPartialFailure: Bool
     ) async -> Int {
         logger.debug("Saving events to database (transactional per calendar)")
         var failedCalendars: [String] = []
         for calendarId in selectedCalendarIds {
-            guard let calendarEvents = eventsByCalendar[calendarId] else {
-                // No events returned for this calendar — either a fetch failure or
-                // genuinely empty. Preserve cached events to avoid deleting valid data
-                // on partial API failures. Genuinely empty calendars are handled by
-                // the staleness TTL in handleEmptyFetchResult.
-                logger.debug("No API data for calendar \(calendarId), preserving cache")
+            let calendarEvents: [Event]
+            if let events = eventsByCalendar[calendarId] {
+                calendarEvents = events
+            } else if hasPartialFailure {
+                // Partial API failure — we can't tell which calendars failed vs returned
+                // zero events. Preserve cached events to avoid deleting valid data.
+                logger.debug("No API data for calendar \(calendarId) during partial failure, preserving cache")
                 continue
+            } else {
+                // All calendars fetched successfully — this one genuinely has zero events.
+                calendarEvents = []
             }
             do {
                 try await databaseManager.replaceEvents(for: calendarId, with: calendarEvents)

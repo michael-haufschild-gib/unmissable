@@ -170,18 +170,44 @@ final class HTMLSanitizerTests: XCTestCase {
         let input = "<a href=\"&#106;avascript:alert(1)\">Click</a>"
         let result = HTMLSanitizer.sanitize(input)
         XCTAssert(result.contains("about:blank"), "Entity-encoded javascript: should be neutralized")
+        XCTAssertFalse(result.contains("alert"), "Payload must not appear in output")
     }
 
     func testNeutralizesHexEntityEncodedJavascriptURI() {
         let input = "<a href=\"&#x6A;avascript:alert(1)\">Click</a>"
         let result = HTMLSanitizer.sanitize(input)
         XCTAssert(result.contains("about:blank"), "Hex entity-encoded javascript: should be neutralized")
+        XCTAssertFalse(result.contains("alert"), "Payload must not appear in output")
+    }
+
+    func testNeutralizesInlineControlCharJavascriptURI() {
+        // Browsers may interpret "java\nscript:" as "javascript:" — control chars within
+        // the scheme must be stripped before the prefix check.
+        let newlineBypass = "<a href=\"java&#x0A;script:alert(1)\">Click</a>"
+        let tabBypass = "<a href=\"jav&#9;ascript:alert(1)\">Click</a>"
+        XCTAssert(
+            HTMLSanitizer.sanitize(newlineBypass).contains("about:blank"),
+            "Newline-in-scheme javascript: bypass should be neutralized"
+        )
+        XCTAssert(
+            HTMLSanitizer.sanitize(tabBypass).contains("about:blank"),
+            "Tab-in-scheme javascript: bypass should be neutralized"
+        )
     }
 
     func testNeutralizesEntityEncodedDataURI() {
         let input = "<img src=\"&#100;ata:text/html,<script>alert(1)</script>\">"
         let result = HTMLSanitizer.sanitize(input)
-        XCTAssertFalse(result.lowercased().contains("&#100;ata:"), "Entity-encoded data: should be neutralized")
+        XCTAssert(result.contains("about:blank"), "Entity-encoded data: should be neutralized to about:blank")
+        XCTAssertFalse(result.contains("alert"), "Payload must not appear in output")
+        XCTAssertFalse(result.contains("script"), "Script tag must not appear in output")
+    }
+
+    func testNeutralizesColonEntityJavascriptURI() {
+        let input = "<a href=\"javascript&colon;alert(1)\">Click</a>"
+        let result = HTMLSanitizer.sanitize(input)
+        XCTAssert(result.contains("about:blank"), "&colon; entity should be decoded before scheme check")
+        XCTAssertFalse(result.contains("alert"), "Payload must not appear in output")
     }
 
     func testPreservesSingleQuotedAttributes() {
@@ -291,7 +317,9 @@ final class HTMLSanitizerTests: XCTestCase {
     func testNeutralizesUnquotedDataURI() {
         let input = "<img src=data:text/html,<script>alert(1)</script>>"
         let result = HTMLSanitizer.sanitize(input)
-        XCTAssertFalse(result.lowercased().contains("data:text"), "Unquoted data: URI should be neutralized")
+        XCTAssert(result.contains("about:blank"), "Unquoted data: URI should be neutralized to about:blank")
+        XCTAssertFalse(result.contains("alert"), "Payload must not leak outside the tag")
+        XCTAssertFalse(result.contains("script"), "Script content must not appear in output")
     }
 
     func testPreservesUnquotedSafeHref() {

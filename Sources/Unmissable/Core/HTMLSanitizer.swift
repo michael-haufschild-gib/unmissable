@@ -93,7 +93,9 @@ enum HTMLSanitizer {
         }
         let tagName = String(html[nameStart ..< i])
 
-        // Skip to end of tag (handling quoted attribute values)
+        // Skip to end of tag (handling quoted attribute values).
+        // Also stop at unquoted '<' — browsers treat it as ending the tag,
+        // and attackers use it to smuggle payloads past the tag boundary.
         while i < html.endIndex, html[i] != ">" {
             if html[i] == "\"" || html[i] == "'" {
                 let quote = html[i]
@@ -104,19 +106,27 @@ enum HTMLSanitizer {
                 if i < html.endIndex {
                     i = html.index(after: i) // skip closing quote
                 }
+            } else if html[i] == "<" {
+                // Unquoted '<' inside a tag means malformed HTML.
+                // End the tag here; the '<' starts the next token.
+                break
             } else {
                 i = html.index(after: i)
             }
         }
 
-        // Move past '>'
-        let tagEnd: String.Index = if i < html.endIndex {
-            html.index(after: i)
+        // Build the extracted tag. If we stopped at '>', include it and advance past.
+        // If we stopped at '<' or endIndex, synthesize a closing '>' so downstream
+        // attribute sanitization sees a well-formed tag.
+        let tagEnd: String.Index
+        let fullTag: String
+        if i < html.endIndex, html[i] == ">" {
+            tagEnd = html.index(after: i)
+            fullTag = String(html[from ..< tagEnd])
         } else {
-            i
+            tagEnd = i
+            fullTag = String(html[from ..< i]) + ">"
         }
-
-        let fullTag = String(html[from ..< tagEnd])
 
         return ParsedTag(
             tagName: tagName,
@@ -362,11 +372,17 @@ enum HTMLSanitizer {
     }
 
     /// Checks if a URI value starts with `javascript:` or `data:` (case-insensitive).
-    /// Decodes HTML entities first to prevent bypasses like `&#106;avascript:`.
+    /// Decodes HTML entities and strips ASCII control/whitespace characters before the
+    /// scheme check to prevent bypasses like `&#106;avascript:` or `java&#x0A;script:`.
     private static func isDangerousURI(_ value: String) -> Bool {
         let decoded = decodeHTMLEntities(value)
-        let trimmed = decoded.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return trimmed.hasPrefix("javascript:") || trimmed.hasPrefix("data:")
+        // Strip all ASCII control characters (0x00-0x1F, 0x7F) and whitespace to prevent
+        // bypasses that insert them within the scheme (e.g. "java\nscript:", "jav\tascript:")
+        let normalized = String(decoded.unicodeScalars.filter { scalar in
+            scalar.value > 0x20 && scalar.value != 0x7F
+        })
+        let lowered = normalized.lowercased()
+        return lowered.hasPrefix("javascript:") || lowered.hasPrefix("data:")
     }
 
     /// Decodes numeric HTML entities (&#NNN; and &#xHH;) and common named entities
@@ -408,9 +424,14 @@ enum HTMLSanitizer {
             return tryDecodeNumericEntity(value, afterHash: value.index(after: afterAmp))
         }
 
-        // Named entities (only the ones relevant to URI bypass attacks)
+        // Named entities relevant to URI bypass attacks.
+        // Includes &colon; (used to obfuscate "javascript:" / "data:"),
+        // &tab;/&newline; (inline whitespace bypasses), and standard entities.
         let namedEntities: [(String, Character)] = [
             ("amp;", "&"), ("lt;", "<"), ("gt;", ">"), ("quot;", "\""), ("apos;", "'"),
+            ("colon;", ":"), ("semi;", ";"), ("tab;", "\t"), ("newline;", "\n"),
+            ("lpar;", "("), ("rpar;", ")"), ("sol;", "/"), ("period;", "."),
+            ("comma;", ","), ("excl;", "!"), ("num;", "#"), ("equals;", "="),
         ]
         for (suffix, char) in namedEntities {
             let remaining = value[afterAmp...]

@@ -85,7 +85,7 @@ struct MenuBarView: View {
 
         // Add started meetings group if including started events
         if includingStarted {
-            let startedMeetings = calendarService.startedEvents
+            let startedMeetings = applyAllDayFilter(calendarService.startedEvents)
             if !startedMeetings.isEmpty {
                 groups.append(EventGroup(title: "Started", events: startedMeetings))
             }

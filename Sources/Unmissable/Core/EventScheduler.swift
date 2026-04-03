@@ -149,10 +149,13 @@ final class EventScheduler: ObservableObject {
     /// Returns events whose alert time has already passed but whose meeting has not yet started.
     /// The caller is responsible for showing overlays for these events.
     private func scheduleAlerts(for events: [Event]) -> [Event] {
-        // Preserve existing snooze alerts before clearing
+        // Preserve existing snooze alerts before clearing.
+        // Only keep snoozes for events that are still schedulable (non-all-day, present in
+        // current event list) to prevent stale snoozes from surviving reclassification.
+        let schedulableEventIDs = Set(events.filter { !$0.isAllDay }.map(\.id))
         let existingSnoozeAlerts = scheduledAlerts.filter { alert in
             if case .snooze = alert.alertType {
-                return alert.triggerDate > now() // Only keep future snooze alerts
+                return alert.triggerDate > now() && schedulableEventIDs.contains(alert.event.id)
             }
             return false
         }
