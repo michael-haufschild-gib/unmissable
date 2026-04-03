@@ -23,6 +23,9 @@ let package = Package(
         .package(url: "https://github.com/Clipy/Magnet.git", from: "3.4.0"),
         // Snapshot testing
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing.git", from: "1.19.1"),
+        // Deterministic clocks and concurrency testing utilities
+        .package(url: "https://github.com/pointfreeco/swift-clocks.git", from: "1.0.0"),
+        .package(url: "https://github.com/pointfreeco/swift-concurrency-extras.git", from: "1.0.0"),
         // Auto-updates
         .package(url: "https://github.com/sparkle-project/Sparkle.git", from: "2.9.0"),
         // Note: SwiftFormat and SwiftLint installed via Homebrew (brew install swiftformat swiftlint)
@@ -46,6 +49,8 @@ let package = Package(
             name: "TestSupport",
             dependencies: [
                 "Unmissable",
+                .product(name: "Clocks", package: "swift-clocks"),
+                .product(name: "ConcurrencyExtras", package: "swift-concurrency-extras"),
             ],
             path: "Tests/TestSupport",
         ),

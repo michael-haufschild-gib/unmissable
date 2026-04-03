@@ -19,6 +19,12 @@ final class EventScheduler: ObservableObject {
     private var currentEvents: [Event] = []
     private weak var currentOverlayManager: (any OverlayManaging)?
 
+    /// Whether monitoring was explicitly started via `startScheduling`.
+    /// `scheduleWithoutMonitoring` sets this to false, preventing
+    /// `refreshMonitoring` from starting a loop. Used by tests that
+    /// don't need the monitoring loop.
+    private var monitoringEnabled = false
+
     /// Abstraction over `Task.sleep` for deterministic testing.
     /// Production default sleeps for the given number of seconds.
     private let sleepForSeconds: @Sendable (TimeInterval) async throws -> Void
@@ -70,12 +76,13 @@ final class EventScheduler: ObservableObject {
         }
         .store(in: &cancellables)
 
-        // Also watch for medium and long meeting alert changes
-        Publishers.CombineLatest(
+        // Also watch for medium/long meeting alerts and sound toggle
+        Publishers.CombineLatest3(
             preferencesManager.$mediumMeetingAlertMinutes,
             preferencesManager.$longMeetingAlertMinutes,
+            preferencesManager.$playAlertSound,
         )
-        .sink { [weak self] _, _ in
+        .sink { [weak self] _, _, _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 logger.info("Alert preferences changed, rescheduling alerts")
@@ -86,14 +93,23 @@ final class EventScheduler: ObservableObject {
     }
 
     func startScheduling(events: [Event], overlayManager: any OverlayManaging) {
-        logger.info("Starting event scheduling for \(events.count) events")
+        monitoringEnabled = true
+        scheduleWithoutMonitoring(events: events, overlayManager: overlayManager)
+        startMonitoring(overlayManager: overlayManager)
+        logger.debug("Event scheduling setup completed")
+    }
 
-        // Log the first few events for debugging (titles redacted for privacy)
+    /// Schedules alerts and fires missed overlays, but does NOT start the
+    /// monitoring loop. Used by tests that verify alert scheduling without
+    /// needing the monitoring loop (which requires a TestClock to advance).
+    func scheduleWithoutMonitoring(events: [Event], overlayManager: any OverlayManaging) {
+        monitoringEnabled = false
+        logger.info("Scheduling alerts for \(events.count) events")
+
         for (index, event) in events.prefix(Self.debugLogEventCount).enumerated() {
             logger.debug("  Event \(index + 1): id=\(event.id) at \(event.startDate)")
         }
 
-        // Store for future rescheduling when preferences change
         currentEvents = events
         currentOverlayManager = overlayManager
 
@@ -103,9 +119,6 @@ final class EventScheduler: ObservableObject {
             logger.info("Missed alert time for event \(event.id), triggering immediately")
             overlayManager.showOverlay(for: event, fromSnooze: false)
         }
-        startMonitoring(overlayManager: overlayManager)
-
-        logger.debug("Event scheduling setup completed")
     }
 
     private func rescheduleCurrentAlerts() {
@@ -127,11 +140,14 @@ final class EventScheduler: ObservableObject {
             logger.info("Missed alert time for event \(event.id), triggering immediately")
             overlayManager.showOverlay(for: event, fromSnooze: false)
         }
-        startMonitoring(overlayManager: overlayManager)
+        if monitoringEnabled {
+            startMonitoring(overlayManager: overlayManager)
+        }
     }
 
     func stopScheduling() {
         logger.debug("Stopping event scheduling")
+        monitoringEnabled = false
         stopTimers()
 
         // Clean up properly to prevent memory leaks
@@ -313,9 +329,11 @@ final class EventScheduler: ObservableObject {
         }
     }
 
-    /// Restarts the monitoring task to pick up new alerts immediately
+    /// Restarts the monitoring task to pick up new alerts immediately.
+    /// No-op if monitoring was not explicitly started (e.g. tests using
+    /// `scheduleWithoutMonitoring` to avoid TestClock starvation).
     private func refreshMonitoring() {
-        guard let overlayManager = currentOverlayManager else { return }
+        guard monitoringEnabled, let overlayManager = currentOverlayManager else { return }
         logger.debug("MONITORING: Refreshing monitor task")
         startMonitoring(overlayManager: overlayManager)
     }

@@ -25,11 +25,11 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
     /// Creates an EventScheduler with a controllable TestClock.
     /// Use for tests that would otherwise wait on real `Task.sleep`.
     private func createClockInjectedScheduler() -> (EventScheduler, TestClock) {
-        let clock = TestClock(startTime: Date(), autoAdvance: true)
+        let clock = TestClock(startTime: Date())
         let scheduler = EventScheduler(
             preferencesManager: mockPreferences,
             linkParser: LinkParser(),
-            sleepForSeconds: clock.sleep,
+            sleepForSeconds: clock.sleepForSeconds,
             now: clock.nowProvider,
         )
         testClock = clock

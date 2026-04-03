@@ -33,12 +33,12 @@ final class OverlayFlowE2ETests: XCTestCase {
             minutesFromNow: 1, // 1 minute from clock's "now"
         )
 
-        try await env.seedAndSchedule([imminentEvent])
+        try await env.seedAndSchedule([imminentEvent], startMonitoring: true)
 
-        // Test clock makes the monitoring loop's sleep instant
-        try await e2eWait(timeout: 2.0, description: "Overlay should appear for imminent event") {
-            self.env.overlayManager.isOverlayVisible
-        }
+        // Wait for monitoring loop to fire and show overlay.
+        // Uses wall-clock polling instead of Task.yield + sleep which hangs
+        // in Swift 6.3 due to MainActor starvation.
+        await env.waitForOverlay()
 
         XCTAssertTrue(env.overlayManager.isOverlayVisible)
         XCTAssertEqual(env.overlayManager.activeEvent?.id, imminentEvent.id)
@@ -79,9 +79,9 @@ final class OverlayFlowE2ETests: XCTestCase {
 
         // Verify snooze time is approximately correct (3 minutes from now)
         if case let .snooze(until) = snoozeAlert.alertType {
-            let expectedTime = Date().addingTimeInterval(3 * 60)
+            let expectedTime = env.testClock.currentTime.addingTimeInterval(3 * 60)
             let drift = abs(until.timeIntervalSince(expectedTime))
-            XCTAssertLessThan(drift, 5.0, "Snooze time should be ~3 minutes from now")
+            XCTAssertLessThan(drift, 5.0, "Snooze time should be ~3 minutes from test clock")
         } else {
             XCTFail("Expected snooze alert type")
         }
@@ -115,7 +115,7 @@ final class OverlayFlowE2ETests: XCTestCase {
             )
 
             if case let .snooze(until) = unwrappedSnooze.alertType {
-                let expectedMinutes = Int(ceil(until.timeIntervalSinceNow / 60))
+                let expectedMinutes = Int(ceil(until.timeIntervalSince(env.testClock.currentTime) / 60))
                 XCTAssertEqual(
                     expectedMinutes,
                     duration,

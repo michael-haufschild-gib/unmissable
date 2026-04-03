@@ -27,19 +27,18 @@ final class SchedulerTimerE2ETests: XCTestCase {
         // moves clock forward), so the alert fires without wall-clock delay.
         env.preferencesManager.setOverlayShowMinutesBefore(0)
 
-        let baseTime = env.testClock.currentTime
         let nearEvent = E2EEventBuilder.futureEvent(
             id: "e2e-timer-trigger",
             title: "Near Future Meeting",
             minutesFromNow: 1, // 1 minute from clock's "now"
         )
 
-        try await env.seedAndSchedule([nearEvent])
+        try await env.seedAndSchedule([nearEvent], startMonitoring: true)
 
-        // Test clock auto-advances through the ~60s sleep instantly
-        try await e2eWait(timeout: 2.0, description: "Overlay should appear for near event") {
-            self.env.overlayManager.isOverlayVisible
-        }
+        // Wait for monitoring loop to fire and show overlay.
+        // Uses wall-clock polling instead of Task.yield + sleep which hangs
+        // in Swift 6.3 due to MainActor starvation.
+        await env.waitForOverlay()
 
         XCTAssertTrue(env.overlayManager.isOverlayVisible)
         XCTAssertEqual(env.overlayManager.activeEvent?.id, nearEvent.id)
@@ -72,8 +71,8 @@ final class SchedulerTimerE2ETests: XCTestCase {
         let alert = try XCTUnwrap(snoozeAlert)
         XCTAssertEqual(alert.event.id, event.id)
 
-        // Trigger time should be ~5 minutes in the future
-        let secondsUntilSnooze = alert.triggerDate.timeIntervalSinceNow
+        // Trigger time should be ~5 minutes from test clock's "now"
+        let secondsUntilSnooze = alert.triggerDate.timeIntervalSince(env.testClock.currentTime)
         XCTAssertGreaterThan(secondsUntilSnooze, 4 * 60 - 5) // At least ~4 min 55s
         XCTAssertLessThan(secondsUntilSnooze, 5 * 60 + 5) // At most ~5 min 5s
     }
@@ -96,16 +95,11 @@ final class SchedulerTimerE2ETests: XCTestCase {
         })
         XCTAssertEqual(initialSnoozeCount, 1)
 
-        // Change preference to trigger rescheduling
+        // Change preference to trigger rescheduling via Combine observer
         env.preferencesManager.setOverlayShowMinutesBefore(8)
 
-        // Wait for rescheduling to complete
-        try await e2eWait(timeout: 3.0, description: "Snooze should survive rescheduling") {
-            self.env.eventScheduler.scheduledAlerts.contains { alert in
-                if case .snooze = alert.alertType { return true }
-                return false
-            }
-        }
+        // Yield to let Combine observer + rescheduling run
+        await Task.yield()
 
         let postRescheduleSnoozeCount = env.eventScheduler.scheduledAlerts.count(where: { alert in
             if case .snooze = alert.alertType { return true }
@@ -134,12 +128,8 @@ final class SchedulerTimerE2ETests: XCTestCase {
 
         try await env.seedAndSchedule([event])
 
-        // Scheduler should detect the missed alert and show overlay immediately
-        try await e2eWait(timeout: 5.0, description: "Overlay for missed-alert-time event") {
-            self.env.overlayManager.isOverlayVisible
-                && self.env.overlayManager.activeEvent?.id == event.id
-        }
-
+        // startScheduling calls showOverlay synchronously for missed alerts
+        // before starting the monitoring loop, so the overlay is already visible.
         XCTAssertTrue(env.overlayManager.isOverlayVisible)
         XCTAssertEqual(env.overlayManager.activeEvent?.id, event.id)
     }

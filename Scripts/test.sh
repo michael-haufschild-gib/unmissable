@@ -11,22 +11,37 @@
 #
 # Usage:
 #   ./Scripts/test.sh                              # all tests
-#   ./Scripts/test.sh ThemeManagerTests             # filter by class
 #   ./Scripts/test.sh UnmissableTests               # filter by target
+#   ./Scripts/test.sh E2ETests                      # filter by target
 #   ./Scripts/test.sh --clean                       # wipe .build, then test
-#   ./Scripts/test.sh --clean ThemeManagerTests      # wipe .build + filter
 #   ./Scripts/test.sh --skip-lint                   # skip lint phase
-#   ./Scripts/test.sh --skip-lint ThemeManagerTests  # skip lint + filter
+#   ./Scripts/test.sh --skip-lint E2ETests           # skip lint + target filter
+#
+# Note: Swift 6.3 broke class-level --filter for XCTest tests.
+# Only target-level filters work: UnmissableTests, E2ETests, IntegrationTests, SnapshotTests.
 
 set -euo pipefail
 
 # --- Configuration ---
 
 MAX_WORKERS=4
-TIMEOUT_SECONDS=300  # 5 minutes
-HEARTBEAT_INTERVAL=30
+DEFAULT_TIMEOUT=300  # 5 minutes for full suite
+E2E_TIMEOUT=120      # 2 minutes for E2E tests (they should finish in <60s)
+HEARTBEAT_INTERVAL=15
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_DIR"
+
+# Force unbuffered I/O so swift-test output streams in real-time through pipes.
+# Without this, stdout is block-buffered when not connected to a TTY, which
+# causes background runs to show zero output until the process exits.
+export NSUnbufferedIO=YES
+
+# Swift 6.3 changed how XCTest and Swift Testing interoperate (ST-0021).
+# With swift-tools-version: 6.1, the default mode is "limited" which breaks
+# --filter and --parallel for XCTest-only test targets. Set to "none" to
+# restore pre-6.3 behavior where XCTest tests are discovered and filtered
+# by the XCTest runner directly.
+export SWIFT_TESTING_XCTEST_INTEROP_MODE=none
 
 LOG_DIR="$PROJECT_DIR/.build/test-logs"
 LOG_FILE="$LOG_DIR/test-output.log"
@@ -157,6 +172,15 @@ if [ -n "$FILTER" ]; then
     echo "Filter: $FILTER"
 fi
 
+# Select timeout based on target. E2E tests get a shorter leash because
+# the TestClock iteration cap means they should finish quickly or fail fast.
+if echo "$FILTER" | grep -qi "e2e"; then
+    TIMEOUT_SECONDS=$E2E_TIMEOUT
+else
+    TIMEOUT_SECONDS=$DEFAULT_TIMEOUT
+fi
+echo "Timeout: ${TIMEOUT_SECONDS}s"
+
 # Truncate log file
 > "$LOG_FILE"
 
@@ -183,43 +207,41 @@ trap cleanup EXIT
 # Run tests with timeout.
 # --skip-build because we already built in step 4.
 # 2>&1 merges stderr (where swift test writes progress) into stdout.
+# NSUnbufferedIO=YES (set above) handles output buffering without needing
+# a PTY wrapper. The previous `script -q /dev/null` wrapper is removed
+# because it prevents the watchdog from killing the child process.
 TEST_EXIT=0
-if command -v gtimeout >/dev/null 2>&1; then
-    TIMEOUT_CMD="gtimeout"
-elif command -v timeout >/dev/null 2>&1; then
-    TIMEOUT_CMD="timeout"
-else
-    TIMEOUT_CMD=""
-fi
 
-if [ -n "$TIMEOUT_CMD" ]; then
-    # shellcheck disable=SC2086
-    $TIMEOUT_CMD "$TIMEOUT_SECONDS" \
-        swift test --skip-build --parallel --num-workers "$MAX_WORKERS" $FILTER_ARG 2>&1 \
-        | tee "$LOG_FILE" || TEST_EXIT=$?
-else
-    # No timeout command available — run with a background watchdog
-    # shellcheck disable=SC2086
-    swift test --skip-build --parallel --num-workers "$MAX_WORKERS" $FILTER_ARG 2>&1 \
-        | tee "$LOG_FILE" &
-    TEST_PID=$!
+# Build the swift test command.
+# Note: Swift 6.3 broke class-level --filter for XCTest (only target-level works).
+# Use target names as filters: E2ETests, UnmissableTests, IntegrationTests.
+# shellcheck disable=SC2086
+SWIFT_TEST_CMD="swift test --skip-build --parallel --num-workers $MAX_WORKERS $FILTER_ARG"
 
-    # Watchdog: kill after TIMEOUT_SECONDS
-    (
-        sleep "$TIMEOUT_SECONDS"
-        if kill -0 "$TEST_PID" 2>/dev/null; then
-            echo "TIMEOUT: Tests exceeded ${TIMEOUT_SECONDS}s limit. Killing."
-            kill "$TEST_PID" 2>/dev/null || true
-            sleep 2
-            kill -9 "$TEST_PID" 2>/dev/null || true
-        fi
-    ) &
-    WATCHDOG_PID=$!
+# Run in background so we can apply a watchdog timeout.
+# No `script` wrapper — it creates unkillable child processes.
+$SWIFT_TEST_CMD 2>&1 | tee "$LOG_FILE" &
+TEST_PID=$!
 
-    wait "$TEST_PID" || TEST_EXIT=$?
-    kill "$WATCHDOG_PID" 2>/dev/null || true
-    wait "$WATCHDOG_PID" 2>/dev/null || true
-fi
+# Watchdog: kill process tree after TIMEOUT_SECONDS
+(
+    sleep "$TIMEOUT_SECONDS"
+    if kill -0 "$TEST_PID" 2>/dev/null; then
+        echo "TIMEOUT: Tests exceeded ${TIMEOUT_SECONDS}s limit. Killing."
+        # Kill the process group to catch swift-test children
+        kill -- -"$TEST_PID" 2>/dev/null || kill "$TEST_PID" 2>/dev/null || true
+        sleep 2
+        # Force-kill any survivors
+        kill -9 -- -"$TEST_PID" 2>/dev/null || kill -9 "$TEST_PID" 2>/dev/null || true
+        # Also kill any stray swift-test processes
+        pkill -9 -f "swift-test" 2>/dev/null || true
+    fi
+) &
+WATCHDOG_PID=$!
+
+wait "$TEST_PID" || TEST_EXIT=$?
+kill "$WATCHDOG_PID" 2>/dev/null || true
+wait "$WATCHDOG_PID" 2>/dev/null || true
 
 TEST_END=$(date +%s)
 TEST_DURATION=$(( TEST_END - TEST_START ))
@@ -229,6 +251,11 @@ kill "$HEARTBEAT_PID" 2>/dev/null || true
 
 # --- Step 6: Parse results ---
 
+# Strip any ANSI escape codes from the log file so grep-based parsing works.
+if [ -f "$LOG_FILE" ]; then
+    sed -i '' $'s/\x1b\\[[0-9;]*[a-zA-Z]//g; s/\r//g' "$LOG_FILE"
+fi
+
 # Check for timeout (exit code 124 from GNU timeout, or our watchdog message)
 if [ "$TEST_EXIT" -eq 124 ] 2>/dev/null || grep -q "^TIMEOUT:" "$LOG_FILE" 2>/dev/null; then
     echo ""
@@ -237,19 +264,28 @@ if [ "$TEST_EXIT" -eq 124 ] 2>/dev/null || grep -q "^TIMEOUT:" "$LOG_FILE" 2>/de
     exit 1
 fi
 
-# Parse XCTest summary line: "Executed N tests, with M failures (X unexpected) in Y.ZZZ (A.BBB) seconds"
+# Parse results. Swift 6.3 with SWIFT_TESTING_XCTEST_INTEROP_MODE=none doesn't
+# output the traditional "Executed N tests" XCTest summary. Fall back to counting
+# progress lines: "[N/M] Testing ..." where M is the total.
 SUMMARY_LINE=$(grep -E "^Executed [0-9]+ tests?" "$LOG_FILE" | tail -1 || true)
 
 if [ -n "$SUMMARY_LINE" ]; then
     TOTAL_TESTS=$(echo "$SUMMARY_LINE" | sed -E 's/^Executed ([0-9]+) tests?.*/\1/')
     TOTAL_FAILURES=$(echo "$SUMMARY_LINE" | sed -E 's/.*with ([0-9]+) failure.*/\1/')
-    # Handle "with 0 failures" vs "with 1 failure"
     if ! echo "$TOTAL_FAILURES" | grep -qE '^[0-9]+$'; then
         TOTAL_FAILURES=0
     fi
 else
-    TOTAL_TESTS=0
-    TOTAL_FAILURES=0
+    # Fallback: parse progress lines "[N/M] Testing ..."
+    LAST_PROGRESS=$(grep -oE '^\[([0-9]+)/([0-9]+)\]' "$LOG_FILE" | tail -1 || true)
+    if [ -n "$LAST_PROGRESS" ]; then
+        TOTAL_TESTS=$(echo "$LAST_PROGRESS" | sed -E 's/\[([0-9]+)\/([0-9]+)\]/\2/')
+    else
+        TOTAL_TESTS=0
+    fi
+    # Count failure lines from XCTest output
+    TOTAL_FAILURES=$(grep -cE '^\s*(✗|error:)' "$LOG_FILE" 2>/dev/null | tr -d '[:space:]' || echo "0")
+    [ -z "$TOTAL_FAILURES" ] && TOTAL_FAILURES=0
 fi
 
 # --- Step 7: Report ---

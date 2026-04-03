@@ -1,6 +1,6 @@
 import Foundation
 
-struct CalendarInfo: Identifiable, Codable {
+struct CalendarInfo: Identifiable, Codable, Equatable {
     let id: String
     let name: String
     let description: String?

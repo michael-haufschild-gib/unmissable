@@ -76,16 +76,18 @@ final class DatabaseConcurrencyIntegrationTests: XCTestCase {
         let database = try XCTUnwrap(db)
 
         // Pre-seed 10 events
-        let events = (0 ..< 10).map { i in
-            Event(
+        let now = Date()
+        let events: [Event] = (0 ..< 10).map { i in
+            let offset = Double(i * 600 + 600)
+            return Event(
                 id: "read-during-write-\(i)",
                 title: "Event \(i)",
-                startDate: Date().addingTimeInterval(Double(i * 600 + 600)),
-                endDate: Date().addingTimeInterval(Double(i * 600 + 4200)),
+                startDate: now.addingTimeInterval(offset),
+                endDate: now.addingTimeInterval(offset + 3600),
                 calendarId: "cal-rdw",
                 timezone: "UTC",
-                createdAt: Date(),
-                updatedAt: Date(),
+                createdAt: now,
+                updatedAt: now,
             )
         }
         try await db.saveEvents(events)

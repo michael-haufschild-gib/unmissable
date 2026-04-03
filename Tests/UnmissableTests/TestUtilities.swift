@@ -22,7 +22,7 @@ enum TestUtilities {
     private static let defaultMediumAlertMinutes = 2
     private static let defaultLongAlertMinutes = 5
     private static let defaultOverlayMinutesBefore = 2
-    private static let secondsPerMinute: TimeInterval = 60
+    static let secondsPerMinute: TimeInterval = 60
     private static let runLoopPollInterval: TimeInterval = 0.1
 
     // MARK: - Test Data Creation
@@ -226,7 +226,7 @@ extension EventScheduler {
             if case let .snooze(until) = alert.alertType {
                 // Use ceil for future intervals so assertions don't intermittently
                 // read N-1 minutes due sub-second execution delays.
-                let minutesUntilSnooze = until.timeIntervalSinceNow / secondsPerMinute
+                let minutesUntilSnooze = until.timeIntervalSinceNow / TestUtilities.secondsPerMinute
                 return minutesUntilSnooze >= 0
                     ? Int(ceil(minutesUntilSnooze))
                     : Int(floor(minutesUntilSnooze))

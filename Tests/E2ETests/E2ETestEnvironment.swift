@@ -44,12 +44,12 @@ final class E2ETestEnvironment {
         preferencesManager.setAutoJoinEnabled(false)
         preferencesManager.setIncludeAllDayEvents(false)
 
-        testClock = TestClock(startTime: Date(), autoAdvance: true)
+        testClock = TestClock(startTime: Date())
         if useTestClock {
             eventScheduler = EventScheduler(
                 preferencesManager: preferencesManager,
                 linkParser: LinkParser(),
-                sleepForSeconds: testClock.sleep,
+                sleepForSeconds: testClock.sleepForSeconds,
                 now: testClock.nowProvider,
             )
         } else {
@@ -77,11 +77,26 @@ final class E2ETestEnvironment {
         try await databaseManager.saveEvents(events)
     }
 
-    /// Seeds events and starts the scheduling pipeline, returning the seeded events
-    func seedAndSchedule(_ events: [Event]) async throws {
+    /// Seeds events and computes alerts (missed alerts trigger overlay synchronously).
+    /// Does NOT start the monitoring loop by default — most tests use
+    /// `showOverlayImmediately` and don't need it. Pass `startMonitoring: true`
+    /// for the ~5 tests that need the loop to fire via `waitForOverlay`.
+    func seedAndSchedule(
+        _ events: [Event],
+        startMonitoring: Bool = false,
+    ) async throws {
         try await seedEvents(events)
         let upcoming = try await databaseManager.fetchUpcomingEvents(limit: TestConstants.fetchLimit)
-        await eventScheduler.startScheduling(events: upcoming, overlayManager: overlayManager)
+        if startMonitoring {
+            await eventScheduler.startScheduling(events: upcoming, overlayManager: overlayManager)
+        } else {
+            // Schedule alerts (fires missed alerts synchronously) but skip
+            // the monitoring loop. Callers use showOverlayImmediately instead.
+            eventScheduler.scheduleWithoutMonitoring(
+                events: upcoming,
+                overlayManager: overlayManager,
+            )
+        }
     }
 
     /// Seeds calendars into the database
@@ -103,9 +118,35 @@ final class E2ETestEnvironment {
         try await databaseManager.fetchEvents(from: start, to: end)
     }
 
+    // MARK: - Monitoring Loop Helpers
+
+    /// Advances the test clock far enough to fire all pending alerts, then
+    /// asserts the overlay is visible. Uses PointFree's TestClock which
+    /// suspends the monitoring loop on continuations — no spinning, no starvation.
+    ///
+    /// - Parameter advanceBy: How far to advance simulated time (default 10 min).
+    func waitForOverlay(
+        advanceBy: TimeInterval = 600,
+        file: StaticString = #filePath,
+        line: UInt = #line,
+    ) async {
+        await testClock.advance(bySeconds: advanceBy)
+        if !overlayManager.isOverlayVisible {
+            XCTFail(
+                "Overlay not visible after advancing clock by \(advanceBy)s",
+                file: file,
+                line: line,
+            )
+        }
+    }
+
     // MARK: - Teardown
 
     func tearDown() {
+        // Cancel monitoring FIRST — this marks the task as cancelled.
+        // Any pending TestClock continuations will throw CancellationError
+        // when they resume. The continuations leak (TestClock holds them),
+        // but they're cleaned up when the TestClock is deallocated (env = nil).
         eventScheduler.stopScheduling()
         overlayManager.hideOverlay()
     }
