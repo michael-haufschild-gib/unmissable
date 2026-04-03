@@ -268,7 +268,8 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
                 description: entry.description,
                 isSelected: isPrimary,
                 isPrimary: isPrimary,
-                colorHex: entry.colorHex
+                colorHex: entry.colorHex,
+                sourceProvider: .google
             )
         }
     }
@@ -362,9 +363,9 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
             )
         }
 
-        // Extract meeting links
+        // Extract meeting links and detect provider from the highest-priority link
         let links = extractMeetingLinks(from: entry)
-        let provider = links.first.map { Provider.detect(from: $0) }
+        let provider = linkParser.detectPrimaryLink(from: links).map { Provider.detect(from: $0) }
         let timezone = start.timeZone ?? TimeZone.current.identifier
 
         // Truncate API response fields to defend against oversized payloads
@@ -413,10 +414,14 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
             links.append(url)
         }
 
-        // conferenceData entryPoints come from Google's meeting infrastructure — always relevant
+        // conferenceData entryPoints can include tel:/sip: URIs for dial-in numbers.
+        // Only keep http(s) URIs — non-web schemes are not actionable meeting links.
         if let entryPoints = entry.conferenceData?.entryPoints {
             for ep in entryPoints {
-                if let uri = ep.uri, let url = URL(string: uri) {
+                if let uri = ep.uri,
+                   let url = URL(string: uri),
+                   url.scheme?.lowercased().hasPrefix("http") == true
+                {
                     links.append(url)
                 }
             }

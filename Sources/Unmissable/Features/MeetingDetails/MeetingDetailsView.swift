@@ -325,9 +325,10 @@ struct MeetingDetailsView: View {
 
             VStack(spacing: design.spacing.sm) {
                 ForEach(event.links, id: \.absoluteString) { link in
+                    let linkProvider = Provider.detect(from: link)
                     CustomButton(
-                        "Join via \(event.provider?.displayName ?? "Link")",
-                        icon: event.provider?.iconName ?? "link",
+                        "Join via \(linkProvider.displayName)",
+                        icon: linkProvider.iconName,
                         style: .primary
                     ) {
                         NSWorkspace.shared.open(link)

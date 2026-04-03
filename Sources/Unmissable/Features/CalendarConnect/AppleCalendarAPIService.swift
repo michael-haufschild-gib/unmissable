@@ -65,12 +65,13 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     // MARK: - Conversion
 
     private func convertToCalendarInfo(_ ekCalendar: EKCalendar) -> CalendarInfo {
-        CalendarInfo(
+        let isPrimary = ekCalendar.calendarIdentifier == eventStore.defaultCalendarForNewEvents?.calendarIdentifier
+        return CalendarInfo(
             id: ekCalendar.calendarIdentifier,
             name: ekCalendar.title,
             description: sourceDescription(for: ekCalendar),
-            isSelected: false,
-            isPrimary: ekCalendar.calendarIdentifier == eventStore.defaultCalendarForNewEvents?.calendarIdentifier,
+            isSelected: isPrimary,
+            isPrimary: isPrimary,
             colorHex: ekCalendar.cgColor.flatMap { hexFromCGColor($0) },
             sourceProvider: .apple
         )
@@ -103,7 +104,7 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
 
         let attendees = (ekEvent.attendees ?? []).compactMap { convertAttendee($0) }
         let links = extractMeetingLinks(from: ekEvent)
-        let provider = links.first.map { Provider.detect(from: $0) }
+        let provider = linkParser.detectPrimaryLink(from: links).map { Provider.detect(from: $0) }
 
         // Truncate fields to defend against oversized calendar data
         let truncatedTitle = Self.truncate(ekEvent.title, maxLength: 500) ?? "Untitled Event"
