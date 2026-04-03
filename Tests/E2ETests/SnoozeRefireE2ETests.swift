@@ -114,8 +114,14 @@ final class SnoozeRefireE2ETests: XCTestCase {
             return false
         }
         // Verify both snoozes: first at ~1 min, second at ~5 min from test clock
-        let firstSnoozeAlert = try XCTUnwrap(snoozeAlerts.first)
-        let latestSnooze = try XCTUnwrap(snoozeAlerts.last)
+        let sortedSnoozes = snoozeAlerts.sorted { $0.triggerDate < $1.triggerDate }
+        XCTAssertEqual(
+            sortedSnoozes.map(\.event.id),
+            [event.id, event.id],
+            "Should have exactly two snooze alerts for this event",
+        )
+        let firstSnoozeAlert = try XCTUnwrap(sortedSnoozes.first)
+        let latestSnooze = try XCTUnwrap(sortedSnoozes.last)
         XCTAssertNotEqual(firstSnoozeAlert.id, latestSnooze.id, "Should have two distinct snooze alerts")
         if case let .snooze(until) = latestSnooze.alertType {
             let drift = abs(until.timeIntervalSince(env.testClock.currentTime) - 5 * 60)

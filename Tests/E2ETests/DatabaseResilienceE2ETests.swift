@@ -96,8 +96,8 @@ final class DatabaseResilienceE2ETests: XCTestCase {
             let fetched = try await env.fetchUpcomingEvents(limit: 100)
             XCTAssertGreaterThanOrEqual(
                 fetched.count,
-                10 + i,
-                "Should see at least \(10 + i) events after write \(i)",
+                11 + i,
+                "Should see at least \(11 + i) events after write \(i)",
             )
         }
 
@@ -196,8 +196,12 @@ final class DatabaseResilienceE2ETests: XCTestCase {
         )
 
         // Should have alerts for ALL events in the DB
-        XCTAssertGreaterThanOrEqual(env.eventScheduler.scheduledAlerts.count, 5)
-        XCTAssertTrue(env.eventScheduler.scheduledAlerts.contains { $0.event.id == "e2e-restart-0" })
+        let restartedAlertIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
+        XCTAssertEqual(
+            restartedAlertIds,
+            Set(allUpcoming.map(\.id)),
+            "Restart should reschedule exactly the events currently in the database",
+        )
     }
 
     // MARK: - Maintenance Lifecycle

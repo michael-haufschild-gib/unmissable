@@ -2,7 +2,7 @@
 # Inherits Infinum's strict Swift style guide as baseline
 strict: true
 
-parent_config: https://raw.githubusercontent.com/infinum/swift-style-guide/master/.swiftlint.yml
+parent_config: https://raw.githubusercontent.com/infinum/swift-style-guide/5f8c294b5bb6b19a478611dcb6d95f2a22fe3e6b/.swiftlint.yml
 
 # ── DISABLED (from parent or default) ────────────────────────────────
 disabled_rules:
@@ -298,7 +298,7 @@ custom_rules:
   no_implicitly_unwrapped_optional_in_sources:
     name: "No IUO in Production Code"
     included: "Sources/.*\\.swift"
-    regex: ":\\s*\\w+!"
+    regex: ":[ \\t]*[\\w\\[\\]<>().:\\- >]+!"
     message: "Implicitly unwrapped optionals are not allowed in production code. Use optional (?) instead."
     severity: error
 
@@ -349,7 +349,7 @@ custom_rules:
   no_plain_button_style:
     name: "Buttons Must Use UMButtonStyle"
     included: "Sources/(?!.*/Styles\\.swift).*\\.swift"
-    regex: "\\.buttonStyle\\(PlainButtonStyle\\(\\)\\)"
+    regex: "\\.buttonStyle\\(\\s*(?:PlainButtonStyle\\(\\)|\\.plain\\b)\\s*\\)"
     message: "Use .buttonStyle(UMButtonStyle(..)) instead of PlainButtonStyle. All buttons must use the design system."
     severity: error
 

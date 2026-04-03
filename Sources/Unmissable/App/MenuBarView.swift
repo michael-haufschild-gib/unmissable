@@ -562,7 +562,7 @@ struct EventRow: View {
             onEventTap?()
         }
         .accessibilityAddTraits(.isButton)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Meeting: \(event.title) at \(event.startDate, style: .time)")
         .accessibilityIdentifier("event-row-\(event.id)")
         .accessibilityHint("Tap to view meeting details")

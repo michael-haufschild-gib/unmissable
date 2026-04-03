@@ -219,8 +219,12 @@ TEST_EXIT=0
 SWIFT_TEST_CMD="swift test --skip-build --parallel --num-workers $MAX_WORKERS $FILTER_ARG"
 
 # Run in background so we can apply a watchdog timeout.
-# No `script` wrapper — it creates unkillable child processes.
-$SWIFT_TEST_CMD 2>&1 | tee "$LOG_FILE" &
+# Wrap in a pipefail subshell so `wait` captures swift test's exit code, not tee's.
+(
+    set -o pipefail
+    # shellcheck disable=SC2086
+    $SWIFT_TEST_CMD 2>&1 | tee "$LOG_FILE"
+) &
 TEST_PID=$!
 
 # Watchdog: kill process tree after TIMEOUT_SECONDS
@@ -231,10 +235,8 @@ TEST_PID=$!
         # Kill the process group to catch swift-test children
         kill -- -"$TEST_PID" 2>/dev/null || kill "$TEST_PID" 2>/dev/null || true
         sleep 2
-        # Force-kill any survivors
+        # Force-kill any survivors in this process group only
         kill -9 -- -"$TEST_PID" 2>/dev/null || kill -9 "$TEST_PID" 2>/dev/null || true
-        # Also kill any stray swift-test processes
-        pkill -9 -f "swift-test" 2>/dev/null || true
     fi
 ) &
 WATCHDOG_PID=$!

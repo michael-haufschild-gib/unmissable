@@ -137,7 +137,8 @@ struct AppearancePreferencesView: View {
                 )
                 .animation(DesignAnimations.press, value: preferences.accentColor == accent)
         }
-        .buttonStyle(.plain)
+        // swiftlint:disable:next no_plain_button_style
+        .buttonStyle(.plain) // Color swatch uses Circle as its own visual chrome
         .accessibilityLabel("\(accent.displayName) accent color")
         .accessibilityAddTraits(preferences.accentColor == accent ? .isSelected : [])
     }

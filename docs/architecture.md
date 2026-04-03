@@ -7,7 +7,7 @@
 
 ## Where to Put New Code
 
-```
+```text
 Sources/Unmissable/
 ├── App/            # Application lifecycle (AppDelegate, AppState, ServiceContainer)
 ├── Config/         # Configuration files
@@ -129,7 +129,7 @@ class [Name]Manager: ObservableObject {
 
 **Location**: `Sources/Unmissable/Features/[FeatureName]/`
 
-```
+```text
 Features/[FeatureName]/
 ├── [FeatureName]Manager.swift   # Business logic
 ├── [FeatureName]View.swift      # SwiftUI view (if needed)
