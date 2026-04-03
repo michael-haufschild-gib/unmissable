@@ -210,6 +210,21 @@ final class HTMLSanitizerTests: XCTestCase {
         XCTAssertFalse(result.contains("alert"), "Payload must not appear in output")
     }
 
+    func testNeutralizesHTML5NamedEntityCasings() {
+        // HTML5 standard spellings are &Tab; and &NewLine; (case-sensitive),
+        // but our decoder must match any casing to prevent bypasses.
+        let tabBypass = "<a href=\"java&Tab;script:alert(1)\">Click</a>"
+        let newlineBypass = "<a href=\"java&NewLine;script:alert(1)\">Click</a>"
+        XCTAssert(
+            HTMLSanitizer.sanitize(tabBypass).contains("about:blank"),
+            "&Tab; (HTML5 casing) inside scheme must be neutralized"
+        )
+        XCTAssert(
+            HTMLSanitizer.sanitize(newlineBypass).contains("about:blank"),
+            "&NewLine; (HTML5 casing) inside scheme must be neutralized"
+        )
+    }
+
     func testPreservesSingleQuotedAttributes() {
         let input = "<a href='https://meet.google.com/abc'>Join</a>"
         let result = HTMLSanitizer.sanitize(input)

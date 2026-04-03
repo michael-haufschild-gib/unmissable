@@ -426,15 +426,17 @@ enum HTMLSanitizer {
 
         // Named entities relevant to URI bypass attacks.
         // Includes &colon; (used to obfuscate "javascript:" / "data:"),
-        // &tab;/&newline; (inline whitespace bypasses), and standard entities.
+        // &Tab;/&NewLine; (inline whitespace bypasses), and standard entities.
+        // Comparison is case-insensitive because HTML5 named entities are case-sensitive
+        // (e.g. &Tab; not &tab;) but attackers may use any casing — safer to match all.
         let namedEntities: [(String, Character)] = [
             ("amp;", "&"), ("lt;", "<"), ("gt;", ">"), ("quot;", "\""), ("apos;", "'"),
             ("colon;", ":"), ("semi;", ";"), ("tab;", "\t"), ("newline;", "\n"),
             ("lpar;", "("), ("rpar;", ")"), ("sol;", "/"), ("period;", "."),
             ("comma;", ","), ("excl;", "!"), ("num;", "#"), ("equals;", "="),
         ]
+        let remaining = String(value[afterAmp...]).lowercased()
         for (suffix, char) in namedEntities {
-            let remaining = value[afterAmp...]
             if remaining.hasPrefix(suffix) {
                 let afterEntity = value.index(afterAmp, offsetBy: suffix.count)
                 return DecodedEntity(character: char, afterEntity: afterEntity)
