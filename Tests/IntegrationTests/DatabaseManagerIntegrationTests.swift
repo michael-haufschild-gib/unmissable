@@ -10,11 +10,11 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
         try await super.setUp()
         tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent(
-                "unmissable-dbtest-\(UUID().uuidString)"
+                "unmissable-dbtest-\(UUID().uuidString)",
             )
         try FileManager.default.createDirectory(
             at: tempDir,
-            withIntermediateDirectories: true
+            withIntermediateDirectories: true,
         )
         let dbURL = tempDir.appendingPathComponent("test.db")
         db = DatabaseManager(databaseURL: dbURL)
@@ -53,14 +53,14 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             links: [],
             provider: .zoom,
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
 
         try await db.saveEvents([event])
 
         let fetched = try await db.fetchUpcomingEvents(limit: 50)
         let match = try XCTUnwrap(
-            fetched.first { $0.id == "roundtrip-1" }
+            fetched.first { $0.id == "roundtrip-1" },
         )
         XCTAssertEqual(match.title, "Roundtrip Meeting")
         XCTAssertEqual(match.organizer, "org@test.com")
@@ -87,7 +87,7 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             calendarId: calendarId,
             timezone: "UTC",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         try await db.saveEvents([oldEvent])
 
@@ -99,11 +99,11 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             calendarId: calendarId,
             timezone: "UTC",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         try await db.replaceEvents(
             for: calendarId,
-            with: [newEvent]
+            with: [newEvent],
         )
 
         let fetched = try await db.fetchUpcomingEvents(limit: 50)
@@ -111,7 +111,7 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
         XCTAssertFalse(ids.contains("old-1"))
 
         let match = try XCTUnwrap(
-            fetched.first { $0.id == "new-1" }
+            fetched.first { $0.id == "new-1" },
         )
         XCTAssertEqual(match.title, "New Meeting")
     }
@@ -132,7 +132,7 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             calendarId: "cal-keep",
             timezone: "UTC",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         let deleteEvent = Event(
             id: "delete-1",
@@ -142,7 +142,7 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             calendarId: "cal-delete",
             timezone: "UTC",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         try await db.saveEvents([keepEvent, deleteEvent])
 
@@ -165,24 +165,21 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
                 id: "upcoming-\(i)",
                 title: "Event \(i)",
                 startDate: now.addingTimeInterval(
-                    Double(i) * 600
+                    Double(i) * 600,
                 ),
                 endDate: now.addingTimeInterval(
-                    Double(i) * 600 + 3600
+                    Double(i) * 600 + 3600,
                 ),
                 calendarId: "cal-upcoming",
                 timezone: "UTC",
                 createdAt: Date(),
-                updatedAt: Date()
+                updatedAt: Date(),
             ))
         }
         try await db.saveEvents(events)
 
         let fetched = try await db.fetchUpcomingEvents(limit: 3)
-        XCTAssertEqual(fetched.count, 3)
-        XCTAssertEqual(fetched[0].id, "upcoming-1")
-        XCTAssertEqual(fetched[1].id, "upcoming-2")
-        XCTAssertEqual(fetched[2].id, "upcoming-3")
+        XCTAssertEqual(fetched.map(\.id), ["upcoming-1", "upcoming-2", "upcoming-3"])
     }
 
     // MARK: - Fetch Started Meetings
@@ -199,7 +196,7 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             calendarId: "cal-started",
             timezone: "UTC",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         let future = Event(
             id: "future-1",
@@ -209,7 +206,7 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             calendarId: "cal-started",
             timezone: "UTC",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         let past = Event(
             id: "past-1",
@@ -219,14 +216,14 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             calendarId: "cal-started",
             timezone: "UTC",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         try await db.saveEvents([inProgress, future, past])
 
         let started = try await db.fetchStartedMeetings(limit: 10)
-        XCTAssertEqual(started.count, 1)
-        XCTAssertEqual(started[0].id, "in-progress-1")
-        XCTAssertEqual(started[0].title, "Happening Now")
+        let startedEvent = try XCTUnwrap(started.first)
+        XCTAssertEqual(startedEvent.id, "in-progress-1")
+        XCTAssertEqual(startedEvent.title, "Happening Now")
     }
 
     // MARK: - Search Events (FTS)
@@ -244,7 +241,7 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             calendarId: "cal-search",
             timezone: "UTC",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         let noMatchEvent = Event(
             id: "search-nomatch",
@@ -254,13 +251,13 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             calendarId: "cal-search",
             timezone: "UTC",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         try await db.saveEvents([matchEvent, noMatchEvent])
 
         let results = try await db.searchEvents(query: "Budget")
-        XCTAssertEqual(results.count, 1)
-        XCTAssertEqual(results[0].id, "search-match")
+        let match = try XCTUnwrap(results.first)
+        XCTAssertEqual(match.id, "search-match")
     }
 
     // MARK: - Perform Maintenance
@@ -276,7 +273,7 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             calendarId: "cal-maint",
             timezone: "UTC",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         let recentEvent = Event(
             id: "recent-event",
@@ -286,7 +283,7 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             calendarId: "cal-maint",
             timezone: "UTC",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         try await db.saveEvents([oldEvent, recentEvent])
 
@@ -294,13 +291,13 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
 
         let remaining = try await db.fetchEvents(
             from: Date.distantPast,
-            to: Date.distantFuture
+            to: Date.distantFuture,
         )
         let ids = remaining.map(\.id)
         XCTAssertFalse(ids.contains("old-event"))
 
         let recent = try XCTUnwrap(
-            remaining.first { $0.id == "recent-event" }
+            remaining.first { $0.id == "recent-event" },
         )
         XCTAssertEqual(recent.title, "Recent Meeting")
     }
@@ -319,7 +316,7 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             calendarId: "cal-upsert",
             timezone: "UTC",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         try await db.saveEvents([original])
 
@@ -332,14 +329,16 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             calendarId: "cal-upsert",
             timezone: "UTC",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         try await db.saveEvents([updated])
 
         let fetched = try await db.fetchUpcomingEvents(limit: 50)
-        let matches = fetched.filter { $0.id == "upsert-1" }
-        XCTAssertEqual(matches.count, 1, "Should not create duplicate entries")
-        XCTAssertEqual(matches.first?.title, "Updated Title", "Title should be updated")
+        let upsertMatch = try XCTUnwrap(
+            fetched.first { $0.id == "upsert-1" },
+            "Should not create duplicate entries",
+        )
+        XCTAssertEqual(upsertMatch.title, "Updated Title", "Title should be updated")
     }
 
     func testSearchEventsWithSpecialCharacters() async throws {
@@ -351,12 +350,13 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             calendarId: "cal-search-special",
             timezone: "UTC",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         try await db.saveEvents([event])
 
         let results = try await db.searchEvents(query: "O'Brien")
-        XCTAssertEqual(results.count, 1, "FTS should handle apostrophes")
+        let searchMatch = try XCTUnwrap(results.first, "FTS should handle apostrophes")
+        XCTAssertEqual(searchMatch.id, "special-search")
     }
 
     func testSearchEventsWithEmptyQuery() async throws {
@@ -368,7 +368,7 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             calendarId: "cal-empty-q",
             timezone: "UTC",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         try await db.saveEvents([event])
 
@@ -386,7 +386,7 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             calendarId: "cal-zero",
             timezone: "UTC",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         try await db.saveEvents([event])
 
@@ -402,29 +402,29 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             name: "Work",
             isSelected: true,
             isPrimary: true,
-            colorHex: "#0000ff"
+            colorHex: "#0000ff",
         )
         let cal2 = CalendarInfo(
             id: "cal-rt-2",
             name: "Personal",
             isSelected: false,
             isPrimary: false,
-            colorHex: "#ff0000"
+            colorHex: "#ff0000",
         )
         try await db.saveCalendars([cal1, cal2])
 
         let fetched = try await db.fetchCalendars()
-        XCTAssertEqual(fetched.count, 2)
+        XCTAssertEqual(Set(fetched.map(\.id)), Set(["cal-rt-1", "cal-rt-2"]))
 
         let primary = try XCTUnwrap(
-            fetched.first { $0.id == "cal-rt-1" }
+            fetched.first { $0.id == "cal-rt-1" },
         )
         XCTAssertEqual(primary.name, "Work")
         XCTAssertTrue(primary.isPrimary)
         XCTAssertTrue(primary.isSelected)
 
         let personal = try XCTUnwrap(
-            fetched.first { $0.id == "cal-rt-2" }
+            fetched.first { $0.id == "cal-rt-2" },
         )
         XCTAssertEqual(personal.name, "Personal")
         XCTAssertFalse(personal.isPrimary)
@@ -439,21 +439,21 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             id: "prov-del-google",
             name: "Google Cal",
             isSelected: true,
-            sourceProvider: .google
+            sourceProvider: .google,
         )
         let appleCal = CalendarInfo(
             id: "prov-del-apple",
             name: "Apple Cal",
             isSelected: true,
-            sourceProvider: .apple
+            sourceProvider: .apple,
         )
         try await db.saveCalendars([googleCal, appleCal])
 
         try await db.deleteCalendarsForProvider(.google)
 
         let remaining = try await db.fetchCalendars()
-        XCTAssertEqual(remaining.count, 1)
-        XCTAssertEqual(remaining.first?.id, "prov-del-apple")
+        let remainingCal = try XCTUnwrap(remaining.first)
+        XCTAssertEqual(remainingCal.id, "prov-del-apple")
     }
 
     func testDeleteEventsForProvider_removesOnlyTargetProviderEvents()
@@ -463,13 +463,13 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             id: "evt-del-google-cal",
             name: "Google",
             isSelected: true,
-            sourceProvider: .google
+            sourceProvider: .google,
         )
         let appleCal = CalendarInfo(
             id: "evt-del-apple-cal",
             name: "Apple",
             isSelected: true,
-            sourceProvider: .apple
+            sourceProvider: .apple,
         )
         try await db.saveCalendars([googleCal, appleCal])
 
@@ -482,7 +482,7 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             endDate: end,
             calendarId: "evt-del-google-cal",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         let appleEvent = Event(
             id: "evt-del-apple",
@@ -491,15 +491,15 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             endDate: end,
             calendarId: "evt-del-apple-cal",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         try await db.saveEvents([googleEvent, appleEvent])
 
         try await db.deleteEventsForProvider(.google)
 
         let remaining = try await db.fetchUpcomingEvents(limit: 50)
-        XCTAssertEqual(remaining.count, 1)
-        XCTAssertEqual(remaining.first?.id, "evt-del-apple")
+        let remainingEvent = try XCTUnwrap(remaining.first)
+        XCTAssertEqual(remainingEvent.id, "evt-del-apple")
     }
 
     func testDeleteAllDataForProvider_removesCalendarsAndEvents()
@@ -509,7 +509,7 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             id: "all-del-cal",
             name: "Delete All",
             isSelected: true,
-            sourceProvider: .google
+            sourceProvider: .google,
         )
         try await db.saveCalendars([cal])
 
@@ -520,7 +520,7 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             endDate: Date().addingTimeInterval(4200),
             calendarId: "all-del-cal",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         try await db.saveEvents([event])
 
@@ -531,7 +531,7 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
         XCTAssertTrue(calendars.isEmpty, "All Google calendars should be deleted")
         XCTAssertFalse(
             events.contains { $0.calendarId == "all-del-cal" },
-            "All events for Google calendars should be deleted"
+            "All events for Google calendars should be deleted",
         )
     }
 }

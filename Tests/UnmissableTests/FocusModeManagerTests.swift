@@ -57,8 +57,9 @@ final class FocusModeManagerTests: XCTestCase {
         preferences.setOverrideFocusMode(true)
 
         XCTAssertEqual(
-            manager.shouldPlaySound(), manager.shouldShowOverlay(),
-            "shouldPlaySound must delegate to shouldShowOverlay"
+            manager.shouldPlaySound(),
+            manager.shouldShowOverlay(),
+            "shouldPlaySound must delegate to shouldShowOverlay",
         )
     }
 }

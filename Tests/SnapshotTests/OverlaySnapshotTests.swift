@@ -23,7 +23,7 @@ final class OverlaySnapshotTests: XCTestCase {
         let controller = makeHostingController(event: createSampleEvent())
         assertSnapshot(
             of: controller,
-            as: .image(precision: precision, perceptualPrecision: perceptualPrecision, size: snapshotSize)
+            as: .image(precision: precision, perceptualPrecision: perceptualPrecision, size: snapshotSize),
         )
     }
 
@@ -31,7 +31,7 @@ final class OverlaySnapshotTests: XCTestCase {
         let controller = makeHostingController(event: createSampleEventWithoutLink())
         assertSnapshot(
             of: controller,
-            as: .image(precision: precision, perceptualPrecision: perceptualPrecision, size: snapshotSize)
+            as: .image(precision: precision, perceptualPrecision: perceptualPrecision, size: snapshotSize),
         )
     }
 
@@ -39,7 +39,7 @@ final class OverlaySnapshotTests: XCTestCase {
         let controller = makeHostingController(event: createSampleEventWithLongTitle())
         assertSnapshot(
             of: controller,
-            as: .image(precision: precision, perceptualPrecision: perceptualPrecision, size: snapshotSize)
+            as: .image(precision: precision, perceptualPrecision: perceptualPrecision, size: snapshotSize),
         )
     }
 
@@ -47,7 +47,7 @@ final class OverlaySnapshotTests: XCTestCase {
         let controller = makeHostingController(event: createSampleEvent(), isFromSnooze: true)
         assertSnapshot(
             of: controller,
-            as: .image(precision: precision, perceptualPrecision: perceptualPrecision, size: snapshotSize)
+            as: .image(precision: precision, perceptualPrecision: perceptualPrecision, size: snapshotSize),
         )
     }
 
@@ -55,7 +55,7 @@ final class OverlaySnapshotTests: XCTestCase {
 
     private func makeHostingController(
         event: Event,
-        isFromSnooze: Bool = false
+        isFromSnooze: Bool = false,
     ) -> NSHostingController<some View> {
         let themeManager = ThemeManager()
         let preferencesManager = PreferencesManager(themeManager: themeManager)
@@ -65,10 +65,10 @@ final class OverlaySnapshotTests: XCTestCase {
             onDismiss: {},
             onJoin: {},
             onSnooze: { _ in },
-            isFromSnooze: isFromSnooze
+            isFromSnooze: isFromSnooze,
         )
         .environmentObject(preferencesManager)
-        .customThemedEnvironment(themeManager: themeManager)
+        .themed(themeManager: themeManager)
         .frame(width: 1200, height: 800)
 
         return NSHostingController(rootView: view)
@@ -90,7 +90,7 @@ final class OverlaySnapshotTests: XCTestCase {
             links: [URL(string: "https://meet.google.com/abc-defg-hij")!],
             provider: .meet,
             createdAt: Self.fixedDate,
-            updatedAt: Self.fixedDate
+            updatedAt: Self.fixedDate,
         )
     }
 
@@ -103,7 +103,7 @@ final class OverlaySnapshotTests: XCTestCase {
             organizer: "jane.smith@company.com",
             calendarId: "primary",
             createdAt: Self.fixedDate,
-            updatedAt: Self.fixedDate
+            updatedAt: Self.fixedDate,
         )
     }
 
@@ -120,7 +120,7 @@ final class OverlaySnapshotTests: XCTestCase {
             links: [URL(string: "https://meet.google.com/abc-defg-hij")!],
             provider: .meet,
             createdAt: Self.fixedDate,
-            updatedAt: Self.fixedDate
+            updatedAt: Self.fixedDate,
         )
     }
 }

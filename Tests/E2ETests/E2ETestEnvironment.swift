@@ -25,7 +25,7 @@ final class E2ETestEnvironment {
         databaseManager = DatabaseManager(databaseURL: tempDatabaseURL)
         guard await databaseManager.isInitialized else {
             throw await E2EError.databaseInitFailed(
-                databaseManager.initializationError ?? "Unknown error"
+                databaseManager.initializationError ?? "Unknown error",
             )
         }
 
@@ -35,8 +35,8 @@ final class E2ETestEnvironment {
         let testDefaults = UserDefaults(suiteName: suiteName)!
         preferencesManager = PreferencesManager(userDefaults: testDefaults, themeManager: ThemeManager())
         // Set deterministic test defaults
-        preferencesManager.setDefaultAlertMinutes(5)
-        preferencesManager.setOverlayShowMinutesBefore(2)
+        preferencesManager.setDefaultAlertMinutes(TestConstants.defaultAlertMinutes)
+        preferencesManager.setOverlayShowMinutesBefore(TestConstants.overlayShowMinutesBefore)
         preferencesManager.setPlayAlertSound(false)
         preferencesManager.setUseLengthBasedTiming(false)
         preferencesManager.setShowOnAllDisplays(false)
@@ -50,12 +50,12 @@ final class E2ETestEnvironment {
                 preferencesManager: preferencesManager,
                 linkParser: LinkParser(),
                 sleepForSeconds: testClock.sleep,
-                now: testClock.nowProvider
+                now: testClock.nowProvider,
             )
         } else {
             eventScheduler = EventScheduler(
                 preferencesManager: preferencesManager,
-                linkParser: LinkParser()
+                linkParser: LinkParser(),
             )
         }
         overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
@@ -80,7 +80,7 @@ final class E2ETestEnvironment {
     /// Seeds events and starts the scheduling pipeline, returning the seeded events
     func seedAndSchedule(_ events: [Event]) async throws {
         try await seedEvents(events)
-        let upcoming = try await databaseManager.fetchUpcomingEvents(limit: 100)
+        let upcoming = try await databaseManager.fetchUpcomingEvents(limit: TestConstants.fetchLimit)
         await eventScheduler.startScheduling(events: upcoming, overlayManager: overlayManager)
     }
 
@@ -91,11 +91,11 @@ final class E2ETestEnvironment {
 
     // MARK: - Fetch Helpers
 
-    func fetchUpcomingEvents(limit: Int = 50) async throws -> [Event] {
+    func fetchUpcomingEvents(limit: Int = TestConstants.defaultUpcomingLimit) async throws -> [Event] {
         try await databaseManager.fetchUpcomingEvents(limit: limit)
     }
 
-    func fetchStartedMeetings(limit: Int = 10) async throws -> [Event] {
+    func fetchStartedMeetings(limit: Int = TestConstants.defaultStartedLimit) async throws -> [Event] {
         try await databaseManager.fetchStartedMeetings(limit: limit)
     }
 
@@ -109,6 +109,23 @@ final class E2ETestEnvironment {
         eventScheduler.stopScheduling()
         overlayManager.hideOverlay()
     }
+}
+
+// MARK: - Test Constants
+
+private enum TestConstants {
+    static let defaultAlertMinutes = 5
+    static let overlayShowMinutesBefore = 2
+    static let fetchLimit = 100
+    static let defaultUpcomingLimit = 50
+    static let defaultStartedLimit = 10
+    static let secondsPerMinute: TimeInterval = 60
+    static let oneHourSeconds: TimeInterval = 3600
+    static let twoHoursAgoSeconds: TimeInterval = -7200
+    static let oneHourAgoSeconds: TimeInterval = -3600
+    static let oneDaySeconds: TimeInterval = 86_400
+    static let hoursPerDay: TimeInterval = 24
+    static let e2ePollIntervalNanoseconds: UInt64 = 100_000_000
 }
 
 // MARK: - E2E Errors
@@ -137,10 +154,10 @@ enum E2EEventBuilder {
         calendarId: String = "e2e-calendar",
         links: [URL] = [],
         provider: Provider? = nil,
-        isAllDay: Bool = false
+        isAllDay: Bool = false,
     ) -> Event {
-        let start = Date().addingTimeInterval(TimeInterval(minutesFromNow * 60))
-        let end = start.addingTimeInterval(TimeInterval(durationMinutes * 60))
+        let start = Date().addingTimeInterval(TimeInterval(minutesFromNow) * TestConstants.secondsPerMinute)
+        let end = start.addingTimeInterval(TimeInterval(durationMinutes) * TestConstants.secondsPerMinute)
 
         return Event(
             id: id,
@@ -153,7 +170,7 @@ enum E2EEventBuilder {
             links: links,
             provider: provider,
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
     }
 
@@ -163,10 +180,10 @@ enum E2EEventBuilder {
         title: String = "Started E2E Meeting",
         minutesAgo: Int = 5,
         durationMinutes: Int = 60,
-        calendarId: String = "e2e-calendar"
+        calendarId: String = "e2e-calendar",
     ) -> Event {
-        let start = Date().addingTimeInterval(TimeInterval(-minutesAgo * 60))
-        let end = start.addingTimeInterval(TimeInterval(durationMinutes * 60))
+        let start = Date().addingTimeInterval(TimeInterval(-minutesAgo) * TestConstants.secondsPerMinute)
+        let end = start.addingTimeInterval(TimeInterval(durationMinutes) * TestConstants.secondsPerMinute)
 
         return Event(
             id: id,
@@ -175,7 +192,7 @@ enum E2EEventBuilder {
             endDate: end,
             calendarId: calendarId,
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
     }
 
@@ -183,16 +200,16 @@ enum E2EEventBuilder {
     static func pastEvent(
         id: String = "e2e-past-\(UUID().uuidString)",
         title: String = "Past E2E Meeting",
-        calendarId: String = "e2e-calendar"
+        calendarId: String = "e2e-calendar",
     ) -> Event {
         Event(
             id: id,
             title: title,
-            startDate: Date().addingTimeInterval(-7200),
-            endDate: Date().addingTimeInterval(-3600),
+            startDate: Date().addingTimeInterval(TestConstants.twoHoursAgoSeconds),
+            endDate: Date().addingTimeInterval(TestConstants.oneHourAgoSeconds),
             calendarId: calendarId,
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
     }
 
@@ -200,11 +217,11 @@ enum E2EEventBuilder {
     static func allDayEvent(
         id: String = "e2e-allday-\(UUID().uuidString)",
         title: String = "All Day E2E Event",
-        calendarId: String = "e2e-calendar"
+        calendarId: String = "e2e-calendar",
     ) -> Event {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: Date())
-        let end = start.addingTimeInterval(24 * 3600)
+        let end = start.addingTimeInterval(TestConstants.hoursPerDay * TestConstants.oneHourSeconds)
 
         return Event(
             id: id,
@@ -214,7 +231,7 @@ enum E2EEventBuilder {
             isAllDay: true,
             calendarId: calendarId,
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
     }
 
@@ -224,7 +241,7 @@ enum E2EEventBuilder {
         title: String = "Online E2E Meeting",
         minutesFromNow: Int = 10,
         provider: Provider = .meet,
-        calendarId: String = "e2e-calendar"
+        calendarId: String = "e2e-calendar",
     ) -> Event {
         // swiftlint:disable force_unwrapping
         let link = switch provider {
@@ -247,7 +264,7 @@ enum E2EEventBuilder {
             minutesFromNow: minutesFromNow,
             calendarId: calendarId,
             links: [link],
-            provider: provider
+            provider: provider,
         )
     }
 
@@ -256,14 +273,14 @@ enum E2EEventBuilder {
         count: Int,
         startingMinutesFromNow: Int = 10,
         spacingMinutes: Int = 15,
-        calendarId: String = "e2e-calendar"
+        calendarId: String = "e2e-calendar",
     ) -> [Event] {
         (0 ..< count).map { index in
             futureEvent(
                 id: "e2e-batch-\(index)",
                 title: "Batch Meeting \(index + 1)",
                 minutesFromNow: startingMinutesFromNow + (index * spacingMinutes),
-                calendarId: calendarId
+                calendarId: calendarId,
             )
         }
     }
@@ -277,7 +294,7 @@ extension XCTestCase {
     func e2eWait(
         timeout: TimeInterval = 5.0,
         description: String,
-        condition: @escaping @MainActor @Sendable () -> Bool
+        condition: @escaping @MainActor @Sendable () -> Bool,
     ) async throws {
         let deadline = Date().addingTimeInterval(timeout)
         while !condition() {
@@ -287,7 +304,7 @@ extension XCTestCase {
             }
             // E2E polling utility (equivalent to TestUtilities.waitForAsync)
             // swiftlint:disable:next no_raw_task_sleep_in_tests
-            try await Task.sleep(nanoseconds: 100_000_000)
+            try await Task.sleep(nanoseconds: TestConstants.e2ePollIntervalNanoseconds)
         }
     }
 }

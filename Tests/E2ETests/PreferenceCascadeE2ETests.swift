@@ -28,7 +28,7 @@ final class PreferenceCascadeE2ETests: XCTestCase {
 
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-default-alert",
-            minutesFromNow: 30
+            minutesFromNow: 30,
         )
         try await env.seedAndSchedule([event])
 
@@ -75,29 +75,30 @@ final class PreferenceCascadeE2ETests: XCTestCase {
             id: "e2e-short",
             title: "Quick Sync",
             minutesFromNow: 30,
-            durationMinutes: 15
+            durationMinutes: 15,
         )
         // Long meeting: 90 minutes
         let longEvent = E2EEventBuilder.futureEvent(
             id: "e2e-long",
             title: "Planning Session",
             minutesFromNow: 60,
-            durationMinutes: 90
+            durationMinutes: 90,
         )
 
         try await env.seedAndSchedule([shortEvent, longEvent])
 
         let shortAlert = try XCTUnwrap(
-            env.eventScheduler.scheduledAlerts.first { $0.event.id == "e2e-short" }
+            env.eventScheduler.scheduledAlerts.first { $0.event.id == "e2e-short" },
         )
         let longAlert = try XCTUnwrap(
-            env.eventScheduler.scheduledAlerts.first { $0.event.id == "e2e-long" }
+            env.eventScheduler.scheduledAlerts.first { $0.event.id == "e2e-long" },
         )
 
         // They should have different trigger times due to different alert minutes
         XCTAssertNotEqual(
-            shortAlert.triggerDate, longAlert.triggerDate,
-            "Short and long events should have different alert timing"
+            shortAlert.triggerDate,
+            longAlert.triggerDate,
+            "Short and long events should have different alert timing",
         )
 
         // Short event should trigger closer to start time (1 minute before)
@@ -105,8 +106,9 @@ final class PreferenceCascadeE2ETests: XCTestCase {
         let longLeadTime = longEvent.startDate.timeIntervalSince(longAlert.triggerDate)
 
         XCTAssertLessThan(
-            shortLeadTime, longLeadTime,
-            "Short meetings should have less lead time than long meetings"
+            shortLeadTime,
+            longLeadTime,
+            "Short meetings should have less lead time than long meetings",
         )
     }
 
@@ -122,12 +124,12 @@ final class PreferenceCascadeE2ETests: XCTestCase {
         let shortEvent = E2EEventBuilder.futureEvent(
             id: "e2e-lb-sound-short",
             minutesFromNow: 30,
-            durationMinutes: 15 // Short: < 30 min
+            durationMinutes: 15, // Short: < 30 min
         )
         let longEvent = E2EEventBuilder.futureEvent(
             id: "e2e-lb-sound-long",
             minutesFromNow: 60,
-            durationMinutes: 120 // Long: > 60 min
+            durationMinutes: 120, // Long: > 60 min
         )
 
         // Verify alertMinutes returns different values for different durations
@@ -155,7 +157,7 @@ final class PreferenceCascadeE2ETests: XCTestCase {
 
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-sound-toggle",
-            minutesFromNow: 30
+            minutesFromNow: 30,
         )
 
         try await env.seedAndSchedule([event])
@@ -175,8 +177,9 @@ final class PreferenceCascadeE2ETests: XCTestCase {
 
         // When sound alert and overlay alert have different timings, we should get 2 alerts
         XCTAssertGreaterThan(
-            alertsWithSound, alertsWithoutSound,
-            "Enabling sound should add an additional alert when timings differ"
+            alertsWithSound,
+            alertsWithoutSound,
+            "Enabling sound should add an additional alert when timings differ",
         )
 
         freshScheduler.stopScheduling()
@@ -189,7 +192,7 @@ final class PreferenceCascadeE2ETests: XCTestCase {
 
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-show-minutes",
-            minutesFromNow: 30
+            minutesFromNow: 30,
         )
 
         // Schedule with 2 minutes before
@@ -205,7 +208,7 @@ final class PreferenceCascadeE2ETests: XCTestCase {
 
         let fetched = try await env.fetchUpcomingEvents()
         await env.eventScheduler.startScheduling(
-            events: fetched, overlayManager: env.overlayManager
+            events: fetched, overlayManager: env.overlayManager,
         )
 
         let alert8Min = try XCTUnwrap(env.eventScheduler.scheduledAlerts.first)

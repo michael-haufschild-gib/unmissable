@@ -78,7 +78,8 @@ final class GoogleCalendarModelsTests: XCTestCase {
         XCTAssertEqual(entry.hangoutLink, "https://meet.google.com/abc-defg-hij")
 
         // Attendees
-        XCTAssertEqual(entry.attendees?.count, 2)
+        XCTAssertEqual(entry.attendees?.map(\.email), ["designer@example.com", "pm@example.com"])
+        XCTAssertEqual(entry.attendees?.last?.email, "pm@example.com")
         let selfAttendee = try XCTUnwrap(entry.attendees?.first)
         XCTAssertEqual(selfAttendee.email, "designer@example.com")
         XCTAssertEqual(selfAttendee.displayName, "Designer")
@@ -87,15 +88,20 @@ final class GoogleCalendarModelsTests: XCTestCase {
         XCTAssertFalse(try XCTUnwrap(selfAttendee.isOptional))
 
         // Conference data
-        XCTAssertEqual(entry.conferenceData?.entryPoints?.count, 2)
+        XCTAssertEqual(
+            entry.conferenceData?.entryPoints?.map(\.entryPointType),
+            ["video", "phone"],
+        )
+        XCTAssertEqual(entry.conferenceData?.entryPoints?.last?.entryPointType, "phone")
         XCTAssertEqual(
             entry.conferenceData?.entryPoints?.first?.uri,
-            "https://meet.google.com/abc-defg-hij"
+            "https://meet.google.com/abc-defg-hij",
         )
         XCTAssertEqual(entry.conferenceData?.entryPoints?.first?.entryPointType, "video")
 
         // Attachments
-        XCTAssertEqual(entry.attachments?.count, 1)
+        XCTAssertEqual(entry.attachments?.map(\.fileId), ["xyz"])
+        XCTAssertEqual(entry.attachments?.first?.mimeType, "application/octet-stream")
         XCTAssertEqual(entry.attachments?.first?.title, "Mockups.fig")
         XCTAssertEqual(entry.attachments?.first?.fileId, "xyz")
     }
@@ -223,7 +229,7 @@ final class GoogleCalendarModelsTests: XCTestCase {
         """.utf8)
 
         let entry = try decoder.decode(GCalEventEntry.self, from: json)
-        XCTAssertEqual(entry.attendees?.count, 0)
+        XCTAssertEqual(entry.attendees, [])
     }
 
     // MARK: - GCalCalendarListResponse
@@ -250,15 +256,14 @@ final class GoogleCalendarModelsTests: XCTestCase {
 
         let response = try decoder.decode(GCalCalendarListResponse.self, from: json)
 
-        XCTAssertEqual(response.items?.count, 2)
-        XCTAssertEqual(response.items?.first?.id, "primary")
+        XCTAssertEqual(response.items?.map(\.id), ["primary", "team@group.calendar.google.com"])
         XCTAssertEqual(response.items?.first?.summary, "My Calendar")
-        XCTAssertEqual(response.items?.first?.primary, true)
+        XCTAssertTrue(try XCTUnwrap(response.items?.first?.primary))
         XCTAssertEqual(response.items?.first?.colorId, "1")
 
         let teamCal = response.items?[1]
         XCTAssertEqual(teamCal?.id, "team@group.calendar.google.com")
-        XCTAssertEqual(teamCal?.primary, false)
+        XCTAssertFalse(try XCTUnwrap(teamCal?.primary))
         XCTAssertNil(teamCal?.description)
     }
 
@@ -279,7 +284,7 @@ final class GoogleCalendarModelsTests: XCTestCase {
 
         let response = try decoder.decode(GCalEventListResponse.self, from: json)
 
-        XCTAssertEqual(response.items?.count, 1)
+        XCTAssertEqual(response.items?.map(\.id), ["event-1"])
         XCTAssertEqual(response.nextPageToken, "CiAKGjBpNDd2Nmp2Zml2cXRwYjBpOXA")
     }
 
@@ -292,7 +297,7 @@ final class GoogleCalendarModelsTests: XCTestCase {
 
         let response = try decoder.decode(GCalEventListResponse.self, from: json)
 
-        XCTAssertEqual(response.items?.count, 0)
+        XCTAssertEqual(response.items, [])
         XCTAssertNil(response.nextPageToken)
     }
 }

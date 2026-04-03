@@ -7,25 +7,25 @@ final class GoogleCalendarConfigTests: XCTestCase {
     func testAuthorizationEndpointIsGoogleOAuth() {
         XCTAssertEqual(
             GoogleCalendarConfig.authorizationEndpoint.host,
-            "accounts.google.com"
+            "accounts.google.com",
         )
         XCTAssert(
             GoogleCalendarConfig.authorizationEndpoint.path.contains("auth"),
-            "Authorization endpoint should contain 'auth' in path"
+            "Authorization endpoint should contain 'auth' in path",
         )
     }
 
     func testTokenEndpointIsGoogleOAuth() {
         XCTAssertEqual(
             GoogleCalendarConfig.tokenEndpoint.host,
-            "oauth2.googleapis.com"
+            "oauth2.googleapis.com",
         )
     }
 
     func testIssuerIsGoogleAccounts() {
         XCTAssertEqual(
             GoogleCalendarConfig.issuer.absoluteString,
-            "https://accounts.google.com"
+            "https://accounts.google.com",
         )
     }
 
@@ -34,27 +34,27 @@ final class GoogleCalendarConfigTests: XCTestCase {
     func testScopesIncludeCalendarReadOnly() {
         XCTAssert(
             GoogleCalendarConfig.scopes.contains(
-                "https://www.googleapis.com/auth/calendar.readonly"
+                "https://www.googleapis.com/auth/calendar.readonly",
             ),
-            "Scopes should include calendar.readonly"
+            "Scopes should include calendar.readonly",
         )
     }
 
     func testScopesIncludeCalendarListReadOnly() {
         XCTAssert(
             GoogleCalendarConfig.scopes.contains(
-                "https://www.googleapis.com/auth/calendar.calendarlist.readonly"
+                "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
             ),
-            "Scopes should include calendarlist.readonly"
+            "Scopes should include calendarlist.readonly",
         )
     }
 
     func testScopesIncludeUserInfoEmail() {
         XCTAssert(
             GoogleCalendarConfig.scopes.contains(
-                "https://www.googleapis.com/auth/userinfo.email"
+                "https://www.googleapis.com/auth/userinfo.email",
             ),
-            "Scopes should include userinfo.email for identifying the user"
+            "Scopes should include userinfo.email for identifying the user",
         )
     }
 
@@ -62,7 +62,7 @@ final class GoogleCalendarConfigTests: XCTestCase {
         for scope in GoogleCalendarConfig.scopes {
             XCTAssert(
                 scope.contains("readonly") || scope.contains("userinfo"),
-                "All scopes should be read-only or user info, found: \(scope)"
+                "All scopes should be read-only or user info, found: \(scope)",
             )
         }
     }
@@ -72,7 +72,7 @@ final class GoogleCalendarConfigTests: XCTestCase {
     func testCalendarAPIBaseURL() {
         XCTAssertEqual(
             GoogleCalendarConfig.calendarAPIBaseURL,
-            "https://www.googleapis.com/calendar/v3"
+            "https://www.googleapis.com/calendar/v3",
         )
     }
 
@@ -81,7 +81,7 @@ final class GoogleCalendarConfigTests: XCTestCase {
     func testRedirectURIEndsWithColon() {
         XCTAssert(
             GoogleCalendarConfig.redirectURI.contains(":/"),
-            "Redirect URI should have scheme format (scheme:/)"
+            "Redirect URI should have scheme format (scheme:/)",
         )
     }
 
@@ -93,12 +93,12 @@ final class GoogleCalendarConfigTests: XCTestCase {
         if GoogleCalendarConfig.clientId.isEmpty {
             XCTAssertFalse(
                 GoogleCalendarConfig.isConfigured,
-                "isConfigured should be false when clientId is empty"
+                "isConfigured should be false when clientId is empty",
             )
         } else {
             XCTAssertTrue(
                 GoogleCalendarConfig.isConfigured,
-                "isConfigured should be true when clientId is non-empty"
+                "isConfigured should be true when clientId is non-empty",
             )
         }
     }

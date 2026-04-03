@@ -29,7 +29,7 @@ final class CalendarProviderTypeTests: XCTestCase {
         XCTAssertEqual(
             CalendarProviderType.allCases,
             [.google, .apple],
-            "allCases should contain exactly google and apple in order"
+            "allCases should contain exactly google and apple in order",
         )
     }
 

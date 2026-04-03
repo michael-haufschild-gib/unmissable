@@ -55,7 +55,7 @@ final class ScheduledAlertTests: XCTestCase {
         let alert = ScheduledAlert(
             event: event,
             triggerDate: Date(),
-            alertType: .reminder(minutesBefore: 5)
+            alertType: .reminder(minutesBefore: 5),
         )
 
         if case let .reminder(minutes) = alert.alertType {
@@ -71,7 +71,7 @@ final class ScheduledAlertTests: XCTestCase {
         let alert = ScheduledAlert(
             event: event,
             triggerDate: snoozeTarget,
-            alertType: .snooze(until: snoozeTarget)
+            alertType: .snooze(until: snoozeTarget),
         )
 
         if case let .snooze(until) = alert.alertType {
@@ -87,7 +87,7 @@ final class ScheduledAlertTests: XCTestCase {
         let alert = ScheduledAlert(
             event: event,
             triggerDate: triggerDate,
-            alertType: .meetingStart
+            alertType: .meetingStart,
         )
 
         if case .meetingStart = alert.alertType {
@@ -106,17 +106,18 @@ final class ScheduledAlertTests: XCTestCase {
         let alert1 = ScheduledAlert(
             event: event,
             triggerDate: triggerDate,
-            alertType: .reminder(minutesBefore: 5)
+            alertType: .reminder(minutesBefore: 5),
         )
         let alert2 = ScheduledAlert(
             event: event,
             triggerDate: triggerDate,
-            alertType: .reminder(minutesBefore: 5)
+            alertType: .reminder(minutesBefore: 5),
         )
 
         XCTAssertNotEqual(
-            alert1.id, alert2.id,
-            "Even identical alert data should produce unique IDs"
+            alert1.id,
+            alert2.id,
+            "Even identical alert data should produce unique IDs",
         )
     }
 
@@ -127,17 +128,17 @@ final class ScheduledAlertTests: XCTestCase {
         let reminder = ScheduledAlert(
             event: event,
             triggerDate: now,
-            alertType: .reminder(minutesBefore: 5)
+            alertType: .reminder(minutesBefore: 5),
         )
         let snooze = ScheduledAlert(
             event: event,
             triggerDate: now,
-            alertType: .snooze(until: now.addingTimeInterval(300))
+            alertType: .snooze(until: now.addingTimeInterval(300)),
         )
         let meetingStart = ScheduledAlert(
             event: event,
             triggerDate: now,
-            alertType: .meetingStart
+            alertType: .meetingStart,
         )
 
         // All should have the same event but different types
@@ -163,7 +164,7 @@ final class ScheduledAlertTests: XCTestCase {
         ScheduledAlert(
             event: TestUtilities.createTestEvent(),
             triggerDate: triggerDate,
-            alertType: .reminder(minutesBefore: 5)
+            alertType: .reminder(minutesBefore: 5),
         )
     }
 }

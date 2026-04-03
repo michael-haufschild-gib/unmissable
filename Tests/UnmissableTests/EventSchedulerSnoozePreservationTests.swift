@@ -14,7 +14,7 @@ final class EventSchedulerSnoozePreservationTests: XCTestCase {
             title: "Snooze Preserve",
             startDate: Date().addingTimeInterval(3600),
             endDate: Date().addingTimeInterval(5400),
-            calendarId: "primary"
+            calendarId: "primary",
         )
 
         await scheduler.startScheduling(events: [event], overlayManager: overlayManager)
@@ -26,7 +26,7 @@ final class EventSchedulerSnoozePreservationTests: XCTestCase {
                     return alert.event.id == event.id
                 }
                 return false
-            }
+            },
         )
 
         preferences.setOverlayShowMinutesBefore(3)
@@ -44,7 +44,7 @@ final class EventSchedulerSnoozePreservationTests: XCTestCase {
                 }
                 return false
             },
-            "Future snooze alert should survive preference-driven rescheduling"
+            "Future snooze alert should survive preference-driven rescheduling",
         )
     }
 }

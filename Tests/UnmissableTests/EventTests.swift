@@ -12,7 +12,7 @@ final class EventTests: XCTestCase {
             startDate: startDate,
             endDate: endDate,
             organizer: "test@example.com",
-            calendarId: "primary"
+            calendarId: "primary",
         )
 
         XCTAssertEqual(event.id, "test-123")
@@ -37,13 +37,13 @@ final class EventTests: XCTestCase {
             endDate: Date().addingTimeInterval(1800),
             calendarId: "primary",
             links: [meetUrl, zoomUrl],
-            provider: .meet
+            provider: .meet,
         )
 
         XCTAssertTrue(LinkParser().isOnlineMeeting(event))
         XCTAssertEqual(LinkParser().primaryLink(for: event), meetUrl)
         XCTAssertEqual(event.provider, .meet)
-        XCTAssertEqual(event.links.count, 2)
+        XCTAssertEqual(event.links, [meetUrl, zoomUrl])
     }
 
     func testEventProviderDefaultsToPrimaryMeetingLinkNotFirstLink() throws {
@@ -59,7 +59,7 @@ final class EventTests: XCTestCase {
             endDate: Date().addingTimeInterval(1800),
             calendarId: "primary",
             links: [docsUrl, meetUrl],
-            linkParser: linkParser
+            linkParser: linkParser,
         )
 
         XCTAssertEqual(linkParser.primaryLink(for: event), meetUrl)
@@ -78,7 +78,7 @@ final class EventTests: XCTestCase {
             endDate: Date().addingTimeInterval(1800),
             calendarId: "primary",
             links: [teamsLiveUrl],
-            linkParser: linkParser
+            linkParser: linkParser,
         )
 
         XCTAssertTrue(linkParser.isOnlineMeeting(event))
@@ -96,7 +96,7 @@ final class EventTests: XCTestCase {
             startDate: utcDate,
             endDate: utcDate.addingTimeInterval(3600),
             calendarId: "primary",
-            timezone: "America/Los_Angeles"
+            timezone: "America/Los_Angeles",
         )
 
         // Event stores absolute instants regardless of timezone metadata
@@ -113,7 +113,7 @@ final class EventTests: XCTestCase {
             title: "Instant Event",
             startDate: now,
             endDate: now,
-            calendarId: "primary"
+            calendarId: "primary",
         )
         XCTAssertEqual(event.duration, 0)
     }
@@ -125,7 +125,7 @@ final class EventTests: XCTestCase {
             title: "Backwards Event",
             startDate: now,
             endDate: now.addingTimeInterval(-600), // endDate before startDate
-            calendarId: "primary"
+            calendarId: "primary",
         )
         XCTAssertLessThan(event.duration, 0, "Duration should be negative when endDate is before startDate")
     }
@@ -156,7 +156,7 @@ final class EventTests: XCTestCase {
             snoozeUntil: Date(timeIntervalSince1970: 1_700_001_800),
             autoJoinEnabled: true,
             createdAt: Date(timeIntervalSince1970: 1_699_999_000),
-            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000),
         )
 
         let data = try JSONEncoder().encode(original)
@@ -169,7 +169,7 @@ final class EventTests: XCTestCase {
         XCTAssertEqual(decoded.organizer, original.organizer)
         XCTAssertEqual(decoded.description, original.description)
         XCTAssertEqual(decoded.location, original.location)
-        XCTAssertEqual(decoded.attendees.count, original.attendees.count)
+        XCTAssertEqual(decoded.attendees.map(\.email), ["alice@example.com"])
         XCTAssertEqual(decoded.isAllDay, original.isAllDay)
         XCTAssertEqual(decoded.calendarId, original.calendarId)
         XCTAssertEqual(decoded.timezone, original.timezone)
@@ -185,7 +185,7 @@ final class EventTests: XCTestCase {
             title: "Minimal Event",
             startDate: Date(timeIntervalSince1970: 1_700_000_000),
             endDate: Date(timeIntervalSince1970: 1_700_003_600),
-            calendarId: "primary"
+            calendarId: "primary",
         )
 
         let data = try JSONEncoder().encode(original)
@@ -196,8 +196,8 @@ final class EventTests: XCTestCase {
         XCTAssertNil(decoded.location)
         XCTAssertNil(decoded.provider)
         XCTAssertNil(decoded.snoozeUntil)
-        XCTAssertTrue(decoded.attendees.isEmpty)
-        XCTAssertTrue(decoded.links.isEmpty)
+        XCTAssertEqual(decoded.attendees, [], "Attendees should be empty array for minimal event")
+        XCTAssertEqual(decoded.links, [], "Links should be empty array for minimal event")
     }
 
     // MARK: - withAutoDetectedProvider
@@ -210,7 +210,7 @@ final class EventTests: XCTestCase {
             endDate: Date().addingTimeInterval(3600),
             calendarId: "primary",
             links: [],
-            linkParser: LinkParser()
+            linkParser: LinkParser(),
         )
         XCTAssertNil(event.provider, "No links should produce nil provider")
     }
@@ -224,7 +224,7 @@ final class EventTests: XCTestCase {
             endDate: Date().addingTimeInterval(3600),
             calendarId: "primary",
             links: [url],
-            linkParser: LinkParser()
+            linkParser: LinkParser(),
         )
         // Non-meeting URLs don't pass isMeetingURL filter, so detectPrimaryLink returns nil
         XCTAssertNil(event.provider)
@@ -241,9 +241,9 @@ final class EventTests: XCTestCase {
             endDate: Date().addingTimeInterval(3600),
             description: "Join us at https://meet.google.com/xyz-uvwx-stu",
             calendarId: "primary",
-            linkParser: LinkParser()
+            linkParser: LinkParser(),
         )
-        XCTAssertEqual(event.links.count, 1)
+        XCTAssertEqual(event.links.first?.host, "meet.google.com")
         XCTAssertEqual(event.provider, .meet)
     }
 
@@ -256,9 +256,9 @@ final class EventTests: XCTestCase {
             endDate: Date().addingTimeInterval(3600),
             location: "https://meet.google.com/abc-defg-hij",
             calendarId: "primary",
-            linkParser: LinkParser()
+            linkParser: LinkParser(),
         )
-        XCTAssertEqual(event.links.count, 1)
+        XCTAssertEqual(event.links.first?.host, "meet.google.com")
     }
 
     @MainActor
@@ -270,9 +270,9 @@ final class EventTests: XCTestCase {
             endDate: Date().addingTimeInterval(3600),
             description: "Room 42",
             calendarId: "primary",
-            linkParser: LinkParser()
+            linkParser: LinkParser(),
         )
-        XCTAssertTrue(event.links.isEmpty)
+        XCTAssertEqual(event.links, [], "In-person meeting should have no links")
         XCTAssertNil(event.provider)
     }
 
@@ -286,9 +286,10 @@ final class EventTests: XCTestCase {
             description: "Join at https://meet.google.com/abc-defg-hij",
             location: "https://meet.google.com/abc-defg-hij",
             calendarId: "primary",
-            linkParser: LinkParser()
+            linkParser: LinkParser(),
         )
-        XCTAssertEqual(event.links.count, 1, "Duplicate links should be deduplicated")
+        XCTAssertEqual(event.links.first?.host, "meet.google.com", "Duplicate links should be deduplicated")
+        XCTAssertEqual(event.links.last?.host, "meet.google.com", "Should have exactly one link after dedup")
     }
 
     // MARK: - Equality
@@ -305,7 +306,7 @@ final class EventTests: XCTestCase {
             endDate: date2,
             calendarId: "primary",
             createdAt: createdDate,
-            updatedAt: createdDate
+            updatedAt: createdDate,
         )
 
         let event2 = Event(
@@ -315,7 +316,7 @@ final class EventTests: XCTestCase {
             endDate: date2,
             calendarId: "primary",
             createdAt: createdDate,
-            updatedAt: createdDate
+            updatedAt: createdDate,
         )
 
         XCTAssertEqual(event1, event2)
@@ -327,7 +328,7 @@ final class EventTests: XCTestCase {
             endDate: date2,
             calendarId: "primary",
             createdAt: createdDate,
-            updatedAt: createdDate
+            updatedAt: createdDate,
         )
 
         XCTAssertNotEqual(event1, event3)

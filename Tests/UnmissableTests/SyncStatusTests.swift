@@ -40,7 +40,7 @@ final class SyncStatusTests: XCTestCase {
         XCTAssertNotEqual(
             SyncStatus.error("timeout"),
             SyncStatus.error("network"),
-            "Error cases with different messages should not be equal"
+            "Error cases with different messages should not be equal",
         )
     }
 

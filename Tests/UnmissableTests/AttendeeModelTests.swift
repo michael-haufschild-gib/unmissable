@@ -11,7 +11,7 @@ final class AttendeeModelTests: XCTestCase {
             status: .accepted,
             isOptional: false,
             isOrganizer: true,
-            isSelf: false
+            isSelf: false,
         )
 
         XCTAssertEqual(attendee.name, "John Doe")
@@ -26,7 +26,7 @@ final class AttendeeModelTests: XCTestCase {
         let attendee = Attendee(
             email: "noname@example.com",
             status: .needsAction,
-            isSelf: false
+            isSelf: false,
         )
 
         XCTAssertNil(attendee.name)
@@ -53,13 +53,13 @@ final class AttendeeModelTests: XCTestCase {
         let currentUserAttendee = Attendee(
             email: "current@example.com",
             status: .accepted,
-            isSelf: true
+            isSelf: true,
         )
 
         let otherAttendee = Attendee(
             email: "other@example.com",
             status: .accepted,
-            isSelf: false
+            isSelf: false,
         )
 
         XCTAssertTrue(currentUserAttendee.isSelf)
@@ -72,14 +72,14 @@ final class AttendeeModelTests: XCTestCase {
             email: "shared@example.com",
             status: .accepted,
             isOrganizer: true,
-            isSelf: false
+            isSelf: false,
         )
         let guestEntry = Attendee(
             name: "Guest",
             email: "shared@example.com",
             status: .accepted,
             isOrganizer: false,
-            isSelf: false
+            isSelf: false,
         )
 
         // Attendee.id is derived from email — same email = same identity
@@ -119,13 +119,15 @@ final class AttendeeModelTests: XCTestCase {
             status: .accepted,
             isOptional: true,
             isOrganizer: false,
-            isSelf: true
+            isSelf: true,
         )
 
         let encoder = JSONEncoder()
         let data = try encoder.encode(attendee)
 
-        XCTAssertGreaterThan(data.count, 0, "Encoded data should not be empty")
+        // Verify round-trip produces identical attendee instead of just checking .count
+        let decoded = try JSONDecoder().decode(Attendee.self, from: data)
+        XCTAssertEqual(decoded.email, "test@example.com", "Encoded data should round-trip correctly")
     }
 
     func testAttendeeCodableDecoding() throws {
@@ -135,7 +137,7 @@ final class AttendeeModelTests: XCTestCase {
             status: .declined,
             isOptional: false,
             isOrganizer: true,
-            isSelf: true
+            isSelf: true,
         )
 
         let encoder = JSONEncoder()
@@ -158,8 +160,11 @@ final class AttendeeModelTests: XCTestCase {
             Attendee(name: "User 1", email: "user1@example.com", status: .accepted, isSelf: false),
             Attendee(email: "user2@example.com", status: .tentative, isOptional: true, isSelf: false),
             Attendee(
-                name: "Organizer", email: "org@example.com", status: .accepted, isOrganizer: true,
-                isSelf: false
+                name: "Organizer",
+                email: "org@example.com",
+                status: .accepted,
+                isOrganizer: true,
+                isSelf: false,
             ),
         ]
 
@@ -169,7 +174,7 @@ final class AttendeeModelTests: XCTestCase {
         let decoder = JSONDecoder()
         let decodedAttendees = try decoder.decode([Attendee].self, from: data)
 
-        XCTAssertEqual(decodedAttendees.count, attendees.count)
+        XCTAssertEqual(decodedAttendees.map(\.email), attendees.map(\.email))
 
         for (original, decoded) in zip(attendees, decodedAttendees) {
             XCTAssertEqual(original.name, decoded.name)
@@ -204,7 +209,10 @@ final class AttendeeModelTests: XCTestCase {
     // MARK: - AttendeeStatus Edge Cases
 
     func testAttendeeStatusCaseIterable() {
-        XCTAssertEqual(AttendeeStatus.allCases.count, 4)
+        XCTAssertEqual(
+            AttendeeStatus.allCases,
+            [.accepted, .declined, .tentative, .needsAction],
+        )
     }
 
     func testAttendeeStatusCodableFromRawValue() throws {

@@ -30,7 +30,7 @@ final class CalendarInfoTests: XCTestCase {
             sourceProvider: .apple,
             lastSyncAt: Date(timeIntervalSince1970: 1000),
             createdAt: Date(timeIntervalSince1970: 500),
-            updatedAt: Date(timeIntervalSince1970: 600)
+            updatedAt: Date(timeIntervalSince1970: 600),
         )
 
         let selected = original.withSelection(true)
@@ -50,8 +50,9 @@ final class CalendarInfoTests: XCTestCase {
 
         // updatedAt should be refreshed to ~now
         XCTAssertGreaterThan(
-            selected.updatedAt, original.updatedAt,
-            "updatedAt should be refreshed to current time"
+            selected.updatedAt,
+            original.updatedAt,
+            "updatedAt should be refreshed to current time",
         )
     }
 
@@ -76,7 +77,7 @@ final class CalendarInfoTests: XCTestCase {
             sourceProvider: .apple,
             lastSyncAt: Date(timeIntervalSince1970: 2000),
             createdAt: Date(timeIntervalSince1970: 1000),
-            updatedAt: Date(timeIntervalSince1970: 1500)
+            updatedAt: Date(timeIntervalSince1970: 1500),
         )
 
         let data = try JSONEncoder().encode(original)
@@ -118,7 +119,7 @@ final class CalendarInfoTests: XCTestCase {
             isSelected: false,
             isPrimary: true,
             colorHex: "#1a73e8",
-            sourceProvider: .apple
+            sourceProvider: .apple,
         )
 
         let selected = original.withSelection(true)

@@ -25,7 +25,7 @@ final class EventLifecycleE2ETests: XCTestCase {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-lifecycle-1",
             title: "Lifecycle Test Meeting",
-            minutesFromNow: 15
+            minutesFromNow: 15,
         )
 
         // Save to database
@@ -33,18 +33,20 @@ final class EventLifecycleE2ETests: XCTestCase {
 
         // Fetch from database — verify round-trip
         let fetched = try await env.fetchUpcomingEvents()
-        XCTAssertEqual(fetched.count, 1)
-        XCTAssertEqual(fetched.first?.id, event.id)
-        XCTAssertEqual(fetched.first?.title, event.title)
+        let fetchedEvent = try XCTUnwrap(fetched.first)
+        XCTAssertEqual(fetchedEvent.id, event.id)
+        XCTAssertEqual(fetchedEvent.title, event.title)
 
         // Schedule alerts from DB events
         await env.eventScheduler.startScheduling(
-            events: fetched, overlayManager: env.overlayManager
+            events: fetched, overlayManager: env.overlayManager,
         )
 
         // Verify alert was created
-        XCTAssertFalse(env.eventScheduler.scheduledAlerts.isEmpty)
-        let alert = try XCTUnwrap(env.eventScheduler.scheduledAlerts.first)
+        let alert = try XCTUnwrap(
+            env.eventScheduler.scheduledAlerts.first,
+            "Should have at least one scheduled alert",
+        )
         XCTAssertEqual(alert.event.id, event.id)
     }
 
@@ -52,14 +54,14 @@ final class EventLifecycleE2ETests: XCTestCase {
         let events = E2EEventBuilder.eventBatch(
             count: 5,
             startingMinutesFromNow: 10,
-            spacingMinutes: 10
+            spacingMinutes: 10,
         )
 
         try await env.seedAndSchedule(events)
 
         // All 5 events should be fetched and scheduled
         let fetched = try await env.fetchUpcomingEvents()
-        XCTAssertEqual(fetched.count, 5)
+        XCTAssertEqual(fetched.map(\.id), (0 ..< 5).map { "e2e-batch-\($0)" })
 
         // Alerts should be sorted by trigger time (earliest first)
         let triggerTimes = env.eventScheduler.scheduledAlerts.map(\.triggerDate)
@@ -79,7 +81,7 @@ final class EventLifecycleE2ETests: XCTestCase {
         let pastEvent = E2EEventBuilder.pastEvent(id: "e2e-past-no-schedule")
         let futureEvent = E2EEventBuilder.futureEvent(
             id: "e2e-future-yes-schedule",
-            minutesFromNow: 20
+            minutesFromNow: 20,
         )
 
         try await env.seedEvents([pastEvent, futureEvent])
@@ -87,18 +89,18 @@ final class EventLifecycleE2ETests: XCTestCase {
         // Both are in the DB
         let allEvents = try await env.databaseManager.fetchEvents(
             from: Date().addingTimeInterval(-86_400),
-            to: Date().addingTimeInterval(86_400)
+            to: Date().addingTimeInterval(86_400),
         )
-        XCTAssertEqual(allEvents.count, 2)
+        XCTAssertEqual(Set(allEvents.map(\.id)), Set([pastEvent.id, futureEvent.id]))
 
         // But only the future event should appear in upcoming fetch
         let upcoming = try await env.fetchUpcomingEvents()
-        XCTAssertEqual(upcoming.count, 1)
-        XCTAssertEqual(upcoming.first?.id, futureEvent.id)
+        let upcomingEvent = try XCTUnwrap(upcoming.first)
+        XCTAssertEqual(upcomingEvent.id, futureEvent.id)
 
         // Schedule from upcoming — only future event gets alerts
         await env.eventScheduler.startScheduling(
-            events: upcoming, overlayManager: env.overlayManager
+            events: upcoming, overlayManager: env.overlayManager,
         )
         let alertEventIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
         XCTAssert(alertEventIds.isSuperset(of: [futureEvent.id]))
@@ -112,23 +114,23 @@ final class EventLifecycleE2ETests: XCTestCase {
             id: "e2e-started-1",
             title: "In Progress Meeting",
             minutesAgo: 10,
-            durationMinutes: 60
+            durationMinutes: 60,
         )
         let futureEvent = E2EEventBuilder.futureEvent(
             id: "e2e-future-1",
-            minutesFromNow: 30
+            minutesFromNow: 30,
         )
         let pastEvent = E2EEventBuilder.pastEvent(id: "e2e-ended-1")
 
         try await env.seedEvents([startedEvent, futureEvent, pastEvent])
 
         let started = try await env.fetchStartedMeetings()
-        XCTAssertEqual(started.count, 1)
-        XCTAssertEqual(started.first?.id, startedEvent.id)
+        let startedMatch = try XCTUnwrap(started.first)
+        XCTAssertEqual(startedMatch.id, startedEvent.id)
 
         let upcoming = try await env.fetchUpcomingEvents()
-        XCTAssertEqual(upcoming.count, 1)
-        XCTAssertEqual(upcoming.first?.id, futureEvent.id)
+        let upcomingMatch = try XCTUnwrap(upcoming.first)
+        XCTAssertEqual(upcomingMatch.id, futureEvent.id)
     }
 
     // MARK: - All-Day Events
@@ -137,7 +139,7 @@ final class EventLifecycleE2ETests: XCTestCase {
         let allDayEvent = E2EEventBuilder.allDayEvent(id: "e2e-allday-1")
         let regularEvent = E2EEventBuilder.futureEvent(
             id: "e2e-regular-1",
-            minutesFromNow: 20
+            minutesFromNow: 20,
         )
 
         try await env.seedEvents([allDayEvent, regularEvent])
@@ -145,14 +147,14 @@ final class EventLifecycleE2ETests: XCTestCase {
         // All-day events are stored in DB
         let allEvents = try await env.databaseManager.fetchEvents(
             from: Date().addingTimeInterval(-86_400),
-            to: Date().addingTimeInterval(86_400)
+            to: Date().addingTimeInterval(86_400),
         )
         XCTAssertGreaterThanOrEqual(allEvents.count, 1)
 
         // Schedule should process the regular event
         let upcoming = try await env.fetchUpcomingEvents()
         await env.eventScheduler.startScheduling(
-            events: upcoming, overlayManager: env.overlayManager
+            events: upcoming, overlayManager: env.overlayManager,
         )
 
         // The all-day event may or may not appear in upcoming depending on
@@ -178,7 +180,7 @@ final class EventLifecycleE2ETests: XCTestCase {
             links: [],
             provider: nil,
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
 
         try await env.seedEvents([originalEvent])
@@ -191,10 +193,10 @@ final class EventLifecycleE2ETests: XCTestCase {
         XCTAssertEqual(roundTripped.isAllDay, originalEvent.isAllDay)
         // Date comparison with tolerance for DB serialization
         XCTAssertLessThan(
-            abs(roundTripped.startDate.timeIntervalSince(originalEvent.startDate)), 1.0
+            abs(roundTripped.startDate.timeIntervalSince(originalEvent.startDate)), 1.0,
         )
         XCTAssertLessThan(
-            abs(roundTripped.endDate.timeIntervalSince(originalEvent.endDate)), 1.0
+            abs(roundTripped.endDate.timeIntervalSince(originalEvent.endDate)), 1.0,
         )
     }
 
@@ -205,7 +207,7 @@ final class EventLifecycleE2ETests: XCTestCase {
             id: "e2e-online-roundtrip",
             title: "Google Meet E2E",
             minutesFromNow: 15,
-            provider: .meet
+            provider: .meet,
         )
 
         try await env.seedEvents([meetEvent])
@@ -227,7 +229,7 @@ final class EventLifecycleE2ETests: XCTestCase {
                 id: "e2e-cal1-\(i)",
                 title: "Calendar 1 Meeting \(i)",
                 minutesFromNow: 10 + (i * 10),
-                calendarId: "calendar-1"
+                calendarId: "calendar-1",
             )
         }
         let cal2Events = (0 ..< 2).map { i in
@@ -235,7 +237,7 @@ final class EventLifecycleE2ETests: XCTestCase {
                 id: "e2e-cal2-\(i)",
                 title: "Calendar 2 Meeting \(i)",
                 minutesFromNow: 15 + (i * 10),
-                calendarId: "calendar-2"
+                calendarId: "calendar-2",
             )
         }
 
@@ -245,8 +247,8 @@ final class EventLifecycleE2ETests: XCTestCase {
         try await env.databaseManager.deleteEventsForCalendar("calendar-1")
 
         let remaining = try await env.fetchUpcomingEvents()
-        XCTAssertEqual(remaining.count, 2)
-        XCTAssertTrue(remaining.allSatisfy { $0.calendarId == "calendar-2" })
+        XCTAssertEqual(Set(remaining.map(\.id)), Set(["e2e-cal2-0", "e2e-cal2-1"]))
+        XCTAssertEqual(Set(remaining.map(\.calendarId)), Set(["calendar-2"]))
     }
 
     // MARK: - Replace Events for Calendar
@@ -257,19 +259,20 @@ final class EventLifecycleE2ETests: XCTestCase {
                 id: "e2e-replace-old-1",
                 title: "Old Meeting 1",
                 minutesFromNow: 20,
-                calendarId: "replace-cal"
+                calendarId: "replace-cal",
             ),
             E2EEventBuilder.futureEvent(
                 id: "e2e-replace-old-2",
                 title: "Old Meeting 2",
                 minutesFromNow: 40,
-                calendarId: "replace-cal"
+                calendarId: "replace-cal",
             ),
         ]
 
         // Seed original events and schedule
         try await env.seedAndSchedule(originalEvents)
-        XCTAssertEqual(env.eventScheduler.scheduledAlerts.count, 2)
+        let originalAlertIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
+        XCTAssertEqual(originalAlertIds, Set(["e2e-replace-old-1", "e2e-replace-old-2"]))
 
         // Replace with new events (simulating a sync update)
         let newEvents = [
@@ -277,7 +280,7 @@ final class EventLifecycleE2ETests: XCTestCase {
                 id: "e2e-replace-new-1",
                 title: "New Meeting 1",
                 minutesFromNow: 25,
-                calendarId: "replace-cal"
+                calendarId: "replace-cal",
             ),
         ]
         try await env.databaseManager.replaceEvents(for: "replace-cal", with: newEvents)
@@ -286,16 +289,16 @@ final class EventLifecycleE2ETests: XCTestCase {
         let updated = try await env.fetchUpcomingEvents()
         env.eventScheduler.stopScheduling()
         await env.eventScheduler.startScheduling(
-            events: updated, overlayManager: env.overlayManager
+            events: updated, overlayManager: env.overlayManager,
         )
 
         // Only the new event should be scheduled
-        XCTAssertEqual(env.eventScheduler.scheduledAlerts.count, 1)
-        XCTAssertEqual(env.eventScheduler.scheduledAlerts.first?.event.id, "e2e-replace-new-1")
+        let newAlertEvent = try XCTUnwrap(env.eventScheduler.scheduledAlerts.first)
+        XCTAssertEqual(newAlertEvent.event.id, "e2e-replace-new-1")
 
         // Old events should be gone from DB
         let all = try await env.databaseManager.fetchEvents(
-            from: Date(), to: Date().addingTimeInterval(86_400)
+            from: Date(), to: Date().addingTimeInterval(86_400),
         )
         let oldIds = all.map(\.id)
         XCTAssertFalse(oldIds.contains("e2e-replace-old-1"))

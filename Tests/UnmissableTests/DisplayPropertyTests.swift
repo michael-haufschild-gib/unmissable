@@ -20,7 +20,7 @@ final class DisplayPropertyTests: XCTestCase {
             calendarId: "primary",
             timezone: "America/Chicago",
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
 
         XCTAssertEqual(event.title, "Design Review")
@@ -40,15 +40,15 @@ final class DisplayPropertyTests: XCTestCase {
         XCTAssertEqual(SyncStatus.idle.description, "Ready")
         XCTAssertEqual(
             SyncStatus.syncing.description,
-            "Syncing..."
+            "Syncing...",
         )
         XCTAssertEqual(
             SyncStatus.offline.description,
-            "Offline"
+            "Offline",
         )
         XCTAssertEqual(
             SyncStatus.error("timeout").description,
-            "Error: timeout"
+            "Error: timeout",
         )
     }
 
@@ -61,7 +61,7 @@ final class DisplayPropertyTests: XCTestCase {
             severity: .warning,
             component: "Sync",
             message: "Last sync was 10 minutes ago",
-            suggestion: "Check network connection"
+            suggestion: "Check network connection",
         )
         let degraded = HealthStatus.degraded(issues: [warning])
         XCTAssertFalse(degraded.isHealthy)
@@ -70,7 +70,7 @@ final class DisplayPropertyTests: XCTestCase {
             severity: .error,
             component: "Database",
             message: "DB not initialized",
-            suggestion: "Restart the app"
+            suggestion: "Restart the app",
         )
         let critical = HealthStatus.critical(issues: [error])
         XCTAssertFalse(critical.isHealthy)
@@ -85,7 +85,7 @@ final class DisplayPropertyTests: XCTestCase {
             severity: .warning,
             component: "Test",
             message: "Test issue",
-            suggestion: "Fix it"
+            suggestion: "Fix it",
         )
         // Note: HealthIssue has UUID id, so two instances are never equal
         // even with same content. This tests that .degraded([issue]) == .degraded([issue])
@@ -100,7 +100,7 @@ final class DisplayPropertyTests: XCTestCase {
             severity: .warning,
             component: "Test",
             message: "msg",
-            suggestion: "sug"
+            suggestion: "sug",
         )
         XCTAssertNotEqual(HealthStatus.healthy, HealthStatus.degraded(issues: [issue]))
     }
@@ -110,11 +110,11 @@ final class DisplayPropertyTests: XCTestCase {
             severity: .error,
             component: "DB",
             message: "msg",
-            suggestion: "sug"
+            suggestion: "sug",
         )
         XCTAssertNotEqual(
             HealthStatus.degraded(issues: [issue]),
-            HealthStatus.critical(issues: [issue])
+            HealthStatus.critical(issues: [issue]),
         )
     }
 
@@ -122,7 +122,7 @@ final class DisplayPropertyTests: XCTestCase {
         XCTAssertEqual(
             HealthIssue.Severity.allCases,
             [.warning, .error],
-            "Severity allCases should contain exactly warning and error"
+            "Severity allCases should contain exactly warning and error",
         )
     }
 
@@ -136,18 +136,18 @@ final class DisplayPropertyTests: XCTestCase {
             severity: .warning,
             component: "Calendar Service",
             message: "No calendars connected",
-            suggestion: "Connect a calendar in settings"
+            suggestion: "Connect a calendar in settings",
         )
 
         XCTAssertEqual(issue.severity, .warning)
         XCTAssertEqual(issue.component, "Calendar Service")
         XCTAssertEqual(
             issue.message,
-            "No calendars connected"
+            "No calendars connected",
         )
         XCTAssertEqual(
             issue.suggestion,
-            "Connect a calendar in settings"
+            "Connect a calendar in settings",
         )
     }
 }

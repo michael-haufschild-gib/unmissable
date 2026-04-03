@@ -54,7 +54,7 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
         let es: EventScheduler = eventScheduler
         let event = TestUtilities.createTestEvent(
             title: "Important Meeting",
-            startDate: Date().addingTimeInterval(600)
+            startDate: Date().addingTimeInterval(600),
         )
 
         om.showOverlayImmediately(for: event)
@@ -86,10 +86,10 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
 
             XCTAssertTrue(es.snoozeScheduled, "Snooze should be scheduled for \(duration) minutes")
             XCTAssertEqual(
-                es.snoozeMinutes, duration, "Should schedule correct duration: \(duration) minutes"
+                es.snoozeMinutes, duration, "Should schedule correct duration: \(duration) minutes",
             )
             XCTAssertFalse(
-                om.isOverlayVisible, "Overlay should be hidden after \(duration)-minute snooze"
+                om.isOverlayVisible, "Overlay should be hidden after \(duration)-minute snooze",
             )
         }
     }
@@ -160,7 +160,7 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
         try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
             om.timeUntilMeeting > 0
         }
-        XCTAssertGreaterThan(om.timeUntilMeeting, 0)
+        XCTAssertGreaterThan(om.timeUntilMeeting, 590, "Should be close to 10 minutes")
 
         om.hideOverlay()
 
@@ -191,7 +191,7 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
             om.showOverlayImmediately(for: event)
             XCTAssertTrue(om.isOverlayVisible, "Overlay should show for iteration \(i)")
 
-            if i % 2 == 0 {
+            if i.isMultiple(of: 2) {
                 om.snoozeOverlay(for: 1)
                 XCTAssertTrue(es.snoozeScheduled, "Snooze should work on iteration \(i)")
             } else {
@@ -262,7 +262,7 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
 
         XCTAssertTrue(om.isOverlayVisible)
         XCTAssertEqual(om.activeEvent?.id, event.id)
-        XCTAssertGreaterThan(om.timeUntilMeeting, 0)
+        XCTAssertGreaterThan(om.timeUntilMeeting, 290, "Should be close to 5 minutes")
 
         om.snoozeOverlay(for: 5)
 
@@ -275,7 +275,7 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
         }
 
         XCTAssertEqual(
-            countdownAfterSnooze, om.timeUntilMeeting, "Timer should not be running after snooze"
+            countdownAfterSnooze, om.timeUntilMeeting, "Timer should not be running after snooze",
         )
     }
 
@@ -299,7 +299,7 @@ final class OverlaySnoozeAndDismissTests: XCTestCase {
         }
 
         XCTAssertEqual(
-            countdownAfterDismiss, om.timeUntilMeeting, "Timer should not be running after dismiss"
+            countdownAfterDismiss, om.timeUntilMeeting, "Timer should not be running after dismiss",
         )
     }
 }

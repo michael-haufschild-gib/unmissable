@@ -9,7 +9,7 @@ import OSLog
 /// Advance `currentTime` to simulate passage of time without real delays.
 /// `sleep` is a no-op by default — it yields once to let other tasks run,
 /// then returns immediately, making timer-dependent tests instant.
-@MainActor
+@preconcurrency @MainActor
 public final class TestClock {
     /// The simulated current time. Advance this to move time forward for the scheduler.
     public var currentTime: Date
@@ -25,7 +25,7 @@ public final class TestClock {
     ///   - autoAdvance: Whether `sleep` auto-advances `currentTime`.
     public init(
         startTime: Date = Date(),
-        autoAdvance: Bool = true
+        autoAdvance: Bool = true,
     ) {
         currentTime = startTime
         self.autoAdvance = autoAdvance
@@ -69,7 +69,7 @@ public final class TestClock {
 // MARK: - Test-Safe Implementations
 
 /// Test-safe overlay manager that doesn't create actual UI elements
-@MainActor
+@preconcurrency @MainActor
 public final class TestSafeOverlayManager: OverlayManaging {
     private let logger = Logger(category: "TestSupport")
 
@@ -101,11 +101,13 @@ public final class TestSafeOverlayManager: OverlayManaging {
 
         // Auto-dismiss for meetings that started too long ago
         let timeSinceStart = Date().timeIntervalSince(event.startDate)
-        let maxAge: TimeInterval = fromSnooze ? 30 * 60 : 5 * 60
+        let snoozeMaxAgeSeconds: TimeInterval = 1800
+        let normalMaxAgeSeconds: TimeInterval = 300
+        let maxAge: TimeInterval = fromSnooze ? snoozeMaxAgeSeconds : normalMaxAgeSeconds
         if timeSinceStart > maxAge {
             logger
                 .debug(
-                    "TEST-SAFE: Skipping overlay — meeting started \(Int(timeSinceStart))s ago (max \(Int(maxAge))s)"
+                    "TEST-SAFE: Skipping overlay — meeting started \(Int(timeSinceStart))s ago (max \(Int(maxAge))s)",
                 )
             activeEvent = nil
             isOverlayVisible = false
@@ -137,7 +139,7 @@ public final class TestSafeOverlayManager: OverlayManaging {
 
 // MARK: - Test-Safe Meeting Details Popup
 
-@MainActor
+@preconcurrency @MainActor
 public final class TestSafeMeetingDetailsPopupManager: MeetingDetailsPopupManaging {
     private let logger = Logger(category: "TestSupport")
 

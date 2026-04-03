@@ -10,11 +10,11 @@ final class DatabaseConcurrencyIntegrationTests: XCTestCase {
         try await super.setUp()
         tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent(
-                "unmissable-dbtest-\(UUID().uuidString)"
+                "unmissable-dbtest-\(UUID().uuidString)",
             )
         try FileManager.default.createDirectory(
             at: tempDir,
-            withIntermediateDirectories: true
+            withIntermediateDirectories: true,
         )
         let dbURL = tempDir.appendingPathComponent("test.db")
         db = DatabaseManager(databaseURL: dbURL)
@@ -44,15 +44,15 @@ final class DatabaseConcurrencyIntegrationTests: XCTestCase {
                             id: "concurrent-\(batch)-\(i)",
                             title: "Batch \(batch) Event \(i)",
                             startDate: Date().addingTimeInterval(
-                                Double(batch * 100 + i * 10 + 600)
+                                Double(batch * 100 + i * 10 + 600),
                             ),
                             endDate: Date().addingTimeInterval(
-                                Double(batch * 100 + i * 10 + 4200)
+                                Double(batch * 100 + i * 10 + 4200),
                             ),
                             calendarId: "cal-concurrent-\(batch)",
                             timezone: "UTC",
                             createdAt: Date(),
-                            updatedAt: Date()
+                            updatedAt: Date(),
                         )
                     }
                     try? await database.saveEvents(events)
@@ -62,12 +62,13 @@ final class DatabaseConcurrencyIntegrationTests: XCTestCase {
 
         // All 50 events should be present without corruption
         let allEvents = try await db.fetchEvents(
-            from: Date(), to: Date().addingTimeInterval(86_400)
+            from: Date(), to: Date().addingTimeInterval(86_400),
         )
-        XCTAssertEqual(allEvents.count, 50, "All 50 concurrent events should be saved")
-
-        let uniqueIds = Set(allEvents.map(\.id))
-        XCTAssertEqual(uniqueIds.count, 50, "All event IDs should be unique")
+        let expectedIds = Set((0 ..< 10).flatMap { batch in
+            (0 ..< 5).map { "concurrent-\(batch)-\($0)" }
+        })
+        let actualIds = Set(allEvents.map(\.id))
+        XCTAssertEqual(actualIds, expectedIds, "All 50 concurrent events should be saved with unique IDs")
     }
 
     func testConcurrentReadsDuringWrite() async throws {
@@ -84,7 +85,7 @@ final class DatabaseConcurrencyIntegrationTests: XCTestCase {
                 calendarId: "cal-rdw",
                 timezone: "UTC",
                 createdAt: Date(),
-                updatedAt: Date()
+                updatedAt: Date(),
             )
         }
         try await db.saveEvents(events)
@@ -98,8 +99,9 @@ final class DatabaseConcurrencyIntegrationTests: XCTestCase {
                     // Verify the read returned a non-nil, non-empty result
                     let count = fetched?.count ?? 0
                     XCTAssertGreaterThanOrEqual(
-                        count, 1,
-                        "Read should succeed and return seeded events during concurrent writes"
+                        count,
+                        1,
+                        "Read should succeed and return seeded events during concurrent writes",
                     )
                 }
             }
@@ -114,7 +116,7 @@ final class DatabaseConcurrencyIntegrationTests: XCTestCase {
                         calendarId: "cal-rdw",
                         timezone: "UTC",
                         createdAt: Date(),
-                        updatedAt: Date()
+                        updatedAt: Date(),
                     )
                     try? await database.saveEvents([newEvent])
                 }
@@ -123,7 +125,7 @@ final class DatabaseConcurrencyIntegrationTests: XCTestCase {
 
         // Final state should include all original + new events
         let finalEvents = try await db.fetchEvents(
-            from: Date(), to: Date().addingTimeInterval(100_000)
+            from: Date(), to: Date().addingTimeInterval(100_000),
         )
         XCTAssertGreaterThanOrEqual(finalEvents.count, 10, "Original events should persist")
     }
@@ -138,25 +140,25 @@ final class DatabaseConcurrencyIntegrationTests: XCTestCase {
             name: "Google Work",
             isSelected: true,
             isPrimary: true,
-            sourceProvider: .google
+            sourceProvider: .google,
         )
         let apple = CalendarInfo(
             id: "apple-cal",
             name: "Apple Personal",
             isSelected: true,
             isPrimary: false,
-            sourceProvider: .apple
+            sourceProvider: .apple,
         )
         try await db.saveCalendars([google, apple])
 
         let googleCals = try await db.fetchCalendars(
-            for: .google
+            for: .google,
         )
-        XCTAssertEqual(googleCals.count, 1)
-        XCTAssertEqual(googleCals[0].id, "google-cal")
+        let googleCal = try XCTUnwrap(googleCals.first)
+        XCTAssertEqual(googleCal.id, "google-cal")
 
         let appleCals = try await db.fetchCalendars(for: .apple)
-        XCTAssertEqual(appleCals.count, 1)
-        XCTAssertEqual(appleCals[0].id, "apple-cal")
+        let appleCal = try XCTUnwrap(appleCals.first)
+        XCTAssertEqual(appleCal.id, "apple-cal")
     }
 }

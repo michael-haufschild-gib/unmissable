@@ -24,7 +24,7 @@ final class OverlayContentViewTests: XCTestCase {
             onSnooze: { minutes in
                 snoozeMinutes = minutes
                 expectation.fulfill()
-            }
+            },
         )
 
         // Simulate snooze action - this should not freeze the app
@@ -57,7 +57,7 @@ final class OverlayContentViewTests: XCTestCase {
             },
             onSnooze: { _ in
                 XCTFail("Snooze should not be called during dismiss test")
-            }
+            },
         )
 
         // Simulate dismiss action - this should not freeze the app
@@ -72,7 +72,7 @@ final class OverlayContentViewTests: XCTestCase {
     @MainActor
     func testJoinMeetingCallbackDoesNotCauseDeadlock() throws {
         let expectation = XCTestExpectation(
-            description: "Join meeting callback completes without deadlock"
+            description: "Join meeting callback completes without deadlock",
         )
 
         let testURL = try XCTUnwrap(URL(string: "https://meet.google.com/test"))
@@ -91,7 +91,7 @@ final class OverlayContentViewTests: XCTestCase {
             },
             onSnooze: { _ in
                 XCTFail("Snooze should not be called during join test")
-            }
+            },
         )
 
         // Simulate join action - this should not freeze the app
@@ -118,13 +118,14 @@ final class OverlayContentViewTests: XCTestCase {
                 onJoin: {},
                 onSnooze: { minutes in
                     receivedMinutes = minutes
-                }
+                },
             )
 
             view.onSnooze(expectedMinutes)
             XCTAssertEqual(
-                receivedMinutes, expectedMinutes,
-                "Snooze callback should forward \(expectedMinutes) minutes"
+                receivedMinutes,
+                expectedMinutes,
+                "Snooze callback should forward \(expectedMinutes) minutes",
             )
         }
     }
@@ -135,7 +136,7 @@ final class OverlayContentViewTests: XCTestCase {
             TestUtilities.createTestEvent(),
             TestUtilities.createTestEvent(
                 links: [XCTUnwrap(URL(string: "https://meet.google.com/test"))],
-                provider: .meet
+                provider: .meet,
             ),
             Event(
                 id: "test-event-no-link",
@@ -144,7 +145,7 @@ final class OverlayContentViewTests: XCTestCase {
                 endDate: Date().addingTimeInterval(1800),
                 organizer: "manager@example.com",
                 calendarId: "test-calendar",
-                links: []
+                links: [],
             ),
             Event(
                 id: "test-event-zoom",
@@ -153,7 +154,7 @@ final class OverlayContentViewTests: XCTestCase {
                 endDate: Date().addingTimeInterval(1800),
                 organizer: "manager@example.com",
                 calendarId: "test-calendar",
-                links: [XCTUnwrap(URL(string: "https://zoom.us/j/123456789"))]
+                links: [XCTUnwrap(URL(string: "https://zoom.us/j/123456789"))],
             ),
         ]
 
@@ -175,7 +176,7 @@ final class OverlayContentViewTests: XCTestCase {
                 onSnooze: { minutes in
                     snoozeCalls += 1
                     snoozeMinutes = minutes
-                }
+                },
             )
 
             view.onDismiss()

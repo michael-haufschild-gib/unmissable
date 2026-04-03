@@ -14,7 +14,7 @@ final class FocusModeE2ETests: XCTestCase {
         env = try await E2ETestEnvironment()
         focusModeManager = FocusModeManager(
             preferencesManager: env.preferencesManager,
-            isTestMode: true
+            isTestMode: true,
         )
     }
 
@@ -33,11 +33,11 @@ final class FocusModeE2ETests: XCTestCase {
 
         XCTAssertTrue(
             focusModeManager.shouldShowOverlay(),
-            "Overlay should show when DND is off"
+            "Overlay should show when DND is off",
         )
         XCTAssertTrue(
             focusModeManager.shouldPlaySound(),
-            "Sound should play when DND is off"
+            "Sound should play when DND is off",
         )
 
         // Verify through full stack
@@ -56,11 +56,11 @@ final class FocusModeE2ETests: XCTestCase {
 
         XCTAssertFalse(
             focusModeManager.shouldShowOverlay(),
-            "Overlay should be suppressed when DND is on and override is disabled"
+            "Overlay should be suppressed when DND is on and override is disabled",
         )
         XCTAssertFalse(
             focusModeManager.shouldPlaySound(),
-            "Sound should be suppressed when DND is on and override is disabled"
+            "Sound should be suppressed when DND is on and override is disabled",
         )
     }
 
@@ -72,11 +72,11 @@ final class FocusModeE2ETests: XCTestCase {
 
         XCTAssertTrue(
             focusModeManager.shouldShowOverlay(),
-            "Overlay should show when DND is on but override is enabled"
+            "Overlay should show when DND is on but override is enabled",
         )
         XCTAssertTrue(
             focusModeManager.shouldPlaySound(),
-            "Sound should play when DND is on but override is enabled"
+            "Sound should play when DND is on but override is enabled",
         )
     }
 
@@ -154,7 +154,7 @@ final class FocusModeE2ETests: XCTestCase {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-focus-scheduler",
             title: "Focus Gate Meeting",
-            minutesFromNow: 1
+            minutesFromNow: 1,
         )
 
         try await env.seedAndSchedule([event])
@@ -162,14 +162,14 @@ final class FocusModeE2ETests: XCTestCase {
         // Verify DND suppresses the overlay decision
         XCTAssertFalse(
             focusModeManager.shouldShowOverlay(),
-            "DND on + override disabled should suppress overlay"
+            "DND on + override disabled should suppress overlay",
         )
 
         // Now enable override
         env.preferencesManager.setOverrideFocusMode(true)
         XCTAssertTrue(
             focusModeManager.shouldShowOverlay(),
-            "DND on + override enabled should allow overlay"
+            "DND on + override enabled should allow overlay",
         )
 
         // Manually trigger overlay (as scheduler would after focus check passes)
@@ -185,7 +185,7 @@ final class FocusModeE2ETests: XCTestCase {
         XCTAssertEqual(
             focusModeManager.shouldShowOverlay(),
             focusModeManager.shouldPlaySound(),
-            "Sound and overlay decisions should match when DND is off"
+            "Sound and overlay decisions should match when DND is off",
         )
 
         // DND on, no override
@@ -194,7 +194,7 @@ final class FocusModeE2ETests: XCTestCase {
         XCTAssertEqual(
             focusModeManager.shouldShowOverlay(),
             focusModeManager.shouldPlaySound(),
-            "Sound and overlay decisions should match when DND is on without override"
+            "Sound and overlay decisions should match when DND is on without override",
         )
 
         // DND on, with override
@@ -202,7 +202,7 @@ final class FocusModeE2ETests: XCTestCase {
         XCTAssertEqual(
             focusModeManager.shouldShowOverlay(),
             focusModeManager.shouldPlaySound(),
-            "Sound and overlay decisions should match when DND is on with override"
+            "Sound and overlay decisions should match when DND is on with override",
         )
     }
 }

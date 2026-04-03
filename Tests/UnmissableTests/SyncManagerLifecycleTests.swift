@@ -12,7 +12,7 @@ final class SyncManagerLifecycleTests: XCTestCase {
 
         let tempDir = FileManager.default.temporaryDirectory
         tempDatabaseURL = tempDir.appendingPathComponent(
-            "unmissable-synclifecycle-\(UUID().uuidString).db"
+            "unmissable-synclifecycle-\(UUID().uuidString).db",
         )
         databaseManager = DatabaseManager(databaseURL: tempDatabaseURL)
 
@@ -22,7 +22,7 @@ final class SyncManagerLifecycleTests: XCTestCase {
         manager = SyncManager(
             apiService: apiService,
             databaseManager: databaseManager,
-            preferencesManager: preferences
+            preferencesManager: preferences,
         )
     }
 
@@ -72,7 +72,7 @@ final class SyncManagerLifecycleTests: XCTestCase {
         // The key invariant: lastSyncTime should not be set on a failed or no-op sync.
         XCTAssertNil(
             manager.lastSyncTime,
-            "No-op or failed sync should not update lastSyncTime"
+            "No-op or failed sync should not update lastSyncTime",
         )
     }
 
@@ -86,7 +86,7 @@ final class SyncManagerLifecycleTests: XCTestCase {
             colorHex: "#1a73e8",
             lastSyncAt: nil,
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         try await databaseManager.saveCalendars([calendar])
 
@@ -96,7 +96,7 @@ final class SyncManagerLifecycleTests: XCTestCase {
         // → SyncManager catches the error → sets .error status.
         XCTAssertTrue(
             manager.syncStatus.isError,
-            "Sync with selected calendars but no auth should set error status, got: \(manager.syncStatus)"
+            "Sync with selected calendars but no auth should set error status, got: \(manager.syncStatus)",
         )
     }
 
@@ -110,7 +110,7 @@ final class SyncManagerLifecycleTests: XCTestCase {
             colorHex: "#1a73e8",
             lastSyncAt: nil,
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
         )
         try await databaseManager.saveCalendars([calendar])
 
@@ -124,7 +124,7 @@ final class SyncManagerLifecycleTests: XCTestCase {
         manager = SyncManager(
             apiService: apiService,
             databaseManager: databaseManager,
-            preferencesManager: preferences
+            preferencesManager: preferences,
         )
 
         await manager.performSync()
@@ -137,7 +137,7 @@ final class SyncManagerLifecycleTests: XCTestCase {
 
         XCTAssertNil(
             manager.lastSyncTime,
-            "Failed sync attempts should not advance last successful sync timestamp"
+            "Failed sync attempts should not advance last successful sync timestamp",
         )
     }
 }

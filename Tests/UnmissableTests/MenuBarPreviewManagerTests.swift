@@ -35,7 +35,7 @@ final class MenuBarPreviewManagerTests: XCTestCase {
     func testTimerMode_withFutureEvent_showsTimerText() throws {
         prefs.setMenuBarDisplayMode(.timer)
         let futureEvent = TestUtilities.createTestEvent(
-            startDate: Date().addingTimeInterval(1800) // 30 minutes
+            startDate: Date().addingTimeInterval(1800), // 30 minutes
         )
         manager.updateEvents([futureEvent])
 
@@ -57,7 +57,7 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         prefs.setMenuBarDisplayMode(.timer)
         let pastEvent = TestUtilities.createTestEvent(
             startDate: Date().addingTimeInterval(-7200),
-            endDate: Date().addingTimeInterval(-3600)
+            endDate: Date().addingTimeInterval(-3600),
         )
         manager.updateEvents([pastEvent])
 
@@ -69,7 +69,7 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         prefs.setMenuBarDisplayMode(.timer)
         let inProgress = TestUtilities.createTestEvent(
             startDate: Date().addingTimeInterval(-60), // started 1 min ago
-            endDate: Date().addingTimeInterval(3540) // ends in ~59 min
+            endDate: Date().addingTimeInterval(3540), // ends in ~59 min
         )
         manager.updateEvents([inProgress])
 
@@ -83,7 +83,7 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         prefs.setMenuBarDisplayMode(.nameTimer)
         let event = TestUtilities.createTestEvent(
             title: "Team Sync",
-            startDate: Date().addingTimeInterval(1800)
+            startDate: Date().addingTimeInterval(1800),
         )
         manager.updateEvents([event])
 
@@ -98,7 +98,7 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         prefs.setMenuBarDisplayMode(.nameTimer)
         let event = TestUtilities.createTestEvent(
             title: "Very Important Strategic Planning Meeting",
-            startDate: Date().addingTimeInterval(1800)
+            startDate: Date().addingTimeInterval(1800),
         )
         manager.updateEvents([event])
 
@@ -111,7 +111,7 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         prefs.setMenuBarDisplayMode(.nameTimer)
         let event = TestUtilities.createTestEvent(
             title: "Short Name",
-            startDate: Date().addingTimeInterval(1800)
+            startDate: Date().addingTimeInterval(1800),
         )
         manager.updateEvents([event])
 
@@ -126,11 +126,11 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         let inProgress = TestUtilities.createTestEvent(
             title: "Current Meeting",
             startDate: Date().addingTimeInterval(-300),
-            endDate: Date().addingTimeInterval(3300)
+            endDate: Date().addingTimeInterval(3300),
         )
         let future = TestUtilities.createTestEvent(
             title: "Future Meeting",
-            startDate: Date().addingTimeInterval(1800)
+            startDate: Date().addingTimeInterval(1800),
         )
         manager.updateEvents([future, inProgress])
 
@@ -142,11 +142,11 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         prefs.setMenuBarDisplayMode(.nameTimer)
         let far = TestUtilities.createTestEvent(
             title: "Far Meeting",
-            startDate: Date().addingTimeInterval(7200)
+            startDate: Date().addingTimeInterval(7200),
         )
         let near = TestUtilities.createTestEvent(
             title: "Near Meetin",
-            startDate: Date().addingTimeInterval(600)
+            startDate: Date().addingTimeInterval(600),
         )
         manager.updateEvents([far, near])
 
@@ -159,7 +159,7 @@ final class MenuBarPreviewManagerTests: XCTestCase {
     func testTimerMode_lessThanOneMinute() {
         prefs.setMenuBarDisplayMode(.timer)
         let event = TestUtilities.createTestEvent(
-            startDate: Date().addingTimeInterval(30)
+            startDate: Date().addingTimeInterval(30),
         )
         manager.updateEvents([event])
 
@@ -169,7 +169,7 @@ final class MenuBarPreviewManagerTests: XCTestCase {
     func testTimerMode_overOneHour() throws {
         prefs.setMenuBarDisplayMode(.timer)
         let event = TestUtilities.createTestEvent(
-            startDate: Date().addingTimeInterval(3660) // 61 minutes to avoid rounding below 60
+            startDate: Date().addingTimeInterval(3660), // 61 minutes to avoid rounding below 60
         )
         manager.updateEvents([event])
 
@@ -180,7 +180,7 @@ final class MenuBarPreviewManagerTests: XCTestCase {
     func testTimerMode_overOneDay() throws {
         prefs.setMenuBarDisplayMode(.timer)
         let event = TestUtilities.createTestEvent(
-            startDate: Date().addingTimeInterval(100_000)
+            startDate: Date().addingTimeInterval(100_000),
         )
         manager.updateEvents([event])
 

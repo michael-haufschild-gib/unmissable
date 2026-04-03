@@ -18,7 +18,7 @@ struct ProviderDetectionTests {
             ("https://webex.com/meet/john.doe", Provider.webex),
             ("https://example.com/meeting", Provider.generic),
             ("https://docs.google.com/document/d/123", Provider.generic),
-        ] as [(String, Provider)]
+        ] as [(String, Provider)],
     )
     func detectProvider(urlString: String, expected: Provider) throws {
         let url = try #require(URL(string: urlString))
@@ -27,7 +27,7 @@ struct ProviderDetectionTests {
 
     @Test(
         "Every provider's own URL schemes are detected correctly",
-        arguments: Provider.allCases.filter { $0 != .generic }
+        arguments: Provider.allCases.filter { $0 != .generic },
     )
     func providerSchemesRoundTrip(provider: Provider) {
         for scheme in provider.urlSchemes {
@@ -36,7 +36,7 @@ struct ProviderDetectionTests {
             guard let url = URL(string: urlString) else { continue }
             #expect(
                 Provider.detect(from: url) == provider,
-                "Scheme \(scheme) should detect as \(provider)"
+                "Scheme \(scheme) should detect as \(provider)",
             )
         }
     }
@@ -54,7 +54,7 @@ struct ProviderDetectionTests {
 struct EventPropertyTests {
     @Test(
         "Duration equals endDate minus startDate",
-        arguments: [60.0, 300.0, 1800.0, 3600.0, 7200.0, 86_400.0] as [TimeInterval]
+        arguments: [60.0, 300.0, 1800.0, 3600.0, 7200.0, 86_400.0] as [TimeInterval],
     )
     func durationMatchesInterval(interval: TimeInterval) {
         let start = Date()
@@ -63,7 +63,7 @@ struct EventPropertyTests {
             title: "Test",
             startDate: start,
             endDate: start.addingTimeInterval(interval),
-            calendarId: "primary"
+            calendarId: "primary",
         )
         #expect(event.duration == interval)
     }
@@ -78,7 +78,7 @@ struct EventPropertyTests {
             (["https://example.com"], false),
             ([] as [String], false),
             (["https://docs.google.com/doc/d/1"], false),
-        ] as [([String], Bool)]
+        ] as [([String], Bool)],
     )
     func onlineMeetingDetection(urlStrings: [String], expected: Bool) {
         let links = urlStrings.compactMap { URL(string: $0) }
@@ -88,7 +88,7 @@ struct EventPropertyTests {
             startDate: Date(),
             endDate: Date().addingTimeInterval(3600),
             calendarId: "primary",
-            links: links
+            links: links,
         )
         #expect(LinkParser().isOnlineMeeting(event) == expected)
     }
@@ -108,7 +108,7 @@ struct EventPropertyTests {
                 ["https://example.com"],
                 nil as String?
             ),
-        ] as [([String], String?)]
+        ] as [([String], String?)],
     )
     func primaryLinkSelection(urlStrings: [String], expectedString: String?) {
         let links = urlStrings.compactMap { URL(string: $0) }
@@ -118,7 +118,7 @@ struct EventPropertyTests {
             startDate: Date(),
             endDate: Date().addingTimeInterval(3600),
             calendarId: "primary",
-            links: links
+            links: links,
         )
         let expected = expectedString.flatMap { URL(string: $0) }
         #expect(LinkParser().primaryLink(for: event) == expected)
@@ -131,7 +131,7 @@ struct EventPropertyTests {
             ("https://zoom.us/j/123", Provider.zoom),
             ("https://teams.live.com/meet/abc", Provider.teams),
             ("https://webex.com/meet/john", Provider.webex),
-        ] as [(String, Provider)]
+        ] as [(String, Provider)],
     )
     func autoDetectedProvider(urlString: String, expected: Provider) throws {
         let url = try #require(URL(string: urlString))
@@ -143,7 +143,7 @@ struct EventPropertyTests {
             endDate: Date().addingTimeInterval(3600),
             calendarId: "primary",
             links: [url],
-            linkParser: linkParser
+            linkParser: linkParser,
         )
         #expect(event.provider == expected)
     }

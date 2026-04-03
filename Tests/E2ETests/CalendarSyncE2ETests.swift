@@ -30,7 +30,7 @@ final class CalendarSyncE2ETests: XCTestCase {
                 id: "sync-new-\(i)",
                 title: "Synced Meeting \(i)",
                 minutesFromNow: 15 + (i * 10),
-                calendarId: "synced-calendar"
+                calendarId: "synced-calendar",
             )
         }
 
@@ -40,14 +40,11 @@ final class CalendarSyncE2ETests: XCTestCase {
         // Fetch and schedule (as CalendarService would trigger)
         let upcoming = try await env.fetchUpcomingEvents()
         await env.eventScheduler.startScheduling(
-            events: upcoming, overlayManager: env.overlayManager
+            events: upcoming, overlayManager: env.overlayManager,
         )
 
-        XCTAssertEqual(env.eventScheduler.scheduledAlerts.count, 3)
-        for event in syncedEvents {
-            let hasAlert = env.eventScheduler.scheduledAlerts.contains { $0.event.id == event.id }
-            XCTAssertTrue(hasAlert, "Synced event \(event.id) should be scheduled")
-        }
+        let scheduledIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
+        XCTAssertEqual(scheduledIds, Set(syncedEvents.map(\.id)))
     }
 
     // MARK: - Simulated Sync: Events Updated
@@ -59,14 +56,14 @@ final class CalendarSyncE2ETests: XCTestCase {
                 id: "sync-update-1",
                 title: "Original Title",
                 minutesFromNow: 30,
-                calendarId: "sync-cal"
+                calendarId: "sync-cal",
             ),
         ]
         try await env.databaseManager.replaceEvents(for: "sync-cal", with: initialEvents)
 
         let firstFetch = try await env.fetchUpcomingEvents()
         await env.eventScheduler.startScheduling(
-            events: firstFetch, overlayManager: env.overlayManager
+            events: firstFetch, overlayManager: env.overlayManager,
         )
 
         let initialAlertTrigger = env.eventScheduler.scheduledAlerts.first?.triggerDate
@@ -77,7 +74,7 @@ final class CalendarSyncE2ETests: XCTestCase {
                 id: "sync-update-1",
                 title: "Updated Title",
                 minutesFromNow: 45,
-                calendarId: "sync-cal"
+                calendarId: "sync-cal",
             ),
         ]
         try await env.databaseManager.replaceEvents(for: "sync-cal", with: updatedEvents)
@@ -86,7 +83,7 @@ final class CalendarSyncE2ETests: XCTestCase {
         env.eventScheduler.stopScheduling()
         let secondFetch = try await env.fetchUpcomingEvents()
         await env.eventScheduler.startScheduling(
-            events: secondFetch, overlayManager: env.overlayManager
+            events: secondFetch, overlayManager: env.overlayManager,
         )
 
         let updatedAlert = try XCTUnwrap(env.eventScheduler.scheduledAlerts.first)
@@ -95,8 +92,9 @@ final class CalendarSyncE2ETests: XCTestCase {
         // Alert trigger time should have changed
         if let initialTrigger = initialAlertTrigger {
             XCTAssertNotEqual(
-                updatedAlert.triggerDate, initialTrigger,
-                "Alert should be rescheduled when event time changes"
+                updatedAlert.triggerDate,
+                initialTrigger,
+                "Alert should be rescheduled when event time changes",
             )
         }
     }
@@ -106,15 +104,16 @@ final class CalendarSyncE2ETests: XCTestCase {
     func testDeletedEventsFromSyncRemoveAlerts() async throws {
         // Initial sync with 3 events
         let initialEvents = E2EEventBuilder.eventBatch(
-            count: 3, startingMinutesFromNow: 15, calendarId: "sync-delete-cal"
+            count: 3, startingMinutesFromNow: 15, calendarId: "sync-delete-cal",
         )
         try await env.databaseManager.replaceEvents(for: "sync-delete-cal", with: initialEvents)
 
         let firstFetch = try await env.fetchUpcomingEvents()
         await env.eventScheduler.startScheduling(
-            events: firstFetch, overlayManager: env.overlayManager
+            events: firstFetch, overlayManager: env.overlayManager,
         )
-        XCTAssertEqual(env.eventScheduler.scheduledAlerts.count, 3)
+        let initialAlertIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
+        XCTAssertEqual(initialAlertIds, Set(["e2e-batch-0", "e2e-batch-1", "e2e-batch-2"]))
 
         // Second sync: only 1 event remains (2 were cancelled)
         let remainingEvents = [
@@ -122,7 +121,7 @@ final class CalendarSyncE2ETests: XCTestCase {
                 id: "e2e-batch-0",
                 title: "Only Remaining Meeting",
                 minutesFromNow: 15,
-                calendarId: "sync-delete-cal"
+                calendarId: "sync-delete-cal",
             ),
         ]
         try await env.databaseManager.replaceEvents(for: "sync-delete-cal", with: remainingEvents)
@@ -131,11 +130,11 @@ final class CalendarSyncE2ETests: XCTestCase {
         env.eventScheduler.stopScheduling()
         let secondFetch = try await env.fetchUpcomingEvents()
         await env.eventScheduler.startScheduling(
-            events: secondFetch, overlayManager: env.overlayManager
+            events: secondFetch, overlayManager: env.overlayManager,
         )
 
-        XCTAssertEqual(env.eventScheduler.scheduledAlerts.count, 1)
-        XCTAssertEqual(env.eventScheduler.scheduledAlerts.first?.event.id, "e2e-batch-0")
+        let remainingAlertEvent = try XCTUnwrap(env.eventScheduler.scheduledAlerts.first)
+        XCTAssertEqual(remainingAlertEvent.event.id, "e2e-batch-0")
     }
 
     // MARK: - Calendar Selection Changes
@@ -145,14 +144,14 @@ final class CalendarSyncE2ETests: XCTestCase {
             E2EEventBuilder.futureEvent(
                 id: "e2e-cal-sel-1-\(i)",
                 minutesFromNow: 10 + (i * 5),
-                calendarId: "selected-cal"
+                calendarId: "selected-cal",
             )
         }
         let cal2Events = (0 ..< 2).map { i in
             E2EEventBuilder.futureEvent(
                 id: "e2e-cal-sel-2-\(i)",
                 minutesFromNow: 12 + (i * 5),
-                calendarId: "deselected-cal"
+                calendarId: "deselected-cal",
             )
         }
 
@@ -161,9 +160,10 @@ final class CalendarSyncE2ETests: XCTestCase {
         // Schedule all events initially
         let allEvents = try await env.fetchUpcomingEvents()
         await env.eventScheduler.startScheduling(
-            events: allEvents, overlayManager: env.overlayManager
+            events: allEvents, overlayManager: env.overlayManager,
         )
-        XCTAssertEqual(env.eventScheduler.scheduledAlerts.count, 5)
+        let initialCalendarIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.calendarId))
+        XCTAssertEqual(initialCalendarIds, Set(["selected-cal", "deselected-cal"]))
 
         // Simulate deselecting "deselected-cal" by deleting its events
         try await env.databaseManager.deleteEventsForCalendar("deselected-cal")
@@ -172,14 +172,13 @@ final class CalendarSyncE2ETests: XCTestCase {
         env.eventScheduler.stopScheduling()
         let remaining = try await env.fetchUpcomingEvents()
         await env.eventScheduler.startScheduling(
-            events: remaining, overlayManager: env.overlayManager
+            events: remaining, overlayManager: env.overlayManager,
         )
 
-        XCTAssertEqual(env.eventScheduler.scheduledAlerts.count, 3)
-        let alertCalendarIds = Set(
-            env.eventScheduler.scheduledAlerts.map(\.event.calendarId)
-        )
-        XCTAssertEqual(alertCalendarIds, ["selected-cal"])
+        let afterCalendarIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.calendarId))
+        XCTAssertEqual(afterCalendarIds, Set(["selected-cal"]))
+        let remainingAlertIds = env.eventScheduler.scheduledAlerts.map(\.event.id).sorted()
+        XCTAssertEqual(remainingAlertIds, ["e2e-cal-sel-1-0", "e2e-cal-sel-1-1", "e2e-cal-sel-1-2"])
     }
 
     // MARK: - Calendar Metadata Persistence
@@ -195,7 +194,7 @@ final class CalendarSyncE2ETests: XCTestCase {
                 colorHex: "#1a73e8",
                 lastSyncAt: Date(),
                 createdAt: Date(),
-                updatedAt: Date()
+                updatedAt: Date(),
             ),
             CalendarInfo(
                 id: "cal-2",
@@ -206,14 +205,14 @@ final class CalendarSyncE2ETests: XCTestCase {
                 colorHex: "#e67c73",
                 lastSyncAt: Date(),
                 createdAt: Date(),
-                updatedAt: Date()
+                updatedAt: Date(),
             ),
         ]
 
         try await env.seedCalendars(calendars)
 
         let fetched = try await env.databaseManager.fetchCalendars()
-        XCTAssertEqual(fetched.count, 2)
+        XCTAssertEqual(Set(fetched.map(\.id)), Set(["cal-1", "cal-2"]))
 
         let workCal = try XCTUnwrap(fetched.first { $0.id == "cal-1" })
         XCTAssertEqual(workCal.name, "Work Calendar")
@@ -230,18 +229,18 @@ final class CalendarSyncE2ETests: XCTestCase {
 
     func testRepeatedSyncWithSameDataIsIdempotent() async throws {
         let events = E2EEventBuilder.eventBatch(
-            count: 3, startingMinutesFromNow: 20, calendarId: "idempotent-cal"
+            count: 3, startingMinutesFromNow: 20, calendarId: "idempotent-cal",
         )
 
         // First sync
         try await env.databaseManager.replaceEvents(for: "idempotent-cal", with: events)
         let firstFetch = try await env.fetchUpcomingEvents()
-        XCTAssertEqual(firstFetch.count, 3)
+        XCTAssertEqual(firstFetch.map(\.id), ["e2e-batch-0", "e2e-batch-1", "e2e-batch-2"])
 
         // Second sync with same data
         try await env.databaseManager.replaceEvents(for: "idempotent-cal", with: events)
         let secondFetch = try await env.fetchUpcomingEvents()
-        XCTAssertEqual(secondFetch.count, 3)
+        XCTAssertEqual(secondFetch.map(\.id), ["e2e-batch-0", "e2e-batch-1", "e2e-batch-2"])
 
         // Event data should be identical
         for (first, second) in zip(firstFetch, secondFetch) {
@@ -256,13 +255,13 @@ final class CalendarSyncE2ETests: XCTestCase {
         let calendarService = CalendarService(
             preferencesManager: env.preferencesManager,
             databaseManager: env.databaseManager,
-            linkParser: LinkParser()
+            linkParser: LinkParser(),
         )
 
         XCTAssertFalse(calendarService.isConnected)
         XCTAssertEqual(calendarService.syncStatus, .idle)
-        XCTAssertTrue(calendarService.events.isEmpty)
-        XCTAssertTrue(calendarService.calendars.isEmpty)
+        XCTAssertEqual(calendarService.events, [])
+        XCTAssertEqual(calendarService.calendars, [])
         XCTAssertNil(calendarService.userEmail)
     }
 
@@ -270,7 +269,7 @@ final class CalendarSyncE2ETests: XCTestCase {
         let calendarService = CalendarService(
             preferencesManager: env.preferencesManager,
             databaseManager: env.databaseManager,
-            linkParser: LinkParser()
+            linkParser: LinkParser(),
         )
 
         // Manually set some state
@@ -281,6 +280,6 @@ final class CalendarSyncE2ETests: XCTestCase {
         await calendarService.disconnectAll()
 
         XCTAssertFalse(calendarService.isConnected)
-        XCTAssertTrue(calendarService.events.isEmpty)
+        XCTAssertEqual(calendarService.events, [])
     }
 }

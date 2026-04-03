@@ -134,7 +134,7 @@ final class ContinuationCoordinatorTests: XCTestCase {
                 // Some tasks resume with value, some with error
                 for i in 0 ..< 5 {
                     Task { @MainActor in
-                        if i % 2 == 0 {
+                        if i.isMultiple(of: 2) {
                             coordinator.resume(returning: "value-\(i)")
                         } else {
                             coordinator.resume(throwing: TestError.intentional)

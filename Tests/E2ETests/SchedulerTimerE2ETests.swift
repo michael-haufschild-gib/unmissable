@@ -31,7 +31,7 @@ final class SchedulerTimerE2ETests: XCTestCase {
         let nearEvent = E2EEventBuilder.futureEvent(
             id: "e2e-timer-trigger",
             title: "Near Future Meeting",
-            minutesFromNow: 1 // 1 minute from clock's "now"
+            minutesFromNow: 1, // 1 minute from clock's "now"
         )
 
         try await env.seedAndSchedule([nearEvent])
@@ -51,7 +51,7 @@ final class SchedulerTimerE2ETests: XCTestCase {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-snooze-refire",
             title: "Snooze Refire Test",
-            minutesFromNow: 15
+            minutesFromNow: 15,
         )
 
         try await env.seedAndSchedule([event])
@@ -83,7 +83,7 @@ final class SchedulerTimerE2ETests: XCTestCase {
     func testSnoozeAlertSurvivesRescheduling() async throws {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-snooze-survive",
-            minutesFromNow: 20
+            minutesFromNow: 20,
         )
 
         try await env.seedAndSchedule([event])
@@ -112,8 +112,9 @@ final class SchedulerTimerE2ETests: XCTestCase {
             return false
         })
         XCTAssertEqual(
-            postRescheduleSnoozeCount, 1,
-            "Snooze alert should be preserved during rescheduling"
+            postRescheduleSnoozeCount,
+            1,
+            "Snooze alert should be preserved during rescheduling",
         )
     }
 
@@ -128,7 +129,7 @@ final class SchedulerTimerE2ETests: XCTestCase {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-missed-alert",
             title: "Missed Alert Meeting",
-            minutesFromNow: 5
+            minutesFromNow: 5,
         )
 
         try await env.seedAndSchedule([event])
@@ -155,8 +156,8 @@ final class SchedulerTimerE2ETests: XCTestCase {
                     id: "e2e-provider-\(provider.rawValue)",
                     title: "\(provider.rawValue) Meeting",
                     minutesFromNow: 15 + (index * 5),
-                    provider: provider
-                )
+                    provider: provider,
+                ),
             )
         }
 
@@ -169,20 +170,20 @@ final class SchedulerTimerE2ETests: XCTestCase {
         for provider in knownProviders {
             let event = try XCTUnwrap(
                 fetched.first { $0.id == "e2e-provider-\(provider.rawValue)" },
-                "Should find event for provider \(provider.rawValue)"
+                "Should find event for provider \(provider.rawValue)",
             )
             XCTAssertEqual(event.provider, provider)
             XCTAssertTrue(LinkParser().isOnlineMeeting(event), "\(provider.rawValue) should be online meeting")
             XCTAssertNotNil(
                 LinkParser().primaryLink(for: event),
-                "\(provider.rawValue) should have a primary link"
+                "\(provider.rawValue) should have a primary link",
             )
         }
 
         // Generic provider may or may not be detected as online meeting depending on
         // LinkParser — the important thing is the link is preserved
         let genericEvent = try XCTUnwrap(
-            fetched.first { $0.id == "e2e-provider-generic" }
+            fetched.first { $0.id == "e2e-provider-generic" },
         )
         XCTAssertFalse(genericEvent.links.isEmpty, "Generic event should still have links")
     }
@@ -194,29 +195,29 @@ final class SchedulerTimerE2ETests: XCTestCase {
             E2EEventBuilder.futureEvent(
                 id: "e2e-search-standup",
                 title: "Daily Standup",
-                minutesFromNow: 10
+                minutesFromNow: 10,
             ),
             E2EEventBuilder.futureEvent(
                 id: "e2e-search-planning",
                 title: "Sprint Planning",
-                minutesFromNow: 30
+                minutesFromNow: 30,
             ),
             E2EEventBuilder.futureEvent(
                 id: "e2e-search-retro",
                 title: "Team Retrospective",
-                minutesFromNow: 60
+                minutesFromNow: 60,
             ),
         ]
 
         try await env.seedEvents(events)
 
         let standupResults = try await env.databaseManager.searchEvents(query: "Standup")
-        XCTAssertEqual(standupResults.count, 1)
-        XCTAssertEqual(standupResults.first?.id, "e2e-search-standup")
+        let standupMatch = try XCTUnwrap(standupResults.first)
+        XCTAssertEqual(standupMatch.id, "e2e-search-standup")
 
         let sprintResults = try await env.databaseManager.searchEvents(query: "Sprint")
-        XCTAssertEqual(sprintResults.count, 1)
-        XCTAssertEqual(sprintResults.first?.id, "e2e-search-planning")
+        let sprintMatch = try XCTUnwrap(sprintResults.first)
+        XCTAssertEqual(sprintMatch.id, "e2e-search-planning")
     }
 
     // MARK: - Event Duration Calculation Through DB
@@ -225,12 +226,12 @@ final class SchedulerTimerE2ETests: XCTestCase {
         let shortEvent = E2EEventBuilder.futureEvent(
             id: "e2e-duration-short",
             minutesFromNow: 10,
-            durationMinutes: 15
+            durationMinutes: 15,
         )
         let longEvent = E2EEventBuilder.futureEvent(
             id: "e2e-duration-long",
             minutesFromNow: 30,
-            durationMinutes: 120
+            durationMinutes: 120,
         )
 
         try await env.seedEvents([shortEvent, longEvent])

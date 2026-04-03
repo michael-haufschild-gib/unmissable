@@ -28,7 +28,7 @@ final class PreferencesManagerTests: XCTestCase {
         XCTAssertFalse(preferencesManager.useLengthBasedTiming)
         XCTAssertEqual(preferencesManager.syncIntervalSeconds, 60)
         XCTAssertFalse(preferencesManager.includeAllDayEvents)
-        XCTAssertEqual(preferencesManager.appearanceTheme, .system)
+        XCTAssertEqual(preferencesManager.themeMode, .system)
         XCTAssertEqual(preferencesManager.overlayOpacity, 0.9, accuracy: 0.001)
         XCTAssertEqual(preferencesManager.fontSize, .medium)
         XCTAssertTrue(preferencesManager.showOnAllDisplays)
@@ -50,7 +50,7 @@ final class PreferencesManagerTests: XCTestCase {
             title: "Short Meeting",
             startDate: Date(),
             endDate: Date().addingTimeInterval(15 * 60), // 15 minutes
-            calendarId: "primary"
+            calendarId: "primary",
         )
 
         let mediumEvent = Event(
@@ -58,7 +58,7 @@ final class PreferencesManagerTests: XCTestCase {
             title: "Medium Meeting",
             startDate: Date(),
             endDate: Date().addingTimeInterval(45 * 60), // 45 minutes
-            calendarId: "primary"
+            calendarId: "primary",
         )
 
         let longEvent = Event(
@@ -66,7 +66,7 @@ final class PreferencesManagerTests: XCTestCase {
             title: "Long Meeting",
             startDate: Date(),
             endDate: Date().addingTimeInterval(90 * 60), // 90 minutes
-            calendarId: "primary"
+            calendarId: "primary",
         )
 
         // Test default timing (not using length-based)
@@ -89,28 +89,31 @@ final class PreferencesManagerTests: XCTestCase {
         // Change some preferences
         preferencesManager.setDefaultAlertMinutes(5)
         preferencesManager.setUseLengthBasedTiming(true)
-        preferencesManager.setAppearanceTheme(.dark)
+        preferencesManager.setThemeMode(.darkBlue)
         preferencesManager.setOverlayOpacity(0.7)
 
         // Create new instance backed by the same test suite to verify persistence
         let defaults = try XCTUnwrap(UserDefaults(suiteName: testSuiteName))
         let newPreferencesManager = PreferencesManager(
-            userDefaults: defaults, themeManager: ThemeManager()
+            userDefaults: defaults, themeManager: ThemeManager(),
         )
 
         XCTAssertEqual(newPreferencesManager.defaultAlertMinutes, 5)
         XCTAssertTrue(newPreferencesManager.useLengthBasedTiming)
-        XCTAssertEqual(newPreferencesManager.appearanceTheme, .dark)
+        XCTAssertEqual(newPreferencesManager.themeMode, .darkBlue)
         XCTAssertEqual(newPreferencesManager.overlayOpacity, 0.7, accuracy: 0.001)
     }
 
-    func testAppearanceThemeEnum() {
-        XCTAssertEqual(AppTheme.system.displayName, "Follow System")
-        XCTAssertEqual(AppTheme.light.displayName, "Light")
-        XCTAssertEqual(AppTheme.dark.displayName, "Dark")
+    func testThemeModeEnum() {
+        XCTAssertEqual(ThemeMode.system.displayName, "System")
+        XCTAssertEqual(ThemeMode.light.displayName, "Light")
+        XCTAssertEqual(ThemeMode.darkBlue.displayName, "Dark Blue")
 
-        let allThemes = AppTheme.allCases
-        XCTAssertEqual(allThemes.count, 3)
+        let allThemes = ThemeMode.allCases
+        XCTAssertEqual(
+            allThemes,
+            [.system, .light, .darkBlue, .darkPurple, .darkBrown, .darkBlack],
+        )
     }
 
     // MARK: - Boundary Clamping Tests
@@ -188,7 +191,7 @@ final class PreferencesManagerTests: XCTestCase {
 
         let defaults = try XCTUnwrap(UserDefaults(suiteName: testSuiteName))
         let newPreferencesManager = PreferencesManager(
-            userDefaults: defaults, themeManager: ThemeManager()
+            userDefaults: defaults, themeManager: ThemeManager(),
         )
 
         XCTAssertEqual(newPreferencesManager.menuBarDisplayMode, .nameTimer)
@@ -198,7 +201,7 @@ final class PreferencesManagerTests: XCTestCase {
         XCTAssertEqual(
             MenuBarDisplayMode.allCases,
             [.icon, .timer, .nameTimer],
-            "MenuBarDisplayMode should have exactly icon, timer, nameTimer in order"
+            "MenuBarDisplayMode should have exactly icon, timer, nameTimer in order",
         )
     }
 
@@ -215,7 +218,7 @@ final class PreferencesManagerTests: XCTestCase {
             title: "29 Min Meeting",
             startDate: Date(),
             endDate: Date().addingTimeInterval(29 * 60),
-            calendarId: "primary"
+            calendarId: "primary",
         )
         XCTAssertEqual(preferencesManager.alertMinutes(for: event), 1, "29 min < 30 = short")
     }
@@ -230,7 +233,7 @@ final class PreferencesManagerTests: XCTestCase {
             title: "30 Min Meeting",
             startDate: Date(),
             endDate: Date().addingTimeInterval(30 * 60),
-            calendarId: "primary"
+            calendarId: "primary",
         )
         XCTAssertEqual(preferencesManager.alertMinutes(for: event), 3, "30 min >= 30 = medium")
     }
@@ -245,7 +248,7 @@ final class PreferencesManagerTests: XCTestCase {
             title: "60 Min Meeting",
             startDate: Date(),
             endDate: Date().addingTimeInterval(60 * 60),
-            calendarId: "primary"
+            calendarId: "primary",
         )
         XCTAssertEqual(preferencesManager.alertMinutes(for: event), 3, "60 min <= 60 = medium")
     }
@@ -260,7 +263,7 @@ final class PreferencesManagerTests: XCTestCase {
             title: "61 Min Meeting",
             startDate: Date(),
             endDate: Date().addingTimeInterval(61 * 60),
-            calendarId: "primary"
+            calendarId: "primary",
         )
         XCTAssertEqual(preferencesManager.alertMinutes(for: event), 5, "61 min > 60 = long")
     }
@@ -274,7 +277,7 @@ final class PreferencesManagerTests: XCTestCase {
             title: "Zero Duration",
             startDate: Date(),
             endDate: Date(), // same time
-            calendarId: "primary"
+            calendarId: "primary",
         )
         XCTAssertEqual(preferencesManager.alertMinutes(for: event), 1, "Zero duration < 30 = short")
     }
@@ -285,6 +288,6 @@ final class PreferencesManagerTests: XCTestCase {
         XCTAssertEqual(FontSize.large.scale, 1.4, accuracy: 0.001)
 
         let allSizes = FontSize.allCases
-        XCTAssertEqual(allSizes.count, 3)
+        XCTAssertEqual(allSizes, [.small, .medium, .large])
     }
 }
