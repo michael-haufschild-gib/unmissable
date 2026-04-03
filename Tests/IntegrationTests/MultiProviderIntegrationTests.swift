@@ -35,13 +35,25 @@ final class MockCalendarAPIProvider: CalendarAPIProviding {
     var calendars: [CalendarInfo] = []
     var events: [Event] = []
     var lastError: String?
+    /// Per-calendar results returned by `fetchEvents`. When nil, auto-generates
+    /// `.success` results by grouping `events` by calendarId.
+    var fetchResults: CalendarFetchResults?
 
     func fetchCalendars() async -> [CalendarInfo] {
         calendars
     }
 
-    func fetchEvents(for _: [String], from _: Date, to _: Date) async -> [Event] {
-        events
+    func fetchEvents(for calendarIds: [String], from _: Date, to _: Date) async -> CalendarFetchResults {
+        if let fetchResults {
+            return fetchResults
+        }
+        // Auto-generate results from the flat events array for backward compatibility
+        let eventsByCalendar = Dictionary(grouping: events) { $0.calendarId }
+        var results: CalendarFetchResults = [:]
+        for calendarId in calendarIds {
+            results[calendarId] = .success(eventsByCalendar[calendarId] ?? [])
+        }
+        return results
     }
 }
 

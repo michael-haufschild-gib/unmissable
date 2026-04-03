@@ -83,13 +83,12 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     }
 
     @discardableResult
-    func fetchEvents(for calendarIds: [String], from startDate: Date, to endDate: Date) async -> [Event] {
+    func fetchEvents(for calendarIds: [String], from startDate: Date, to endDate: Date) async
+        -> CalendarFetchResults
+    {
         logger.debug("Fetching events for \(calendarIds.count) calendars")
         lastError = nil
         calendarErrors = [:]
-
-        var allEvents: [Event] = []
-        var successfulCalendars = 0
 
         // Pre-fetch a valid access token before spawning concurrent tasks.
         // Each child task reuses this token, avoiding redundant token refreshes
@@ -100,10 +99,19 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         } catch {
             logger.error("Failed to get access token: \(error.localizedDescription)")
             lastError = error.localizedDescription
-            return events
+            // Token failure affects all calendars — return .failure for each
+            var results: CalendarFetchResults = [:]
+            for calendarId in calendarIds {
+                results[calendarId] = .failure(error)
+            }
+            return results
         }
 
-        await withTaskGroup(of: (String, Result<[Event], Error>).self) { group in
+        var results: CalendarFetchResults = [:]
+        var allEvents: [Event] = []
+        var successfulCalendars = 0
+
+        await withTaskGroup(of: (String, Result<[Event], any Error>).self) { group in
             for calendarId in calendarIds {
                 group.addTask {
                     do {
@@ -121,6 +129,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
             }
 
             for await (calendarId, result) in group {
+                results[calendarId] = result
                 switch result {
                 case let .success(calendarEvents):
                     allEvents.append(contentsOf: calendarEvents)
@@ -147,7 +156,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
             "Fetched \(allEvents.count) events from \(successfulCalendars)/\(calendarIds.count) calendars"
         )
 
-        return events
+        return results
     }
 
     // MARK: - Private Methods

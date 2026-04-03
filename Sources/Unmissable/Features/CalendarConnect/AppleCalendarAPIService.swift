@@ -35,16 +35,27 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     }
 
     @discardableResult
-    func fetchEvents(for calendarIds: [String], from startDate: Date, to endDate: Date) async -> [Event] {
+    func fetchEvents(for calendarIds: [String], from startDate: Date, to endDate: Date) async
+        -> CalendarFetchResults
+    {
         logger.debug("Fetching Apple Calendar events for \(calendarIds.count) calendars")
         lastError = nil
 
         let ekCalendars = eventStore.calendars(for: .event).filter { calendarIds.contains($0.calendarIdentifier) }
+        let matchedIds = Set(ekCalendars.map(\.calendarIdentifier))
+
+        // Initialize results for all requested IDs. Calendars with no matching
+        // EKCalendar (e.g., deleted from Apple Calendar) get .success([]) — the
+        // events from a removed calendar are genuinely zero.
+        var results: CalendarFetchResults = [:]
+        for calendarId in calendarIds {
+            results[calendarId] = .success([])
+        }
 
         guard !ekCalendars.isEmpty else {
             logger.warning("No matching Apple calendars found for provided IDs")
             events = []
-            return events
+            return results
         }
 
         let predicate = eventStore.predicateForEvents(
@@ -55,11 +66,18 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
 
         let ekEvents = eventStore.events(matching: predicate)
 
-        events = ekEvents.compactMap { convertToEvent($0) }
+        let convertedEvents = ekEvents.compactMap { convertToEvent($0) }
             .sorted { $0.startDate < $1.startDate }
+        events = convertedEvents
 
-        logger.debug("Fetched \(self.events.count) Apple Calendar events")
-        return events
+        // Group events by calendar ID and populate results
+        let eventsByCalendar = Dictionary(grouping: convertedEvents) { $0.calendarId }
+        for calendarId in matchedIds {
+            results[calendarId] = .success(eventsByCalendar[calendarId] ?? [])
+        }
+
+        logger.debug("Fetched \(convertedEvents.count) Apple Calendar events")
+        return results
     }
 
     // MARK: - Conversion
