@@ -189,7 +189,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         )
 
         window.level = .screenSaver
-        window.backgroundColor = NSColor.black.withAlphaComponent(preferencesManager.overlayOpacity)
+        window.backgroundColor = .clear
         window.isOpaque = false
         window.ignoresMouseEvents = false
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]

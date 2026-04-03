@@ -73,6 +73,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
     }
 
     private var currentAuthorizationFlow: OIDExternalUserAgentSession?
+    private var createdOAuthWindow: NSWindow?
 
     // MARK: - Public Interface
 
@@ -98,6 +99,11 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
 
         let request = createAuthorizationRequest(redirectURL: redirectURL)
         let coordinator = ContinuationCoordinator<Void>()
+
+        defer {
+            createdOAuthWindow?.close()
+            createdOAuthWindow = nil
+        }
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             coordinator.setContinuation(continuation)
@@ -182,6 +188,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
         )
         window.title = "Unmissable OAuth"
         window.makeKeyAndOrderFront(nil)
+        createdOAuthWindow = window
         logger.info("Created dedicated OAuth window")
         return window
     }
