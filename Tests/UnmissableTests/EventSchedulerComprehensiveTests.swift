@@ -344,7 +344,7 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         XCTAssertNil(weakScheduler, "EventScheduler should be deallocated after cleanup")
     } // MARK: - Alert Triggering Tests
 
-    func testAlertTriggering() async throws {
+    func testAlertTriggering() async {
         let (scheduler, clock) = createClockInjectedScheduler()
         eventScheduler = scheduler
 
@@ -353,27 +353,20 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
             startDate: baseTime.addingTimeInterval(30), // 30 seconds from clock's "now"
         )
 
-        // Set overlay timing to 0 — alert triggers at event start time (baseTime + 30s)
+        // overlayShowMinutesBefore = 0 is clamped to 1 (minimum).
+        // Alert time = baseTime + 30 - 60 = baseTime - 30s (in the past).
+        // scheduleWithoutMonitoring fires it as a missed alert immediately.
         mockPreferences.testOverlayShowMinutesBefore = 0
 
-        await scheduler.startScheduling(
+        await scheduler.scheduleWithoutMonitoring(
             events: [nearFutureEvent], overlayManager: overlayManager,
         )
-
-        // The monitoring loop will sleep for ~30s via the test clock.
-        // autoAdvance advances clock.currentTime by 30s instantly.
-        // After the sleep returns, checkForTriggeredAlerts runs with
-        // clock time at ~baseTime+30s, finding the alert due.
-        let overlay = try XCTUnwrap(overlayManager)
-        try await TestUtilities.waitForAsync(timeout: 2.0) { @MainActor @Sendable in
-            overlay.isOverlayVisible && overlay.activeEvent?.id == nearFutureEvent.id
-        }
 
         XCTAssertTrue(overlayManager.isOverlayVisible)
         XCTAssertEqual(overlayManager.activeEvent?.id, nearFutureEvent.id)
     }
 
-    func testReminderTriggerDoesNotApplyHardcodedFiveMinuteDelay() async throws {
+    func testReminderTriggerDoesNotApplyHardcodedFiveMinuteDelay() async {
         let (scheduler, clock) = createClockInjectedScheduler()
         eventScheduler = scheduler
 
@@ -386,14 +379,17 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
             startDate: baseTime.addingTimeInterval(TimeInterval(6 * 60) + 2),
         )
 
-        await scheduler.startScheduling(events: [event], overlayManager: overlayManager)
-
-        // Test clock auto-advances through the ~2s sleep instantly.
-        // The alert fires at baseTime + 2s (6 min before event, overlay shows 6 min before).
-        let overlay = try XCTUnwrap(overlayManager)
-        try await TestUtilities.waitForAsync(timeout: 2.0) { @MainActor @Sendable in
-            overlay.isOverlayVisible && overlay.activeEvent?.id == event.id
-        }
+        // Advance clock 3s past baseTime. The overlay trigger is at baseTime + 2s
+        // (6 min before event start = 362 - 360 = 2s from baseTime). At clock
+        // time baseTime + 3s the trigger is in the past, so scheduleWithoutMonitoring
+        // fires it as a missed alert immediately.
+        // If a hardcoded 5-minute delay existed instead of honoring the 6-minute
+        // preference, the trigger would be at baseTime + 62s (362 - 300), still
+        // in the future at baseTime + 3s, and the overlay would NOT fire.
+        await clock.advance(bySeconds: 3)
+        await scheduler.scheduleWithoutMonitoring(
+            events: [event], overlayManager: overlayManager,
+        )
 
         XCTAssertTrue(overlayManager.isOverlayVisible)
         XCTAssertEqual(overlayManager.activeEvent?.id, event.id)

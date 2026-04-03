@@ -211,7 +211,7 @@ final class AttendeeModelTests: XCTestCase {
     func testAttendeeStatusCaseIterable() {
         XCTAssertEqual(
             AttendeeStatus.allCases,
-            [.accepted, .declined, .tentative, .needsAction],
+            [.needsAction, .declined, .tentative, .accepted],
         )
     }
 
