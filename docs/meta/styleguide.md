@@ -84,7 +84,7 @@ New tokens go in `DesignTokens.swift`. New components go in `Styles.swift` or `C
 
 | Rule | Scope |
 |------|-------|
-| No `!` (IUO) | `Sources/` only — tests may use IUO for `setUp`/`tearDown` |
+| No force unwrapping (`!`) | `Sources/` only — tests may use IUO (`Type!`) for `setUp`/`tearDown` |
 | No `force_unwrapping` | Error severity in all code |
 | `missing_docs` | Required for `public` and `open` declarations |
 | `deployment_target` | macOS 14.0 minimum |

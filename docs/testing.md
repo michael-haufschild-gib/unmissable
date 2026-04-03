@@ -28,9 +28,6 @@ All test commands go through `Scripts/test.sh`, which enforces a **4-worker para
 # Run a specific test target
 ./Scripts/test.sh UnmissableTests
 
-# Run a specific test class
-./Scripts/test.sh UnmissableTests/ThemeManagerTests
-
 # Skip lint (useful when iterating on test fixes)
 ./Scripts/test.sh --skip-lint
 

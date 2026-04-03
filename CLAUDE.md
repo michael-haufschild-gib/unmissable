@@ -31,7 +31,7 @@ AppAuth-iOS (OAuth 2.0) | GRDB.swift (SQLite) | KeychainAccess | Magnet (shortcu
 | Format | `./Scripts/format.sh` |
 | Test (all) | `./Scripts/test.sh` |
 | Test (specific target) | `./Scripts/test.sh UnmissableTests` |
-| Test (specific class) | `./Scripts/test.sh UnmissableTests/ThemeManagerTests` |
+| Test (specific class) | Not supported in Swift 6.3 — use target-level filters |
 | Test (skip lint) | `./Scripts/test.sh --skip-lint` |
 | Test (clean build) | `./Scripts/test.sh --clean` |
 | Test (comprehensive) | `./Scripts/run-comprehensive-tests.sh` |
