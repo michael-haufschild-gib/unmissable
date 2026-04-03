@@ -31,7 +31,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-xcodebuild -scheme Unmissable -destination "platform=macOS" test | tee "$TEST_LOG"
+swift test --parallel --num-workers 4 2>&1 | tee "$TEST_LOG"
 
 if ! grep -Eq "Executed [1-9][0-9]* test" "$TEST_LOG"; then
     echo "❌ XCTest reported zero executed tests. Failing build to avoid false confidence."

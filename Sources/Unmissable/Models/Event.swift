@@ -38,7 +38,7 @@ struct Event: Identifiable, Codable, Equatable {
         snoozeUntil: Date? = nil,
         autoJoinEnabled: Bool = false,
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
     ) {
         self.id = id
         self.title = title
@@ -62,7 +62,7 @@ struct Event: Identifiable, Codable, Equatable {
 
     /// Creates an Event, auto-detecting the provider from `links` when no explicit provider is given.
     /// Use this when constructing events from raw data where the provider is not already known.
-    static func withAutoDetectedProvider( // swiftlint:disable:this function_parameter_count
+    static func withAutoDetectedProvider(
         id: String,
         title: String,
         startDate: Date,
@@ -80,7 +80,7 @@ struct Event: Identifiable, Codable, Equatable {
         autoJoinEnabled: Bool = false,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
-        linkParser: LinkParser
+        linkParser: LinkParser,
     ) -> Self {
         let detectedProvider: Provider? = if links.isEmpty {
             nil
@@ -106,7 +106,7 @@ struct Event: Identifiable, Codable, Equatable {
             snoozeUntil: snoozeUntil,
             autoJoinEnabled: autoJoinEnabled,
             createdAt: createdAt,
-            updatedAt: updatedAt
+            updatedAt: updatedAt,
         )
     }
 
@@ -116,7 +116,7 @@ struct Event: Identifiable, Codable, Equatable {
 
     /// Creates an event by extracting Google Meet links from text fields (title, description, location).
     /// For events from calendar APIs, use the API service's conversion methods which handle all providers.
-    static func withParsedGoogleMeetLinks( // swiftlint:disable:this function_parameter_count
+    static func withParsedGoogleMeetLinks(
         id: String,
         title: String,
         startDate: Date,
@@ -133,7 +133,7 @@ struct Event: Identifiable, Codable, Equatable {
         autoJoinEnabled: Bool = false,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
-        linkParser: LinkParser
+        linkParser: LinkParser,
     ) -> Self {
         // Combine all text fields that might contain meeting links
         let allText = [title, description, location]
@@ -161,7 +161,7 @@ struct Event: Identifiable, Codable, Equatable {
             snoozeUntil: snoozeUntil,
             autoJoinEnabled: autoJoinEnabled,
             createdAt: createdAt,
-            updatedAt: updatedAt
+            updatedAt: updatedAt,
         )
     }
 }

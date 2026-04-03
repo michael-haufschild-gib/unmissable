@@ -17,7 +17,7 @@ final class UpdateManager: ObservableObject {
         updaterController = SPUStandardUpdaterController(
             startingUpdater: true,
             updaterDelegate: nil,
-            userDriverDelegate: nil
+            userDriverDelegate: nil,
         )
         // Bind canCheckForUpdates to the updater's state
         updaterController.updater.publisher(for: \.canCheckForUpdates)

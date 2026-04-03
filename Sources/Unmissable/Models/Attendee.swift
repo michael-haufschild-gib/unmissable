@@ -22,7 +22,7 @@ struct Attendee: Identifiable, Codable, Equatable {
         status: AttendeeStatus? = nil,
         isOptional: Bool = false,
         isOrganizer: Bool = false,
-        isSelf: Bool
+        isSelf: Bool,
     ) {
         self.name = name
         self.email = email

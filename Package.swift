@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.1
 import PackageDescription
 
 let package = Package(
@@ -9,7 +9,7 @@ let package = Package(
     products: [
         .executable(
             name: "Unmissable",
-            targets: ["Unmissable"]
+            targets: ["Unmissable"],
         ),
     ],
     dependencies: [
@@ -40,14 +40,14 @@ let package = Package(
             path: "Sources/Unmissable",
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency"),
-            ]
+            ],
         ),
-        .testTarget(
+        .target(
             name: "TestSupport",
             dependencies: [
                 "Unmissable",
             ],
-            path: "Tests/TestSupport"
+            path: "Tests/TestSupport",
         ),
         .testTarget(
             name: "UnmissableTests",
@@ -57,9 +57,6 @@ let package = Package(
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
             ],
             path: "Tests/UnmissableTests",
-            plugins: [
-                .plugin(name: "LintGatePlugin"),
-            ]
         ),
         .testTarget(
             name: "IntegrationTests",
@@ -67,9 +64,6 @@ let package = Package(
                 "Unmissable",
             ],
             path: "Tests/IntegrationTests",
-            plugins: [
-                .plugin(name: "LintGatePlugin"),
-            ]
         ),
         .testTarget(
             name: "SnapshotTests",
@@ -81,9 +75,6 @@ let package = Package(
             exclude: [
                 "__Snapshots__",
             ],
-            plugins: [
-                .plugin(name: "LintGatePlugin"),
-            ]
         ),
         .testTarget(
             name: "E2ETests",
@@ -92,14 +83,11 @@ let package = Package(
                 "TestSupport",
             ],
             path: "Tests/E2ETests",
-            plugins: [
-                .plugin(name: "LintGatePlugin"),
-            ]
         ),
         .plugin(
             name: "LintGatePlugin",
             capability: .buildTool(),
-            path: "Plugins/LintGatePlugin"
+            path: "Plugins/LintGatePlugin",
         ),
-    ]
+    ],
 )

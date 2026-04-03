@@ -9,6 +9,19 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
     private let logger = Logger(category: "OAuth2Service")
     private let keychain = Keychain(service: "com.unmissable.app.oauth")
 
+    // MARK: - Constants
+
+    private static let requestTimeoutSeconds: TimeInterval = 30
+    private static let resourceTimeoutSeconds: TimeInterval = 60
+    private static let authFlowTimeoutSeconds = 300
+    private static let tokenRefreshTimeoutSeconds = 30
+    private static let httpOK = 200
+    private static let oauthWindowX: CGFloat = 100
+    private static let oauthWindowY: CGFloat = 100
+    private static let oauthWindowWidth: CGFloat = 400
+    private static let oauthWindowHeight: CGFloat = 300
+    private static let errorCodeFlowStartFailed = -2
+
     @Published
     var isAuthenticated = false
     @Published
@@ -26,8 +39,8 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
     /// URLSession with timeout configuration to prevent indefinite hangs
     private static let urlSession: URLSession = {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 30 // 30 seconds per request
-        config.timeoutIntervalForResource = 60 // 60 seconds total
+        config.timeoutIntervalForRequest = requestTimeoutSeconds
+        config.timeoutIntervalForResource = resourceTimeoutSeconds
         return URLSession(configuration: config)
     }()
 
@@ -40,7 +53,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
         notificationToken = NotificationCenter.default.addObserver(
             forName: .oauthCallback,
             object: nil,
-            queue: .main
+            queue: .main,
         ) { [weak self] notification in
             guard let url = notification.object as? URL else { return }
             Task { @MainActor in
@@ -107,7 +120,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             coordinator.setContinuation(continuation)
-            coordinator.startTimeout(seconds: 300) { [weak self] in
+            coordinator.startTimeout(seconds: Self.authFlowTimeoutSeconds) { [weak self] in
                 self?.currentAuthorizationFlow?.cancel()
                 self?.currentAuthorizationFlow = nil
                 self?.logger.error("OAuth flow timed out after 5 minutes")
@@ -123,7 +136,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
         let configuration = OIDServiceConfiguration(
             authorizationEndpoint: GoogleCalendarConfig.authorizationEndpoint,
             tokenEndpoint: GoogleCalendarConfig.tokenEndpoint,
-            issuer: GoogleCalendarConfig.issuer
+            issuer: GoogleCalendarConfig.issuer,
         )
 
         return OIDAuthorizationRequest(
@@ -132,27 +145,27 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
             scopes: GoogleCalendarConfig.scopes,
             redirectURL: redirectURL,
             responseType: OIDResponseTypeCode,
-            additionalParameters: nil
+            additionalParameters: nil,
         )
     }
 
     private func presentAuthorizationFlow(
         request: OIDAuthorizationRequest,
-        coordinator: ContinuationCoordinator<Void>
+        coordinator: ContinuationCoordinator<Void>,
     ) {
         let presentingWindow = findOrCreatePresentingWindow()
         let userAgent = OIDExternalUserAgentMac(presenting: presentingWindow)
 
         self.currentAuthorizationFlow = OIDAuthorizationService.present(
             request,
-            externalUserAgent: userAgent
+            externalUserAgent: userAgent,
         ) { [weak self] authorizationResponse, error in
             Task { @MainActor in
                 guard let self else { return }
                 self.handleAuthorizationCallback(
                     authResponse: authorizationResponse,
                     error: error,
-                    coordinator: coordinator
+                    coordinator: coordinator,
                 )
             }
         }
@@ -163,12 +176,13 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
                 "Failed to start OAuth flow. Please ensure your default browser is available."
             coordinator.resume(throwing: OAuth2Error.authorizationFailed(
                 NSError(
-                    domain: "OAuth2Service", code: -2,
+                    domain: "OAuth2Service",
+                    code: Self.errorCodeFlowStartFailed,
                     userInfo: [
                         NSLocalizedDescriptionKey:
                             "Failed to start authorization flow. Browser may be blocked.",
-                    ]
-                )
+                    ],
+                ),
             ))
         }
     }
@@ -181,10 +195,15 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
             return mainWindow
         }
         let window = NSWindow(
-            contentRect: NSRect(x: 100, y: 100, width: 400, height: 300),
+            contentRect: NSRect(
+                x: Self.oauthWindowX,
+                y: Self.oauthWindowY,
+                width: Self.oauthWindowWidth,
+                height: Self.oauthWindowHeight,
+            ),
             styleMask: [.titled, .closable],
             backing: .buffered,
-            defer: false
+            defer: false,
         )
         window.title = "Unmissable OAuth"
         window.makeKeyAndOrderFront(nil)
@@ -197,7 +216,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
     private func handleAuthorizationCallback(
         authResponse: OIDAuthorizationResponse?,
         error: Error?,
-        coordinator: ContinuationCoordinator<Void>
+        coordinator: ContinuationCoordinator<Void>,
     ) {
         // Check if already completed (e.g., by timeout)
         guard !coordinator.isCompleted else {
@@ -222,9 +241,10 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
                 "Authorization failed - no response received. Check browser settings."
             coordinator.resume(throwing: OAuth2Error.authorizationFailed(
                 NSError(
-                    domain: "OAuth2Service", code: -1,
-                    userInfo: [NSLocalizedDescriptionKey: "No authorization response received"]
-                )
+                    domain: "OAuth2Service",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "No authorization response received"],
+                ),
             ))
             return
         }
@@ -245,7 +265,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
                     authResponse: authResponse,
                     tokenResponse: tokenResponse,
                     tokenError: tokenError,
-                    coordinator: coordinator
+                    coordinator: coordinator,
                 )
             }
         }
@@ -256,7 +276,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
         authResponse: OIDAuthorizationResponse,
         tokenResponse: OIDTokenResponse?,
         tokenError: Error?,
-        coordinator: ContinuationCoordinator<Void>
+        coordinator: ContinuationCoordinator<Void>,
     ) async {
         // Check if already completed (e.g., by timeout during token exchange)
         guard !coordinator.isCompleted else {
@@ -274,9 +294,10 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
         guard let tokenResponse else {
             coordinator.resume(throwing: OAuth2Error.authorizationFailed(
                 NSError(
-                    domain: "OAuth2Service", code: -1,
-                    userInfo: [NSLocalizedDescriptionKey: "No token response received"]
-                )
+                    domain: "OAuth2Service",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "No token response received"],
+                ),
             ))
             return
         }
@@ -285,7 +306,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
 
         // Create auth state with both responses
         let newAuthState = OIDAuthState(
-            authorizationResponse: authResponse, tokenResponse: tokenResponse
+            authorizationResponse: authResponse, tokenResponse: tokenResponse,
         )
         newAuthState.stateChangeDelegate = self
         authState = newAuthState
@@ -308,7 +329,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
 
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
             coordinator.setContinuation(continuation)
-            coordinator.startTimeout(seconds: 30) { [weak self] in
+            coordinator.startTimeout(seconds: Self.tokenRefreshTimeoutSeconds) { [weak self] in
                 self?.logger.error("Token refresh timed out after 30 seconds")
                 self?.authorizationError = "Token refresh timed out. Please try again."
                 return OAuth2Error.timeout
@@ -343,10 +364,11 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
                         coordinator.resume(
                             throwing: OAuth2Error.tokenRefreshFailed(
                                 NSError(
-                                    domain: "OAuth2Service", code: -1,
-                                    userInfo: [NSLocalizedDescriptionKey: "No access token available"]
-                                )
-                            )
+                                    domain: "OAuth2Service",
+                                    code: -1,
+                                    userInfo: [NSLocalizedDescriptionKey: "No access token available"],
+                                ),
+                            ),
                         )
                     }
                 }
@@ -402,7 +424,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
             // First, try to load the serialized OIDAuthState (preferred method)
             if let authStateData = try keychain.getData(keychainAuthStateKey) {
                 if let restoredAuthState = try? NSKeyedUnarchiver.unarchivedObject(
-                    ofClass: OIDAuthState.self, from: authStateData
+                    ofClass: OIDAuthState.self, from: authStateData,
                 ) {
                     logger.info("Successfully restored OIDAuthState from keychain")
                     authState = restoredAuthState
@@ -432,7 +454,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
         do {
             // Serialize the entire OIDAuthState for proper restoration
             let authStateData = try NSKeyedArchiver.archivedData(
-                withRootObject: authState, requiringSecureCoding: true
+                withRootObject: authState, requiringSecureCoding: true,
             )
             try keychain.set(authStateData, key: keychainAuthStateKey)
 
@@ -476,7 +498,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
         let (data, response) = try await Self.urlSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200
+              httpResponse.statusCode == Self.httpOK
         else {
             throw OAuth2Error.userInfoFetchFailed
         }
@@ -493,7 +515,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
 /// Minimal Codable representation of Google's userinfo response.
 /// Only the fields we need are decoded; extra fields are ignored.
 private struct GoogleUserInfo: Codable {
-    let email: String
+    fileprivate let email: String
 }
 
 enum OAuth2Error: LocalizedError {

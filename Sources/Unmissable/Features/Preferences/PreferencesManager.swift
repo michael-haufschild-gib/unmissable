@@ -12,7 +12,8 @@ private enum PrefKey: String {
     case longMeetingAlertMinutes
     case syncIntervalSeconds
     case includeAllDayEvents
-    case appearanceTheme
+    case themeMode
+    case accentColor
     case overlayOpacity
     case overlayShowMinutesBefore
     case fontSize
@@ -46,6 +47,25 @@ final class PreferencesManager: ObservableObject {
     private let userDefaults: UserDefaults
     private let themeManager: ThemeManager
 
+    // MARK: - Default Values
+
+    private static let defaultAlertMinutesDefault = 1
+    private static let shortMeetingAlertDefault = 1
+    private static let mediumMeetingAlertDefault = 2
+    private static let longMeetingAlertDefault = 5
+    private static let alertMinutesRange = 0 ... 60
+    private static let syncIntervalDefault = 60
+    private static let syncIntervalRange = 30 ... 3600
+    private static let overlayOpacityDefault: Double = 0.9
+    private static let overlayOpacityRange: ClosedRange<Double> = 0.1 ... 1.0
+    private static let overlayShowMinutesDefault = 5
+    private static let overlayShowMinutesRange = 1 ... 60
+    private static let alertVolumeDefault: Double = 0.7
+    private static let alertVolumeRange: ClosedRange<Double> = 0.0 ... 1.0
+    private static let shortMeetingThresholdMinutes = 30
+    private static let longMeetingThresholdMinutes = 60
+    private static let secondsPerMinute = 60
+
     // MARK: - Properties
 
     // All properties use `private(set)` with explicit setter methods that persist to
@@ -54,9 +74,9 @@ final class PreferencesManager: ObservableObject {
 
     /// Alert timing (validated to 0-60 minutes)
     @Published
-    private(set) var defaultAlertMinutes: Int = 1
+    private(set) var defaultAlertMinutes: Int = defaultAlertMinutesDefault
     func setDefaultAlertMinutes(_ value: Int) {
-        defaultAlertMinutes = Self.clamp(value, to: 0 ... 60)
+        defaultAlertMinutes = Self.clamp(value, to: Self.alertMinutesRange)
         userDefaults.set(defaultAlertMinutes, forKey: PrefKey.defaultAlertMinutes)
     }
 
@@ -68,31 +88,31 @@ final class PreferencesManager: ObservableObject {
     }
 
     @Published
-    private(set) var shortMeetingAlertMinutes: Int = 1
+    private(set) var shortMeetingAlertMinutes: Int = shortMeetingAlertDefault
     func setShortMeetingAlertMinutes(_ value: Int) {
-        shortMeetingAlertMinutes = Self.clamp(value, to: 0 ... 60)
+        shortMeetingAlertMinutes = Self.clamp(value, to: Self.alertMinutesRange)
         userDefaults.set(shortMeetingAlertMinutes, forKey: PrefKey.shortMeetingAlertMinutes)
     }
 
     @Published
-    private(set) var mediumMeetingAlertMinutes: Int = 2
+    private(set) var mediumMeetingAlertMinutes: Int = mediumMeetingAlertDefault
     func setMediumMeetingAlertMinutes(_ value: Int) {
-        mediumMeetingAlertMinutes = Self.clamp(value, to: 0 ... 60)
+        mediumMeetingAlertMinutes = Self.clamp(value, to: Self.alertMinutesRange)
         userDefaults.set(mediumMeetingAlertMinutes, forKey: PrefKey.mediumMeetingAlertMinutes)
     }
 
     @Published
-    private(set) var longMeetingAlertMinutes: Int = 5
+    private(set) var longMeetingAlertMinutes: Int = longMeetingAlertDefault
     func setLongMeetingAlertMinutes(_ value: Int) {
-        longMeetingAlertMinutes = Self.clamp(value, to: 0 ... 60)
+        longMeetingAlertMinutes = Self.clamp(value, to: Self.alertMinutesRange)
         userDefaults.set(longMeetingAlertMinutes, forKey: PrefKey.longMeetingAlertMinutes)
     }
 
     /// Sync settings (validated to 30-3600 seconds)
     @Published
-    private(set) var syncIntervalSeconds: Int = 60
+    private(set) var syncIntervalSeconds: Int = syncIntervalDefault
     func setSyncIntervalSeconds(_ value: Int) {
-        syncIntervalSeconds = Self.clamp(value, to: 30 ... 3600)
+        syncIntervalSeconds = Self.clamp(value, to: Self.syncIntervalRange)
         userDefaults.set(syncIntervalSeconds, forKey: PrefKey.syncIntervalSeconds)
     }
 
@@ -103,26 +123,35 @@ final class PreferencesManager: ObservableObject {
         userDefaults.set(value, forKey: PrefKey.includeAllDayEvents)
     }
 
-    /// Appearance - Updated to use new custom theme system
+    /// Theme mode
     @Published
-    private(set) var appearanceTheme: AppTheme = .system
-    func setAppearanceTheme(_ value: AppTheme) {
-        appearanceTheme = value
-        userDefaults.set(value.rawValue, forKey: PrefKey.appearanceTheme)
+    private(set) var themeMode: ThemeMode = .system
+    func setThemeMode(_ value: ThemeMode) {
+        themeMode = value
+        userDefaults.set(value.rawValue, forKey: PrefKey.themeMode)
         themeManager.setTheme(value)
     }
 
+    /// Accent color
     @Published
-    private(set) var overlayOpacity: Double = 0.9
+    private(set) var accentColor: AccentColor = .blue
+    func setAccentColor(_ value: AccentColor) {
+        accentColor = value
+        userDefaults.set(value.rawValue, forKey: PrefKey.accentColor)
+        themeManager.setAccent(value)
+    }
+
+    @Published
+    private(set) var overlayOpacity: Double = overlayOpacityDefault
     func setOverlayOpacity(_ value: Double) {
-        overlayOpacity = Self.clamp(value, to: 0.1 ... 1.0)
+        overlayOpacity = Self.clamp(value, to: Self.overlayOpacityRange)
         userDefaults.set(overlayOpacity, forKey: PrefKey.overlayOpacity)
     }
 
     @Published
-    private(set) var overlayShowMinutesBefore: Int = 5
+    private(set) var overlayShowMinutesBefore: Int = overlayShowMinutesDefault
     func setOverlayShowMinutesBefore(_ value: Int) {
-        overlayShowMinutesBefore = Self.clamp(value, to: 1 ... 60)
+        overlayShowMinutesBefore = Self.clamp(value, to: Self.overlayShowMinutesRange)
         userDefaults.set(overlayShowMinutesBefore, forKey: PrefKey.overlayShowMinutesBefore)
     }
 
@@ -165,9 +194,9 @@ final class PreferencesManager: ObservableObject {
     }
 
     @Published
-    private(set) var alertVolume: Double = 0.7
+    private(set) var alertVolume: Double = alertVolumeDefault
     func setAlertVolume(_ value: Double) {
-        alertVolume = Self.clamp(value, to: 0.0 ... 1.0)
+        alertVolume = Self.clamp(value, to: Self.alertVolumeRange)
         userDefaults.set(alertVolume, forKey: PrefKey.alertVolume)
     }
 
@@ -224,38 +253,62 @@ final class PreferencesManager: ObservableObject {
 
     private func loadPreferences() {
         defaultAlertMinutes = Self.clamp(
-            userDefaults.object(forKey: PrefKey.defaultAlertMinutes) as? Int ?? 1, to: 0 ... 60
+            userDefaults.object(forKey: PrefKey.defaultAlertMinutes) as? Int ?? Self.defaultAlertMinutesDefault,
+            to: Self.alertMinutesRange,
         )
         useLengthBasedTiming = userDefaults.bool(forKey: PrefKey.useLengthBasedTiming)
         shortMeetingAlertMinutes = Self.clamp(
-            userDefaults.object(forKey: PrefKey.shortMeetingAlertMinutes) as? Int ?? 1, to: 0 ... 60
+            userDefaults.object(forKey: PrefKey.shortMeetingAlertMinutes) as? Int ?? Self.shortMeetingAlertDefault,
+            to: Self.alertMinutesRange,
         )
         mediumMeetingAlertMinutes = Self.clamp(
-            userDefaults.object(forKey: PrefKey.mediumMeetingAlertMinutes) as? Int ?? 2, to: 0 ... 60
+            userDefaults.object(forKey: PrefKey.mediumMeetingAlertMinutes) as? Int ?? Self.mediumMeetingAlertDefault,
+            to: Self.alertMinutesRange,
         )
         longMeetingAlertMinutes = Self.clamp(
-            userDefaults.object(forKey: PrefKey.longMeetingAlertMinutes) as? Int ?? 5, to: 0 ... 60
+            userDefaults.object(forKey: PrefKey.longMeetingAlertMinutes) as? Int ?? Self.longMeetingAlertDefault,
+            to: Self.alertMinutesRange,
         )
 
         syncIntervalSeconds = Self.clamp(
-            userDefaults.object(forKey: PrefKey.syncIntervalSeconds) as? Int ?? 60, to: 30 ... 3600
+            userDefaults.object(forKey: PrefKey.syncIntervalSeconds) as? Int ?? Self.syncIntervalDefault,
+            to: Self.syncIntervalRange,
         )
         includeAllDayEvents = userDefaults.bool(forKey: PrefKey.includeAllDayEvents)
 
-        if let themeRawValue = userDefaults.object(forKey: PrefKey.appearanceTheme) as? String,
-           let theme = AppTheme(rawValue: themeRawValue)
+        if let themeRawValue = userDefaults.object(forKey: PrefKey.themeMode) as? String,
+           let theme = ThemeMode(rawValue: themeRawValue)
         {
-            appearanceTheme = theme
+            themeMode = theme
             themeManager.setTheme(theme)
+        } else if let legacyRaw = userDefaults.object(forKey: "appearanceTheme") as? String {
+            // Migration from old AppTheme: "dark" -> "darkBlue"
+            let migrated: ThemeMode = switch legacyRaw {
+            case "light": .light
+            case "dark": .darkBlue
+            default: .system
+            }
+            themeMode = migrated
+            themeManager.setTheme(migrated)
+            userDefaults.set(migrated.rawValue, forKey: PrefKey.themeMode)
         } else {
             themeManager.setTheme(.system)
         }
 
+        if let accentRaw = userDefaults.object(forKey: PrefKey.accentColor) as? String,
+           let accent = AccentColor(rawValue: accentRaw)
+        {
+            accentColor = accent
+            themeManager.setAccent(accent)
+        }
+
         overlayOpacity = Self.clamp(
-            userDefaults.object(forKey: PrefKey.overlayOpacity) as? Double ?? 0.9, to: 0.1 ... 1.0
+            userDefaults.object(forKey: PrefKey.overlayOpacity) as? Double ?? Self.overlayOpacityDefault,
+            to: Self.overlayOpacityRange,
         )
         overlayShowMinutesBefore = Self.clamp(
-            userDefaults.object(forKey: PrefKey.overlayShowMinutesBefore) as? Int ?? 5, to: 1 ... 60
+            userDefaults.object(forKey: PrefKey.overlayShowMinutesBefore) as? Int ?? Self.overlayShowMinutesDefault,
+            to: Self.overlayShowMinutesRange,
         )
 
         if let fontSizeRawValue = userDefaults.object(forKey: PrefKey.fontSize) as? String,
@@ -269,7 +322,8 @@ final class PreferencesManager: ObservableObject {
 
         playAlertSound = userDefaults.object(forKey: PrefKey.playAlertSound) as? Bool ?? true
         alertVolume = Self.clamp(
-            userDefaults.object(forKey: PrefKey.alertVolume) as? Double ?? 0.7, to: 0.0 ... 1.0
+            userDefaults.object(forKey: PrefKey.alertVolume) as? Double ?? Self.alertVolumeDefault,
+            to: Self.alertVolumeRange,
         )
 
         overrideFocusMode = userDefaults.object(forKey: PrefKey.overrideFocusMode) as? Bool ?? true
@@ -291,91 +345,98 @@ final class PreferencesManager: ObservableObject {
     var defaultAlertMinutesBinding: Binding<Int> {
         Binding(
             get: { self.defaultAlertMinutes },
-            set: { self.setDefaultAlertMinutes($0) }
+            set: { self.setDefaultAlertMinutes($0) },
         )
     }
 
     var useLengthBasedTimingBinding: Binding<Bool> {
         Binding(
             get: { self.useLengthBasedTiming },
-            set: { self.setUseLengthBasedTiming($0) }
+            set: { self.setUseLengthBasedTiming($0) },
         )
     }
 
     var shortMeetingAlertMinutesBinding: Binding<Int> {
         Binding(
             get: { self.shortMeetingAlertMinutes },
-            set: { self.setShortMeetingAlertMinutes($0) }
+            set: { self.setShortMeetingAlertMinutes($0) },
         )
     }
 
     var mediumMeetingAlertMinutesBinding: Binding<Int> {
         Binding(
             get: { self.mediumMeetingAlertMinutes },
-            set: { self.setMediumMeetingAlertMinutes($0) }
+            set: { self.setMediumMeetingAlertMinutes($0) },
         )
     }
 
     var longMeetingAlertMinutesBinding: Binding<Int> {
         Binding(
             get: { self.longMeetingAlertMinutes },
-            set: { self.setLongMeetingAlertMinutes($0) }
+            set: { self.setLongMeetingAlertMinutes($0) },
         )
     }
 
     var syncIntervalSecondsBinding: Binding<Int> {
         Binding(
             get: { self.syncIntervalSeconds },
-            set: { self.setSyncIntervalSeconds($0) }
+            set: { self.setSyncIntervalSeconds($0) },
         )
     }
 
     var includeAllDayEventsBinding: Binding<Bool> {
         Binding(
             get: { self.includeAllDayEvents },
-            set: { self.setIncludeAllDayEvents($0) }
+            set: { self.setIncludeAllDayEvents($0) },
         )
     }
 
-    var appearanceThemeBinding: Binding<AppTheme> {
+    var themeModeBinding: Binding<ThemeMode> {
         Binding(
-            get: { self.appearanceTheme },
-            set: { self.setAppearanceTheme($0) }
+            get: { self.themeMode },
+            set: { self.setThemeMode($0) },
+        )
+    }
+
+    var accentColorBinding: Binding<AccentColor> {
+        Binding(
+            get: { self.accentColor },
+            set: { self.setAccentColor($0) },
         )
     }
 
     var overlayOpacityBinding: Binding<Double> {
         Binding(
             get: { self.overlayOpacity },
-            set: { self.setOverlayOpacity($0) }
+            set: { self.setOverlayOpacity($0) },
         )
     }
 
     var overlayShowMinutesBeforeBinding: Binding<Int> {
         Binding(
             get: { self.overlayShowMinutesBefore },
-            set: { self.setOverlayShowMinutesBefore($0) }
+            set: { self.setOverlayShowMinutesBefore($0) },
         )
     }
 
     var menuBarDisplayModeBinding: Binding<MenuBarDisplayMode> {
         Binding(
             get: { self.menuBarDisplayMode },
-            set: { self.setMenuBarDisplayMode($0) }
+            set: { self.setMenuBarDisplayMode($0) },
         )
     }
 
     var showTodayOnlyInMenuBarBinding: Binding<Bool> {
         Binding(
             get: { self.showTodayOnlyInMenuBar },
-            set: { self.setShowTodayOnlyInMenuBar($0) }
+            set: { self.setShowTodayOnlyInMenuBar($0) },
         )
     }
 
     var alertVolumeBinding: Binding<Double> {
         Binding(
             get: { self.alertVolume },
-            set: { self.setAlertVolume($0) }
+            set: { self.setAlertVolume($0) },
         )
     }
 
@@ -384,29 +445,33 @@ final class PreferencesManager: ObservableObject {
             return defaultAlertMinutes
         }
 
-        let durationMinutes = Int(event.duration / 60)
+        let durationMinutes = Int(event.duration / Double(Self.secondsPerMinute))
 
-        if durationMinutes < 30 { return shortMeetingAlertMinutes }
-        if durationMinutes <= 60 { return mediumMeetingAlertMinutes }
+        if durationMinutes < Self.shortMeetingThresholdMinutes { return shortMeetingAlertMinutes }
+        if durationMinutes <= Self.longMeetingThresholdMinutes { return mediumMeetingAlertMinutes }
         return longMeetingAlertMinutes
     }
 }
-
-// Note: AppTheme is now defined in ThemeManager.swift
 
 enum FontSize: String, CaseIterable {
     case small
     case medium
     case large
 
+    private static let smallScale: Double = 0.8
+    private static let mediumScale: Double = 1.0
+    private static let largeScale: Double = 1.4
+
     var scale: Double {
         switch self {
         case .small:
-            0.8
+            Self.smallScale
+
         case .medium:
-            1.0
+            Self.mediumScale
+
         case .large:
-            1.4
+            Self.largeScale
         }
     }
 }
@@ -420,8 +485,10 @@ enum MenuBarDisplayMode: String, CaseIterable {
         switch self {
         case .icon:
             "Icon Only"
+
         case .timer:
             "Timer"
+
         case .nameTimer:
             "Name + Timer"
         }

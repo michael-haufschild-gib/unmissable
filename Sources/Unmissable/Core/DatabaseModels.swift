@@ -17,7 +17,7 @@ private let cachedEncoder = JSONEncoder()
 
 /// Decodes a JSON-encoded string column into a Decodable value, returning `defaultValue` on failure.
 private func decodeJSONColumn<T: Decodable>(
-    _ row: Row, _ column: Column, default defaultValue: T
+    _ row: Row, _ column: Column, default defaultValue: T,
 ) -> T {
     let raw = row[column] as? String ?? "[]"
     guard let data = raw.data(using: .utf8) else { return defaultValue }
@@ -37,7 +37,7 @@ private func decodeJSONURLColumn(_ row: Row, _ column: Column) -> [URL] {
 
 /// Encodes an Encodable value as a JSON string into a persistence container column.
 private func encodeJSONColumn(
-    _ value: some Encodable, into container: inout PersistenceContainer, _ column: Column
+    _ value: some Encodable, into container: inout PersistenceContainer, _ column: Column,
 ) {
     do {
         let data = try cachedEncoder.encode(value)
@@ -50,12 +50,12 @@ private func encodeJSONColumn(
 
 /// Encodes `[URL]` as a JSON `[String]` into a persistence container column.
 private func encodeJSONURLColumn(
-    _ value: [URL], into container: inout PersistenceContainer, _ column: Column
+    _ value: [URL], into container: inout PersistenceContainer, _ column: Column,
 ) {
     encodeJSONColumn(value.map(\.absoluteString), into: &container, column)
 }
 
-extension Event: FetchableRecord, PersistableRecord {
+extension Event {
     static let databaseTableName = "events"
 
     enum Columns {
@@ -136,7 +136,9 @@ extension Event: FetchableRecord, PersistableRecord {
     }
 }
 
-extension CalendarInfo: FetchableRecord, PersistableRecord {
+extension Event: FetchableRecord, PersistableRecord {}
+
+extension CalendarInfo {
     static let databaseTableName = "calendars"
 
     enum Columns {
@@ -189,3 +191,5 @@ extension CalendarInfo: FetchableRecord, PersistableRecord {
         container[Columns.updatedAt] = updatedAt
     }
 }
+
+extension CalendarInfo: FetchableRecord, PersistableRecord {}

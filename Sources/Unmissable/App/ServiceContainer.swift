@@ -22,7 +22,7 @@ final class ServiceContainer {
     init(
         databaseManager: any DatabaseManaging,
         linkParser: LinkParser = LinkParser(),
-        themeManager: ThemeManager = ThemeManager()
+        themeManager: ThemeManager = ThemeManager(),
     ) {
         self.databaseManager = databaseManager
         self.linkParser = linkParser
@@ -32,11 +32,12 @@ final class ServiceContainer {
         soundManager = SoundManager(preferencesManager: preferencesManager)
         focusModeManager = FocusModeManager(preferencesManager: preferencesManager)
         calendarService = CalendarService(
-            preferencesManager: preferencesManager, databaseManager: databaseManager,
-            linkParser: linkParser
+            preferencesManager: preferencesManager,
+            databaseManager: databaseManager,
+            linkParser: linkParser,
         )
         eventScheduler = EventScheduler(
-            preferencesManager: preferencesManager, linkParser: linkParser
+            preferencesManager: preferencesManager, linkParser: linkParser,
         )
         overlayManager = OverlayManager(
             preferencesManager: preferencesManager,
@@ -44,15 +45,15 @@ final class ServiceContainer {
             soundManager: soundManager,
             focusModeManager: focusModeManager,
             linkParser: linkParser,
-            themeManager: themeManager
+            themeManager: themeManager,
         )
         menuBarPreviewManager = MenuBarPreviewManager(preferencesManager: preferencesManager)
         shortcutsManager = ShortcutsManager(
-            overlayManager: overlayManager, linkParser: linkParser
+            overlayManager: overlayManager, linkParser: linkParser,
         )
         healthMonitor = HealthMonitor(
             calendarService: calendarService,
-            overlayManager: overlayManager
+            overlayManager: overlayManager,
         )
         meetingDetailsPopupManager = MeetingDetailsPopupManager(themeManager: themeManager)
         updateManager = UpdateManager()

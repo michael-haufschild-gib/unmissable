@@ -9,6 +9,9 @@ final class PreferencesWindowManager: NSObject, ObservableObject {
     private var preferencesWindow: NSWindow?
     private let appState: AppState
 
+    private static let windowWidth: CGFloat = 650
+    private static let windowHeight: CGFloat = 450
+
     init(appState: AppState) {
         self.appState = appState
     }
@@ -32,16 +35,21 @@ final class PreferencesWindowManager: NSObject, ObservableObject {
         let contentView = PreferencesView()
             .environmentObject(appState)
             .environmentObject(appState.calendar)
-            .customThemedEnvironment(themeManager: appState.themeManager)
-            .frame(minWidth: 650, minHeight: 450)
+            .themed(themeManager: appState.themeManager)
+            .frame(minWidth: Self.windowWidth, minHeight: Self.windowHeight)
 
         let hostingController = NSHostingController(rootView: contentView)
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 650, height: 450),
+            contentRect: NSRect(
+                x: 0,
+                y: 0,
+                width: Self.windowWidth,
+                height: Self.windowHeight,
+            ),
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
-            defer: false
+            defer: false,
         )
 
         window.title = "Unmissable Preferences"

@@ -8,11 +8,27 @@ final class HealthMonitor: ObservableObject {
     @Published
     var healthStatus: HealthStatus = .healthy
     @Published
-    var metrics: HealthMetrics = .init()
+    var metrics = HealthMetrics()
 
     private var healthCheckTask: Task<Void, Never>?
     private let healthCheckInterval: TimeInterval = 60.0 // Check every minute
     private let memoryWarningThresholdMB: Double = 200.0 // Warn if app uses more than 200 MB
+
+    /// Retry count above which sync failures are flagged as critical.
+    private static let syncRetryWarningThreshold = 3
+    /// Seconds since last sync before a "stale sync" warning is raised.
+    private static let staleSyncThresholdSeconds: TimeInterval = 3600
+    /// Seconds an overlay may remain visible past meeting end before being considered stuck.
+    private static let stuckOverlayThresholdSeconds: TimeInterval = 1800
+    /// Bytes per kilobyte, used for memory unit conversion.
+    private static let bytesPerKB = 1024
+    /// Kilobytes per megabyte, used for memory unit conversion.
+    private static let kbPerMB = 1024
+    /// Size of `integer_t` in bytes, used to compute `task_info` count parameter.
+    private static let integerTSize: mach_msg_type_number_t = 4
+    /// Size of `mach_task_basic_info` in units of `integer_t`, for the `task_info` call.
+    private static let machInfoCount =
+        mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / integerTSize
 
     // Dependencies to monitor
     private weak var calendarService: CalendarService?
@@ -21,7 +37,7 @@ final class HealthMonitor: ObservableObject {
     init(
         calendarService: CalendarService? = nil,
         overlayManager: (any OverlayManaging)? = nil,
-        startImmediately: Bool = true
+        startImmediately: Bool = true,
     ) {
         self.calendarService = calendarService
         self.overlayManager = overlayManager
@@ -35,7 +51,7 @@ final class HealthMonitor: ObservableObject {
     }
 
     func setup(
-        calendarService: CalendarService, overlayManager: any OverlayManaging
+        calendarService: CalendarService, overlayManager: any OverlayManaging,
     ) {
         self.calendarService = calendarService
         self.overlayManager = overlayManager
@@ -104,8 +120,8 @@ final class HealthMonitor: ObservableObject {
                     severity: .warning,
                     component: "Calendar Service",
                     message: "No calendar provider connected",
-                    suggestion: "Check calendar connection in preferences"
-                )
+                    suggestion: "Check calendar connection in preferences",
+                ),
             )
         }
 
@@ -121,32 +137,32 @@ final class HealthMonitor: ObservableObject {
                     severity: .warning,
                     component: "Network",
                     message: "Device is offline",
-                    suggestion: "Check internet connection"
-                )
+                    suggestion: "Check internet connection",
+                ),
             )
         }
 
-        if syncManager.retryCount > 3 {
+        if syncManager.retryCount > Self.syncRetryWarningThreshold {
             issues.append(
                 HealthIssue(
                     severity: .error,
                     component: "Sync Manager",
                     message: "Multiple sync failures (\(syncManager.retryCount) retries)",
-                    suggestion: "Check network and calendar permissions"
-                )
+                    suggestion: "Check network and calendar permissions",
+                ),
             )
         }
 
         if let lastSync = syncManager.lastSyncTime,
-           Date().timeIntervalSince(lastSync) > 3600
+           Date().timeIntervalSince(lastSync) > Self.staleSyncThresholdSeconds
         { // More than 1 hour
             issues.append(
                 HealthIssue(
                     severity: .warning,
                     component: "Sync Manager",
                     message: "Last sync was over 1 hour ago",
-                    suggestion: "Try manual sync or check network connection"
-                )
+                    suggestion: "Try manual sync or check network connection",
+                ),
             )
         }
 
@@ -159,18 +175,18 @@ final class HealthMonitor: ObservableObject {
         // Report overlay stuck visible for 30+ minutes past meeting end
         if overlayManager.isOverlayVisible,
            let activeEvent = overlayManager.activeEvent,
-           Date().timeIntervalSince(activeEvent.endDate) > 1800
+           Date().timeIntervalSince(activeEvent.endDate) > Self.stuckOverlayThresholdSeconds
         {
             logger.warning(
-                "Stuck overlay detected for event \(activeEvent.id) — meeting ended 30+ minutes ago"
+                "Stuck overlay detected for event \(activeEvent.id) — meeting ended 30+ minutes ago",
             )
             issues.append(
                 HealthIssue(
                     severity: .warning,
                     component: "Overlay Manager",
                     message: "Overlay stuck for meeting that ended 30+ minutes ago",
-                    suggestion: "Dismiss the overlay manually or restart the app"
-                )
+                    suggestion: "Dismiss the overlay manually or restart the app",
+                ),
             )
         }
 
@@ -182,15 +198,15 @@ final class HealthMonitor: ObservableObject {
 
         // Check memory usage
         let memoryUsage = getMemoryUsage()
-        let memoryThresholdBytes = Int(memoryWarningThresholdMB * 1024 * 1024)
+        let memoryThresholdBytes = Int(memoryWarningThresholdMB) * Self.bytesPerKB * Self.kbPerMB
         if memoryUsage > memoryThresholdBytes {
             issues.append(
                 HealthIssue(
                     severity: .warning,
                     component: "System Resources",
-                    message: "High memory usage: \(memoryUsage / 1024 / 1024) MB",
-                    suggestion: "Consider restarting the application"
-                )
+                    message: "High memory usage: \(memoryUsage / Self.bytesPerKB / Self.kbPerMB) MB",
+                    suggestion: "Consider restarting the application",
+                ),
             )
         }
 
@@ -212,13 +228,13 @@ final class HealthMonitor: ObservableObject {
 
     private func updateMetrics() {
         metrics.lastHealthCheck = Date()
-        metrics.memoryUsageMB = Double(getMemoryUsage()) / 1024.0 / 1024.0
+        metrics.memoryUsageMB = Double(getMemoryUsage()) / Double(Self.bytesPerKB) / Double(Self.kbPerMB)
         metrics.uptime = ProcessInfo.processInfo.systemUptime
     }
 
     private func getMemoryUsage() -> Int {
         var info = mach_task_basic_info()
-        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
+        var count = Self.machInfoCount
 
         let kerr: kern_return_t = withUnsafeMutablePointer(to: &info) {
             $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
@@ -226,7 +242,7 @@ final class HealthMonitor: ObservableObject {
                     mach_task_self_,
                     task_flavor_t(MACH_TASK_BASIC_INFO),
                     $0,
-                    &count
+                    &count,
                 )
             }
         }

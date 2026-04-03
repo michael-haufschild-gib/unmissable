@@ -5,10 +5,18 @@ struct CalendarPreferencesView: View {
     var appState: AppState
     @EnvironmentObject
     var calendarService: CalendarService
-    @Environment(\.customDesign)
+    @Environment(\.design)
     private var design
     @State
     private var connectingProvider: CalendarProviderType?
+
+    private static let providerIconWidth: CGFloat = 32
+    private static let statusIndicatorSize: CGFloat = 10
+    private static let progressScaleAmount: CGFloat = 0.8
+    private static let errorLineLimit = 2
+    private static let colorDotSize: CGFloat = 10
+    private static let colorDotTopPadding: CGFloat = 4
+    private static let primaryBadgeBackgroundOpacity: Double = 0.1
 
     var body: some View {
         ScrollView {
@@ -20,7 +28,7 @@ struct CalendarPreferencesView: View {
                         .foregroundColor(design.colors.textPrimary)
 
                     Text("Connect your calendars and choose which ones to monitor")
-                        .font(design.fonts.caption1)
+                        .font(design.fonts.caption)
                         .foregroundColor(design.colors.textSecondary)
                 }
 
@@ -34,12 +42,12 @@ struct CalendarPreferencesView: View {
                     HStack(spacing: design.spacing.sm) {
                         Image(systemName: "exclamationmark.triangle")
                             .foregroundColor(design.colors.warning)
-                            .font(.system(size: 12))
+                            .font(design.fonts.footnote)
 
                         Text(updateError)
-                            .font(design.fonts.caption1)
+                            .font(design.fonts.caption)
                             .foregroundColor(design.colors.warning)
-                            .lineLimit(2)
+                            .lineLimit(Self.errorLineLimit)
                     }
                     .padding(.horizontal, design.spacing.lg)
                 }
@@ -65,57 +73,63 @@ struct CalendarPreferencesView: View {
         let isConnected = calendarService.connectedProviders.contains(providerType)
         let isConnecting = connectingProvider == providerType
 
-        return CustomCard(style: isConnected ? .elevated : .standard) {
-            HStack(spacing: design.spacing.md) {
-                Image(systemName: providerType.iconName)
-                    .foregroundColor(isConnected ? design.colors.accent : design.colors.textSecondary)
-                    .font(.system(size: 20, weight: .medium))
-                    .frame(width: 32)
+        return HStack(spacing: design.spacing.md) {
+            Image(systemName: providerType.iconName)
+                .foregroundColor(isConnected ? design.colors.accent : design.colors.textSecondary)
+                .font(design.fonts.title2)
+                .fontWeight(.medium)
+                .frame(width: Self.providerIconWidth)
 
-                VStack(alignment: .leading, spacing: design.spacing.xs) {
-                    HStack(spacing: design.spacing.sm) {
-                        Text(providerType.displayName)
-                            .font(design.fonts.headline)
-                            .foregroundColor(design.colors.textPrimary)
-
-                        if isConnected {
-                            CustomStatusIndicator(status: .connected, size: 10)
-                        }
-                    }
+            VStack(alignment: .leading, spacing: design.spacing.xs) {
+                HStack(spacing: design.spacing.sm) {
+                    Text(providerType.displayName)
+                        .font(design.fonts.headline)
+                        .foregroundColor(design.colors.textPrimary)
 
                     if isConnected {
-                        providerStatusText(for: providerType)
-                    } else {
-                        Text("Not connected")
-                            .font(design.fonts.caption1)
-                            .foregroundColor(design.colors.textSecondary)
+                        UMStatusIndicator(.connected, size: Self.statusIndicatorSize)
                     }
                 }
-
-                Spacer()
 
                 if isConnected {
-                    CustomButton("Disconnect", style: .destructive) {
-                        Task {
-                            await appState.disconnectFromCalendar(provider: providerType)
-                        }
-                    }
-                } else if isConnecting {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                        .tint(design.colors.accent)
+                    providerStatusText(for: providerType)
                 } else {
-                    CustomButton("Connect", style: .primary) {
-                        connectingProvider = providerType
-                        Task {
-                            await appState.connectToCalendar(provider: providerType)
-                            connectingProvider = nil
-                        }
-                    }
+                    Text("Not connected")
+                        .font(design.fonts.caption)
+                        .foregroundColor(design.colors.textSecondary)
                 }
             }
-            .padding(design.spacing.lg)
+
+            Spacer()
+
+            if isConnected {
+                Button {
+                    Task {
+                        await appState.disconnectFromCalendar(provider: providerType)
+                    }
+                } label: {
+                    Text("Disconnect")
+                }
+                .buttonStyle(UMButtonStyle(.danger))
+            } else if isConnecting {
+                ProgressView()
+                    .scaleEffect(Self.progressScaleAmount)
+                    .tint(design.colors.accent)
+            } else {
+                Button {
+                    connectingProvider = providerType
+                    Task {
+                        await appState.connectToCalendar(provider: providerType)
+                        connectingProvider = nil
+                    }
+                } label: {
+                    Text("Connect")
+                }
+                .buttonStyle(UMButtonStyle(.primary))
+            }
         }
+        .padding(design.spacing.lg)
+        .umCard(isConnected ? .elevated : .glass)
     }
 
     @ViewBuilder
@@ -124,11 +138,11 @@ struct CalendarPreferencesView: View {
         case .google:
             if let email = calendarService.userEmail {
                 Text(email)
-                    .font(design.fonts.caption1)
+                    .font(design.fonts.caption)
                     .foregroundColor(design.colors.textSecondary)
             } else {
                 Text("Connected")
-                    .font(design.fonts.caption1)
+                    .font(design.fonts.caption)
                     .foregroundColor(design.colors.textSecondary)
             }
 
@@ -136,11 +150,11 @@ struct CalendarPreferencesView: View {
             let appleCalendarCount = calendarService.calendars.count(where: { $0.sourceProvider == .apple })
             if appleCalendarCount > 0 {
                 Text("\(appleCalendarCount) calendar\(appleCalendarCount == 1 ? "" : "s") available")
-                    .font(design.fonts.caption1)
+                    .font(design.fonts.caption)
                     .foregroundColor(design.colors.textSecondary)
             } else {
                 Text("Connected")
-                    .font(design.fonts.caption1)
+                    .font(design.fonts.caption)
                     .foregroundColor(design.colors.textSecondary)
             }
         }
@@ -151,17 +165,16 @@ struct CalendarPreferencesView: View {
     private var calendarSelectionSection: some View {
         Group {
             if calendarService.calendars.isEmpty {
-                CustomCard(style: .standard) {
-                    HStack(spacing: design.spacing.sm) {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                            .tint(design.colors.accent)
-                        Text("Loading calendars...")
-                            .font(design.fonts.callout)
-                            .foregroundColor(design.colors.textSecondary)
-                    }
-                    .padding(design.spacing.lg)
+                HStack(spacing: design.spacing.sm) {
+                    ProgressView()
+                        .scaleEffect(Self.progressScaleAmount)
+                        .tint(design.colors.accent)
+                    Text("Loading calendars...")
+                        .font(design.fonts.callout)
+                        .foregroundColor(design.colors.textSecondary)
                 }
+                .padding(design.spacing.lg)
+                .umCard(.glass)
             } else {
                 calendarListByProvider
             }
@@ -173,33 +186,20 @@ struct CalendarPreferencesView: View {
             ForEach(CalendarProviderType.allCases, id: \.self) { providerType in
                 let providerCalendars = calendarService.calendars.filter { $0.sourceProvider == providerType }
                 if !providerCalendars.isEmpty {
-                    CustomCard(style: .standard) {
-                        VStack(alignment: .leading, spacing: design.spacing.lg) {
-                            HStack(spacing: design.spacing.sm) {
-                                Image(systemName: providerType.iconName)
-                                    .foregroundColor(design.colors.accent)
-                                    .font(.system(size: 14, weight: .medium))
-
-                                Text("\(providerType.displayName) Calendars")
-                                    .font(design.fonts.headline)
-                                    .foregroundColor(design.colors.textPrimary)
+                    UMSection("\(providerType.displayName) Calendars", icon: providerType.iconName) {
+                        VStack(alignment: .leading, spacing: design.spacing.sm) {
+                            ForEach(providerCalendars) { calendar in
+                                CalendarSelectionRow(
+                                    calendar: calendar,
+                                    onToggle: { isSelected in
+                                        appState.updateCalendarSelection(
+                                            calendar.id, isSelected: isSelected,
+                                        )
+                                    },
+                                )
                             }
-
-                            VStack(alignment: .leading, spacing: design.spacing.sm) {
-                                ForEach(providerCalendars) { calendar in
-                                    CalendarSelectionRow(
-                                        calendar: calendar,
-                                        onToggle: { isSelected in
-                                            appState.updateCalendarSelection(
-                                                calendar.id, isSelected: isSelected
-                                            )
-                                        }
-                                    )
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .padding(design.spacing.lg)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
             }
@@ -212,25 +212,32 @@ struct CalendarPreferencesView: View {
 struct CalendarSelectionRow: View {
     let calendar: CalendarInfo
     let onToggle: (Bool) -> Void
-    @Environment(\.customDesign)
+    @Environment(\.design)
     private var design
+
+    private static let colorDotSize: CGFloat = 10
+    private static let colorDotTopPadding: CGFloat = 4
+    private static let primaryBadgeBackgroundOpacity: Double = 0.1
+    private static let descriptionLineLimit = 2
 
     var body: some View {
         HStack(alignment: .top, spacing: design.spacing.md) {
-            CustomToggle(
+            Toggle(
                 isOn: Binding(
                     get: { calendar.isSelected },
-                    set: { onToggle($0) }
-                )
-            )
+                    set: { onToggle($0) },
+                ),
+            ) {}
+                .toggleStyle(UMToggleStyle())
+                .labelsHidden()
 
             VStack(alignment: .leading, spacing: design.spacing.xs) {
                 HStack(alignment: .top, spacing: design.spacing.sm) {
                     if let colorHex = calendar.colorHex {
                         Circle()
                             .fill(Color(hex: colorHex) ?? design.colors.accent)
-                            .frame(width: 10, height: 10)
-                            .padding(.top, 4)
+                            .frame(width: Self.colorDotSize, height: Self.colorDotSize)
+                            .padding(.top, Self.colorDotTopPadding)
                     }
 
                     Text(calendar.name)
@@ -239,12 +246,12 @@ struct CalendarSelectionRow: View {
 
                     if calendar.isPrimary {
                         Text("PRIMARY")
-                            .font(design.fonts.caption2)
+                            .font(design.fonts.caption)
                             .foregroundColor(design.colors.accent)
                             .padding(.horizontal, design.spacing.sm)
                             .padding(.vertical, design.spacing.xs)
-                            .background(design.colors.accent.opacity(0.1))
-                            .cornerRadius(design.corners.small)
+                            .background(design.colors.accent.opacity(Self.primaryBadgeBackgroundOpacity))
+                            .cornerRadius(design.corners.sm)
                     }
 
                     Spacer()
@@ -252,37 +259,44 @@ struct CalendarSelectionRow: View {
 
                 if let description = calendar.description, !description.isEmpty {
                     Text(description)
-                        .font(design.fonts.caption1)
+                        .font(design.fonts.caption)
                         .foregroundColor(design.colors.textSecondary)
-                        .lineLimit(2)
+                        .lineLimit(Self.descriptionLineLimit)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(design.spacing.md)
-        .background(design.colors.backgroundSecondary)
-        .cornerRadius(design.corners.medium)
+        .background(design.colors.surface)
+        .cornerRadius(design.corners.md)
     }
 }
 
 // MARK: - Color Extension for Hex
 
 private extension Color {
+    private static let hexStringLength = 6
+    private static let hexRadix = 16
+    private static let redShift: UInt64 = 16
+    private static let greenShift: UInt64 = 8
+    private static let channelMask: UInt64 = 0xFF
+    private static let channelMax: Double = 255.0
+
     init?(hex: String) {
         var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
         hexSanitized = hexSanitized.hasPrefix("#") ? String(hexSanitized.dropFirst()) : hexSanitized
 
-        guard hexSanitized.count == 6,
-              let rgb = UInt64(hexSanitized, radix: 16)
+        guard hexSanitized.count == Self.hexStringLength,
+              let rgb = UInt64(hexSanitized, radix: Self.hexRadix)
         else {
             return nil
         }
 
         self.init(
-            red: Double((rgb >> 16) & 0xFF) / 255.0,
-            green: Double((rgb >> 8) & 0xFF) / 255.0,
-            blue: Double(rgb & 0xFF) / 255.0
+            red: Double((rgb >> Self.redShift) & Self.channelMask) / Self.channelMax,
+            green: Double((rgb >> Self.greenShift) & Self.channelMask) / Self.channelMax,
+            blue: Double(rgb & Self.channelMask) / Self.channelMax,
         )
     }
 }

@@ -39,24 +39,31 @@ extension DatabaseManager {
                     JOIN events_fts ON events.rowid = events_fts.rowid
                     WHERE events_fts MATCH ?
                     ORDER BY events_fts.rank
-                    """, arguments: [sanitized]
+                    """, arguments: [sanitized],
                 )
             }
         }
     }
 
+    /// Number of days to retain old events before cleanup.
+    private static let eventRetentionDays = 30
+    /// Timeout (seconds) for the VACUUM operation, which can be slow on large databases.
+    private static let vacuumTimeoutSeconds: TimeInterval = 60.0
+
     func performMaintenance() async throws {
         extensionLogger.info("Starting database maintenance")
 
-        // Delete events older than 30 days
-        let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
-        try await deleteOldEvents(before: thirtyDaysAgo)
+        // Delete events older than retention period
+        let cutoffDate = Calendar.current.date(
+            byAdding: .day, value: -Self.eventRetentionDays, to: Date(),
+        ) ?? Date()
+        try await deleteOldEvents(before: cutoffDate)
 
         // Vacuum database outside a transaction (VACUUM cannot run inside a transaction).
         // Use longer timeout as VACUUM can take time on large DBs.
         guard let dbQueue else { return }
 
-        try await withTimeout(60.0) {
+        try await withTimeout(Self.vacuumTimeoutSeconds) {
             try await dbQueue.barrierWriteWithoutTransaction { db in
                 try db.execute(sql: "VACUUM")
             }

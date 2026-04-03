@@ -74,7 +74,7 @@ final class AppState: ObservableObject {
 
         services.eventScheduler.startScheduling(
             events: events,
-            overlayManager: services.overlayManager
+            overlayManager: services.overlayManager,
         )
     }
 
@@ -196,7 +196,7 @@ final class AppState: ObservableObject {
 
         services.eventScheduler.startScheduling(
             events: services.calendarService.events,
-            overlayManager: services.overlayManager
+            overlayManager: services.overlayManager,
         )
 
         if services.calendarService.isConnected {

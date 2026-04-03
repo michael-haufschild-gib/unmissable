@@ -16,7 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self,
             andSelector: #selector(handleURLEvent(_:withReplyEvent:)),
             forEventClass: AEEventClass(kInternetEventClass),
-            andEventID: AEEventID(kAEGetURL)
+            andEventID: AEEventID(kAEGetURL),
         )
 
         // Request necessary permissions on first launch
@@ -43,7 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc
     func handleURLEvent(
-        _ event: NSAppleEventDescriptor, withReplyEvent _: NSAppleEventDescriptor
+        _ event: NSAppleEventDescriptor, withReplyEvent _: NSAppleEventDescriptor,
     ) {
         guard
             let urlString = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.stringValue,
@@ -60,7 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             logger.info("OAuth callback detected - posting notification")
             NotificationCenter.default.post(
                 name: .oauthCallback,
-                object: url
+                object: url,
             )
         } else {
             logger.warning("Received URL with unexpected scheme: \(url.scheme ?? "nil")")

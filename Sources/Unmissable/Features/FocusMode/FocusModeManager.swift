@@ -8,7 +8,7 @@ private final class NotificationTokenBag: @unchecked Sendable {
     private let lock = NSLock()
     private var tokens: [NSObjectProtocol] = []
 
-    func add(_ token: NSObjectProtocol) {
+    fileprivate func add(_ token: NSObjectProtocol) {
         lock.lock()
         tokens.append(token)
         lock.unlock()
@@ -24,6 +24,11 @@ private final class NotificationTokenBag: @unchecked Sendable {
 @MainActor
 final class FocusModeManager: ObservableObject {
     private let logger = Logger(category: "FocusModeManager")
+
+    // MARK: - Constants
+
+    private nonisolated(unsafe) static let maxAssertionsFileSize = 1_000_000
+    private nonisolated(unsafe) static let maxPrefsFileSize = 5_000_000
 
     @Published
     var isDoNotDisturbEnabled: Bool = false
@@ -48,7 +53,7 @@ final class FocusModeManager: ObservableObject {
         notificationTokens.add(NotificationCenter.default.addObserver(
             forName: .dndPrefsChanged,
             object: nil,
-            queue: .main
+            queue: .main,
         ) { [weak self] _ in
             Task { @MainActor in
                 self?.checkDoNotDisturbStatus()
@@ -59,7 +64,7 @@ final class FocusModeManager: ObservableObject {
         notificationTokens.add(NotificationCenter.default.addObserver(
             forName: .focusStateChanged,
             object: nil,
-            queue: .main
+            queue: .main,
         ) { [weak self] _ in
             Task { @MainActor in
                 self?.checkDoNotDisturbStatus()
@@ -91,14 +96,14 @@ final class FocusModeManager: ObservableObject {
 
             case let .failure(error):
                 self.logger.warning(
-                    "DND detection unavailable (parse failure): \(error.localizedDescription)"
+                    "DND detection unavailable (parse failure): \(error.localizedDescription)",
                 )
                 self.dndDetectionAvailable = false
                 self.isDoNotDisturbEnabled = false
 
             case .notFound:
                 self.logger.warning(
-                    "DND detection unavailable: preferences files not found at expected paths"
+                    "DND detection unavailable: preferences files not found at expected paths",
                 )
                 self.dndDetectionAvailable = false
                 self.isDoNotDisturbEnabled = false
@@ -156,7 +161,7 @@ final class FocusModeManager: ObservableObject {
     private nonisolated static func readAssertionsFile(at path: String) -> DNDCheckResult {
         do {
             let data = try Data(contentsOf: URL(fileURLWithPath: path))
-            guard data.count < 1_000_000 else {
+            guard data.count < maxAssertionsFileSize else {
                 // Safety: don't parse unreasonably large files
                 return .success(false)
             }
@@ -189,12 +194,12 @@ final class FocusModeManager: ObservableObject {
         await Task.detached {
             do {
                 let data = try Data(contentsOf: URL(fileURLWithPath: prefsPath))
-                guard data.count < 5_000_000 else {
+                guard data.count < maxPrefsFileSize else {
                     // Safety: don't parse unreasonably large files
                     return DNDCheckResult.success(false)
                 }
                 guard let plist = try PropertyListSerialization.propertyList(
-                    from: data, options: [], format: nil
+                    from: data, options: [], format: nil,
                 ) as? [String: Any] else {
                     return .success(false)
                 }
@@ -202,7 +207,7 @@ final class FocusModeManager: ObservableObject {
                 // The dnd_prefs value is itself a nested plist (binary data blob)
                 if let dndPrefsData = plist["dnd_prefs"] as? Data {
                     guard let dndPrefs = try PropertyListSerialization.propertyList(
-                        from: dndPrefsData, options: [], format: nil
+                        from: dndPrefsData, options: [], format: nil,
                     ) as? [String: Any] else {
                         return .success(false)
                     }

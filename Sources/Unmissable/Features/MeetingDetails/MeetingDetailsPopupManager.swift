@@ -5,7 +5,9 @@ import SwiftUI
 /// Default size for the meeting details popup window.
 /// Shared between MeetingDetailsView and MeetingDetailsPopupManager.
 enum MeetingDetailsLayout {
-    static let popupSize = NSSize(width: 480, height: 600)
+    private static let popupWidth: CGFloat = 480
+    private static let popupHeight: CGFloat = 600
+    static let popupSize = NSSize(width: popupWidth, height: popupHeight)
 }
 
 @MainActor
@@ -21,6 +23,10 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
     // swiftlint:disable:next weak_delegate
     private var windowDelegate: PopupWindowDelegate?
     private let themeManager: ThemeManager
+
+    private static let windowSpacing: CGFloat = 10
+    private static let windowLevelOffset = 1
+    private static let windowCenterDivisor: CGFloat = 2
 
     init(themeManager: ThemeManager) {
         self.themeManager = themeManager
@@ -80,21 +86,23 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
         // Note: No .onDisappear cleanup here — hidePopup() handles all state cleanup.
         // Adding redundant cleanup in onDisappear races with hidePopup() via the window delegate.
         let contentView = MeetingDetailsView(event: event, onClose: { [weak self] in self?.hidePopup() })
-            .customThemedEnvironment(themeManager: themeManager)
+            .themed(themeManager: themeManager)
 
         // Create NSWindow with borderless style for clean popup appearance
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: MeetingDetailsLayout.popupSize),
             styleMask: [.borderless],
             backing: .buffered,
-            defer: false
+            defer: false,
         )
 
         // Configure window properties
         window.contentView = NSHostingView(rootView: contentView)
         window.isReleasedWhenClosed = false
         window.level = NSWindow
-            .Level(rawValue: Int(CGWindowLevelForKey(.popUpMenuWindow)) + 1) // Above menu bar dropdowns
+            .Level(
+                rawValue: Int(CGWindowLevelForKey(.popUpMenuWindow)) + Self.windowLevelOffset,
+            ) // Above menu bar dropdowns
         window.hidesOnDeactivate = false // FIXED: Don't hide when clicking elsewhere - let user manually close
         window.backgroundColor = .clear // Transparent background for clean appearance
         window.hasShadow = true // Add shadow for depth
@@ -123,15 +131,16 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
             let windowSize = window.frame.size
 
             // Position to the right of the parent with some spacing
-            let x = parentFrame.maxX + 10
-            let y = parentFrame.midY - (windowSize.height / 2)
+            let x = parentFrame.maxX + Self.windowSpacing
+            let y = parentFrame.midY - (windowSize.height / Self.windowCenterDivisor)
 
             // Ensure window stays on screen
             if let screen = parent.screen {
                 let screenFrame = screen.visibleFrame
-                let adjustedX = min(x, screenFrame.maxX - windowSize.width - 10)
+                let adjustedX = min(x, screenFrame.maxX - windowSize.width - Self.windowSpacing)
                 let adjustedY = max(
-                    screenFrame.minY + 10, min(y, screenFrame.maxY - windowSize.height - 10)
+                    screenFrame.minY + Self.windowSpacing,
+                    min(y, screenFrame.maxY - windowSize.height - Self.windowSpacing),
                 )
 
                 window.setFrameOrigin(NSPoint(x: adjustedX, y: adjustedY))

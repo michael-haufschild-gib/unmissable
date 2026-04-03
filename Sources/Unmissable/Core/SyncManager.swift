@@ -43,13 +43,29 @@ final class SyncManager: ObservableObject {
     private var pendingNetworkUpdate: Task<Void, Never>?
     private let networkDebounceDelay: TimeInterval = 0.5 // 500ms debounce
 
-    // Staleness TTL: clear cached events when the API consistently returns empty
+    /// Staleness TTL: clear cached events when the API consistently returns empty
     private var stalenessReferenceDate: Date?
-    private let stalenessTTL: TimeInterval = 2 * 60 * 60 // 2 hours
+    /// Staleness TTL: 2 hours in seconds.
+    private static let stalenessHours = 2
+    /// Seconds per hour, used for staleness TTL computation.
+    private static let secondsPerHour: TimeInterval = 3600
+    private let stalenessTTL = TimeInterval(stalenessHours) * secondsPerHour
+
+    /// Milliseconds per second, used for network debounce conversion.
+    private static let millisecondsPerSecond: Double = 1000
+    /// Maximum retry delay cap (seconds) — 5 minutes.
+    private static let maxRetryDelaySeconds: TimeInterval = 300.0
+    /// Exponential backoff base multiplier.
+    private static let backoffBase: Double = 2.0
+    /// Jitter range lower bound for retry delay randomization.
+    private static let jitterLowerBound: Double = 0.8
+    /// Jitter range upper bound for retry delay randomization.
+    private static let jitterUpperBound: Double = 1.2
 
     init(
-        apiService: any CalendarAPIProviding, databaseManager: any DatabaseManaging,
-        preferencesManager: PreferencesManager
+        apiService: any CalendarAPIProviding,
+        databaseManager: any DatabaseManaging,
+        preferencesManager: PreferencesManager,
     ) {
         self.apiService = apiService
         self.databaseManager = databaseManager
@@ -120,7 +136,9 @@ final class SyncManager: ObservableObject {
         pendingNetworkUpdate = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                try await Task.sleep(for: .milliseconds(networkDebounceDelay * 1000))
+                try await Task.sleep(
+                    for: .milliseconds(networkDebounceDelay * Self.millisecondsPerSecond),
+                )
             } catch is CancellationError {
                 return // Debounced - a newer update superseded this one
             } catch {
@@ -232,7 +250,7 @@ final class SyncManager: ObservableObject {
 
             await saveAndFinalize(
                 results: results,
-                selectedCalendarIds: selectedCalendarIds
+                selectedCalendarIds: selectedCalendarIds,
             )
         } catch {
             logger.error("Sync failed: \(error.localizedDescription)")
@@ -274,20 +292,22 @@ final class SyncManager: ObservableObject {
         let now = Date()
         let startOfDay = Calendar.current.startOfDay(for: now)
         let endDate = Calendar.current.date(
-            byAdding: .day, value: eventLookAheadDays, to: now
+            byAdding: .day, value: eventLookAheadDays, to: now,
         ) ?? now
 
         let results = await apiService.fetchEvents(
             for: calendarIds,
             from: startOfDay,
-            to: endDate
+            to: endDate,
         )
 
         let failedCount = results.values.count(where: { if case .failure = $0 { return true }
             return false
         })
         if failedCount > 0 {
-            logger.warning("Partial sync failure: \(failedCount)/\(calendarIds.count) calendars unavailable")
+            logger.warning(
+                "Partial sync failure: \(failedCount)/\(calendarIds.count) calendars unavailable",
+            )
         }
 
         return results
@@ -306,21 +326,22 @@ final class SyncManager: ObservableObject {
         if let referenceDate = stalenessReferenceDate,
            Date().timeIntervalSince(referenceDate) > stalenessTTL
         {
+            let staleTTLHours = Int(stalenessTTL / Self.secondsPerHour)
             logger.info(
-                "All calendars confirmed empty for >\(Int(self.stalenessTTL / 3600))h — clearing stale cache"
+                "All calendars confirmed empty for >\(staleTTLHours)h — clearing stale cache",
             )
             for calendarId in calendarIds {
                 do {
                     try await databaseManager.replaceEvents(for: calendarId, with: [])
                 } catch {
                     logger.error(
-                        "Failed to clear events for calendar \(calendarId): \(error.localizedDescription)"
+                        "Failed to clear events for calendar \(calendarId): \(error.localizedDescription)",
                     )
                 }
             }
         } else {
             logger.info(
-                "All \(calendarIds.count) calendars confirmed empty — preserving cache (staleness TTL)"
+                "All \(calendarIds.count) calendars confirmed empty — preserving cache (staleness TTL)",
             )
         }
         completeSync()
@@ -330,11 +351,11 @@ final class SyncManager: ObservableObject {
     /// Saves fetched events per calendar and finalizes the sync cycle.
     private func saveAndFinalize(
         results: CalendarFetchResults,
-        selectedCalendarIds: [String]
+        selectedCalendarIds: [String],
     ) async {
         let dbFailedCount = await saveEventsPerCalendar(
             results: results,
-            selectedCalendarIds: selectedCalendarIds
+            selectedCalendarIds: selectedCalendarIds,
         )
 
         if dbFailedCount == selectedCalendarIds.count {
@@ -350,7 +371,7 @@ final class SyncManager: ObservableObject {
         completeSync()
 
         logger.info(
-            "Sync completed: \(totalEventCount) events from \(selectedCalendarIds.count) calendars"
+            "Sync completed: \(totalEventCount) events from \(selectedCalendarIds.count) calendars",
         )
         await onSyncCompleted?()
     }
@@ -374,12 +395,12 @@ final class SyncManager: ObservableObject {
     }
 
     /// Saves per-calendar results to the database. For each calendar:
-    /// - `.success(events)` → replace cached events (even if empty — the API confirmed the state)
-    /// - `.failure` → preserve cached events (we don't know the calendar's true state)
+    /// - `.success(events)` -> replace cached events (even if empty — the API confirmed the state)
+    /// - `.failure` -> preserve cached events (we don't know the calendar's true state)
     /// Returns the number of calendars that failed to save to the database.
     private func saveEventsPerCalendar(
         results: CalendarFetchResults,
-        selectedCalendarIds: [String]
+        selectedCalendarIds: [String],
     ) async -> Int {
         logger.debug("Saving events to database (transactional per calendar)")
         var dbFailedCalendars: [String] = []
@@ -399,19 +420,19 @@ final class SyncManager: ObservableObject {
                 } catch {
                     dbFailedCalendars.append(calendarId)
                     logger.error(
-                        "Failed to save events for calendar \(calendarId): \(error.localizedDescription)"
+                        "Failed to save events for calendar \(calendarId): \(error.localizedDescription)",
                     )
                 }
 
             case let .failure(error):
                 logger.debug(
-                    "API failed for calendar \(calendarId), preserving cache: \(error.localizedDescription)"
+                    "API failed for calendar \(calendarId), preserving cache: \(error.localizedDescription)",
                 )
             }
         }
         if !dbFailedCalendars.isEmpty {
             logger.warning(
-                "Partial sync: \(dbFailedCalendars.count)/\(selectedCalendarIds.count) calendars failed to save"
+                "Partial sync: \(dbFailedCalendars.count)/\(selectedCalendarIds.count) calendars failed to save",
             )
         }
         return dbFailedCalendars.count
@@ -450,7 +471,7 @@ final class SyncManager: ObservableObject {
         let retryDelay = calculateRetryDelay()
 
         logger.info(
-            "Network error occurred, retrying in \(retryDelay) seconds (attempt \(self.retryCount)/\(self.maxRetries))"
+            "Network error occurred, retrying in \(retryDelay) seconds (attempt \(self.retryCount)/\(self.maxRetries))",
         )
         syncStatus = .error("Retrying in \(Int(retryDelay))s...")
 
@@ -472,9 +493,9 @@ final class SyncManager: ObservableObject {
 
     private func calculateRetryDelay() -> TimeInterval {
         // Exponential backoff with jitter
-        let exponentialDelay = baseRetryDelay * pow(2.0, Double(retryCount - 1))
-        let jitter = Double.random(in: 0.8 ... 1.2) // ±20% jitter
-        return min(exponentialDelay * jitter, 300.0) // Cap at 5 minutes
+        let exponentialDelay = baseRetryDelay * pow(Self.backoffBase, Double(retryCount - 1))
+        let jitter = Double.random(in: Self.jitterLowerBound ... Self.jitterUpperBound) // +-20% jitter
+        return min(exponentialDelay * jitter, Self.maxRetryDelaySeconds) // Cap at 5 minutes
     }
 
     private func resetRetryCount() {

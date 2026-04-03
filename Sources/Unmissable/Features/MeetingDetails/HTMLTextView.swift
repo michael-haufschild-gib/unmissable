@@ -8,16 +8,21 @@ private let htmlTextViewLogger = Logger(category: "HTMLTextView")
 /// Supports rich text formatting, clickable links, and custom theming
 struct HTMLTextView: NSViewRepresentable {
     let htmlContent: String?
-    let effectiveTheme: EffectiveTheme
+    let resolvedTheme: ResolvedTheme
     let onLinkTap: ((URL) -> Void)?
+
+    private static let defaultFontSize: CGFloat = 13
+    private static let textContainerInsetWidth: CGFloat = 8
+    private static let textContainerInsetHeight: CGFloat = 8
+    private static let minimumHeight: CGFloat = 20
 
     init(
         htmlContent: String?,
-        effectiveTheme: EffectiveTheme? = nil,
-        onLinkTap: ((URL) -> Void)? = nil
+        resolvedTheme: ResolvedTheme? = nil,
+        onLinkTap: ((URL) -> Void)? = nil,
     ) {
         self.htmlContent = htmlContent
-        self.effectiveTheme = effectiveTheme ?? .dark
+        self.resolvedTheme = resolvedTheme ?? .darkBlue
         self.onLinkTap = onLinkTap
     }
 
@@ -32,20 +37,23 @@ struct HTMLTextView: NSViewRepresentable {
         textView.allowsUndo = false
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
-        textView.textContainerInset = NSSize(width: 8, height: 8)
+        textView.textContainerInset = NSSize(
+            width: Self.textContainerInsetWidth,
+            height: Self.textContainerInsetHeight,
+        )
 
         // Configure text container
         textView.textContainer?.lineFragmentPadding = 0
         textView.textContainer?.widthTracksTextView = true
         textView.textContainer?.heightTracksTextView = false
         textView.textContainer?.containerSize = NSSize(
-            width: 0, height: CGFloat.greatestFiniteMagnitude
+            width: 0, height: CGFloat.greatestFiniteMagnitude,
         )
 
         // Set size constraints
-        textView.minSize = NSSize(width: 0, height: 20)
+        textView.minSize = NSSize(width: 0, height: Self.minimumHeight)
         textView.maxSize = NSSize(
-            width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude
+            width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude,
         )
 
         // Set up delegate for link handling
@@ -56,7 +64,7 @@ struct HTMLTextView: NSViewRepresentable {
         textView.textStorage?.setAttributedString(attributedString)
 
         htmlTextViewLogger.debug(
-            "HTMLTextView: Created NSTextView with content length: \(attributedString.length)"
+            "HTMLTextView: Created NSTextView with content length: \(attributedString.length)",
         )
 
         return textView
@@ -66,13 +74,13 @@ struct HTMLTextView: NSViewRepresentable {
         let coordinator = context.coordinator
 
         // Skip re-parsing if inputs haven't changed
-        if coordinator.lastHtmlContent == htmlContent, coordinator.lastTheme == effectiveTheme {
+        if coordinator.lastHtmlContent == htmlContent, coordinator.lastTheme == resolvedTheme {
             return
         }
 
         let newAttributedText = createAttributedString(from: htmlContent)
         coordinator.lastHtmlContent = htmlContent
-        coordinator.lastTheme = effectiveTheme
+        coordinator.lastTheme = resolvedTheme
 
         htmlTextViewLogger.debug("HTMLTextView: Updating content (\(htmlContent?.count ?? 0) chars)")
         textView.textStorage?.setAttributedString(newAttributedText)
@@ -96,8 +104,8 @@ struct HTMLTextView: NSViewRepresentable {
         guard let htmlContent, !htmlContent.isEmpty else {
             let placeholder = "No description available"
             let attributes: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 13),
-                .foregroundColor: effectiveTheme == .dark
+                .font: NSFont.systemFont(ofSize: Self.defaultFontSize),
+                .foregroundColor: resolvedTheme.isDark
                     ? NSColor.lightGray : NSColor.darkGray,
             ]
             return NSAttributedString(string: placeholder, attributes: attributes)
@@ -108,14 +116,14 @@ struct HTMLTextView: NSViewRepresentable {
         // Check if content contains actual HTML tags (not just comparison operators like `x < 5`)
         let isHTML = htmlContent.range(
             of: "</?[a-zA-Z][a-zA-Z0-9]*[\\s>/]",
-            options: .regularExpression
+            options: .regularExpression,
         ) != nil
 
         if !isHTML {
             // Plain text - create simple attributed string
             let attributes: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 13),
-                .foregroundColor: effectiveTheme == .dark ? NSColor.white : NSColor.black,
+                .font: NSFont.systemFont(ofSize: Self.defaultFontSize),
+                .foregroundColor: resolvedTheme.isDark ? NSColor.white : NSColor.black,
             ]
             return NSAttributedString(string: htmlContent, attributes: attributes)
         }
@@ -135,7 +143,7 @@ struct HTMLTextView: NSViewRepresentable {
             ]
 
             let attributedString = try NSAttributedString(
-                data: data, options: options, documentAttributes: nil
+                data: data, options: options, documentAttributes: nil,
             )
             htmlTextViewLogger.debug("HTMLTextView: Successfully parsed HTML (\(attributedString.length) chars)")
             return attributedString
@@ -148,18 +156,18 @@ struct HTMLTextView: NSViewRepresentable {
     private func createPlainTextFallback(_ text: String) -> NSAttributedString {
         // Strip HTML tags for fallback display
         let plainText = text.replacingOccurrences(
-            of: "<[^>]+>", with: "", options: .regularExpression, range: nil
+            of: "<[^>]+>", with: "", options: .regularExpression, range: nil,
         )
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 13),
-            .foregroundColor: effectiveTheme == .dark ? NSColor.white : NSColor.black,
+            .font: NSFont.systemFont(ofSize: Self.defaultFontSize),
+            .foregroundColor: resolvedTheme.isDark ? NSColor.white : NSColor.black,
         ]
         return NSAttributedString(string: plainText, attributes: attributes)
     }
 
     private func createStyledHTML(content: String) -> String {
         let safeContent = HTMLSanitizer.sanitize(content)
-        let isDark = effectiveTheme == .dark
+        let isDark = resolvedTheme.isDark
         let bodyColor = isDark ? "#CCCCCC" : "#333333"
         let headingColor = isDark ? "#FFFFFF" : "#000000"
         let linkColor = isDark ? "#4A90E2" : "#007AFF"
@@ -212,7 +220,7 @@ struct HTMLTextView: NSViewRepresentable {
         let onLinkTap: ((URL) -> Void)?
         let logger: Logger
         var lastHtmlContent: String?
-        var lastTheme: EffectiveTheme?
+        var lastTheme: ResolvedTheme?
 
         init(onLinkTap: ((URL) -> Void)?, logger: Logger) {
             self.onLinkTap = onLinkTap

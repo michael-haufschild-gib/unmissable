@@ -11,11 +11,21 @@ struct EventGroup: Identifiable {
 }
 
 struct MenuBarView: View {
+    // MARK: - Layout Constants
+
+    private static let menuBarWidth: CGFloat = 340
+    private static let backgroundOpacity: Double = 0.85
+    private static let statusIndicatorSize: CGFloat = 8
+    private static let separatorHeight: CGFloat = 0.5
+    private static let syncProgressScale: CGFloat = 0.7
+    private static let maxVisibleEventsPerGroup = 3
+    private static let weekendSkipDays = 2
+
     @EnvironmentObject
     var appState: AppState
     @EnvironmentObject
     var calendarService: CalendarService
-    @Environment(\.customDesign)
+    @Environment(\.design)
     private var design
 
     private var groupedEvents: [EventGroup] {
@@ -65,14 +75,11 @@ struct MenuBarView: View {
     }
 
     private func getNextMondayIfNeeded(from tomorrow: Date, calendar: Calendar) -> Date? {
-        // If tomorrow is Saturday, also include Monday
-        // Using isDateInWeekend for clarity, then checking it's the first weekend day (Saturday)
         if calendar.isDateInWeekend(tomorrow),
            let nextDay = calendar.date(byAdding: .day, value: 1, to: tomorrow),
            calendar.isDateInWeekend(nextDay)
         {
-            // Tomorrow is Saturday (both tomorrow and the day after are weekend days)
-            return calendar.date(byAdding: .day, value: 2, to: tomorrow)
+            return calendar.date(byAdding: .day, value: Self.weekendSkipDays, to: tomorrow)
         }
         return nil
     }
@@ -83,7 +90,6 @@ struct MenuBarView: View {
 
         var groups: [EventGroup] = []
 
-        // Add started meetings group if including started events
         if includingStarted {
             let startedMeetings = applyAllDayFilter(calendarService.startedEvents)
             if !startedMeetings.isEmpty {
@@ -91,11 +97,9 @@ struct MenuBarView: View {
             }
         }
 
-        // Group events by date
         let todayEvents = events.filter { calendar.isDate($0.startDate, inSameDayAs: today) }
 
         guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else {
-            // Fallback: show today's events even if tomorrow can't be computed
             if !todayEvents.isEmpty {
                 groups.append(EventGroup(title: "Today", events: todayEvents))
             }
@@ -104,17 +108,15 @@ struct MenuBarView: View {
 
         let tomorrowEvents = events.filter { calendar.isDate($0.startDate, inSameDayAs: tomorrow) }
 
-        // Get next-workday events if tomorrow starts a weekend
         var nextWorkdayEvents: [Event] = []
         var nextWorkdayTitle = ""
         if let nextWorkday = getNextMondayIfNeeded(from: tomorrow, calendar: calendar) {
             nextWorkdayEvents = events.filter { calendar.isDate($0.startDate, inSameDayAs: nextWorkday) }
             let formatter = DateFormatter()
-            formatter.dateFormat = "EEEE" // Full day name, locale-aware
+            formatter.dateFormat = "EEEE"
             nextWorkdayTitle = formatter.string(from: nextWorkday)
         }
 
-        // Add non-empty groups
         if !todayEvents.isEmpty {
             groups.append(EventGroup(title: "Today", events: todayEvents))
         }
@@ -137,8 +139,8 @@ struct MenuBarView: View {
             footerSection
         }
         .background(.ultraThinMaterial)
-        .background(design.colors.background.opacity(0.85))
-        .frame(width: 340)
+        .background(design.colors.background.opacity(Self.backgroundOpacity))
+        .frame(width: Self.menuBarWidth)
         .accessibilityIdentifier("menu-bar-view")
     }
 
@@ -150,24 +152,25 @@ struct MenuBarView: View {
                 HStack(spacing: design.spacing.sm) {
                     Image(systemName: "calendar.badge.clock")
                         .foregroundColor(design.colors.accent)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(design.fonts.body)
+                        .fontWeight(.semibold)
 
                     Text("Unmissable")
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .tracking(0.8)
+                        .font(design.fonts.headline)
+                        .tracking(DesignTracking.header)
                         .foregroundColor(design.colors.textPrimary)
                 }
 
                 Spacer()
 
-                CustomStatusIndicator(status: connectionStatus, size: 8)
+                UMStatusIndicator(connectionStatus, size: Self.statusIndicatorSize)
             }
             .padding(.horizontal, design.spacing.lg)
             .padding(.vertical, design.spacing.md)
 
             Rectangle()
-                .fill(design.colors.divider)
-                .frame(height: 0.5)
+                .fill(design.colors.borderSubtle)
+                .frame(height: Self.separatorHeight)
         }
     }
 
@@ -190,77 +193,83 @@ struct MenuBarView: View {
     private var isRetryingDatabase = false
 
     private func databaseErrorCard(_ message: String) -> some View {
-        CustomCard(style: .flat) {
-            VStack(alignment: .leading, spacing: design.spacing.sm) {
-                HStack(spacing: design.spacing.sm) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(design.colors.error)
-                        .font(.system(size: 16, weight: .medium))
+        VStack(alignment: .leading, spacing: design.spacing.sm) {
+            HStack(spacing: design.spacing.sm) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(design.colors.error)
+                    .font(design.fonts.body)
+                    .fontWeight(.medium)
 
-                    Text("Database Error")
-                        .font(design.fonts.subheadline)
-                        .foregroundColor(design.colors.error)
+                Text("Database Error")
+                    .font(design.fonts.callout)
+                    .fontWeight(.medium)
+                    .foregroundColor(design.colors.error)
+            }
+
+            Text(message)
+                .font(design.fonts.caption)
+                .foregroundColor(design.colors.textSecondary)
+                .lineLimit(Self.maxVisibleEventsPerGroup)
+                .multilineTextAlignment(.leading)
+
+            HStack(spacing: design.spacing.sm) {
+                Button {
+                    Task {
+                        isRetryingDatabase = true
+                        await appState.retryDatabaseInitialization()
+                        isRetryingDatabase = false
+                    }
+                } label: {
+                    Label(
+                        isRetryingDatabase ? "Retrying..." : "Retry",
+                        systemImage: "arrow.clockwise",
+                    )
                 }
+                .buttonStyle(UMButtonStyle(.secondary, size: .sm))
+                .disabled(isRetryingDatabase)
+                .accessibilityIdentifier("retry-database-button")
+                .accessibilityLabel("Retry database initialization")
 
-                Text(message)
-                    .font(design.fonts.caption1)
-                    .foregroundColor(design.colors.textSecondary)
-                    .lineLimit(3)
-                    .multilineTextAlignment(.leading)
-
-                HStack(spacing: design.spacing.sm) {
-                    CustomButton(
-                        isRetryingDatabase ? "Retrying…" : "Retry",
-                        icon: "arrow.clockwise",
-                        style: .secondary
-                    ) {
-                        Task {
-                            isRetryingDatabase = true
-                            await appState.retryDatabaseInitialization()
-                            isRetryingDatabase = false
-                        }
-                    }
-                    .disabled(isRetryingDatabase)
-                    .accessibilityIdentifier("retry-database-button")
-                    .accessibilityLabel("Retry database initialization")
-
-                    if !isRetryingDatabase {
-                        Text("or restart the app")
-                            .font(design.fonts.caption2)
-                            .foregroundColor(design.colors.textTertiary)
-                    }
+                if !isRetryingDatabase {
+                    Text("or restart the app")
+                        .font(design.fonts.caption)
+                        .foregroundColor(design.colors.textTertiary)
                 }
             }
-            .padding(design.spacing.md)
         }
+        .padding(design.spacing.md)
+        .umCard(.flat)
         .padding(.horizontal, design.spacing.lg)
     }
 
     private var footerSection: some View {
         VStack(spacing: 0) {
             Rectangle()
-                .fill(design.colors.divider)
-                .frame(height: 0.5)
+                .fill(design.colors.borderSubtle)
+                .frame(height: Self.separatorHeight)
 
             HStack {
-                CustomButton("Preferences", style: .minimal) {
+                Button("Preferences") {
                     appState.showPreferences()
                 }
+                .buttonStyle(UMButtonStyle(.ghost, size: .sm))
                 .accessibilityIdentifier("preferences-button")
 
                 Spacer()
 
-                CustomButton("Check for Updates", style: .minimal) {
+                Button("Check for Updates") {
                     appState.checkForUpdates()
                 }
+                .buttonStyle(UMButtonStyle(.ghost, size: .sm))
                 .disabled(!appState.canCheckForUpdates)
                 .accessibilityIdentifier("check-updates-button")
 
                 Spacer()
 
-                CustomButton("Quit", style: .minimal) {
+                Button("Quit") {
                     NSApplication.shared.terminate(nil)
                 }
+                .buttonStyle(UMButtonStyle(.ghost, size: .sm))
                 .accessibilityIdentifier("quit-button")
             }
             .padding(.horizontal, design.spacing.md)
@@ -273,49 +282,52 @@ struct MenuBarView: View {
     private var disconnectedContent: some View {
         VStack(spacing: design.spacing.lg) {
             if let authError = calendarService.authError {
-                CustomCard(style: .flat) {
-                    VStack(alignment: .leading, spacing: design.spacing.sm) {
-                        HStack(spacing: design.spacing.sm) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(design.colors.error)
-                                .font(.system(size: 16, weight: .medium))
+                VStack(alignment: .leading, spacing: design.spacing.sm) {
+                    HStack(spacing: design.spacing.sm) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(design.colors.error)
+                            .font(design.fonts.body)
+                            .fontWeight(.medium)
 
-                            Text("Connection Error")
-                                .font(design.fonts.subheadline)
-                                .foregroundColor(design.colors.error)
-                        }
-
-                        Text(authError)
-                            .font(design.fonts.caption1)
-                            .foregroundColor(design.colors.textSecondary)
-                            .lineLimit(3)
-                            .multilineTextAlignment(.leading)
-
-                        if authError.contains("configuration") {
-                            Text("See OAUTH_SETUP_GUIDE.md for setup instructions")
-                                .font(design.fonts.caption2)
-                                .foregroundColor(design.colors.interactive)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.leading)
-                        }
+                        Text("Connection Error")
+                            .font(design.fonts.callout)
+                            .fontWeight(.medium)
+                            .foregroundColor(design.colors.error)
                     }
-                    .padding(design.spacing.md)
+
+                    Text(authError)
+                        .font(design.fonts.caption)
+                        .foregroundColor(design.colors.textSecondary)
+                        .lineLimit(Self.maxVisibleEventsPerGroup)
+                        .multilineTextAlignment(.leading)
+
+                    if authError.contains("configuration") {
+                        Text("See OAUTH_SETUP_GUIDE.md for setup instructions")
+                            .font(design.fonts.caption)
+                            .foregroundColor(design.colors.accent)
+                            .lineLimit(Self.weekendSkipDays)
+                            .multilineTextAlignment(.leading)
+                    }
                 }
+                .padding(design.spacing.md)
+                .umCard(.flat)
             }
 
             VStack(spacing: design.spacing.md) {
-                CustomButton("Connect Apple Calendar", icon: "apple.logo", style: .primary) {
-                    Task {
-                        await appState.connectToCalendar(provider: .apple)
-                    }
+                Button {
+                    Task { await appState.connectToCalendar(provider: .apple) }
+                } label: {
+                    Label("Connect Apple Calendar", systemImage: "apple.logo")
                 }
+                .buttonStyle(UMButtonStyle(.primary))
                 .accessibilityIdentifier("connect-apple-calendar-button")
 
-                CustomButton("Connect Google Calendar", icon: "calendar", style: .secondary) {
-                    Task {
-                        await appState.connectToCalendar(provider: .google)
-                    }
+                Button {
+                    Task { await appState.connectToCalendar(provider: .google) }
+                } label: {
+                    Label("Connect Google Calendar", systemImage: "calendar")
                 }
+                .buttonStyle(UMButtonStyle(.secondary))
                 .accessibilityIdentifier("connect-google-calendar-button")
             }
         }
@@ -334,7 +346,7 @@ struct MenuBarView: View {
             HStack(spacing: design.spacing.sm) {
                 syncStatusIcon
                 Text(calendarService.syncStatus.description)
-                    .font(design.fonts.caption1)
+                    .font(design.fonts.caption)
                     .foregroundColor(design.colors.textSecondary)
                     .accessibilityIdentifier("sync-status-text")
             }
@@ -343,14 +355,13 @@ struct MenuBarView: View {
 
             if case .syncing = calendarService.syncStatus {
                 ProgressView()
-                    .scaleEffect(0.7)
+                    .scaleEffect(Self.syncProgressScale)
                     .tint(design.colors.accent)
             } else {
-                CustomButton("Sync", style: .minimal) {
-                    Task {
-                        await appState.syncNow()
-                    }
+                Button("Sync") {
+                    Task { await appState.syncNow() }
                 }
+                .buttonStyle(UMButtonStyle(.ghost, size: .sm))
                 .accessibilityIdentifier("sync-button")
             }
         }
@@ -360,32 +371,31 @@ struct MenuBarView: View {
     private var eventsListSection: some View {
         Group {
             if groupedEvents.isEmpty {
-                CustomCard(style: .flat) {
-                    HStack(spacing: design.spacing.sm) {
-                        Image(systemName: "calendar")
-                            .foregroundColor(design.colors.textTertiary)
-                            .font(.system(size: 16))
+                HStack(spacing: design.spacing.sm) {
+                    Image(systemName: "calendar")
+                        .foregroundColor(design.colors.textTertiary)
+                        .font(design.fonts.body)
 
-                        Text("No upcoming meetings")
-                            .font(design.fonts.callout)
-                            .foregroundColor(design.colors.textTertiary)
-                            .accessibilityIdentifier("no-events-text")
-                    }
-                    .padding(design.spacing.lg)
+                    Text("No upcoming meetings")
+                        .font(design.fonts.callout)
+                        .foregroundColor(design.colors.textTertiary)
+                        .accessibilityIdentifier("no-events-text")
                 }
+                .padding(design.spacing.lg)
+                .umCard(.flat)
                 .padding(.horizontal, design.spacing.lg)
             } else {
                 VStack(spacing: design.spacing.md) {
                     HStack {
                         Text("Show today only")
-                            .font(design.fonts.caption1)
+                            .font(design.fonts.caption)
                             .foregroundColor(design.colors.textSecondary)
 
                         Spacer()
 
-                        CustomToggle(
-                            isOn: appState.preferences.showTodayOnlyInMenuBarBinding
-                        )
+                        Toggle(isOn: appState.preferences.showTodayOnlyInMenuBarBinding) {}
+                            .toggleStyle(UMToggleStyle())
+                            .labelsHidden()
                     }
                     .padding(.horizontal, design.spacing.lg)
 
@@ -401,28 +411,28 @@ struct MenuBarView: View {
         VStack(spacing: design.spacing.sm) {
             HStack {
                 Text(group.title.uppercased())
-                    .font(.system(size: 11, weight: .semibold))
-                    .tracking(1.5)
-                    .foregroundColor(design.colors.accentSecondary)
+                    .font(design.fonts.sectionLabel)
+                    .tracking(DesignTracking.sectionLabel)
+                    .foregroundColor(design.colors.accent)
 
                 Spacer()
             }
             .padding(.horizontal, design.spacing.lg)
 
-            ForEach(group.events.prefix(3)) { event in
-                CustomEventRow(
+            ForEach(group.events.prefix(Self.maxVisibleEventsPerGroup)) { event in
+                EventRow(
                     event: event,
                     linkParser: appState.linkParser,
                     onEventTap: {
                         appState.showMeetingDetails(for: event)
-                    }
+                    },
                 )
                 .padding(.horizontal, design.spacing.lg)
             }
 
-            if group.events.count > 3 {
-                Text("and \(group.events.count - 3) more")
-                    .font(design.fonts.caption1)
+            if group.events.count > Self.maxVisibleEventsPerGroup {
+                Text("and \(group.events.count - Self.maxVisibleEventsPerGroup) more")
+                    .font(design.fonts.caption)
                     .foregroundColor(design.colors.textTertiary)
                     .padding(.horizontal, design.spacing.lg)
                     .accessibilityIdentifier("more-events-indicator")
@@ -450,10 +460,11 @@ struct MenuBarView: View {
                     .foregroundColor(design.colors.error)
             }
         }
-        .font(.system(size: 14, weight: .medium))
+        .font(design.fonts.callout)
+        .fontWeight(.medium)
     }
 
-    private var connectionStatus: CustomStatusIndicator.Status {
+    private var connectionStatus: UMStatusIndicator.Status {
         if !calendarService.isConnected {
             return .disconnected
         }
@@ -471,13 +482,13 @@ struct MenuBarView: View {
     }
 }
 
-// MARK: - Custom Event Row
+// MARK: - Event Row
 
-struct CustomEventRow: View {
+struct EventRow: View {
     let event: Event
     let linkParser: LinkParser
     let onEventTap: (() -> Void)?
-    @Environment(\.customDesign)
+    @Environment(\.design)
     private var design
     @State
     private var isHovered = false
@@ -489,64 +500,65 @@ struct CustomEventRow: View {
     }
 
     var body: some View {
-        CustomCard(style: .standard) {
+        HStack(spacing: design.spacing.md) {
+            VStack(alignment: .leading, spacing: design.spacing.xs) {
+                Text(event.title)
+                    .font(design.fonts.callout)
+                    .fontWeight(.medium)
+                    .foregroundColor(design.colors.textPrimary)
+                    .lineLimit(1)
+
+                HStack(spacing: design.spacing.xs) {
+                    Image(systemName: "clock")
+                        .foregroundColor(design.colors.accent)
+                        .font(design.fonts.caption)
+                        .fontWeight(.medium)
+
+                    Text(event.startDate, style: .time)
+                        .font(design.fonts.monoSmall)
+                        .foregroundColor(design.colors.textSecondary)
+                }
+            }
+
+            Spacer()
+
             HStack(spacing: design.spacing.md) {
-                VStack(alignment: .leading, spacing: design.spacing.xs) {
-                    Text(event.title)
+                if linkParser.isOnlineMeeting(event) {
+                    Image(systemName: event.provider?.iconName ?? "link")
+                        .foregroundColor(design.colors.accent)
                         .font(design.fonts.callout)
                         .fontWeight(.medium)
-                        .foregroundColor(design.colors.textPrimary)
-                        .lineLimit(1)
-
-                    HStack(spacing: design.spacing.xs) {
-                        Image(systemName: "clock")
-                            .foregroundColor(design.colors.accent)
-                            .font(.system(size: 11, weight: .medium))
-
-                        Text(event.startDate, style: .time)
-                            .font(design.fonts.monoTimestamp)
-                            .foregroundColor(design.colors.textSecondary)
-                    }
                 }
 
-                Spacer()
-
-                HStack(spacing: design.spacing.md) {
-                    if linkParser.isOnlineMeeting(event) {
-                        Image(systemName: event.provider?.iconName ?? "link")
-                            .foregroundColor(design.colors.accent)
-                            .font(.system(size: 14, weight: .medium))
+                if linkParser.shouldShowJoinButton(for: event),
+                   let primaryLink = linkParser.primaryLink(for: event)
+                {
+                    Button {
+                        NSWorkspace.shared.open(primaryLink)
+                    } label: {
+                        Label("Join", systemImage: "video.fill")
                     }
-
-                    if linkParser.shouldShowJoinButton(for: event),
-                       let primaryLink = linkParser.primaryLink(for: event)
-                    {
-                        CustomButton("Join", icon: "video.fill", style: .secondary) {
-                            NSWorkspace.shared.open(primaryLink)
-                        }
-                    }
+                    .buttonStyle(UMButtonStyle(.secondary, size: .sm))
                 }
             }
-            .padding(design.spacing.md)
-            .background(
-                isHovered ? design.colors.accent.opacity(0.05) : Color.clear
-            )
-            .onHover { hovering in
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isHovered = hovering
-                }
-            }
-            .onTapGesture {
-                onEventTap?()
-            }
-            .accessibilityAddTraits(.isButton)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Meeting: \(event.title) at \(event.startDate, style: .time)")
-            .accessibilityIdentifier("event-row-\(event.id)")
-            .accessibilityHint("Tap to view meeting details")
         }
+        .padding(design.spacing.md)
+        .background(
+            isHovered ? design.colors.hover : Color.clear,
+        )
+        .umCard(.glass)
+        .onHover { hovering in
+            withAnimation(DesignAnimations.hover) {
+                isHovered = hovering
+            }
+        }
+        .onTapGesture {
+            onEventTap?()
+        }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Meeting: \(event.title) at \(event.startDate, style: .time)")
+        .accessibilityIdentifier("event-row-\(event.id)")
+        .accessibilityHint("Tap to view meeting details")
     }
 }
-
-// Preview removed: MenuBarView requires AppState which creates real
-// OverlayManager and CalendarService instances.

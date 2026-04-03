@@ -10,6 +10,15 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     private let eventStore: EKEventStore
     private let linkParser: LinkParser
 
+    // MARK: - Constants
+
+    private static let maxTitleLength = 500
+    private static let maxDescriptionLength = 10_000
+    private static let maxLocationLength = 1000
+    private static let maxOrganizerLength = 320
+    private static let colorComponentScale: CGFloat = 255
+    private static let minColorComponents = 3
+
     @Published
     var calendars: [CalendarInfo] = []
     @Published
@@ -23,6 +32,8 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     }
 
     @discardableResult
+    // Protocol conformance: CalendarAPIProviding requires async signature
+    // swiftlint:disable:next async_without_await
     func fetchCalendars() async -> [CalendarInfo] {
         logger.debug("Fetching Apple Calendar list")
         lastError = nil
@@ -35,6 +46,8 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     }
 
     @discardableResult
+    // Protocol conformance: CalendarAPIProviding requires async signature
+    // swiftlint:disable:next async_without_await
     func fetchEvents(for calendarIds: [String], from startDate: Date, to endDate: Date) async
         -> CalendarFetchResults
     {
@@ -61,7 +74,7 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         let predicate = eventStore.predicateForEvents(
             withStart: startDate,
             end: endDate,
-            calendars: ekCalendars
+            calendars: ekCalendars,
         )
 
         let ekEvents = eventStore.events(matching: predicate)
@@ -91,7 +104,7 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
             isSelected: isPrimary,
             isPrimary: isPrimary,
             colorHex: ekCalendar.cgColor.flatMap { hexFromCGColor($0) },
-            sourceProvider: .apple
+            sourceProvider: .apple,
         )
     }
 
@@ -125,10 +138,10 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         let provider = linkParser.detectPrimaryLink(from: links).map { Provider.detect(from: $0) }
 
         // Truncate fields to defend against oversized calendar data
-        let truncatedTitle = Self.truncate(ekEvent.title, maxLength: 500) ?? "Untitled Event"
-        let truncatedDescription = Self.truncate(ekEvent.notes, maxLength: 10_000)
-        let truncatedLocation = Self.truncate(ekEvent.location, maxLength: 1000)
-        let truncatedOrganizer = Self.truncate(ekEvent.organizer?.name, maxLength: 320)
+        let truncatedTitle = Self.truncate(ekEvent.title, maxLength: Self.maxTitleLength) ?? "Untitled Event"
+        let truncatedDescription = Self.truncate(ekEvent.notes, maxLength: Self.maxDescriptionLength)
+        let truncatedLocation = Self.truncate(ekEvent.location, maxLength: Self.maxLocationLength)
+        let truncatedOrganizer = Self.truncate(ekEvent.organizer?.name, maxLength: Self.maxOrganizerLength)
 
         return Event(
             id: ekEvent.eventIdentifier,
@@ -144,7 +157,7 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
             calendarId: ekEvent.calendar.calendarIdentifier,
             timezone: ekEvent.timeZone?.identifier ?? TimeZone.current.identifier,
             links: links,
-            provider: provider
+            provider: provider,
         )
     }
 
@@ -173,7 +186,7 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
             status: status,
             isOptional: participant.participantRole == .optional,
             isOrganizer: participant.participantRole == .chair,
-            isSelf: participant.isCurrentUser
+            isSelf: participant.isCurrentUser,
         )
     }
 
@@ -214,10 +227,13 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     }
 
     private func hexFromCGColor(_ color: CGColor) -> String? {
-        guard let components = color.components, components.count >= 3 else { return nil }
-        let r = Int(components[0] * 255)
-        let g = Int(components[1] * 255)
-        let b = Int(components[2] * 255)
+        guard let components = color.components, components.count >= Self.minColorComponents else { return nil }
+        let redIndex = components.startIndex
+        let greenIndex = components.index(after: redIndex)
+        let blueIndex = components.index(after: greenIndex)
+        let r = Int(components[redIndex] * Self.colorComponentScale)
+        let g = Int(components[greenIndex] * Self.colorComponentScale)
+        let b = Int(components[blueIndex] * Self.colorComponentScale)
         return String(format: "#%02X%02X%02X", r, g, b)
     }
 }

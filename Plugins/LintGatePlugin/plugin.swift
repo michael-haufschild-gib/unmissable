@@ -24,7 +24,7 @@ struct LintGatePlugin: BuildToolPlugin {
                     "LINT_GATE_CACHE_DIR": cacheDirURL.path,
                     "LINT_GATE_HOME_DIR": homeDirURL.path,
                 ],
-                outputFilesDirectory: outputDirURL
+                outputFilesDirectory: outputDirURL,
             ),
         ]
     }

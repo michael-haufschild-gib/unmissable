@@ -27,13 +27,24 @@ final class EventScheduler: ObservableObject {
     /// Production default returns the current wall-clock time.
     private nonisolated(unsafe) let now: () -> Date
 
+    /// Number of events logged on scheduling start for debugging.
+    private static let debugLogEventCount = 3
+    /// Seconds per minute, used for time conversions.
+    private static let secondsPerMinute: TimeInterval = 60
+    /// Idle sleep interval (seconds) when no alerts are scheduled.
+    private static let idleSleepSeconds: TimeInterval = 30
+    /// Minimum time-until-trigger threshold (seconds) below which we fire immediately.
+    private static let triggerThresholdSeconds: TimeInterval = 0.1
+    /// Sleep duration after an unexpected monitoring error (seconds) to avoid tight loops.
+    private static let errorRecoverySleepSeconds: TimeInterval = 5
+
     init(
         preferencesManager: PreferencesManager,
         linkParser: LinkParser,
         sleepForSeconds: @escaping @Sendable (TimeInterval) async throws -> Void = { seconds in
             try await Task.sleep(for: .seconds(seconds))
         },
-        now: @escaping () -> Date = { Date() }
+        now: @escaping () -> Date = { Date() },
     ) {
         self.preferencesManager = preferencesManager
         self.linkParser = linkParser
@@ -48,7 +59,7 @@ final class EventScheduler: ObservableObject {
             preferencesManager.$overlayShowMinutesBefore,
             preferencesManager.$useLengthBasedTiming,
             preferencesManager.$defaultAlertMinutes,
-            preferencesManager.$shortMeetingAlertMinutes
+            preferencesManager.$shortMeetingAlertMinutes,
         )
         .sink { [weak self] _, _, _, _ in
             Task { @MainActor [weak self] in
@@ -62,7 +73,7 @@ final class EventScheduler: ObservableObject {
         // Also watch for medium and long meeting alert changes
         Publishers.CombineLatest(
             preferencesManager.$mediumMeetingAlertMinutes,
-            preferencesManager.$longMeetingAlertMinutes
+            preferencesManager.$longMeetingAlertMinutes,
         )
         .sink { [weak self] _, _ in
             Task { @MainActor [weak self] in
@@ -78,7 +89,7 @@ final class EventScheduler: ObservableObject {
         logger.info("Starting event scheduling for \(events.count) events")
 
         // Log the first few events for debugging (titles redacted for privacy)
-        for (index, event) in events.prefix(3).enumerated() {
+        for (index, event) in events.prefix(Self.debugLogEventCount).enumerated() {
             logger.debug("  Event \(index + 1): id=\(event.id) at \(event.startDate)")
         }
 
@@ -104,7 +115,7 @@ final class EventScheduler: ObservableObject {
         }
 
         logger.debug(
-            "Rescheduling alerts for \(self.currentEvents.count) events with updated preferences"
+            "Rescheduling alerts for \(self.currentEvents.count) events with updated preferences",
         )
 
         // Cancel monitoring but don't clear scheduledAlerts — scheduleAlerts()
@@ -176,13 +187,15 @@ final class EventScheduler: ObservableObject {
 
             // Schedule overlay alerts based on preferences
             let overlayTiming = preferencesManager.overlayShowMinutesBefore
-            let overlayTime = event.startDate.addingTimeInterval(-TimeInterval(overlayTiming * 60))
+            let overlayTime = event.startDate.addingTimeInterval(
+                -TimeInterval(overlayTiming) * Self.secondsPerMinute,
+            )
 
             if overlayTime > currentTime {
                 let overlayAlert = ScheduledAlert(
                     event: event,
                     triggerDate: overlayTime,
-                    alertType: .reminder(minutesBefore: overlayTiming)
+                    alertType: .reminder(minutesBefore: overlayTiming),
                 )
                 scheduledAlerts.append(overlayAlert)
             } else if event.startDate > currentTime {
@@ -197,13 +210,15 @@ final class EventScheduler: ObservableObject {
             // Schedule sound alerts if enabled (using event-specific timing)
             if preferencesManager.soundEnabled {
                 let soundTiming = preferencesManager.alertMinutes(for: event)
-                let soundTime = event.startDate.addingTimeInterval(-TimeInterval(soundTiming * 60))
+                let soundTime = event.startDate.addingTimeInterval(
+                    -TimeInterval(soundTiming) * Self.secondsPerMinute,
+                )
 
                 if soundTime > currentTime, soundTime != overlayTime {
                     let soundAlert = ScheduledAlert(
                         event: event,
                         triggerDate: soundTime,
-                        alertType: .reminder(minutesBefore: soundTiming)
+                        alertType: .reminder(minutesBefore: soundTiming),
                     )
                     scheduledAlerts.append(soundAlert)
                 }
@@ -217,7 +232,7 @@ final class EventScheduler: ObservableObject {
         scheduledAlerts.sort { $0.triggerDate < $1.triggerDate }
 
         logger.debug(
-            "Scheduled \(self.scheduledAlerts.count) alerts (including \(existingSnoozeAlerts.count) preserved snooze alerts)"
+            "Scheduled \(self.scheduledAlerts.count) alerts (including \(existingSnoozeAlerts.count) preserved snooze alerts)",
         )
 
         return missedAlertEvents
@@ -242,15 +257,16 @@ final class EventScheduler: ObservableObject {
                         // Short sleep so newly-added events are picked up promptly
                         // if a reschedule doesn't cancel this task first.
                         let idleSleepStart = now()
-                        try await sleepForSeconds(30)
+                        try await sleepForSeconds(Self.idleSleepSeconds)
 
                         // Detect system sleep/wake: if wall clock advanced far beyond 30s,
                         // the system likely slept. Process any due alerts immediately
                         // instead of looping back to re-check.
-                        let idleDrift = now().timeIntervalSince(idleSleepStart) - 30
+                        let idleDrift = now().timeIntervalSince(idleSleepStart)
+                            - Self.idleSleepSeconds
                         if idleDrift > Self.wakeDriftThreshold {
                             logger.info(
-                                "WAKE DETECTED: Idle sleep overran by \(String(format: "%.1f", idleDrift))s — processing due alerts"
+                                "WAKE DETECTED: Idle sleep overran by \(String(format: "%.1f", idleDrift))s — processing due alerts",
                             )
                             guard !Task.isCancelled else { break }
                             checkForTriggeredAlerts(overlayManager: overlayManager)
@@ -261,10 +277,10 @@ final class EventScheduler: ObservableObject {
                     let currentTime = now()
                     let timeUntilTrigger = nextAlert.triggerDate.timeIntervalSince(currentTime)
 
-                    if timeUntilTrigger > 0.1 {
+                    if timeUntilTrigger > Self.triggerThresholdSeconds {
                         logger
                             .debug(
-                                "MONITORING: Sleeping for \(String(format: "%.2f", timeUntilTrigger))s until next alert for event \(nextAlert.event.id)"
+                                "MONITORING: Sleeping for \(String(format: "%.2f", timeUntilTrigger))s until next alert for event \(nextAlert.event.id)",
                             )
                         let sleepStart = now()
                         // Sleep exactly until the next alert (plus a tiny buffer)
@@ -274,7 +290,7 @@ final class EventScheduler: ObservableObject {
                         let sleepDrift = now().timeIntervalSince(sleepStart) - timeUntilTrigger
                         if sleepDrift > Self.wakeDriftThreshold {
                             logger.info(
-                                "WAKE DETECTED: Alert sleep overran by \(String(format: "%.1f", sleepDrift))s — processing all due alerts"
+                                "WAKE DETECTED: Alert sleep overran by \(String(format: "%.1f", sleepDrift))s — processing all due alerts",
                             )
                         }
                     }
@@ -291,7 +307,7 @@ final class EventScheduler: ObservableObject {
                     }
                     logger.error("Alert monitoring error: \(error.localizedDescription)")
                     // Prevent rapid error looping
-                    try? await sleepForSeconds(5)
+                    try? await sleepForSeconds(Self.errorRecoverySleepSeconds)
                 }
             }
         }
@@ -324,7 +340,7 @@ final class EventScheduler: ObservableObject {
                     "meetingStart"
                 }
                 logger.debug(
-                    "  - \(alertTypeName) for event \(alert.event.id) (trigger: \(alert.triggerDate))"
+                    "  - \(alertTypeName) for event \(alert.event.id) (trigger: \(alert.triggerDate))",
                 )
             }
         }
@@ -342,7 +358,7 @@ final class EventScheduler: ObservableObject {
         if !triggeredAlerts.isEmpty {
             let afterCount = scheduledAlerts.count
             logger.debug(
-                "Processed \(triggeredAlerts.count) alerts, \(afterCount) remaining (was \(beforeCount))"
+                "Processed \(triggeredAlerts.count) alerts, \(afterCount) remaining (was \(beforeCount))",
             )
         }
     }
@@ -366,7 +382,9 @@ final class EventScheduler: ObservableObject {
     }
 
     func scheduleSnooze(for event: Event, minutes: Int) {
-        let snoozeDate = now().addingTimeInterval(TimeInterval(minutes * 60))
+        let snoozeDate = now().addingTimeInterval(
+            TimeInterval(minutes) * Self.secondsPerMinute,
+        )
         let meetingStarted = event.startDate < now()
 
         // Allow snoozing past meeting start time - user might want to join late
@@ -374,7 +392,7 @@ final class EventScheduler: ObservableObject {
         let snoozeAlert = ScheduledAlert(
             event: event,
             triggerDate: snoozeDate, // Use full snooze time, not limited by meeting start
-            alertType: .snooze(until: snoozeDate)
+            alertType: .snooze(until: snoozeDate),
         )
 
         scheduledAlerts.append(snoozeAlert)
@@ -386,11 +404,11 @@ final class EventScheduler: ObservableObject {
 
         if meetingStarted {
             logger.info(
-                "Scheduled snooze for \(minutes) minutes for event \(event.id) (meeting already started). Will trigger at \(formatter.string(from: snoozeDate))"
+                "Scheduled snooze for \(minutes) minutes for event \(event.id) (meeting already started). Will trigger at \(formatter.string(from: snoozeDate))",
             )
         } else {
             logger.info(
-                "Scheduled snooze for \(minutes) minutes for event \(event.id) (meeting starts later). Will trigger at \(formatter.string(from: snoozeDate))"
+                "Scheduled snooze for \(minutes) minutes for event \(event.id) (meeting starts later). Will trigger at \(formatter.string(from: snoozeDate))",
             )
         }
 
