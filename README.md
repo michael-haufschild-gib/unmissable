@@ -18,7 +18,7 @@ Vibecoded with [Claude Code](https://claude.ai/code).
 ## Requirements
 
 - macOS 14.0+ (Sonoma)
-- Xcode 16+ / Swift 6.0
+- Xcode 16.3+ / Swift 6.1
 
 ## Quick Start
 

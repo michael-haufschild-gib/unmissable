@@ -79,3 +79,7 @@ test-reports/
 
 # Debug logs
 /tmp/unmissable_debug.log
+
+
+# SwiftLint Remote Config Cache
+.swiftlint/RemoteConfigCache

@@ -5,7 +5,7 @@ Unmissable is a macOS menu bar application designed to ensure users never miss m
 
 ## Tech Stack
 - **Platform**: macOS 14.0+ (Sonoma)
-- **Language**: Swift 6.0 with StrictConcurrency enabled
+- **Language**: Swift 6.1 with StrictConcurrency enabled
 - **UI Frameworks**: SwiftUI (App UI), AppKit (Overlay/Windows)
 - **Data Persistence**: SQLite (via GRDB.swift)
 - **Authentication**: OAuth 2.0 (via AppAuth-iOS)
@@ -22,7 +22,7 @@ Unmissable is a macOS menu bar application designed to ensure users never miss m
 
 ## Prerequisites
 - Xcode 16+
-- Swift 6.0+
+- Swift 6.1+
 - `swiftlint` and `swiftformat` (via Homebrew)
 
 ## Configuration

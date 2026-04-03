@@ -1,27 +1,23 @@
-# Suggested Commands
+# Commands Reference
 
 ## Build & Run
-- **Build**: `swift build` or `./Scripts/build.sh` (builds + runs checks)
-- **Run**: `swift run`
+- `swift build` — Debug build
+- `swift build -c release` — Release build
+- `swift run` — Run debug build
+- `./Scripts/build.sh` — Full build + lint + format + test cycle
 
 ## Testing
-- **Run All Tests**: `./Scripts/run-comprehensive-tests.sh` (Includes Unit, Integration, UI, Performance, Memory)
-- **Run Unit Tests**: `swift test`
-- **Run Specific Test Suite**: `xcodebuild -scheme Unmissable -destination 'platform=macOS' test -only-testing:"UnmissableTests"`
+- `./Scripts/test.sh` — Run all tests (4-worker parallel limit, recommended)
+- `./Scripts/test.sh UnmissableTests` — Run specific test target
+- `./Scripts/test.sh UnmissableTests/ThemeManagerTests` — Run specific test class
+- `./Scripts/run-comprehensive-tests.sh` — Deep test suite (unit + integration + E2E + performance)
+- Do NOT run bare `swift test` — no worker limit, spawns unlimited processes
 
 ## Code Quality
-- **Format Code**: `./Scripts/format.sh`
-- **Lint Check**: `swiftlint`
+- `./Scripts/format.sh` — Run SwiftFormat with project config
+- `swiftlint lint` — Check for lint issues (informational)
+- `swiftlint --fix` — Auto-fix where possible
 
-## Utility Scripts
-- `Scripts/build.sh` - Full build/lint/test cycle
-- `Scripts/run-comprehensive-tests.sh` - Deep testing suite for production readiness
-- `Scripts/format.sh` - Auto-formatter
-- `Scripts/cleanup-test-data.sh` - Helper to reset state
-
-## macOS (Darwin) Utilities
-- `git` - Version control
-- `ls`, `cd` - Directory navigation
-- `grep`, `rg` (ripgrep) - Text search
-- `find` - File search
-- `open` - Open files/directories in Finder or default app
+## Configuration
+- Google OAuth: copy `Config.plist.example` to `Config.plist`, add credentials
+- CI: use `GOOGLE_OAUTH_CLIENT_ID` environment variable

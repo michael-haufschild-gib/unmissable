@@ -2,37 +2,38 @@
 
 ```
 Sources/Unmissable/
-├── App/                    # Main application lifecycle & Menu Bar UI
-│   ├── AppDelegate.swift   # App lifecycle management
-│   ├── AppState.swift      # Application state
-│   ├── MenuBarView.swift   # Menu bar UI
-│   ├── ServiceContainer.swift # DI container for all services
-│   └── UnmissableApp.swift # App entry point
+├── App/
+│   ├── AppDelegate.swift          # App lifecycle management
+│   ├── AppState.swift             # Application state coordinator
+│   ├── MenuBarView.swift          # Menu bar UI
+│   ├── ServiceContainer.swift     # DI container for all services
+│   └── UnmissableApp.swift        # App entry point (@main)
 │
-├── Config/                 # Configuration & Secrets
-│   └── GoogleCalendarConfig.swift # OAuth config loading
+├── Config/
+│   └── GoogleCalendarConfig.swift # OAuth config loading from Config.plist
 │
-├── Core/                   # Shared Services
+├── Core/
+│   ├── Containers.swift           # UI containers: UMSection, .umCard(), .umGlass(), .umPickerStyle()
 │   ├── ContinuationCoordinator.swift # Exactly-once continuation resumption
-│   ├── CustomComponents.swift     # Reusable UI components (buttons, toggles)
-│   ├── CustomContainers.swift     # Card and picker containers
-│   ├── CustomThemeManager.swift   # Theme management
 │   ├── DatabaseManager.swift      # SQLite via GRDB (actor)
 │   ├── DatabaseManager+Extensions.swift # Search, maintenance, test helpers
 │   ├── DatabaseModels.swift       # GRDB record conformances
+│   ├── DesignTokens.swift         # Design system: ThemeManager, DesignColors/Fonts/Spacing/Corners/Shadows
 │   ├── EventScheduler.swift       # Event scheduling logic
 │   ├── HealthMonitor.swift        # App health monitoring
 │   ├── HTMLSanitizer.swift        # XSS-safe HTML sanitization
 │   ├── LinkParser.swift           # Meeting link extraction & validation
+│   ├── LoggerSubsystem.swift      # Logger subsystem constant
 │   ├── MenuBarPreviewManager.swift # Menu bar timer display
 │   ├── NotificationNames.swift    # Centralized notification constants
-│   ├── Protocols.swift            # DI protocols (OverlayManaging, etc.)
+│   ├── Protocols.swift            # DI protocols (OverlayManaging, CalendarAPIProviding, etc.)
 │   ├── SoundManager.swift         # Audio alerts
+│   ├── Styles.swift               # UI components: UMButtonStyle, UMToggleStyle, UMStatusIndicator, UMBadge
 │   ├── SyncManager.swift          # Calendar synchronization
 │   └── UpdateManager.swift        # Sparkle auto-updates
 │
-├── Features/               # Isolated feature modules
-│   ├── CalendarConnect/    # Calendar integration
+├── Features/
+│   ├── CalendarConnect/           # Calendar integration
 │   │   ├── AppleCalendarAPIService.swift  # EventKit data fetching
 │   │   ├── AppleCalendarAuthService.swift # EventKit permissions
 │   │   ├── CalendarService.swift          # Multi-provider orchestrator
@@ -40,51 +41,53 @@ Sources/Unmissable/
 │   │   ├── GoogleCalendarModels.swift     # API response Codable models
 │   │   └── OAuth2Service.swift            # Google OAuth 2.0
 │   │
-│   ├── FocusMode/          # Focus/DND detection
-│   │   └── FocusModeManager.swift
+│   ├── FocusMode/
+│   │   └── FocusModeManager.swift         # macOS Focus/DND detection
 │   │
-│   ├── MeetingDetails/     # Meeting info popup
-│   │   ├── AttachmentsView.swift
-│   │   ├── HTMLTextView.swift
-│   │   ├── MeetingDetailsPopupManager.swift
-│   │   └── MeetingDetailsView.swift
+│   ├── MeetingDetails/
+│   │   ├── AttachmentsView.swift          # Meeting attachment list
+│   │   ├── HTMLTextView.swift             # AppKit-based HTML renderer
+│   │   ├── MeetingDetailsPopupManager.swift # Popup lifecycle
+│   │   └── MeetingDetailsView.swift       # Meeting info panel
 │   │
-│   ├── Overlay/            # Full-screen alert
-│   │   ├── OverlayContentView.swift
-│   │   └── OverlayManager.swift
+│   ├── Overlay/
+│   │   ├── OverlayContentView.swift       # Full-screen alert SwiftUI content
+│   │   └── OverlayManager.swift           # Overlay window lifecycle (AppKit)
 │   │
-│   ├── Preferences/        # Settings UI
-│   │   ├── AppearancePreferencesView.swift
-│   │   ├── CalendarPreferencesView.swift
-│   │   ├── PreferencesManager.swift
-│   │   ├── PreferencesView.swift
-│   │   └── PreferencesWindowManager.swift
+│   ├── Preferences/
+│   │   ├── AppearancePreferencesView.swift # Theme/appearance settings
+│   │   ├── CalendarPreferencesView.swift   # Calendar connection settings
+│   │   ├── PreferencesManager.swift        # User defaults persistence
+│   │   ├── PreferencesView.swift           # Settings tab container
+│   │   └── PreferencesWindowManager.swift  # Settings window lifecycle
 │   │
-│   └── Shortcuts/          # Global keyboard shortcuts
-│       └── ShortcutsManager.swift
+│   └── Shortcuts/
+│       └── ShortcutsManager.swift         # Global keyboard shortcuts (Magnet)
 │
-├── Models/                 # Data structures
+├── Models/
 │   ├── Attendee.swift
 │   ├── CalendarInfo.swift
 │   ├── CalendarProviderType.swift
-│   ├── Event.swift
+│   ├── Event.swift                # Primary data model
 │   ├── EventAttachment.swift
-│   ├── Provider.swift
+│   ├── Provider.swift             # Meeting service providers (Zoom, Meet, Teams, etc.)
 │   ├── ScheduledAlert.swift
 │   └── SyncStatus.swift
 │
-└── Resources/              # Assets
+└── Resources/                     # Assets
 
 Tests/
-├── UnmissableTests/        # Unit tests
-├── IntegrationTests/       # Integration tests
-├── SnapshotTests/          # UI snapshot tests
-├── E2ETests/               # End-to-end tests
-└── TestSupport/            # Shared test doubles
+├── TestSupport/                   # Shared test doubles (TestSupport target)
+├── UnmissableTests/               # Unit tests
+├── IntegrationTests/              # Integration tests
+├── E2ETests/                      # End-to-end tests
+├── SnapshotTests/                 # UI snapshot tests
+│   └── __Snapshots__/             # Reference images
 
-Scripts/                    # Development utilities
-├── build.sh               # Full build cycle
-├── format.sh              # Code formatting
-├── run-comprehensive-tests.sh # Complete test suite
-└── cleanup-test-data.sh   # Reset test state
+Scripts/
+├── build.sh                       # Full build + lint + test cycle
+├── format.sh                      # SwiftFormat runner
+├── test.sh                        # Test runner (4-worker limit)
+├── run-comprehensive-tests.sh     # Complete test suite with reports
+└── cleanup-test-data.sh           # Reset test state
 ```
