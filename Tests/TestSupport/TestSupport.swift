@@ -117,7 +117,10 @@ public final class TestSafeOverlayManager: OverlayManaging {
             return
         }
 
-        // Auto-dismiss for meetings that started too long ago
+        // Auto-dismiss for meetings that started too long ago.
+        // Uses wall-clock Date() intentionally — this guards against real-world staleness,
+        // not simulated time. Events created relative to Date() should not be dismissed
+        // just because a TestClock advanced virtual time past their start.
         let timeSinceStart = Date().timeIntervalSince(event.startDate)
         let snoozeMaxAgeSeconds: TimeInterval = 1800
         let normalMaxAgeSeconds: TimeInterval = 300

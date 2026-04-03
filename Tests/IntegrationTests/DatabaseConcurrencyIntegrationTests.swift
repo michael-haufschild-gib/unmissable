@@ -156,11 +156,9 @@ final class DatabaseConcurrencyIntegrationTests: XCTestCase {
         let googleCals = try await db.fetchCalendars(
             for: .google,
         )
-        let googleCal = try XCTUnwrap(googleCals.first)
-        XCTAssertEqual(googleCal.id, "google-cal")
+        XCTAssertEqual(googleCals.map(\.id), ["google-cal"], "Should return exactly one Google calendar")
 
         let appleCals = try await db.fetchCalendars(for: .apple)
-        let appleCal = try XCTUnwrap(appleCals.first)
-        XCTAssertEqual(appleCal.id, "apple-cal")
+        XCTAssertEqual(appleCals.map(\.id), ["apple-cal"], "Should return exactly one Apple calendar")
     }
 }

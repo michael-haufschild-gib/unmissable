@@ -221,8 +221,8 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
         try await db.saveEvents([inProgress, future, past])
 
         let started = try await db.fetchStartedMeetings(limit: 10)
+        XCTAssertEqual(started.map(\.id), ["in-progress-1"], "Only in-progress events should be returned")
         let startedEvent = try XCTUnwrap(started.first)
-        XCTAssertEqual(startedEvent.id, "in-progress-1")
         XCTAssertEqual(startedEvent.title, "Happening Now")
     }
 
@@ -452,8 +452,7 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
         try await db.deleteCalendarsForProvider(.google)
 
         let remaining = try await db.fetchCalendars()
-        let remainingCal = try XCTUnwrap(remaining.first)
-        XCTAssertEqual(remainingCal.id, "prov-del-apple")
+        XCTAssertEqual(remaining.map(\.id), ["prov-del-apple"], "Only the Apple calendar should remain")
     }
 
     func testDeleteEventsForProvider_removesOnlyTargetProviderEvents()
@@ -498,8 +497,7 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
         try await db.deleteEventsForProvider(.google)
 
         let remaining = try await db.fetchUpcomingEvents(limit: 50)
-        let remainingEvent = try XCTUnwrap(remaining.first)
-        XCTAssertEqual(remainingEvent.id, "evt-del-apple")
+        XCTAssertEqual(remaining.map(\.id), ["evt-del-apple"], "Only the Apple event should remain")
     }
 
     func testDeleteAllDataForProvider_removesCalendarsAndEvents()

@@ -14,7 +14,7 @@ enum TestUtilities {
     private static let hoursInDay = 24
     private static let minutesInHour = 60
     private static let secondsInMinute = 60
-    private static let hoursPerDay = TimeInterval(hoursInDay * minutesInHour * secondsInMinute)
+    private static let secondsPerDay = TimeInterval(hoursInDay * minutesInHour * secondsInMinute)
     private static let pollingInterval: UInt64 = 100_000_000
     private static let gcIterations = 3
     private static let gcArraySize = 1000
@@ -108,7 +108,7 @@ enum TestUtilities {
             id: "all-day-\(UUID())",
             title: "All Day Event",
             startDate: startOfDay,
-            endDate: startOfDay.addingTimeInterval(hoursPerDay),
+            endDate: startOfDay.addingTimeInterval(secondsPerDay),
             organizer: nil,
             isAllDay: true,
             calendarId: "primary",

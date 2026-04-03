@@ -275,7 +275,17 @@ final class SnoozeRefireE2ETests: XCTestCase {
             postRescheduleSnoozes.first,
             "Snooze alert should survive rescheduling",
         )
-        XCTAssertEqual(survivedSnooze.event.id, event.id)
+        XCTAssertEqual(
+            postRescheduleSnoozes.map(\.event.id),
+            [event.id],
+            "Exactly one snooze alert should survive rescheduling",
+        )
+        // Verify the rescheduling actually produced new non-snooze alerts
+        let reminderAlerts = env.eventScheduler.scheduledAlerts.filter { alert in
+            if case .reminder = alert.alertType { return true }
+            return false
+        }
+        XCTAssertFalse(reminderAlerts.isEmpty, "Rescheduling should produce at least one reminder alert")
     }
 
     // MARK: - Multiple Events With Interleaved Snooze

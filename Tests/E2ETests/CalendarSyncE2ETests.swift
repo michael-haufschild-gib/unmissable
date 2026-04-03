@@ -133,8 +133,8 @@ final class CalendarSyncE2ETests: XCTestCase {
             events: secondFetch, overlayManager: env.overlayManager,
         )
 
-        let remainingAlertEvent = try XCTUnwrap(env.eventScheduler.scheduledAlerts.first)
-        XCTAssertEqual(remainingAlertEvent.event.id, "e2e-batch-0")
+        let remainingAlertIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
+        XCTAssertEqual(remainingAlertIds, ["e2e-batch-0"], "Only the surviving event should have alerts")
     }
 
     // MARK: - Calendar Selection Changes

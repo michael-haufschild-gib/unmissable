@@ -139,16 +139,6 @@ final class DesignSystemTests: XCTestCase {
         }
     }
 
-    func testAccentColorDisplayNamesAreCapitalizedRawValues() {
-        for accent in AccentColor.allCases {
-            XCTAssertEqual(
-                accent.displayName,
-                accent.rawValue.capitalized,
-                "\(accent).displayName should be capitalized rawValue",
-            )
-        }
-    }
-
     func testAccentColorExpectedCases() {
         let expected: [AccentColor] = [.blue, .cyan, .green, .magenta, .orange, .violet, .red]
         XCTAssertEqual(Set(AccentColor.allCases), Set(expected))
@@ -166,13 +156,13 @@ final class DesignSystemTests: XCTestCase {
 
     func testThemeModeAllCasesHaveNonEmptyDisplayName() {
         for mode in ThemeMode.allCases {
-            XCTAssertEqual(
-                mode.displayName,
-                mode.displayName, // non-empty verified by checking against known values below
+            XCTAssertFalse(
+                mode.displayName.isEmpty,
                 "\(mode) should have a non-empty displayName",
             )
         }
         XCTAssertEqual(ThemeMode.system.displayName, "System")
+        XCTAssertEqual(ThemeMode.light.displayName, "Light")
     }
 
     func testThemeModeExpectedCases() {

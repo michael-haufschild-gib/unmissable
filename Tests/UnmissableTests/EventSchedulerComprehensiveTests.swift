@@ -350,13 +350,15 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
 
         let baseTime = clock.currentTime
         let nearFutureEvent = TestUtilities.createTestEvent(
-            startDate: baseTime.addingTimeInterval(30), // 30 seconds from clock's "now"
+            startDate: baseTime.addingTimeInterval(120), // 2 minutes from clock's "now"
         )
 
-        // overlayShowMinutesBefore = 0 is clamped to 1 (minimum).
-        // Alert time = baseTime + 30 - 60 = baseTime - 30s (in the past).
-        // scheduleWithoutMonitoring fires it as a missed alert immediately.
-        mockPreferences.testOverlayShowMinutesBefore = 0
+        // overlayShowMinutesBefore = 1 → alert at baseTime + 120 - 60 = baseTime + 60s.
+        // Advance clock to baseTime + 61s so the alert is in the past (missed)
+        // but the event hasn't started yet (starts at 120s).
+        // scheduleWithoutMonitoring fires missed alerts immediately.
+        mockPreferences.testOverlayShowMinutesBefore = 1
+        await clock.advance(bySeconds: 61)
 
         await scheduler.scheduleWithoutMonitoring(
             events: [nearFutureEvent], overlayManager: overlayManager,

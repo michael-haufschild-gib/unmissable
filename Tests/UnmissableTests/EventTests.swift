@@ -288,8 +288,12 @@ final class EventTests: XCTestCase {
             calendarId: "primary",
             linkParser: LinkParser(),
         )
-        XCTAssertEqual(event.links.first?.host, "meet.google.com", "Duplicate links should be deduplicated")
-        XCTAssertEqual(event.links.last?.host, "meet.google.com", "Should have exactly one link after dedup")
+        let dedupedLinks = event.links
+        XCTAssertEqual(
+            dedupedLinks.map(\.host),
+            ["meet.google.com"],
+            "Duplicate links should be deduplicated to exactly one",
+        )
     }
 
     // MARK: - Equality
