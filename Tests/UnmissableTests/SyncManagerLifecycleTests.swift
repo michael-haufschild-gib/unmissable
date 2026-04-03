@@ -5,14 +5,20 @@ import XCTest
 final class SyncManagerLifecycleTests: XCTestCase {
     private var manager: SyncManager!
     private var databaseManager: DatabaseManager!
+    private var tempDatabaseURL: URL!
 
     override func setUp() async throws {
         try await super.setUp()
 
+        let tempDir = FileManager.default.temporaryDirectory
+        tempDatabaseURL = tempDir.appendingPathComponent(
+            "unmissable-synclifecycle-\(UUID().uuidString).db"
+        )
+        databaseManager = DatabaseManager(databaseURL: tempDatabaseURL)
+
         let preferences = PreferencesManager(themeManager: ThemeManager())
         let oauth2Service = OAuth2Service()
         let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
-        databaseManager = DatabaseManager()
         manager = SyncManager(
             apiService: apiService,
             databaseManager: databaseManager,
@@ -24,6 +30,10 @@ final class SyncManagerLifecycleTests: XCTestCase {
         manager?.stopPeriodicSync()
         manager = nil
         databaseManager = nil
+        if let url = tempDatabaseURL {
+            try? FileManager.default.removeItem(at: url)
+        }
+        tempDatabaseURL = nil
         try await super.tearDown()
     }
 
@@ -82,15 +92,12 @@ final class SyncManagerLifecycleTests: XCTestCase {
 
         await manager.performSync()
 
-        // When selected calendars exist but auth fails, sync surfaces the error
-        // rather than silently returning 0 events (which would mislead the scheduler)
-        if case .error = manager.syncStatus {
-            // Expected — sync attempted but couldn't fetch due to auth
-        } else if manager.syncStatus == .idle {
-            // Also acceptable — no events fetched, sync completed without throwing
-        } else {
-            XCTFail("Unexpected sync status: \(manager.syncStatus)")
-        }
+        // With selected calendars but no valid OAuth state, fetchEvents fails
+        // → SyncManager catches the error → sets .error status.
+        XCTAssertTrue(
+            manager.syncStatus.isError,
+            "Sync with selected calendars but no auth should set error status, got: \(manager.syncStatus)"
+        )
     }
 
     func testPerformSync_whenSyncFails_doesNotUpdateLastSuccessfulSyncTime() async throws {
