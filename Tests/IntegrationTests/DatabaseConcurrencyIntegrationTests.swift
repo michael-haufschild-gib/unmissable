@@ -129,7 +129,11 @@ final class DatabaseConcurrencyIntegrationTests: XCTestCase {
         let finalEvents = try await db.fetchEvents(
             from: Date(), to: Date().addingTimeInterval(100_000),
         )
-        XCTAssertGreaterThanOrEqual(finalEvents.count, 10, "Original events should persist")
+        XCTAssertGreaterThanOrEqual(
+            finalEvents.count,
+            11,
+            "Original events should persist and at least one concurrent write should succeed",
+        )
     }
 
     // MARK: - Fetch Calendars by Provider
