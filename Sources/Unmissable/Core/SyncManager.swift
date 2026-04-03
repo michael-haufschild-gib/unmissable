@@ -217,7 +217,7 @@ final class SyncManager: ObservableObject {
 
         guard !selectedCalendarIds.isEmpty else {
             logger.warning("No calendars selected for sync")
-            completeSync()
+            syncStatus = .idle
             return
         }
 

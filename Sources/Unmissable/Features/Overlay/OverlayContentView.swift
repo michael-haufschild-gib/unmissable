@@ -16,7 +16,7 @@ struct OverlayContentView: View {
     @Environment(\.design)
     private var design
     @State
-    private var timeUntilMeeting: TimeInterval = 0
+    private var timeUntilMeeting: TimeInterval
 
     // MARK: - Layout Constants
 
@@ -77,6 +77,7 @@ struct OverlayContentView: View {
         self.onJoin = onJoin
         self.onSnooze = onSnooze
         self.isFromSnooze = isFromSnooze
+        _timeUntilMeeting = State(initialValue: event.startDate.timeIntervalSinceNow)
     }
 
     var body: some View {

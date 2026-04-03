@@ -20,6 +20,8 @@ final class MenuBarPreviewManager: ObservableObject {
     private static let maxMeetingNameLength = 12
     /// Number of prefix characters kept when truncating a meeting name.
     private static let truncatedPrefixLength = 9
+    /// Seconds per minute, used to convert TimeInterval to minutes.
+    private static let secondsPerMinute = 60
     /// Minutes per hour, used for time display formatting.
     private static let minutesPerHour = 60
     /// Minutes per day, used for time display formatting.
@@ -186,7 +188,7 @@ final class MenuBarPreviewManager: ObservableObject {
             return "Starting"
         }
 
-        let totalMinutes = Int(timeInterval / Double(Self.minutesPerHour))
+        let totalMinutes = Int(timeInterval / Double(Self.secondsPerMinute))
 
         if totalMinutes < 1 { return "< 1 min" }
         if totalMinutes < Self.minutesPerHour { return "\(totalMinutes) min" }
