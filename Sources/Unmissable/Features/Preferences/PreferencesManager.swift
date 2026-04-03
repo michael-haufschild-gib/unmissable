@@ -59,7 +59,7 @@ final class PreferencesManager: ObservableObject {
     private static let overlayOpacityDefault: Double = 0.9
     private static let overlayOpacityRange: ClosedRange<Double> = 0.1 ... 1.0
     private static let overlayShowMinutesDefault = 5
-    private static let overlayShowMinutesRange = 1 ... 60
+    private static let overlayShowMinutesRange = 0 ... 60
     private static let alertVolumeDefault: Double = 0.7
     private static let alertVolumeRange: ClosedRange<Double> = 0.0 ... 1.0
     private static let shortMeetingThresholdMinutes = 30

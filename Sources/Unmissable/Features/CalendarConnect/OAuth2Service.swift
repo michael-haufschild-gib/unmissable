@@ -20,6 +20,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
     private static let oauthWindowY: CGFloat = 100
     private static let oauthWindowWidth: CGFloat = 400
     private static let oauthWindowHeight: CGFloat = 300
+    private static let errorCodeGeneric = -1
     private static let errorCodeFlowStartFailed = -2
 
     @Published
@@ -242,7 +243,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
             coordinator.resume(throwing: OAuth2Error.authorizationFailed(
                 NSError(
                     domain: "OAuth2Service",
-                    code: -1,
+                    code: Self.errorCodeGeneric,
                     userInfo: [NSLocalizedDescriptionKey: "No authorization response received"],
                 ),
             ))
@@ -295,7 +296,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
             coordinator.resume(throwing: OAuth2Error.authorizationFailed(
                 NSError(
                     domain: "OAuth2Service",
-                    code: -1,
+                    code: Self.errorCodeGeneric,
                     userInfo: [NSLocalizedDescriptionKey: "No token response received"],
                 ),
             ))
@@ -365,7 +366,7 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
                             throwing: OAuth2Error.tokenRefreshFailed(
                                 NSError(
                                     domain: "OAuth2Service",
-                                    code: -1,
+                                    code: Self.errorCodeGeneric,
                                     userInfo: [NSLocalizedDescriptionKey: "No access token available"],
                                 ),
                             ),

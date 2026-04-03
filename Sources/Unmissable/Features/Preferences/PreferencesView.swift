@@ -195,6 +195,7 @@ struct GeneralPreferencesView: View {
             Toggle(isOn: preferences.useLengthBasedTimingBinding) {}
                 .toggleStyle(UMToggleStyle())
                 .labelsHidden()
+                .accessibilityLabel("Use length-based timing")
         }
     }
 
@@ -300,6 +301,7 @@ struct GeneralPreferencesView: View {
                     Toggle(isOn: preferences.includeAllDayEventsBinding) {}
                         .toggleStyle(UMToggleStyle())
                         .labelsHidden()
+                        .accessibilityLabel("Include all-day events")
                 }
             }
         }

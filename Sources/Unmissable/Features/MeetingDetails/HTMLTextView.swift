@@ -180,7 +180,7 @@ struct HTMLTextView: NSViewRepresentable {
             <style>
                 body {
                     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-                    font-size: 13px;
+                    font-size: \(Int(Self.defaultFontSize))px;
                     line-height: 1.5;
                     color: \(bodyColor);
                     margin: 0;

@@ -75,13 +75,16 @@ struct MenuBarView: View {
     }
 
     private func getNextMondayIfNeeded(from tomorrow: Date, calendar: Calendar) -> Date? {
-        if calendar.isDateInWeekend(tomorrow),
-           let nextDay = calendar.date(byAdding: .day, value: 1, to: tomorrow),
-           calendar.isDateInWeekend(nextDay)
-        {
-            return calendar.date(byAdding: .day, value: Self.weekendSkipDays, to: tomorrow)
+        guard calendar.isDateInWeekend(tomorrow) else { return nil }
+        // Walk forward from tomorrow until we find a weekday (handles both Sat and Sun)
+        var candidate = tomorrow
+        while calendar.isDateInWeekend(candidate) {
+            guard let next = calendar.date(byAdding: .day, value: 1, to: candidate) else {
+                return nil
+            }
+            candidate = next
         }
-        return nil
+        return candidate
     }
 
     private func groupEventsByDate(_ events: [Event], includingStarted: Bool = false) -> [EventGroup] {
@@ -396,6 +399,7 @@ struct MenuBarView: View {
                         Toggle(isOn: appState.preferences.showTodayOnlyInMenuBarBinding) {}
                             .toggleStyle(UMToggleStyle())
                             .labelsHidden()
+                            .accessibilityLabel("Show today only")
                     }
                     .padding(.horizontal, design.spacing.lg)
 

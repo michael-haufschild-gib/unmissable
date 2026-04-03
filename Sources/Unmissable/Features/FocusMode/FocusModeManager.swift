@@ -27,8 +27,8 @@ final class FocusModeManager: ObservableObject {
 
     // MARK: - Constants
 
-    private nonisolated(unsafe) static let maxAssertionsFileSize = 1_000_000
-    private nonisolated(unsafe) static let maxPrefsFileSize = 5_000_000
+    private nonisolated static let maxAssertionsFileSize = 1_000_000
+    private nonisolated static let maxPrefsFileSize = 5_000_000
 
     @Published
     var isDoNotDisturbEnabled: Bool = false
@@ -96,7 +96,7 @@ final class FocusModeManager: ObservableObject {
 
             case let .failure(error):
                 self.logger.warning(
-                    "DND detection unavailable (parse failure): \(error.localizedDescription)",
+                    "DND detection unavailable (parse failure): \(String(describing: type(of: error)))",
                 )
                 self.dndDetectionAvailable = false
                 self.isDoNotDisturbEnabled = false

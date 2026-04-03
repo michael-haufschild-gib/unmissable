@@ -13,7 +13,9 @@ struct ScheduledAlert: Identifiable, Equatable {
     }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.id == rhs.id
+        lhs.event == rhs.event
+            && lhs.triggerDate == rhs.triggerDate
+            && lhs.alertType == rhs.alertType
     }
 
     /// Whether the trigger date has passed relative to the given reference time.

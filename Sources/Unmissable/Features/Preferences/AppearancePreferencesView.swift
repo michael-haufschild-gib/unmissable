@@ -120,7 +120,7 @@ struct AppearancePreferencesView: View {
                 .overlay(
                     Circle()
                         .stroke(
-                            Color.white.opacity(Self.swatchRingOpacity),
+                            design.colors.textPrimary.opacity(Self.swatchRingOpacity),
                             lineWidth: preferences.accentColor == accent ? Self.swatchStrokeWidth : 0,
                         ),
                 )

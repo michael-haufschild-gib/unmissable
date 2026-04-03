@@ -9,16 +9,16 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
 
     // MARK: - Constants
 
-    private nonisolated(unsafe) static let requestTimeoutSeconds: TimeInterval = 30
-    private nonisolated(unsafe) static let resourceTimeoutSeconds: TimeInterval = 60
-    private nonisolated(unsafe) static let httpOK = 200
-    private nonisolated(unsafe) static let httpForbidden = 403
-    private nonisolated(unsafe) static let httpNotFound = 404
-    private nonisolated(unsafe) static let maxEventsPerCalendar = 2000
-    private nonisolated(unsafe) static let maxTitleLength = 500
-    private nonisolated(unsafe) static let maxDescriptionLength = 10_000
-    private nonisolated(unsafe) static let maxLocationLength = 1000
-    private nonisolated(unsafe) static let maxOrganizerLength = 320
+    private nonisolated static let requestTimeoutSeconds: TimeInterval = 30
+    private nonisolated static let resourceTimeoutSeconds: TimeInterval = 60
+    private nonisolated static let httpOK = 200
+    private nonisolated static let httpForbidden = 403
+    private nonisolated static let httpNotFound = 404
+    private nonisolated static let maxEventsPerCalendar = 2000
+    private nonisolated static let maxTitleLength = 500
+    private nonisolated static let maxDescriptionLength = 10_000
+    private nonisolated static let maxLocationLength = 1000
+    private nonisolated static let maxOrganizerLength = 320
 
     @Published
     var calendars: [CalendarInfo] = []
