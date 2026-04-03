@@ -20,6 +20,17 @@ final class CalendarService: ObservableObject {
     private static let upcomingEventsLimit = 50
     private static let startedMeetingsLimit = 20
     private static let uiRefreshIntervalSeconds = 30
+    private static let redactedPrefixLength = 2
+    private static let redactedIdLength = 8
+
+    private static func redactedCalendarId(_ id: String) -> String {
+        if id.contains("@") {
+            let parts = id.split(separator: "@", maxSplits: 1)
+            let prefix = parts.first.map { $0.prefix(redactedPrefixLength) } ?? ""
+            return "\(prefix)***@\(parts.last ?? "***")"
+        }
+        return String(id.prefix(redactedIdLength)) + "..."
+    }
 
     // MARK: - Published State
 
@@ -208,7 +219,7 @@ final class CalendarService: ObservableObject {
             calendars[index] = calendars[index].withSelection(isSelected)
             calendarUpdateError = nil
 
-            logger.debug("Updated calendar \(calendarId) selection to \(isSelected)")
+            logger.debug("Updated calendar \(Self.redactedCalendarId(calendarId)) selection to \(isSelected)")
 
             let updatedCalendar = calendars[index]
             let shouldSync = isConnected

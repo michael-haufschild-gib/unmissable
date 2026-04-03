@@ -151,7 +151,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
                 case let .failure(error):
                     calendarErrors[calendarId] = error.localizedDescription
                     logger.warning(
-                        "Skipping calendar \(calendarId): \(error.localizedDescription)",
+                        "Skipping calendar \(Self.redactedCalendarId(calendarId)): \(error.localizedDescription)",
                     )
                 }
             }
@@ -161,8 +161,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
         events = allEvents
 
         if !calendarErrors.isEmpty {
-            let failedIds = calendarErrors.keys.sorted().joined(separator: ", ")
-            lastError = "Failed to fetch \(calendarErrors.count) calendar(s): \(failedIds)"
+            lastError = "Failed to fetch \(calendarErrors.count) calendar(s)"
         }
 
         logger.debug(
@@ -173,6 +172,20 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     }
 
     // MARK: - Private Methods
+
+    /// Redacts a calendar ID for logging. Google Calendar IDs often contain
+    /// user email addresses, which must not appear in logs.
+    private nonisolated static let redactedPrefixLength = 2
+    private nonisolated static let redactedIdLength = 8
+
+    private nonisolated static func redactedCalendarId(_ id: String) -> String {
+        if id.contains("@") {
+            let parts = id.split(separator: "@", maxSplits: 1)
+            let prefix = parts.first.map { $0.prefix(redactedPrefixLength) } ?? ""
+            return "\(prefix)***@\(parts.last ?? "***")"
+        }
+        return String(id.prefix(redactedIdLength)) + "..."
+    }
 
     /// Characters allowed in percent-encoded calendar IDs.
     /// Based on `.urlPathAllowed` with `#` explicitly removed — calendar IDs like
@@ -246,15 +259,18 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
 
             guard httpResponse.statusCode == Self.httpOK else {
                 if httpResponse.statusCode == Self.httpNotFound {
-                    logger.warning("Calendar \(calendarId) not found or not accessible, skipping")
+                    logger
+                        .warning(
+                            "Calendar \(Self.redactedCalendarId(calendarId)) not found or not accessible, skipping",
+                        )
                     return []
                 }
                 if httpResponse.statusCode == Self.httpForbidden {
-                    logger.warning("Access denied to calendar \(calendarId), skipping")
+                    logger.warning("Access denied to calendar \(Self.redactedCalendarId(calendarId)), skipping")
                     return []
                 }
                 let errorMessage = "HTTP \(httpResponse.statusCode)"
-                logger.error("Events fetch failed for calendar \(calendarId): \(errorMessage)")
+                logger.error("Events fetch failed for calendar \(Self.redactedCalendarId(calendarId)): \(errorMessage)")
                 throw GoogleCalendarAPIError.requestFailed(httpResponse.statusCode, errorMessage)
             }
 
@@ -264,7 +280,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
 
             if allEvents.count >= Self.maxEventsPerCalendar {
                 logger.warning(
-                    "Hit safety cap of \(Self.maxEventsPerCalendar) events for calendar \(calendarId), stopping pagination",
+                    "Hit safety cap of \(Self.maxEventsPerCalendar) events for calendar \(Self.redactedCalendarId(calendarId)), stopping pagination",
                 )
                 break
             }

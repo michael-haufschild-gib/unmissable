@@ -57,6 +57,18 @@ extension DatabaseManaging {
 actor DatabaseManager: DatabaseManaging {
     private let logger = Logger(category: "DatabaseManager")
 
+    private static let redactedPrefixLength = 2
+    private static let redactedIdLength = 8
+
+    private static func redactedCalendarId(_ id: String) -> String {
+        if id.contains("@") {
+            let parts = id.split(separator: "@", maxSplits: 1)
+            let prefix = parts.first.map { $0.prefix(redactedPrefixLength) } ?? ""
+            return "\(prefix)***@\(parts.last ?? "***")"
+        }
+        return String(id.prefix(redactedIdLength)) + "..."
+    }
+
     private(set) var dbQueue: DatabaseQueue?
     private(set) var isInitialized: Bool = false
     private(set) var initializationError: String?
@@ -292,7 +304,10 @@ actor DatabaseManager: DatabaseManaging {
             }
         }
 
-        logger.info("Atomically replaced events for calendar \(calendarId): \(events.count) events saved")
+        logger
+            .info(
+                "Atomically replaced events for calendar \(Self.redactedCalendarId(calendarId)): \(events.count) events saved",
+            )
     }
 
     func fetchEvents(from startDate: Date, to endDate: Date) async throws -> [Event] {
@@ -358,7 +373,7 @@ actor DatabaseManager: DatabaseManaging {
             }
         }
 
-        logger.info("Deleted events for calendar: \(calendarId)")
+        logger.info("Deleted events for calendar: \(Self.redactedCalendarId(calendarId))")
     }
 
     func deleteOldEvents(before date: Date) async throws {

@@ -299,8 +299,8 @@ final class PreferencesManager: ObservableObject {
            let accent = AccentColor(rawValue: accentRaw)
         {
             accentColor = accent
-            themeManager.setAccent(accent)
         }
+        themeManager.setAccent(accentColor)
 
         overlayOpacity = Self.clamp(
             userDefaults.object(forKey: PrefKey.overlayOpacity) as? Double ?? Self.overlayOpacityDefault,

@@ -62,6 +62,19 @@ final class SyncManager: ObservableObject {
     /// Jitter range upper bound for retry delay randomization.
     private static let jitterUpperBound: Double = 1.2
 
+    /// Redacts a calendar ID for logging — Google Calendar IDs often contain emails.
+    private static let redactedPrefixLength = 2
+    private static let redactedIdLength = 8
+
+    private static func redactedCalendarId(_ id: String) -> String {
+        if id.contains("@") {
+            let parts = id.split(separator: "@", maxSplits: 1)
+            let prefix = parts.first.map { $0.prefix(redactedPrefixLength) } ?? ""
+            return "\(prefix)***@\(parts.last ?? "***")"
+        }
+        return String(id.prefix(redactedIdLength)) + "..."
+    }
+
     init(
         apiService: any CalendarAPIProviding,
         databaseManager: any DatabaseManaging,
@@ -218,6 +231,7 @@ final class SyncManager: ObservableObject {
         guard !selectedCalendarIds.isEmpty else {
             logger.warning("No calendars selected for sync")
             syncStatus = .idle
+            updateNextSyncTime()
             return
         }
 
@@ -335,7 +349,7 @@ final class SyncManager: ObservableObject {
                     try await databaseManager.replaceEvents(for: calendarId, with: [])
                 } catch {
                     logger.error(
-                        "Failed to clear events for calendar \(calendarId): \(error.localizedDescription)",
+                        "Failed to clear events for calendar \(Self.redactedCalendarId(calendarId)): \(error.localizedDescription)",
                     )
                 }
             }
@@ -408,7 +422,10 @@ final class SyncManager: ObservableObject {
             guard let result = results[calendarId] else {
                 // Calendar ID not in results — should not happen if implementations
                 // follow the contract. Preserve cache defensively.
-                logger.warning("Calendar \(calendarId) missing from API results, preserving cache")
+                logger
+                    .warning(
+                        "Calendar \(Self.redactedCalendarId(calendarId)) missing from API results, preserving cache",
+                    )
                 continue
             }
 
@@ -420,13 +437,13 @@ final class SyncManager: ObservableObject {
                 } catch {
                     dbFailedCalendars.append(calendarId)
                     logger.error(
-                        "Failed to save events for calendar \(calendarId): \(error.localizedDescription)",
+                        "Failed to save events for calendar \(Self.redactedCalendarId(calendarId)): \(error.localizedDescription)",
                     )
                 }
 
             case let .failure(error):
                 logger.debug(
-                    "API failed for calendar \(calendarId), preserving cache: \(error.localizedDescription)",
+                    "API failed for calendar \(Self.redactedCalendarId(calendarId)), preserving cache: \(error.localizedDescription)",
                 )
             }
         }

@@ -20,6 +20,8 @@ struct MenuBarView: View {
     private static let syncProgressScale: CGFloat = 0.7
     private static let maxVisibleEventsPerGroup = 3
     private static let weekendSkipDays = 2
+    private static let messageLineLimit = 3
+    private static let setupGuideLineLimit = 2
 
     @EnvironmentObject
     var appState: AppState
@@ -212,7 +214,7 @@ struct MenuBarView: View {
             Text(message)
                 .font(design.fonts.caption)
                 .foregroundColor(design.colors.textSecondary)
-                .lineLimit(Self.maxVisibleEventsPerGroup)
+                .lineLimit(Self.messageLineLimit)
                 .multilineTextAlignment(.leading)
 
             HStack(spacing: design.spacing.sm) {
@@ -301,14 +303,14 @@ struct MenuBarView: View {
                     Text(authError)
                         .font(design.fonts.caption)
                         .foregroundColor(design.colors.textSecondary)
-                        .lineLimit(Self.maxVisibleEventsPerGroup)
+                        .lineLimit(Self.messageLineLimit)
                         .multilineTextAlignment(.leading)
 
                     if authError.contains("configuration") {
                         Text("See OAUTH_SETUP_GUIDE.md for setup instructions")
                             .font(design.fonts.caption)
                             .foregroundColor(design.colors.accent)
-                            .lineLimit(Self.weekendSkipDays)
+                            .lineLimit(Self.setupGuideLineLimit)
                             .multilineTextAlignment(.leading)
                     }
                 }
