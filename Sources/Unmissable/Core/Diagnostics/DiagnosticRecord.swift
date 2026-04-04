@@ -39,7 +39,10 @@ nonisolated struct DiagnosticRecord: Codable {
             parts.append("flow=\(fid.prefix(DiagnosticConstants.flowIdDisplayLength))")
         }
         if !metadata.isEmpty {
-            let kvs = metadata.map { "\($0.key)=\($0.value)" }.joined(separator: " ")
+            let kvs = metadata
+                .sorted { $0.key < $1.key }
+                .map { "\($0.key)=\($0.value)" }
+                .joined(separator: " ")
             parts.append(kvs)
         }
         return parts.joined(separator: " ")

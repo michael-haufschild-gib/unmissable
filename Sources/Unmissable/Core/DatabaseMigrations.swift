@@ -186,17 +186,23 @@ extension DatabaseManager {
                 t.column("updatedAt", .datetime).notNull()
             }
 
-            // Copy data. If duplicate (id) rows exist from the old schema,
-            // INSERT OR IGNORE keeps only the first (ordered by updatedAt DESC).
+            // Copy data, deduplicating by (id, calendarId) and keeping the newest row.
+            // ROW_NUMBER() guarantees deterministic duplicate resolution — unlike
+            // INSERT OR IGNORE which picks an arbitrary row from the query plan.
             try db.execute(
                 sql: """
-                INSERT OR IGNORE INTO \(Event.databaseTableName)
+                INSERT INTO \(Event.databaseTableName)
                 SELECT id, calendarId, title, startDate, endDate, organizer,
                        description, location, attendees, attachments,
                        isAllDay, timezone, links, provider,
                        snoozeUntil, autoJoinEnabled, createdAt, updatedAt
-                FROM events_old
-                ORDER BY updatedAt DESC
+                FROM (
+                    SELECT *, ROW_NUMBER() OVER (
+                        PARTITION BY id, calendarId ORDER BY updatedAt DESC
+                    ) AS rn
+                    FROM events_old
+                )
+                WHERE rn = 1
                 """,
             )
             try db.drop(table: "events_old")

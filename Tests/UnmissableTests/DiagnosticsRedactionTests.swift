@@ -44,9 +44,13 @@ final class DiagnosticsRedactionTests: XCTestCase {
         XCTAssertFalse(result.contains("name"))
     }
 
-    func testRedactedPath_shortPath_returnsUnchanged() {
+    func testRedactedPath_shortPath_stillRedactsWithPrefix() {
         let path = "unmissable/db.sqlite"
-        XCTAssertEqual(PrivacyUtils.redactedPath(path), path)
+        XCTAssertEqual(PrivacyUtils.redactedPath(path), "…/unmissable/db.sqlite")
+    }
+
+    func testRedactedPath_empty_returnsNone() {
+        XCTAssertEqual(PrivacyUtils.redactedPath(""), "<none>")
     }
 
     // MARK: - URL Redaction

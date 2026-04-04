@@ -1,5 +1,5 @@
 import Foundation
-import OSLog
+import os
 
 /// Bounded ring buffer that captures `DiagnosticRecord`s for post-hoc analysis.
 ///

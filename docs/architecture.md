@@ -83,7 +83,8 @@ All token usage is lint-enforced. See `docs/meta/styleguide.md` for the full lis
 ```swift
 import Foundation
 
-struct [Name]: Identifiable, Codable, Equatable {
+// nonisolated required — defaultIsolation(MainActor.self) makes types @MainActor by default
+nonisolated struct [Name]: Identifiable, Codable, Equatable {
     let id: String
     // Add properties
 

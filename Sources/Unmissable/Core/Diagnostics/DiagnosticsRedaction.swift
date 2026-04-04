@@ -51,8 +51,9 @@ extension PrivacyUtils {
     ///        → "…/unmissable/db.sqlite"
     static func redactedPath(_ path: String) -> String {
         let components = path.split(separator: "/")
+        guard !components.isEmpty else { return "<none>" }
         if components.count <= pathTailComponents {
-            return path
+            return "…/" + components.joined(separator: "/")
         }
         let tail = components.suffix(pathTailComponents).joined(separator: "/")
         return "…/\(tail)"

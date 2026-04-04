@@ -49,7 +49,8 @@ Filter by:
 - **Category**: `Diagnostics` (structured records) or any manager name (e.g., `SyncManager`)
 
 Structured records appear as single-line summaries:
-```
+
+```text
 SyncManager.sync.preconditions=info flow=a1b2c3d4 provider=google selectedCalendars=3 attempt=1 isManual=false
 ```
 

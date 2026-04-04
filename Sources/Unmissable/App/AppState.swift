@@ -25,6 +25,8 @@ final class AppState {
 
     @ObservationIgnored
     private var cancellables = Set<AnyCancellable>()
+    @ObservationIgnored
+    private var rescheduleTask: Task<Void, Never>?
 
     init(services: ServiceContainer = ServiceContainer(databaseManager: DatabaseManager())) {
         self.services = services
@@ -91,8 +93,11 @@ final class AppState {
             ]
         }
 
-        Task {
+        rescheduleTask?.cancel()
+        rescheduleTask = Task {
+            guard !Task.isCancelled else { return }
             await loadAlertOverrides()
+            guard !Task.isCancelled else { return }
             loadCalendarAlertModes()
             services.eventScheduler.startScheduling(
                 events: events,

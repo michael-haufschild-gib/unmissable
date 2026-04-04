@@ -18,6 +18,7 @@ Swift 6.3 (strict concurrency) | macOS 14.0+ | SwiftUI + AppKit | GRDB.swift | S
 | Privacy | No external telemetry. Redact sensitive data in logs. |
 
 ## Dependencies
+
 AppAuth-iOS (OAuth 2.0) | GRDB.swift (SQLite) | KeychainAccess | Magnet (shortcuts) | SnapshotTesting
 
 ## Commands
