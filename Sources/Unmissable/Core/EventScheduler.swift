@@ -19,6 +19,20 @@ final class EventScheduler: ObservableObject {
     private var currentEvents: [Event] = []
     private weak var currentOverlayManager: (any OverlayManaging)?
 
+    /// Per-event alert overrides, keyed by event ID. Values are minutes
+    /// before start (0 = suppress all alerts). Loaded from the database
+    /// by AppState and passed in via `updateAlertOverrides`.
+    private var alertOverrides: [String: Int] = [:]
+
+    /// Per-calendar alert modes, keyed by calendar ID. Controls whether alerts
+    /// use overlay, notification, or are suppressed. Loaded from the database
+    /// by AppState and passed in via `updateCalendarAlertModes`.
+    private var calendarAlertModes: [String: AlertMode] = [:]
+
+    /// Optional notification manager for delivering Notification Center alerts.
+    /// Nil when notifications are not configured (e.g. tests).
+    private var notificationManager: (any NotificationManaging)?
+
     /// Whether monitoring was explicitly started via `startScheduling`.
     /// `scheduleWithoutMonitoring` sets this to false, preventing
     /// `refreshMonitoring` from starting a loop. Used by tests that
@@ -117,8 +131,26 @@ final class EventScheduler: ObservableObject {
         let missedEvents = scheduleAlerts(for: events)
         for event in missedEvents {
             logger.info("Missed alert time for event \(event.id), triggering immediately")
-            overlayManager.showOverlay(for: event, fromSnooze: false)
+            deliverAlert(for: event, overlayManager: overlayManager, fromSnooze: false)
         }
+    }
+
+    /// Updates the per-event alert override dictionary and triggers a reschedule
+    /// if events are currently being tracked.
+    func updateAlertOverrides(_ overrides: [String: Int]) {
+        alertOverrides = overrides
+        rescheduleCurrentAlerts()
+    }
+
+    /// Updates the per-calendar alert mode dictionary. Does not reschedule —
+    /// modes affect routing at trigger time, not scheduling time.
+    func updateCalendarAlertModes(_ modes: [String: AlertMode]) {
+        calendarAlertModes = modes
+    }
+
+    /// Injects the notification manager for delivering Notification Center alerts.
+    func setNotificationManager(_ manager: any NotificationManaging) {
+        notificationManager = manager
     }
 
     private func rescheduleCurrentAlerts() {
@@ -138,7 +170,7 @@ final class EventScheduler: ObservableObject {
         let missedEvents = scheduleAlerts(for: currentEvents)
         for event in missedEvents {
             logger.info("Missed alert time for event \(event.id), triggering immediately")
-            overlayManager.showOverlay(for: event, fromSnooze: false)
+            deliverAlert(for: event, overlayManager: overlayManager, fromSnooze: false)
         }
         if monitoringEnabled {
             startMonitoring(overlayManager: overlayManager)
@@ -201,8 +233,16 @@ final class EventScheduler: ObservableObject {
                 continue
             }
 
-            // Schedule overlay alerts based on preferences
-            let overlayTiming = preferencesManager.overlayShowMinutesBefore
+            // Check for per-event alert override
+            let eventOverride = alertOverrides[event.id]
+
+            // Override of 0 means "no alert" — skip all scheduling for this event
+            if eventOverride == 0 { continue }
+
+            // When an override is set, it controls both overlay and sound timing.
+            // When no override, overlay uses global `overlayShowMinutesBefore` and
+            // sound uses length-based/default timing via `alertMinutes(for:)`.
+            let overlayTiming = eventOverride ?? preferencesManager.overlayShowMinutesBefore
             let overlayTime = event.startDate.addingTimeInterval(
                 -TimeInterval(overlayTiming) * Self.secondsPerMinute,
             )
@@ -223,8 +263,10 @@ final class EventScheduler: ObservableObject {
             // in-progress meeting would be disorienting. The menu bar shows
             // "Starting" for these events; snoozed alerts are preserved separately.
 
-            // Schedule sound alerts if enabled (using event-specific timing)
-            if preferencesManager.soundEnabled {
+            // Schedule sound alerts if enabled (using event-specific timing).
+            // When an override is set, overlay already fires at the overridden time,
+            // so sound uses the same timing — no separate sound alert needed.
+            if preferencesManager.soundEnabled, eventOverride == nil {
                 let soundTiming = preferencesManager.alertMinutes(for: event)
                 let soundTime = event.startDate.addingTimeInterval(
                     -TimeInterval(soundTiming) * Self.secondsPerMinute,
@@ -381,11 +423,18 @@ final class EventScheduler: ObservableObject {
         }
     }
 
+    /// Resolves the effective alert mode for an event based on its calendar's setting.
+    /// Defaults to `.overlay` when no mode is configured for the calendar.
+    private func resolveAlertMode(for event: Event) -> AlertMode {
+        calendarAlertModes[event.calendarId] ?? .overlay
+    }
+
+    /// Routes an alert through the appropriate delivery channel based on the
+    /// event's calendar alert mode. Snooze alerts always use overlay.
     private func handleTriggeredAlert(_ alert: ScheduledAlert, overlayManager: any OverlayManaging) {
         switch alert.alertType {
         case .reminder:
-            logger.info("REMINDER: Showing overlay for event \(alert.event.id)")
-            overlayManager.showOverlay(for: alert.event, fromSnooze: false)
+            deliverAlert(for: alert.event, overlayManager: overlayManager, fromSnooze: false)
 
         case .meetingStart:
             if preferencesManager.autoJoinEnabled, let url = linkParser.primaryLink(for: alert.event) {
@@ -394,8 +443,33 @@ final class EventScheduler: ObservableObject {
             }
 
         case .snooze:
+            // Snooze always uses overlay — user explicitly asked to be reminded.
             logger.info("SNOOZE: Re-showing overlay for event \(alert.event.id)")
             overlayManager.showOverlay(for: alert.event, fromSnooze: true)
+        }
+    }
+
+    /// Delivers an alert via overlay or notification based on the calendar's alert mode.
+    private func deliverAlert(
+        for event: Event,
+        overlayManager: any OverlayManaging,
+        fromSnooze: Bool,
+    ) {
+        let mode = resolveAlertMode(for: event)
+        switch mode {
+        case .overlay:
+            logger.info("REMINDER: Showing overlay for event \(event.id)")
+            overlayManager.showOverlay(for: event, fromSnooze: fromSnooze)
+
+        case .notification:
+            logger.info("REMINDER: Sending notification for event \(event.id)")
+            let primaryLink = linkParser.primaryLink(for: event)
+            Task {
+                await notificationManager?.sendMeetingNotification(for: event, primaryLink: primaryLink)
+            }
+
+        case .none:
+            logger.info("REMINDER: Suppressed for event \(event.id) (alert mode = none)")
         }
     }
 
@@ -403,34 +477,22 @@ final class EventScheduler: ObservableObject {
         let snoozeDate = now().addingTimeInterval(
             TimeInterval(minutes) * Self.secondsPerMinute,
         )
-        let meetingStarted = event.startDate < now()
-
-        // Allow snoozing past meeting start time - user might want to join late
-        // Don't limit to meeting start time like the original logic
+        // Allow snoozing past meeting start — user might want to join late.
         let snoozeAlert = ScheduledAlert(
             event: event,
-            triggerDate: snoozeDate, // Use full snooze time, not limited by meeting start
+            triggerDate: snoozeDate,
             alertType: .snooze(until: snoozeDate),
         )
 
         scheduledAlerts.append(snoozeAlert)
         scheduledAlerts.sort { $0.triggerDate < $1.triggerDate }
 
-        let formatter = DateFormatter()
-        formatter.timeStyle = .medium
-        formatter.dateStyle = .none
+        let status = event.startDate < now() ? "already started" : "starts later"
+        logger.info(
+            "Scheduled snooze for \(minutes)min for event \(event.id) (\(status)). Trigger: \(snoozeDate)",
+        )
 
-        if meetingStarted {
-            logger.info(
-                "Scheduled snooze for \(minutes) minutes for event \(event.id) (meeting already started). Will trigger at \(formatter.string(from: snoozeDate))",
-            )
-        } else {
-            logger.info(
-                "Scheduled snooze for \(minutes) minutes for event \(event.id) (meeting starts later). Will trigger at \(formatter.string(from: snoozeDate))",
-            )
-        }
-
-        // Restart monitoring to ensure we wake up for this snooze if it's next
+        // Restart monitoring to pick up this snooze if it's next.
         refreshMonitoring()
     }
 }

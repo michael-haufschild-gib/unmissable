@@ -149,6 +149,7 @@ extension CalendarInfo {
         static let isPrimary = Column("isPrimary")
         static let colorHex = Column("colorHex")
         static let sourceProvider = Column("sourceProvider")
+        static let alertMode = Column("alertMode")
         static let lastSyncAt = Column("lastSyncAt")
         static let createdAt = Column("createdAt")
         static let updatedAt = Column("updatedAt")
@@ -173,6 +174,13 @@ extension CalendarInfo {
             }
             sourceProvider = .google
         }
+        if let modeRaw = row[Columns.alertMode] as? String,
+           let mode = AlertMode(rawValue: modeRaw)
+        {
+            alertMode = mode
+        } else {
+            alertMode = .overlay
+        }
         lastSyncAt = row[Columns.lastSyncAt]
         createdAt = row[Columns.createdAt]
         updatedAt = row[Columns.updatedAt]
@@ -186,6 +194,7 @@ extension CalendarInfo {
         container[Columns.isPrimary] = isPrimary
         container[Columns.colorHex] = colorHex
         container[Columns.sourceProvider] = sourceProvider.rawValue
+        container[Columns.alertMode] = alertMode.rawValue
         container[Columns.lastSyncAt] = lastSyncAt
         container[Columns.createdAt] = createdAt
         container[Columns.updatedAt] = updatedAt
@@ -193,3 +202,26 @@ extension CalendarInfo {
 }
 
 extension CalendarInfo: FetchableRecord, PersistableRecord {}
+
+// MARK: - EventOverride
+
+extension EventOverride {
+    static let databaseTableName = "event_overrides"
+
+    enum Columns {
+        static let eventId = Column("eventId")
+        static let alertMinutes = Column("alertMinutes")
+    }
+
+    init(row: Row) {
+        eventId = row[Columns.eventId]
+        alertMinutes = row[Columns.alertMinutes]
+    }
+
+    func encode(to container: inout PersistenceContainer) {
+        container[Columns.eventId] = eventId
+        container[Columns.alertMinutes] = alertMinutes
+    }
+}
+
+extension EventOverride: FetchableRecord, PersistableRecord {}

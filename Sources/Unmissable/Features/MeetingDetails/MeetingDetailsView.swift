@@ -3,10 +3,18 @@ import SwiftUI
 struct MeetingDetailsView: View {
     let event: Event
     let onClose: () -> Void
+    /// Per-event alert override in minutes, or `nil` if using default timing.
+    let alertOverrideMinutes: Int?
     @Environment(\.design)
     private var design
     @EnvironmentObject
     private var themeManager: ThemeManager
+
+    init(event: Event, onClose: @escaping () -> Void, alertOverrideMinutes: Int? = nil) {
+        self.event = event
+        self.onClose = onClose
+        self.alertOverrideMinutes = alertOverrideMinutes
+    }
 
     private static let headerBorderHeight: CGFloat = 1
     private static let descriptionMinHeight: CGFloat = 60
@@ -171,10 +179,46 @@ struct MeetingDetailsView: View {
                 }
                 .padding(.top, design.spacing.sm)
             }
+
+            // Alert timing info
+            alertTimingSection
         }
         .padding(design.spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .umCard(.flat)
+    }
+
+    @ViewBuilder
+    private var alertTimingSection: some View {
+        let hasOverride = alertOverrideMinutes != nil
+        VStack(alignment: .leading, spacing: design.spacing.xs) {
+            HStack(spacing: design.spacing.sm) {
+                Image(systemName: hasOverride ? "bell.badge" : "bell")
+                    .foregroundColor(design.colors.accent)
+                    .font(design.fonts.body)
+                    .fontWeight(.medium)
+
+                Text("Alert")
+                    .font(design.fonts.callout)
+                    .fontWeight(.medium)
+                    .foregroundColor(design.colors.textPrimary)
+            }
+
+            Text(alertTimingLabel)
+                .font(design.fonts.callout)
+                .foregroundColor(design.colors.textSecondary)
+        }
+        .padding(.top, design.spacing.sm)
+    }
+
+    private var alertTimingLabel: String {
+        guard let override = alertOverrideMinutes else {
+            return "Default timing"
+        }
+        if override == 0 {
+            return "Alerts suppressed"
+        }
+        return "\(override) minute\(override == 1 ? "" : "s") before"
     }
 
     // MARK: - Description Section

@@ -19,8 +19,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             andEventID: AEEventID(kAEGetURL),
         )
 
-        // Request necessary permissions on first launch
-        requestPermissions()
+        // Accessibility permission is now deferred to AppState — requested after
+        // onboarding for first-time users, or on launch for returning users.
     }
 
     func applicationWillTerminate(_: Notification) {
@@ -64,17 +64,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
         } else {
             logger.warning("Received URL with unexpected scheme: \(url.scheme ?? "nil")")
-        }
-    }
-
-    private func requestPermissions() {
-        // Request accessibility permissions for global shortcuts
-        // Use the raw string constant to avoid concurrency issues with the global CFString
-        let options: NSDictionary = ["AXTrustedCheckOptionPrompt": true]
-        let accessibilityEnabled = AXIsProcessTrustedWithOptions(options)
-
-        if !accessibilityEnabled {
-            logger.warning("Accessibility permissions not granted")
         }
     }
 }

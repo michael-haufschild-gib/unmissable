@@ -4,6 +4,61 @@ import OSLog
 
 private let extensionLogger = Logger(category: "DatabaseManager")
 
+// MARK: - Alert Overrides
+
+extension DatabaseManager {
+    func fetchAlertOverride(for eventId: String) async throws -> Int? {
+        guard let dbQueue else {
+            throw DatabaseError.notInitialized
+        }
+
+        return try await withTimeout(defaultTimeout) {
+            try await dbQueue.read { db in
+                let override = try EventOverride.fetchOne(
+                    db,
+                    key: eventId,
+                )
+                return override?.alertMinutes
+            }
+        }
+    }
+
+    func fetchAllAlertOverrides() async throws -> [String: Int] {
+        guard let dbQueue else {
+            throw DatabaseError.notInitialized
+        }
+
+        return try await withTimeout(defaultTimeout) {
+            try await dbQueue.read { db in
+                let overrides = try EventOverride.fetchAll(db)
+                return Dictionary(
+                    uniqueKeysWithValues: overrides.map { ($0.eventId, $0.alertMinutes) },
+                )
+            }
+        }
+    }
+
+    func saveAlertOverride(eventId: String, minutes: Int?) async throws {
+        guard let dbQueue else {
+            throw DatabaseError.notInitialized
+        }
+
+        try await withTimeout(defaultTimeout) {
+            try await dbQueue.write { db in
+                if let minutes {
+                    let override = EventOverride(eventId: eventId, alertMinutes: minutes)
+                    try override.save(db)
+                } else {
+                    _ = try EventOverride.deleteOne(db, key: eventId)
+                }
+            }
+        }
+
+        let action = minutes.map { "\($0) minutes" } ?? "cleared"
+        extensionLogger.info("Alert override updated: \(action)")
+    }
+}
+
 // MARK: - Search & Maintenance
 
 extension DatabaseManager {
@@ -59,10 +114,24 @@ extension DatabaseManager {
         ) ?? Date()
         try await deleteOldEvents(before: cutoffDate)
 
-        // Vacuum database outside a transaction (VACUUM cannot run inside a transaction).
-        // Use longer timeout as VACUUM can take time on large DBs.
+        // Clean up orphaned alert overrides whose events no longer exist
         guard let dbQueue else { return }
 
+        try await withTimeout(defaultTimeout) {
+            try await dbQueue.write { db in
+                let deletedCount = try EventOverride
+                    .filter(sql: "eventId NOT IN (SELECT id FROM \(Event.databaseTableName))")
+                    .deleteAll(db)
+                if deletedCount > 0 {
+                    extensionLogger.info(
+                        "Cleaned up \(deletedCount) orphaned alert overrides",
+                    )
+                }
+            }
+        }
+
+        // Vacuum database outside a transaction (VACUUM cannot run inside a transaction).
+        // Use longer timeout as VACUUM can take time on large DBs.
         try await withTimeout(Self.vacuumTimeoutSeconds) {
             try await dbQueue.barrierWriteWithoutTransaction { db in
                 try db.execute(sql: "VACUUM")
@@ -78,6 +147,7 @@ extension DatabaseManager {
         }
 
         try dbQueue.write { db in
+            try db.execute(sql: "DROP TABLE IF EXISTS event_overrides")
             try db.execute(sql: "DROP TABLE IF EXISTS events_fts")
             try db.execute(sql: "DROP TABLE IF EXISTS events")
             try db.execute(sql: "DROP TABLE IF EXISTS calendars")

@@ -127,7 +127,9 @@ struct GeneralPreferencesView: View {
                 }
 
                 alertTimingSection
+                smartAlertSection
                 syncSettingsSection
+                startupSection
 
                 Spacer()
             }
@@ -256,6 +258,31 @@ struct GeneralPreferencesView: View {
         .umCard(.flat)
     }
 
+    // MARK: - Smart Alerts
+
+    private var smartAlertSection: some View {
+        UMSection("Smart Alerts", icon: "brain") {
+            HStack {
+                VStack(alignment: .leading, spacing: design.spacing.xs) {
+                    Text("Suppress when app is open")
+                        .font(design.fonts.callout)
+                        .foregroundColor(design.colors.textPrimary)
+
+                    Text("Skip the alert when the meeting app is already in the foreground")
+                        .font(design.fonts.caption)
+                        .foregroundColor(design.colors.textSecondary)
+                }
+
+                Spacer()
+
+                Toggle(isOn: preferences.smartSuppressionBinding) {}
+                    .toggleStyle(UMToggleStyle())
+                    .labelsHidden()
+                    .accessibilityLabel("Suppress alert when meeting app is open")
+            }
+        }
+    }
+
     // MARK: - Sync Settings
 
     private var syncSettingsSection: some View {
@@ -303,6 +330,31 @@ struct GeneralPreferencesView: View {
                         .labelsHidden()
                         .accessibilityLabel("Include all-day events")
                 }
+            }
+        }
+    }
+
+    // MARK: - Startup
+
+    private var startupSection: some View {
+        UMSection("Startup", icon: "power") {
+            HStack {
+                VStack(alignment: .leading, spacing: design.spacing.xs) {
+                    Text("Launch at login")
+                        .font(design.fonts.callout)
+                        .foregroundColor(design.colors.textPrimary)
+
+                    Text("Start Unmissable automatically when you log in")
+                        .font(design.fonts.caption)
+                        .foregroundColor(design.colors.textSecondary)
+                }
+
+                Spacer()
+
+                Toggle(isOn: preferences.launchAtLoginBinding) {}
+                    .toggleStyle(UMToggleStyle())
+                    .labelsHidden()
+                    .accessibilityLabel("Launch at login")
             }
         }
     }

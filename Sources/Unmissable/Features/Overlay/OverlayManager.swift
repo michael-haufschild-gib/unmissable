@@ -23,6 +23,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
     private let preferencesManager: PreferencesManager
     private let soundManager: SoundManager
     private let focusModeManager: FocusModeManager
+    private let foregroundAppDetector: any ForegroundAppDetecting
     private let linkParser: LinkParser
     private let themeManager: ThemeManager
 
@@ -46,6 +47,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         eventScheduler: EventScheduler,
         soundManager: SoundManager,
         focusModeManager: FocusModeManager? = nil,
+        foregroundAppDetector: any ForegroundAppDetecting = ForegroundAppDetector(),
         linkParser: LinkParser = LinkParser(),
         themeManager: ThemeManager,
         isTestMode: Bool = false,
@@ -53,6 +55,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         self.preferencesManager = preferencesManager
         self.eventScheduler = eventScheduler
         self.soundManager = soundManager
+        self.foregroundAppDetector = foregroundAppDetector
         self.linkParser = linkParser
         self.themeManager = themeManager
         self.focusModeManager =
@@ -84,6 +87,25 @@ final class OverlayManager: ObservableObject, OverlayManaging {
                 "SKIP: Meeting \(event.id) started \(Int(timeSinceStart) / Self.secondsPerMinute)min ago (max \(Int(maxAge) / Self.secondsPerMinute)min)",
             )
             return
+        }
+
+        // Smart suppression: skip overlay if meeting app is already in the foreground.
+        // fromSnooze alerts are never suppressed — user explicitly requested a re-reminder.
+        if !fromSnooze, preferencesManager.smartSuppression,
+           let provider = event.provider
+        {
+            if foregroundAppDetector.isMeetingAppInForeground(for: provider) {
+                logger.info(
+                    "SMART SUPPRESS: Native app in foreground for \(event.id) (\(provider.displayName))",
+                )
+                return
+            }
+            if provider == .meet, foregroundAppDetector.isBrowserInForeground() {
+                logger.info(
+                    "SMART SUPPRESS: Browser in foreground for Meet event \(event.id)",
+                )
+                return
+            }
         }
 
         // Clean up any existing overlay first (atomic operation)

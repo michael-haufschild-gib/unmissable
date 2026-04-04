@@ -165,6 +165,7 @@ enum TestUtilities {
         prefs.setAutoJoinEnabled(false)
         prefs.setShowOnAllDisplays(true)
         prefs.setOverrideFocusMode(true)
+        prefs.setSmartSuppression(true)
         return prefs
     }
 }
@@ -206,6 +207,11 @@ extension PreferencesManager {
     var testOverrideFocusMode: Bool {
         get { overrideFocusMode }
         set { setOverrideFocusMode(newValue) }
+    }
+
+    var testSmartSuppression: Bool {
+        get { smartSuppression }
+        set { setSmartSuppression(newValue) }
     }
 }
 

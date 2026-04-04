@@ -196,6 +196,11 @@ struct CalendarPreferencesView: View {
                                             calendar.id, isSelected: isSelected,
                                         )
                                     },
+                                    onAlertModeChange: { mode in
+                                        appState.updateCalendarAlertMode(
+                                            calendar.id, alertMode: mode,
+                                        )
+                                    },
                                 )
                             }
                         }
@@ -212,12 +217,12 @@ struct CalendarPreferencesView: View {
 struct CalendarSelectionRow: View {
     let calendar: CalendarInfo
     let onToggle: (Bool) -> Void
+    let onAlertModeChange: (AlertMode) -> Void
     @Environment(\.design)
     private var design
 
     private static let colorDotSize: CGFloat = 10
     private static let colorDotTopPadding: CGFloat = 4
-    private static let primaryBadgeBackgroundOpacity: Double = 0.1
     private static let descriptionLineLimit = 2
 
     var body: some View {
@@ -246,13 +251,7 @@ struct CalendarSelectionRow: View {
                         .foregroundColor(design.colors.textPrimary)
 
                     if calendar.isPrimary {
-                        Text("PRIMARY")
-                            .font(design.fonts.caption)
-                            .foregroundColor(design.colors.accent)
-                            .padding(.horizontal, design.spacing.sm)
-                            .padding(.vertical, design.spacing.xs)
-                            .background(design.colors.accent.opacity(Self.primaryBadgeBackgroundOpacity))
-                            .cornerRadius(design.corners.sm)
+                        UMBadge("PRIMARY", variant: .accent)
                     }
 
                     Spacer()
@@ -265,12 +264,30 @@ struct CalendarSelectionRow: View {
                         .lineLimit(Self.descriptionLineLimit)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+
+                if calendar.isSelected {
+                    alertModePicker
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(design.spacing.md)
         .background(design.colors.surface)
-        .cornerRadius(design.corners.md)
+        .clipShape(RoundedRectangle(cornerRadius: design.corners.md))
+    }
+
+    private var alertModePicker: some View {
+        Picker("Alert", selection: Binding(
+            get: { calendar.alertMode },
+            set: { onAlertModeChange($0) },
+        )) {
+            ForEach(AlertMode.allCases, id: \.self) { mode in
+                Text(mode.displayName).tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
+        .umPickerStyle()
+        .accessibilityLabel("Alert mode for \(calendar.name)")
     }
 }
 

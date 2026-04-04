@@ -1,5 +1,30 @@
 import Foundation
 
+// MARK: - Alert Mode
+
+/// Controls how a calendar's meeting alerts are delivered.
+enum AlertMode: String, Codable, CaseIterable {
+    /// Full-screen blocking overlay (default, existing behavior).
+    case overlay
+
+    /// Standard macOS Notification Center notification.
+    case notification
+
+    /// No alert — event appears in menu bar only.
+    case none
+
+    /// Human-readable name for UI display.
+    var displayName: String {
+        switch self {
+        case .overlay: "Full-Screen Overlay"
+        case .notification: "Notification"
+        case .none: "None"
+        }
+    }
+}
+
+// MARK: - Calendar Info
+
 struct CalendarInfo: Identifiable, Codable, Equatable {
     let id: String
     let name: String
@@ -8,6 +33,7 @@ struct CalendarInfo: Identifiable, Codable, Equatable {
     let isPrimary: Bool
     let colorHex: String?
     let sourceProvider: CalendarProviderType
+    let alertMode: AlertMode
     let lastSyncAt: Date?
     let createdAt: Date
     let updatedAt: Date
@@ -20,6 +46,7 @@ struct CalendarInfo: Identifiable, Codable, Equatable {
         isPrimary: Bool = false,
         colorHex: String? = nil,
         sourceProvider: CalendarProviderType = .google,
+        alertMode: AlertMode = .overlay,
         lastSyncAt: Date? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
@@ -31,6 +58,7 @@ struct CalendarInfo: Identifiable, Codable, Equatable {
         self.isPrimary = isPrimary
         self.colorHex = colorHex
         self.sourceProvider = sourceProvider
+        self.alertMode = alertMode
         self.lastSyncAt = lastSyncAt
         self.createdAt = createdAt
         self.updatedAt = updatedAt
@@ -50,6 +78,24 @@ struct CalendarInfo: Identifiable, Codable, Equatable {
             isPrimary: isPrimary,
             colorHex: colorHex,
             sourceProvider: sourceProvider,
+            alertMode: alertMode,
+            lastSyncAt: lastSyncAt,
+            createdAt: createdAt,
+            updatedAt: Date(),
+        )
+    }
+
+    /// Returns a copy with updated alert mode and current timestamp.
+    func withAlertMode(_ alertMode: AlertMode) -> Self {
+        Self(
+            id: id,
+            name: name,
+            description: description,
+            isSelected: isSelected,
+            isPrimary: isPrimary,
+            colorHex: colorHex,
+            sourceProvider: sourceProvider,
+            alertMode: alertMode,
             lastSyncAt: lastSyncAt,
             createdAt: createdAt,
             updatedAt: Date(),

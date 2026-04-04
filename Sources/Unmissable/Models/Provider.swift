@@ -41,10 +41,28 @@ enum Provider: String, Codable, CaseIterable {
         }
     }
 
+    /// Bundle identifiers of native macOS apps for this provider.
+    /// Used by smart alert suppression to detect if the meeting app is already in the foreground.
+    /// Returns an empty array for browser-based providers (Google Meet) and unknown providers.
+    var knownBundleIdentifiers: [String] {
+        switch self {
+        case .meet:
+            []
+        case .zoom:
+            ["us.zoom.xos"]
+        case .teams:
+            ["com.microsoft.teams", "com.microsoft.teams2"]
+        case .webex:
+            ["com.webex.meetingmanager", "com.cisco.webexmeetings"]
+        case .generic:
+            []
+        }
+    }
+
     /// Classifies a URL as a specific meeting provider.
-    /// Uses host-based matching for accuracy — mirrors the trusted domains in
-    /// `LinkParser.trustedMeetingDomains`. If you add a provider here, update
-    /// LinkParser's domain list too.
+    /// Uses host-based matching for the top-4 providers. Additional services
+    /// in `LinkParser.trustedMeetingDomains` (Jitsi, BlueJeans, Skype, etc.)
+    /// map to `.generic`. If you add a provider case here, update LinkParser too.
     static func detect(from url: URL) -> Self {
         let scheme = url.scheme?.lowercased() ?? ""
         let host = url.host?.lowercased() ?? ""

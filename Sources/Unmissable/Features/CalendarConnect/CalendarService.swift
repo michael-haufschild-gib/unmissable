@@ -239,6 +239,25 @@ final class CalendarService: ObservableObject {
         }
     }
 
+    func updateCalendarAlertMode(_ calendarId: String, alertMode: AlertMode) {
+        if let index = calendars.firstIndex(where: { $0.id == calendarId }) {
+            calendars[index] = calendars[index].withAlertMode(alertMode)
+            calendarUpdateError = nil
+
+            logger.debug("Updated calendar \(Self.redactedCalendarId(calendarId)) alert mode to \(alertMode.rawValue)")
+
+            let updatedCalendar = calendars[index]
+            Task {
+                do {
+                    try await databaseManager.saveCalendars([updatedCalendar])
+                } catch {
+                    calendarUpdateError = "Failed to save alert mode: \(error.localizedDescription)"
+                    logger.error("Failed to save alert mode: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
     // MARK: - Search and Queries
 
     func searchEvents(query: String) async throws -> [Event] {

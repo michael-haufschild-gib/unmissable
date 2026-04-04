@@ -11,6 +11,7 @@ final class AppState: ObservableObject {
 
     private let services: ServiceContainer
     private lazy var preferencesWindowManager = PreferencesWindowManager(appState: self)
+    private lazy var onboardingWindowManager = OnboardingWindowManager(appState: self)
 
     @Published
     var databaseError: String?
@@ -72,14 +73,32 @@ final class AppState: ObservableObject {
         let events = services.calendarService.events
         logger.debug("Rescheduling \(events.count) events after sync")
 
-        services.eventScheduler.startScheduling(
-            events: events,
-            overlayManager: services.overlayManager,
-        )
+        Task {
+            await loadAlertOverrides()
+            loadCalendarAlertModes()
+            services.eventScheduler.startScheduling(
+                events: events,
+                overlayManager: services.overlayManager,
+            )
+        }
     }
 
     private func checkInitialState() {
         logger.debug("Checking initial state")
+
+        // Sync login item preference with system state (user may have
+        // changed it in System Settings > General > Login Items)
+        services.preferencesManager.syncLoginItemWithSystem()
+
+        // First-time users see the onboarding flow; returning users get the
+        // accessibility-permission prompt (no-op if already granted).
+        if !services.preferencesManager.hasCompletedOnboarding {
+            logger.info("First launch detected — showing onboarding")
+            onboardingWindowManager.showOnboarding()
+        } else {
+            requestAccessibilityPermission()
+        }
+
         Task {
             if let dbError = await services.databaseManager.initializationError {
                 logger.error("Database initialization failed: \(dbError)")
@@ -151,6 +170,18 @@ final class AppState: ObservableObject {
         services.calendarService.updateCalendarSelection(calendarId, isSelected: isSelected)
     }
 
+    /// Updates the alert mode for a calendar and propagates to the scheduler.
+    /// Requests notification permission when first switching to `.notification` mode.
+    func updateCalendarAlertMode(_ calendarId: String, alertMode: AlertMode) {
+        if alertMode == .notification {
+            Task {
+                await services.notificationManager.requestPermission()
+            }
+        }
+        services.calendarService.updateCalendarAlertMode(calendarId, alertMode: alertMode)
+        loadCalendarAlertModes()
+    }
+
     // MARK: - Service Access (only services required by SwiftUI environment)
 
     var preferences: PreferencesManager {
@@ -191,8 +222,107 @@ final class AppState: ObservableObject {
         services.meetingDetailsPopupManager.showPopup(for: event, relativeTo: parentWindow)
     }
 
+    // MARK: - Onboarding
+
+    /// Marks onboarding as complete, closes the onboarding window, and requests
+    /// the accessibility permission that was deferred until after onboarding.
+    func completeOnboarding() {
+        logger.info("Onboarding completed")
+        services.preferencesManager.setHasCompletedOnboarding(true)
+        onboardingWindowManager.close()
+        requestAccessibilityPermission()
+    }
+
+    /// Shows a demo overlay with a synthetic event so the user can experience
+    /// the core feature during onboarding.
+    func showDemoOverlay() {
+        guard let demoURL = URL(string: "https://meet.google.com/abc-defg-hij") else {
+            logger.error("Failed to create demo meeting URL")
+            return
+        }
+
+        let demoEvent = Event(
+            id: "onboarding-demo",
+            title: "Team Standup",
+            startDate: Date().addingTimeInterval(DemoOverlay.startDelaySeconds),
+            endDate: Date().addingTimeInterval(DemoOverlay.endDelaySeconds),
+            organizer: "you@company.com",
+            calendarId: "demo",
+            links: [demoURL],
+        )
+
+        logger.info("Showing demo overlay for onboarding")
+        services.overlayManager.showOverlay(for: demoEvent, fromSnooze: false)
+    }
+
+    private enum DemoOverlay {
+        static let startDelaySeconds: TimeInterval = 120
+        static let endDelaySeconds: TimeInterval = 1920
+    }
+
+    /// Requests accessibility permission from the system.
+    /// Prompts the user only if permission has not already been granted.
+    private func requestAccessibilityPermission() {
+        let options: NSDictionary = ["AXTrustedCheckOptionPrompt": true]
+        let accessibilityEnabled = AXIsProcessTrustedWithOptions(options)
+
+        if !accessibilityEnabled {
+            logger.warning("Accessibility permissions not granted")
+        }
+    }
+
+    // MARK: - Alert Overrides
+
+    /// Sets or clears a per-event alert timing override.
+    /// Passing `nil` removes the override (reverts to default timing).
+    /// Passing `0` suppresses all alerts for the event.
+    func setAlertOverride(for eventId: String, minutes: Int?) async {
+        do {
+            try await services.databaseManager.saveAlertOverride(
+                eventId: eventId,
+                minutes: minutes,
+            )
+            await loadAlertOverrides()
+            logger.info(
+                "Alert override set for event \(eventId): \(minutes.map(String.init) ?? "default")",
+            )
+        } catch {
+            logger.error("Failed to save alert override: \(error.localizedDescription)")
+        }
+    }
+
+    /// Fetches the alert override for a single event from the database.
+    func alertOverride(for eventId: String) async -> Int? {
+        do {
+            return try await services.databaseManager.fetchAlertOverride(for: eventId)
+        } catch {
+            logger.error("Failed to fetch alert override: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    /// Batch-loads all alert overrides from the database and pushes them to the scheduler.
+    private func loadAlertOverrides() async {
+        do {
+            let overrides = try await services.databaseManager.fetchAllAlertOverrides()
+            services.eventScheduler.updateAlertOverrides(overrides)
+        } catch {
+            logger.error("Failed to load alert overrides: \(error.localizedDescription)")
+        }
+    }
+
+    /// Reads alert modes from in-memory calendars and pushes them to the scheduler.
+    private func loadCalendarAlertModes() {
+        let modes = Dictionary(
+            uniqueKeysWithValues: services.calendarService.calendars.map { ($0.id, $0.alertMode) },
+        )
+        services.eventScheduler.updateCalendarAlertModes(modes)
+    }
+
     private func startPeriodicSync() async {
         await services.calendarService.checkConnectionStatus()
+        await loadAlertOverrides()
+        loadCalendarAlertModes()
 
         services.eventScheduler.startScheduling(
             events: services.calendarService.events,

@@ -15,6 +15,7 @@ final class ServiceContainer {
     let eventScheduler: EventScheduler
     let shortcutsManager: ShortcutsManager
     let healthMonitor: HealthMonitor
+    let notificationManager: NotificationManager
     let menuBarPreviewManager: MenuBarPreviewManager
     let meetingDetailsPopupManager: MeetingDetailsPopupManager
     let updateManager: UpdateManager
@@ -36,9 +37,12 @@ final class ServiceContainer {
             databaseManager: databaseManager,
             linkParser: linkParser,
         )
+        notificationManager = NotificationManager()
+        notificationManager.registerCategories()
         eventScheduler = EventScheduler(
             preferencesManager: preferencesManager, linkParser: linkParser,
         )
+        eventScheduler.setNotificationManager(notificationManager)
         overlayManager = OverlayManager(
             preferencesManager: preferencesManager,
             eventScheduler: eventScheduler,
@@ -55,7 +59,10 @@ final class ServiceContainer {
             calendarService: calendarService,
             overlayManager: overlayManager,
         )
-        meetingDetailsPopupManager = MeetingDetailsPopupManager(themeManager: themeManager)
+        meetingDetailsPopupManager = MeetingDetailsPopupManager(
+            themeManager: themeManager,
+            databaseManager: databaseManager,
+        )
         updateManager = UpdateManager()
     }
 }
