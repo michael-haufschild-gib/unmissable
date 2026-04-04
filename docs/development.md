@@ -10,7 +10,7 @@
 | Requirement | Minimum Version | Install Command |
 |-------------|-----------------|-----------------|
 | macOS | 14.0 (Sonoma) | - |
-| Xcode | 16+ | App Store |
+| Xcode | 26+ | App Store |
 | Swift | 6.3+ | Included with Xcode 26+ |
 | SwiftFormat | Latest | `brew install swiftformat` |
 | SwiftLint | Latest | `brew install swiftlint` |
@@ -34,7 +34,7 @@ cp Config.plist.example Config.plist
 swift build
 
 # 5. Run
-swift run
+./Scripts/run-dev.sh
 ```
 
 ---
@@ -44,7 +44,7 @@ swift run
 | Task | Command |
 |------|---------|
 | Build | `swift build` |
-| Run | `swift run` |
+| Run | `./Scripts/run-dev.sh` |
 | Test (XCTest) | `xcodebuild -scheme Unmissable -destination 'platform=macOS' test` |
 | Test (comprehensive) | `./Scripts/run-comprehensive-tests.sh` |
 | Format code | `./Scripts/format.sh` |
@@ -96,12 +96,12 @@ xcodebuild -scheme Unmissable -destination 'platform=macOS' build
 
 ### From Terminal
 ```bash
-# Debug
-swift run
-
-# From build output
-.build/debug/Unmissable
+# Debug (builds + assembles .app bundle + launches)
+./Scripts/run-dev.sh
 ```
+
+> **Note:** Do not use bare `swift run` — it produces an executable without an `.app` bundle,
+> so `UNUserNotificationCenter` and other bundle-only APIs fail on startup.
 
 ### From Xcode
 1. Open `Package.swift` in Xcode

@@ -39,6 +39,7 @@ final class OverlayManager: OverlayManaging {
     private static let secondsPerMinute = 60
     private static let normalMaxAgeSeconds = TimeInterval(normalMaxAgeMinutes * secondsPerMinute)
     private static let snoozeMaxAgeSeconds = TimeInterval(snoozeMaxAgeMinutes * secondsPerMinute)
+    private static let millisecondsPerSecond = 1000
 
     init(
         preferencesManager: PreferencesManager,
@@ -68,12 +69,18 @@ final class OverlayManager: OverlayManaging {
         // Prevent overlapping overlay operations
         if isOverlayVisible, activeEvent?.id == event.id {
             logger.info("SKIP: Overlay already visible for this event")
+            AppDiagnostics.record(component: "OverlayManager", phase: "showOverlay", outcome: .skipped) {
+                ["eventId": PrivacyUtils.redactedEventId(event.id), "reason": "alreadyVisible"]
+            }
             return
         }
 
         // Check if we should show overlay based on Focus/DND status
         guard focusModeManager.shouldShowOverlay() else {
             logger.info("FOCUS MODE: Overlay suppressed due to Focus/DND mode")
+            AppDiagnostics.record(component: "OverlayManager", phase: "showOverlay", outcome: .skipped) {
+                ["eventId": PrivacyUtils.redactedEventId(event.id), "reason": "focusMode"]
+            }
             return
         }
 
@@ -84,6 +91,14 @@ final class OverlayManager: OverlayManaging {
             logger.info(
                 "SKIP: Meeting \(event.id) started \(Int(timeSinceStart) / Self.secondsPerMinute)min ago (max \(Int(maxAge) / Self.secondsPerMinute)min)",
             )
+            AppDiagnostics.record(component: "OverlayManager", phase: "showOverlay", outcome: .skipped) {
+                [
+                    "eventId": PrivacyUtils.redactedEventId(event.id),
+                    "reason": "tooOld",
+                    "ageSec": "\(Int(timeSinceStart))",
+                    "maxAgeSec": "\(Int(maxAge))",
+                ]
+            }
             return
         }
 
@@ -96,12 +111,22 @@ final class OverlayManager: OverlayManaging {
                 logger.info(
                     "SMART SUPPRESS: Native app in foreground for \(event.id) (\(provider.displayName))",
                 )
+                AppDiagnostics.record(component: "OverlayManager", phase: "showOverlay", outcome: .skipped) {
+                    [
+                        "eventId": PrivacyUtils.redactedEventId(event.id),
+                        "reason": "smartSuppress.nativeApp",
+                        "provider": provider.displayName,
+                    ]
+                }
                 return
             }
             if provider == .meet, foregroundAppDetector.isBrowserInForeground() {
                 logger.info(
                     "SMART SUPPRESS: Browser in foreground for Meet event \(event.id)",
                 )
+                AppDiagnostics.record(component: "OverlayManager", phase: "showOverlay", outcome: .skipped) {
+                    ["eventId": PrivacyUtils.redactedEventId(event.id), "reason": "smartSuppress.browser"]
+                }
                 return
             }
         }
@@ -128,10 +153,21 @@ final class OverlayManager: OverlayManaging {
         // Create windows synchronously (View manages its own countdown timer)
         createOverlayWindows(for: event)
 
+        logShowOverlayCompletion(event: event, fromSnooze: fromSnooze, startTime: startTime)
+    }
+
+    private func logShowOverlayCompletion(event: Event, fromSnooze: Bool, startTime: Date) {
         let responseTime = Date().timeIntervalSince(startTime)
-        logger.info(
-            "SHOW OVERLAY: Completed for event \(event.id) in \(responseTime)s",
-        )
+        logger.info("SHOW OVERLAY: Completed for event \(event.id) in \(responseTime)s")
+        AppDiagnostics.record(component: "OverlayManager", phase: "showOverlay") {
+            [
+                "eventId": PrivacyUtils.redactedEventId(event.id),
+                "title": PrivacyUtils.redactedTitle(event.title),
+                "fromSnooze": "\(fromSnooze)",
+                "responseMs": "\(Int(responseTime * Double(Self.millisecondsPerSecond)))",
+                "windowCount": "\(self.overlayWindows.count)",
+            ]
+        }
     }
 
     func hideOverlay() {

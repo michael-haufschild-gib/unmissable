@@ -54,12 +54,24 @@ final class MenuBarPreviewManager {
         // IMMEDIATELY stop any running timer to prevent conflicts
         stopTimer()
 
+        AppDiagnostics.record(component: "MenuBarPreview", phase: "modeChanged") {
+            ["mode": newMode.rawValue]
+        }
+
         // Force immediate update based on new preference - USE THE PARAMETER!
         updateMenuBarDisplay(mode: newMode)
     }
 
     func updateEvents(_ events: [Event]) {
+        let previousCount = self.events.count
         self.events = events
+
+        if events.count != previousCount {
+            AppDiagnostics.record(component: "MenuBarPreview", phase: "eventsUpdated") {
+                ["count": "\(events.count)", "previousCount": "\(previousCount)"]
+            }
+        }
+
         // Only update display if we're not in icon mode, or if this is the first time
         updateMenuBarDisplay()
     }

@@ -18,7 +18,8 @@ Swift 6.3 (strict concurrency) | macOS 14.0+ | SwiftUI + AppKit | GRDB.swift | S
 | Privacy | No external telemetry. Redact sensitive data in logs. |
 
 ## Dependencies
-AppAuth-iOS (OAuth 2.0) | GRDB.swift (SQLite) | KeychainAccess | Magnet (shortcuts) | Sparkle (updates) | SnapshotTesting
+
+AppAuth-iOS (OAuth 2.0) | GRDB.swift (SQLite) | KeychainAccess | Magnet (shortcuts) | SnapshotTesting
 
 ## Commands
 
@@ -27,7 +28,8 @@ AppAuth-iOS (OAuth 2.0) | GRDB.swift (SQLite) | KeychainAccess | Magnet (shortcu
 | Build | `swift build` |
 | Build + lint + test | `./Scripts/build.sh` |
 | Lint only | `./Scripts/enforce-lint.sh` |
-| Run | `swift run` |
+| Run | `./Scripts/run-dev.sh` |
+| Release build | `./Scripts/build-release.sh` |
 | Format | `./Scripts/format.sh` |
 | Test (all) | `./Scripts/test.sh` |
 | Test (specific target) | `./Scripts/test.sh UnmissableTests` |

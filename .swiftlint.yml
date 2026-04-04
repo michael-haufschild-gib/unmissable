@@ -313,7 +313,7 @@ custom_rules:
 
   no_raw_color_rgb:
     name: "Use Design Tokens for Colors"
-    included: "Sources/(?!.*/DesignTokens\\.swift).*\\.swift"
+    included: "Sources/(?!.*/DesignTokens\\.swift|.*/ThemeManager\\.swift).*\\.swift"
     regex: "Color\\(red:|Color\\(hue:|Color\\(white:"
     message: "Use design.colors.* tokens instead of raw Color constructors. Define new tokens in DesignColors if needed."
     severity: error

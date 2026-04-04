@@ -12,7 +12,7 @@ private nonisolated let alertOverrideMinutesRange = 0 ... 60
 private nonisolated let redactedIdPrefixLength = 4
 
 extension DatabaseManager {
-    func fetchAlertOverride(for eventId: String) async throws -> Int? {
+    func fetchAlertOverride(for eventId: String, calendarId: String) async throws -> Int? {
         guard let dbQueue else {
             throw DatabaseError.notInitialized
         }
@@ -21,7 +21,7 @@ extension DatabaseManager {
             try await dbQueue.read { db in
                 let override = try EventOverride.fetchOne(
                     db,
-                    key: eventId,
+                    key: ["eventId": eventId, "calendarId": calendarId],
                 )
                 return override?.alertMinutes
             }
@@ -37,13 +37,18 @@ extension DatabaseManager {
             try await dbQueue.read { db in
                 let overrides = try EventOverride.fetchAll(db)
                 return Dictionary(
-                    uniqueKeysWithValues: overrides.map { ($0.eventId, $0.alertMinutes) },
+                    uniqueKeysWithValues: overrides.map {
+                        (
+                            EventOverride.compoundKey(eventId: $0.eventId, calendarId: $0.calendarId),
+                            $0.alertMinutes,
+                        )
+                    },
                 )
             }
         }
     }
 
-    func saveAlertOverride(eventId: String, minutes: Int?) async throws {
+    func saveAlertOverride(eventId: String, calendarId: String, minutes: Int?) async throws {
         guard let dbQueue else {
             throw DatabaseError.notInitialized
         }
@@ -62,10 +67,17 @@ extension DatabaseManager {
         try await withTimeout(defaultTimeout) {
             try await dbQueue.write { db in
                 if let clampedMinutes {
-                    let override = EventOverride(eventId: eventId, alertMinutes: clampedMinutes)
+                    let override = EventOverride(
+                        eventId: eventId,
+                        calendarId: calendarId,
+                        alertMinutes: clampedMinutes,
+                    )
                     try override.save(db)
                 } else {
-                    _ = try EventOverride.deleteOne(db, key: eventId)
+                    _ = try EventOverride.deleteOne(
+                        db,
+                        key: ["eventId": eventId, "calendarId": calendarId],
+                    )
                 }
             }
         }
@@ -136,7 +148,14 @@ extension DatabaseManager {
         try await withTimeout(defaultTimeout) {
             try await dbQueue.write { db in
                 let deletedCount = try EventOverride
-                    .filter(sql: "eventId NOT IN (SELECT id FROM \(Event.databaseTableName))")
+                    .filter(
+                        sql: """
+                        NOT EXISTS (
+                            SELECT 1 FROM \(Event.databaseTableName)
+                            WHERE id = eventId AND calendarId = \(EventOverride.databaseTableName).calendarId
+                        )
+                        """,
+                    )
                     .deleteAll(db)
                 if deletedCount > 0 {
                     extensionLogger.info(

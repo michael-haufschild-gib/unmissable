@@ -1,15 +1,5 @@
 import SwiftUI
 
-/// Event grouping structure for date-based organization
-struct EventGroup: Identifiable {
-    let title: String
-    let events: [Event]
-
-    var id: String {
-        title
-    }
-}
-
 struct MenuBarView: View {
     // MARK: - Layout Constants
 
@@ -19,7 +9,6 @@ struct MenuBarView: View {
     private static let separatorHeight: CGFloat = 0.5
     private static let syncProgressScale: CGFloat = 0.7
     private static let maxVisibleEventsPerGroup = 3
-    private static let weekendSkipDays = 2
     private static let messageLineLimit = 3
     private static let setupGuideLineLimit = 2
 
@@ -30,111 +19,21 @@ struct MenuBarView: View {
     @Environment(\.design)
     private var design
 
+    private var includeAllDay: Bool {
+        appState.preferences.includeAllDayEvents
+    }
+
     private var groupedEvents: [EventGroup] {
         let events =
             appState.preferences.showTodayOnlyInMenuBar
-                ? filteredTodayEvents
-                : filteredEventsForDisplay
+                ? EventGrouping.todayEvents(from: calendarService.events, includeAllDay: includeAllDay)
+                : EventGrouping.upcomingEvents(from: calendarService.events, includeAllDay: includeAllDay)
 
-        return groupEventsByDate(events, includingStarted: true)
-    }
-
-    /// Applies the all-day event preference filter.
-    private func applyAllDayFilter(_ events: [Event]) -> [Event] {
-        if appState.preferences.includeAllDayEvents {
-            return events
-        }
-        return events.filter { !$0.isAllDay }
-    }
-
-    private var filteredTodayEvents: [Event] {
-        let calendar = Calendar.current
-        let today = Date()
-
-        let dateFiltered = calendarService.events.filter { event in
-            calendar.isDate(event.startDate, inSameDayAs: today)
-        }
-        return applyAllDayFilter(dateFiltered)
-    }
-
-    private var filteredEventsForDisplay: [Event] {
-        let calendar = Calendar.current
-        let today = Date()
-        guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else {
-            let dateFiltered = calendarService.events.filter { event in
-                calendar.isDate(event.startDate, inSameDayAs: today)
-            }
-            return applyAllDayFilter(dateFiltered)
-        }
-        let monday = getNextMondayIfNeeded(from: tomorrow, calendar: calendar)
-
-        let dateFiltered = calendarService.events.filter { event in
-            calendar.isDate(event.startDate, inSameDayAs: today)
-                || calendar.isDate(event.startDate, inSameDayAs: tomorrow)
-                || (monday.map { calendar.isDate(event.startDate, inSameDayAs: $0) } ?? false)
-        }
-        return applyAllDayFilter(dateFiltered)
-    }
-
-    private func getNextMondayIfNeeded(from tomorrow: Date, calendar: Calendar) -> Date? {
-        guard calendar.isDateInWeekend(tomorrow) else { return nil }
-        // Walk forward from tomorrow until we find a weekday (handles both Sat and Sun)
-        var candidate = tomorrow
-        while calendar.isDateInWeekend(candidate) {
-            guard let next = calendar.date(byAdding: .day, value: 1, to: candidate) else {
-                return nil
-            }
-            candidate = next
-        }
-        return candidate
-    }
-
-    private func groupEventsByDate(_ events: [Event], includingStarted: Bool = false) -> [EventGroup] {
-        let calendar = Calendar.current
-        let today = Date()
-
-        var groups: [EventGroup] = []
-
-        if includingStarted {
-            let startedMeetings = applyAllDayFilter(calendarService.startedEvents)
-            if !startedMeetings.isEmpty {
-                groups.append(EventGroup(title: "Started", events: startedMeetings))
-            }
-        }
-
-        let todayEvents = events.filter { calendar.isDate($0.startDate, inSameDayAs: today) }
-
-        guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else {
-            if !todayEvents.isEmpty {
-                groups.append(EventGroup(title: "Today", events: todayEvents))
-            }
-            return groups
-        }
-
-        let tomorrowEvents = events.filter { calendar.isDate($0.startDate, inSameDayAs: tomorrow) }
-
-        var nextWorkdayEvents: [Event] = []
-        var nextWorkdayTitle = ""
-        if let nextWorkday = getNextMondayIfNeeded(from: tomorrow, calendar: calendar) {
-            nextWorkdayEvents = events.filter { calendar.isDate($0.startDate, inSameDayAs: nextWorkday) }
-            let formatter = DateFormatter()
-            formatter.dateFormat = "EEEE"
-            nextWorkdayTitle = formatter.string(from: nextWorkday)
-        }
-
-        if !todayEvents.isEmpty {
-            groups.append(EventGroup(title: "Today", events: todayEvents))
-        }
-
-        if !tomorrowEvents.isEmpty {
-            groups.append(EventGroup(title: "Tomorrow", events: tomorrowEvents))
-        }
-
-        if !nextWorkdayEvents.isEmpty {
-            groups.append(EventGroup(title: nextWorkdayTitle, events: nextWorkdayEvents))
-        }
-
-        return groups
+        return EventGrouping.groupByDate(
+            events,
+            startedEvents: calendarService.startedEvents,
+            includeAllDay: includeAllDay,
+        )
     }
 
     var body: some View {
@@ -259,15 +158,6 @@ struct MenuBarView: View {
                 }
                 .buttonStyle(UMButtonStyle(.ghost, size: .sm))
                 .accessibilityIdentifier("preferences-button")
-
-                Spacer()
-
-                Button("Check for Updates") {
-                    appState.checkForUpdates()
-                }
-                .buttonStyle(UMButtonStyle(.ghost, size: .sm))
-                .disabled(!appState.canCheckForUpdates)
-                .accessibilityIdentifier("check-updates-button")
 
                 Spacer()
 

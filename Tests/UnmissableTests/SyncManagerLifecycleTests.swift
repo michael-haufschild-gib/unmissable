@@ -20,6 +20,7 @@ final class SyncManagerLifecycleTests: XCTestCase {
         let oauth2Service = OAuth2Service()
         let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
         manager = SyncManager(
+            providerType: .google,
             apiService: apiService,
             databaseManager: databaseManager,
             preferencesManager: preferences,
@@ -122,6 +123,7 @@ final class SyncManagerLifecycleTests: XCTestCase {
         let preferences = PreferencesManager(themeManager: ThemeManager())
         manager.stopPeriodicSync()
         manager = SyncManager(
+            providerType: .google,
             apiService: apiService,
             databaseManager: databaseManager,
             preferencesManager: preferences,

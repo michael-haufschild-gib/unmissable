@@ -6,6 +6,9 @@ final class EventOverrideTests: XCTestCase {
     private var db: DatabaseManager!
     private var tempDir: URL!
 
+    /// Default calendar ID used by most tests.
+    private let calId = "cal-1"
+
     override func setUp() async throws {
         try await super.setUp()
         tempDir = FileManager.default.temporaryDirectory
@@ -32,50 +35,52 @@ final class EventOverrideTests: XCTestCase {
     // MARK: - CRUD
 
     func testSaveAndFetchAlertOverride_roundtrips() async throws {
-        try await db.saveAlertOverride(eventId: "event-1", minutes: 10)
+        try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 10)
 
-        let result = try await db.fetchAlertOverride(for: "event-1")
+        let result = try await db.fetchAlertOverride(for: "event-1", calendarId: calId)
         XCTAssertEqual(result, 10)
     }
 
     func testFetchAlertOverride_noOverride_returnsNil() async throws {
-        let result = try await db.fetchAlertOverride(for: "nonexistent")
+        let result = try await db.fetchAlertOverride(for: "nonexistent", calendarId: calId)
         XCTAssertNil(result, "Should return nil when no override exists")
     }
 
     func testSaveAlertOverride_nilMinutes_deletesOverride() async throws {
-        try await db.saveAlertOverride(eventId: "event-1", minutes: 5)
-        try await db.saveAlertOverride(eventId: "event-1", minutes: nil)
+        try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 5)
+        try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: nil)
 
-        let result = try await db.fetchAlertOverride(for: "event-1")
+        let result = try await db.fetchAlertOverride(for: "event-1", calendarId: calId)
         XCTAssertNil(result, "Override should be deleted when nil is saved")
     }
 
     func testSaveAlertOverride_updatesExistingOverride() async throws {
-        try await db.saveAlertOverride(eventId: "event-1", minutes: 5)
-        try await db.saveAlertOverride(eventId: "event-1", minutes: 15)
+        try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 5)
+        try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 15)
 
-        let result = try await db.fetchAlertOverride(for: "event-1")
+        let result = try await db.fetchAlertOverride(for: "event-1", calendarId: calId)
         XCTAssertEqual(result, 15, "Override should be updated to new value")
     }
 
     func testSaveAlertOverride_zeroMinutes_persistsAsNoAlert() async throws {
-        try await db.saveAlertOverride(eventId: "event-1", minutes: 0)
+        try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 0)
 
-        let result = try await db.fetchAlertOverride(for: "event-1")
+        let result = try await db.fetchAlertOverride(for: "event-1", calendarId: calId)
         XCTAssertEqual(result, 0, "Zero should persist as 'no alert'")
     }
 
     func testFetchAllAlertOverrides_returnsAllOverrides() async throws {
-        try await db.saveAlertOverride(eventId: "event-1", minutes: 5)
-        try await db.saveAlertOverride(eventId: "event-2", minutes: 10)
-        try await db.saveAlertOverride(eventId: "event-3", minutes: 0)
+        try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 5)
+        try await db.saveAlertOverride(eventId: "event-2", calendarId: calId, minutes: 10)
+        try await db.saveAlertOverride(eventId: "event-3", calendarId: calId, minutes: 0)
 
         let overrides = try await db.fetchAllAlertOverrides()
-        XCTAssertEqual(overrides["event-1"], 5)
-        XCTAssertEqual(overrides["event-2"], 10)
-        XCTAssertEqual(overrides["event-3"], 0)
-        // All three overrides are present (verified by individual key checks above)
+        let key1 = EventOverride.compoundKey(eventId: "event-1", calendarId: calId)
+        let key2 = EventOverride.compoundKey(eventId: "event-2", calendarId: calId)
+        let key3 = EventOverride.compoundKey(eventId: "event-3", calendarId: calId)
+        XCTAssertEqual(overrides[key1], 5)
+        XCTAssertEqual(overrides[key2], 10)
+        XCTAssertEqual(overrides[key3], 0)
     }
 
     func testFetchAllAlertOverrides_emptyDatabase_returnsEmptyDict() async throws {
@@ -86,16 +91,16 @@ final class EventOverrideTests: XCTestCase {
     // MARK: - Validation
 
     func testSaveAlertOverride_negativeMinutes_clampedToZero() async throws {
-        try await db.saveAlertOverride(eventId: "event-1", minutes: -5)
+        try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: -5)
 
-        let result = try await db.fetchAlertOverride(for: "event-1")
+        let result = try await db.fetchAlertOverride(for: "event-1", calendarId: calId)
         XCTAssertEqual(result, 0, "Negative minutes should be clamped to 0")
     }
 
     func testSaveAlertOverride_excessiveMinutes_clampedToMax() async throws {
-        try await db.saveAlertOverride(eventId: "event-1", minutes: 120)
+        try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 120)
 
-        let result = try await db.fetchAlertOverride(for: "event-1")
+        let result = try await db.fetchAlertOverride(for: "event-1", calendarId: calId)
         XCTAssertEqual(result, 60, "Minutes exceeding 60 should be clamped to 60")
     }
 
@@ -115,7 +120,7 @@ final class EventOverrideTests: XCTestCase {
             timezone: "UTC",
         )
         try await db.saveEvents([event])
-        try await db.saveAlertOverride(eventId: "sync-event-1", minutes: 10)
+        try await db.saveAlertOverride(eventId: "sync-event-1", calendarId: calendarId, minutes: 10)
 
         // Simulate sync: replaceEvents does full delete+insert for the calendar
         let replacementEvent = Event(
@@ -129,7 +134,7 @@ final class EventOverrideTests: XCTestCase {
         try await db.replaceEvents(for: calendarId, with: [replacementEvent])
 
         // Override should survive because it's in a separate table
-        let override = try await db.fetchAlertOverride(for: "sync-event-1")
+        let override = try await db.fetchAlertOverride(for: "sync-event-1", calendarId: calendarId)
         XCTAssertEqual(
             override,
             10,
@@ -151,13 +156,13 @@ final class EventOverrideTests: XCTestCase {
             timezone: "UTC",
         )
         try await db.saveEvents([event])
-        try await db.saveAlertOverride(eventId: "removed-event", minutes: 5)
+        try await db.saveAlertOverride(eventId: "removed-event", calendarId: calendarId, minutes: 5)
 
         // Sync removes this event (empty replacement)
         try await db.replaceEvents(for: calendarId, with: [])
 
         // Override still exists (orphaned) — cleaned up by maintenance
-        let override = try await db.fetchAlertOverride(for: "removed-event")
+        let override = try await db.fetchAlertOverride(for: "removed-event", calendarId: calendarId)
         XCTAssertEqual(
             override,
             5,
@@ -182,19 +187,19 @@ final class EventOverrideTests: XCTestCase {
         try await db.saveEvents([event])
 
         // Create overrides for both a living and an orphaned event
-        try await db.saveAlertOverride(eventId: "living-event", minutes: 10)
-        try await db.saveAlertOverride(eventId: "dead-event", minutes: 5)
+        try await db.saveAlertOverride(eventId: "living-event", calendarId: "cal-1", minutes: 10)
+        try await db.saveAlertOverride(eventId: "dead-event", calendarId: "cal-1", minutes: 5)
 
         try await db.performMaintenance()
 
-        let livingOverride = try await db.fetchAlertOverride(for: "living-event")
+        let livingOverride = try await db.fetchAlertOverride(for: "living-event", calendarId: "cal-1")
         XCTAssertEqual(
             livingOverride,
             10,
             "Override for existing event should survive maintenance",
         )
 
-        let deadOverride = try await db.fetchAlertOverride(for: "dead-event")
+        let deadOverride = try await db.fetchAlertOverride(for: "dead-event", calendarId: "cal-1")
         XCTAssertNil(
             deadOverride,
             "Orphaned override should be cleaned up by maintenance",

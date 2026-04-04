@@ -21,6 +21,7 @@ extension DatabaseManager {
         registerV5DropLegacy(&migrator)
         registerV6EventOverrides(&migrator)
         registerV7CalendarAlertMode(&migrator)
+        registerV8CompositeEventPK(&migrator)
 
         return migrator
     }
@@ -151,6 +152,101 @@ extension DatabaseManager {
                     t.add(column: "alertMode", .text).notNull().defaults(to: "overlay")
                 }
             }
+        }
+    }
+
+    private static func registerV8CompositeEventPK(_ migrator: inout DatabaseMigrator) {
+        migrator.registerMigration("v8-compositeEventPK") { db in
+            // -- Events: migrate from single PK (id) to composite PK (id, calendarId) --
+            try db.rename(table: Event.databaseTableName, to: "events_old")
+            // FTS5 content-sync tables reference the source table by name;
+            // drop before recreating the source table.
+            try db.execute(sql: "DROP TABLE IF EXISTS events_fts")
+
+            try db.create(table: Event.databaseTableName) { t in
+                t.primaryKey {
+                    t.column("id", .text)
+                    t.column("calendarId", .text)
+                }
+                t.column("title", .text).notNull()
+                t.column("startDate", .datetime).notNull()
+                t.column("endDate", .datetime).notNull()
+                t.column("organizer", .text)
+                t.column("description", .text)
+                t.column("location", .text)
+                t.column("attendees", .text).notNull().defaults(to: "[]")
+                t.column("attachments", .text).notNull().defaults(to: "[]")
+                t.column("isAllDay", .boolean).notNull().defaults(to: false)
+                t.column("timezone", .text).notNull()
+                t.column("links", .text).notNull().defaults(to: "[]")
+                t.column("provider", .text)
+                t.column("snoozeUntil", .datetime)
+                t.column("autoJoinEnabled", .boolean).notNull().defaults(to: false)
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
+            }
+
+            // Copy data, deduplicating by (id, calendarId) and keeping the newest row.
+            // ROW_NUMBER() guarantees deterministic duplicate resolution — unlike
+            // INSERT OR IGNORE which picks an arbitrary row from the query plan.
+            try db.execute(
+                sql: """
+                INSERT INTO \(Event.databaseTableName)
+                SELECT id, calendarId, title, startDate, endDate, organizer,
+                       description, location, attendees, attachments,
+                       isAllDay, timezone, links, provider,
+                       snoozeUntil, autoJoinEnabled, createdAt, updatedAt
+                FROM (
+                    SELECT *, ROW_NUMBER() OVER (
+                        PARTITION BY id, calendarId ORDER BY updatedAt DESC
+                    ) AS rn
+                    FROM events_old
+                )
+                WHERE rn = 1
+                """,
+            )
+            try db.drop(table: "events_old")
+
+            try db.create(
+                index: "idx_events_startDate",
+                on: Event.databaseTableName,
+                columns: ["startDate"],
+            )
+            try db.create(
+                index: "idx_events_calendarId",
+                on: Event.databaseTableName,
+                columns: ["calendarId"],
+            )
+
+            // Recreate FTS content-sync table
+            try db.create(virtualTable: "events_fts", using: FTS5()) { t in
+                t.synchronize(withTable: Event.databaseTableName)
+                t.column("title")
+                t.column("organizer")
+            }
+
+            // -- EventOverrides: add calendarId and migrate to composite PK --
+            try db.rename(table: EventOverride.databaseTableName, to: "event_overrides_old")
+
+            try db.create(table: EventOverride.databaseTableName) { t in
+                t.primaryKey {
+                    t.column("eventId", .text)
+                    t.column("calendarId", .text)
+                }
+                t.column("alertMinutes", .integer).notNull()
+            }
+
+            // Backfill calendarId from the events table so existing overrides
+            // are correctly scoped. Orphan overrides (no matching event) are dropped.
+            try db.execute(
+                sql: """
+                INSERT OR IGNORE INTO \(EventOverride.databaseTableName) (eventId, calendarId, alertMinutes)
+                SELECT eo.eventId, e.calendarId, eo.alertMinutes
+                FROM event_overrides_old eo
+                JOIN \(Event.databaseTableName) e ON e.id = eo.eventId
+                """,
+            )
+            try db.drop(table: "event_overrides_old")
         }
     }
 }

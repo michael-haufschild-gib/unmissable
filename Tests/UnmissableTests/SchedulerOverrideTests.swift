@@ -9,6 +9,9 @@ final class SchedulerOverrideTests: XCTestCase {
     private var overlayManager: TestSafeOverlayManager!
     private var fixedDate: Date!
 
+    /// Default calendar ID matching the test events.
+    private let calId = "cal-1"
+
     override func setUp() async throws {
         try await super.setUp()
         fixedDate = Date()
@@ -36,6 +39,11 @@ final class SchedulerOverrideTests: XCTestCase {
         try await super.tearDown()
     }
 
+    /// Builds a compound override key matching the scheduler's lookup format.
+    private func overrideKey(_ eventId: String) -> String {
+        EventOverride.compoundKey(eventId: eventId, calendarId: calId)
+    }
+
     func testScheduleAlerts_withOverride_usesOverrideTiming() throws {
         let futureStart = fixedDate.addingTimeInterval(3600) // 1 hour from now
         let event = Event(
@@ -43,11 +51,11 @@ final class SchedulerOverrideTests: XCTestCase {
             title: "Client Call",
             startDate: futureStart,
             endDate: futureStart.addingTimeInterval(3600),
-            calendarId: "cal-1",
+            calendarId: calId,
         )
 
         // Set override to 10 minutes
-        scheduler.updateAlertOverrides(["override-test": 10])
+        scheduler.updateAlertOverrides([overrideKey("override-test"): 10])
 
         scheduler.scheduleWithoutMonitoring(
             events: [event],
@@ -75,11 +83,11 @@ final class SchedulerOverrideTests: XCTestCase {
             title: "Optional Standup",
             startDate: futureStart,
             endDate: futureStart.addingTimeInterval(900),
-            calendarId: "cal-1",
+            calendarId: calId,
         )
 
         // Set override to 0 (no alert)
-        scheduler.updateAlertOverrides(["suppressed-test": 0])
+        scheduler.updateAlertOverrides([overrideKey("suppressed-test"): 0])
 
         scheduler.scheduleWithoutMonitoring(
             events: [event],
@@ -100,7 +108,7 @@ final class SchedulerOverrideTests: XCTestCase {
             title: "Regular Meeting",
             startDate: futureStart,
             endDate: futureStart.addingTimeInterval(3600),
-            calendarId: "cal-1",
+            calendarId: calId,
         )
 
         // No overrides set
@@ -131,7 +139,7 @@ final class SchedulerOverrideTests: XCTestCase {
             title: "Meeting",
             startDate: futureStart,
             endDate: futureStart.addingTimeInterval(3600),
-            calendarId: "cal-1",
+            calendarId: calId,
         )
 
         scheduler.scheduleWithoutMonitoring(
@@ -143,7 +151,7 @@ final class SchedulerOverrideTests: XCTestCase {
             .first { $0.event.id == "reschedule-test" }?.triggerDate
 
         // Now set an override — should trigger reschedule
-        scheduler.updateAlertOverrides(["reschedule-test": 1])
+        scheduler.updateAlertOverrides([overrideKey("reschedule-test"): 1])
 
         let updatedTrigger = scheduler.scheduledAlerts
             .first { $0.event.id == "reschedule-test" }?.triggerDate
@@ -170,26 +178,26 @@ final class SchedulerOverrideTests: XCTestCase {
             title: "Client Demo",
             startDate: futureStart,
             endDate: futureStart.addingTimeInterval(3600),
-            calendarId: "cal-1",
+            calendarId: calId,
         )
         let optionalEvent = Event(
             id: "optional",
             title: "Team Standup",
             startDate: futureStart,
             endDate: futureStart.addingTimeInterval(900),
-            calendarId: "cal-1",
+            calendarId: calId,
         )
         let normalEvent = Event(
             id: "normal",
             title: "1:1",
             startDate: futureStart,
             endDate: futureStart.addingTimeInterval(1800),
-            calendarId: "cal-1",
+            calendarId: calId,
         )
 
         scheduler.updateAlertOverrides([
-            "critical": 15,
-            "optional": 0,
+            overrideKey("critical"): 15,
+            overrideKey("optional"): 0,
         ])
 
         scheduler.scheduleWithoutMonitoring(
@@ -240,10 +248,10 @@ final class SchedulerOverrideTests: XCTestCase {
             title: "Demo",
             startDate: futureStart,
             endDate: futureStart.addingTimeInterval(3600),
-            calendarId: "cal-1",
+            calendarId: calId,
         )
 
-        scheduler.updateAlertOverrides(["sound-override": 10])
+        scheduler.updateAlertOverrides([overrideKey("sound-override"): 10])
 
         scheduler.scheduleWithoutMonitoring(
             events: [event],
@@ -267,10 +275,10 @@ final class SchedulerOverrideTests: XCTestCase {
             title: "Urgent Call",
             startDate: futureStart,
             endDate: futureStart.addingTimeInterval(1800),
-            calendarId: "cal-1",
+            calendarId: calId,
         )
 
-        scheduler.updateAlertOverrides(["missed-override": 10])
+        scheduler.updateAlertOverrides([overrideKey("missed-override"): 10])
 
         scheduler.scheduleWithoutMonitoring(
             events: [event],

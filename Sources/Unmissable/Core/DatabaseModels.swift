@@ -210,16 +210,19 @@ nonisolated extension EventOverride {
 
     enum Columns {
         static let eventId = Column("eventId")
+        static let calendarId = Column("calendarId")
         static let alertMinutes = Column("alertMinutes")
     }
 
     init(row: Row) {
         eventId = row[Columns.eventId]
+        calendarId = row[Columns.calendarId]
         alertMinutes = row[Columns.alertMinutes]
     }
 
     func encode(to container: inout PersistenceContainer) {
         container[Columns.eventId] = eventId
+        container[Columns.calendarId] = calendarId
         container[Columns.alertMinutes] = alertMinutes
     }
 }

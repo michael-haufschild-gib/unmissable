@@ -21,17 +21,6 @@ final class CalendarService {
     private static let upcomingEventsLimit = 50
     private static let startedMeetingsLimit = 20
     private static let uiRefreshIntervalSeconds = 30
-    private static let redactedPrefixLength = 2
-    private static let redactedIdLength = 8
-
-    private static func redactedCalendarId(_ id: String) -> String {
-        if id.contains("@") {
-            let parts = id.split(separator: "@", maxSplits: 1)
-            let prefix = parts.first.map { $0.prefix(redactedPrefixLength) } ?? ""
-            return "\(prefix)***@\(parts.last ?? "***")"
-        }
-        return String(id.prefix(redactedIdLength)) + "..."
-    }
 
     // MARK: - Observable State
 
@@ -103,6 +92,7 @@ final class CalendarService {
     // MARK: - Provider Management
 
     func connect(provider providerType: CalendarProviderType) async {
+        let flow = AppDiagnostics.startFlow("connect", component: "CalendarService")
         logger.info("Connecting provider: \(providerType.rawValue)")
 
         let backend = getOrCreateBackend(for: providerType)
@@ -112,21 +102,48 @@ final class CalendarService {
             syncAggregatedAuthState()
 
             if backend.auth.isAuthenticated {
+                AppDiagnostics.record(
+                    component: "CalendarService",
+                    phase: "connect.authenticated",
+                    flowId: flow.flowId,
+                ) {
+                    ["provider": providerType.rawValue]
+                }
+
                 // Fetch and save calendars for this provider
                 let providerCalendars = await backend.api.fetchCalendars()
                 guard backend.api.lastError == nil else {
                     logger.error("Calendar fetch failed for \(providerType.rawValue)")
                     syncAggregatedAuthState()
+                    AppDiagnostics.endFlow(flow, component: "CalendarService", outcome: .failure) {
+                        ["provider": providerType.rawValue, "reason": "calendarFetchFailed"]
+                    }
                     return
                 }
-                try await databaseManager.saveCalendars(providerCalendars)
+                try await databaseManager.mergeCalendars(
+                    provider: providerType, upstream: providerCalendars,
+                )
 
                 backend.sync.startPeriodicSync()
                 await loadCachedData()
+
+                AppDiagnostics.endFlow(flow, component: "CalendarService") {
+                    [
+                        "provider": providerType.rawValue,
+                        "calendars": "\(providerCalendars.count)",
+                    ]
+                }
+            } else {
+                AppDiagnostics.endFlow(flow, component: "CalendarService", outcome: .skipped) {
+                    ["provider": providerType.rawValue, "reason": "notAuthenticated"]
+                }
             }
         } catch {
             logger.error("Connection failed for \(providerType.rawValue): \(error.localizedDescription)")
             syncAggregatedAuthState()
+            AppDiagnostics.endFlow(flow, component: "CalendarService", outcome: .failure) {
+                ["provider": providerType.rawValue, "error": PrivacyUtils.redactedError(error)]
+            }
         }
     }
 
@@ -145,6 +162,10 @@ final class CalendarService {
             logger.error("Failed to delete data for \(providerType.rawValue): \(error.localizedDescription)")
         }
         await loadCachedData()
+
+        // Notify observers so AppState reschedules alerts without the
+        // disconnected provider's events.
+        eventsUpdatedSubject.send()
 
         // Remove bindings for this provider
         // Observation stops automatically — observe* methods guard on providers[type]
@@ -169,6 +190,12 @@ final class CalendarService {
     func checkConnectionStatus() async {
         logger.debug("Checking connection status for all providers")
 
+        // On app launch, providers dict is empty. Restore backends for
+        // providers that have persisted calendars in the database.
+        if providers.isEmpty {
+            await restoreConnectedProviders()
+        }
+
         for (_, backend) in providers {
             await backend.auth.validateAuthState()
         }
@@ -178,6 +205,43 @@ final class CalendarService {
         if isConnected {
             await loadCachedData()
         }
+
+        AppDiagnostics.record(component: "CalendarService", phase: "connectionStatus") {
+            [
+                "connected": "\(self.isConnected)",
+                "providers": self.connectedProviders.map(\.rawValue).sorted().joined(separator: ","),
+            ]
+        }
+    }
+
+    /// Recreates backends for providers that have calendars in the database.
+    /// Called on app launch when `providers` is empty but the database has
+    /// persisted calendar rows from a previous session. Each backend's auth
+    /// service restores its credentials (OAuth2Service from keychain,
+    /// AppleCalendarAuthService from system permission state).
+    private func restoreConnectedProviders() async {
+        let providerTypes: Set<CalendarProviderType>
+        do {
+            let calendars = try await databaseManager.fetchCalendars()
+            providerTypes = Set(calendars.map(\.sourceProvider))
+        } catch {
+            logger.error(
+                "Failed to fetch calendars for provider restoration: \(error.localizedDescription)",
+            )
+            return
+        }
+
+        guard !providerTypes.isEmpty else {
+            logger.debug("No persisted providers to restore")
+            return
+        }
+
+        for providerType in providerTypes {
+            logger.info("Restoring backend for \(providerType.rawValue)")
+            _ = getOrCreateBackend(for: providerType)
+        }
+
+        startUIRefreshTimer()
     }
 
     // MARK: - Test Injection
@@ -205,6 +269,13 @@ final class CalendarService {
 
     // MARK: - Sync
 
+    /// Starts periodic sync for all authenticated providers.
+    func startAllPeriodicSync() {
+        for (_, backend) in providers where backend.auth.isAuthenticated {
+            backend.sync.startPeriodicSync()
+        }
+    }
+
     func syncEvents() async {
         for (_, backend) in providers where backend.auth.isAuthenticated {
             await backend.sync.forceSyncNow()
@@ -219,7 +290,7 @@ final class CalendarService {
             calendars[index] = calendars[index].withSelection(isSelected)
             calendarUpdateError = nil
 
-            logger.debug("Updated calendar \(Self.redactedCalendarId(calendarId)) selection to \(isSelected)")
+            logger.debug("Updated calendar \(PrivacyUtils.redactedCalendarId(calendarId)) selection to \(isSelected)")
 
             let updatedCalendar = calendars[index]
             let shouldSync = isConnected
@@ -244,7 +315,10 @@ final class CalendarService {
             calendars[index] = calendars[index].withAlertMode(alertMode)
             calendarUpdateError = nil
 
-            logger.debug("Updated calendar \(Self.redactedCalendarId(calendarId)) alert mode to \(alertMode.rawValue)")
+            logger
+                .debug(
+                    "Updated calendar \(PrivacyUtils.redactedCalendarId(calendarId)) alert mode to \(alertMode.rawValue)",
+                )
 
             let updatedCalendar = calendars[index]
             Task {
@@ -313,6 +387,7 @@ final class CalendarService {
         }
 
         let sync = SyncManager(
+            providerType: providerType,
             apiService: api,
             databaseManager: databaseManager,
             preferencesManager: preferencesManager,
@@ -384,11 +459,18 @@ final class CalendarService {
     }
 
     private func setupSyncCallback(for backend: ProviderBackend) {
-        backend.sync.onSyncCompleted = { [weak self] in
+        backend.sync.onSyncCompleted = { [weak self, providerType = backend.type] in
             await self?.loadCachedData()
             self?.needsUIRefresh = true
             self?.eventsUpdatedSubject.send()
-            self?.logger.debug("UI refreshed after \(backend.type.rawValue) sync")
+            self?.logger.debug("UI refreshed after \(providerType.rawValue) sync")
+            AppDiagnostics.record(component: "CalendarService", phase: "syncCallback") {
+                [
+                    "provider": providerType.rawValue,
+                    "events": "\(self?.events.count ?? 0)",
+                    "started": "\(self?.startedEvents.count ?? 0)",
+                ]
+            }
         }
     }
 
@@ -470,8 +552,22 @@ final class CalendarService {
             logger.debug(
                 "Cache loaded: \(self.calendars.count) calendars, \(self.events.count) upcoming, \(self.startedEvents.count) started",
             )
+            AppDiagnostics.record(component: "CalendarService", phase: "cacheLoaded") {
+                [
+                    "calendars": "\(self.calendars.count)",
+                    "upcoming": "\(self.events.count)",
+                    "started": "\(self.startedEvents.count)",
+                ]
+            }
         } catch {
             logger.error("Failed to load cached data: \(error.localizedDescription)")
+            AppDiagnostics.record(
+                component: "CalendarService",
+                phase: "cacheLoaded",
+                outcome: .failure,
+            ) {
+                ["error": PrivacyUtils.redactedError(error)]
+            }
         }
     }
 

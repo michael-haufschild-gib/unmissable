@@ -1,8 +1,10 @@
 import Foundation
+import OSLog
 
 /// Owns the construction and lifecycle of all application services.
 /// AppState reads from this container instead of constructing services directly.
 final class ServiceContainer {
+    private let logger = Logger(category: "ServiceContainer")
     let databaseManager: any DatabaseManaging
     let linkParser: LinkParser
     let themeManager: ThemeManager
@@ -17,7 +19,6 @@ final class ServiceContainer {
     let notificationManager: NotificationManager
     let menuBarPreviewManager: MenuBarPreviewManager
     let meetingDetailsPopupManager: MeetingDetailsPopupManager
-    let updateManager: UpdateManager
 
     init(
         databaseManager: any DatabaseManaging,
@@ -37,7 +38,6 @@ final class ServiceContainer {
             linkParser: linkParser,
         )
         notificationManager = NotificationManager()
-        notificationManager.registerCategories()
         eventScheduler = EventScheduler(
             preferencesManager: preferencesManager, linkParser: linkParser,
         )
@@ -62,6 +62,13 @@ final class ServiceContainer {
             themeManager: themeManager,
             databaseManager: databaseManager,
         )
-        updateManager = UpdateManager()
+
+        logger.info("Service graph wired successfully")
+        AppDiagnostics.record(component: "ServiceContainer", phase: "wired") {
+            [
+                "services": "database,calendar,overlay,scheduler,health,notifications,shortcuts,menuBar,meetingDetails",
+                "databaseType": "\(type(of: databaseManager))",
+            ]
+        }
     }
 }

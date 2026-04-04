@@ -219,12 +219,26 @@ final class HealthMonitor {
         let criticalIssues = issues.filter { $0.severity == .error }
         let warnings = issues.filter { $0.severity == .warning }
 
+        let previousStatus = healthStatus
+
         if !criticalIssues.isEmpty {
             healthStatus = .critical(issues: criticalIssues)
         } else if !warnings.isEmpty {
             healthStatus = .degraded(issues: warnings)
         } else {
             healthStatus = .healthy
+        }
+
+        // Only log on state transitions to avoid timer spam
+        if healthStatus != previousStatus {
+            let issueDescriptions = issues.map { "\($0.component):\($0.message)" }
+            AppDiagnostics.record(component: "HealthMonitor", phase: "statusChanged") {
+                [
+                    "from": "\(previousStatus.isHealthy ? "healthy" : "degraded/critical")",
+                    "to": "\(self.healthStatus.isHealthy ? "healthy" : "degraded/critical")",
+                    "issues": issueDescriptions.joined(separator: "; "),
+                ]
+            }
         }
     }
 
