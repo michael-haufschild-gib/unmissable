@@ -2,11 +2,13 @@ import AppAuth
 import AppKit
 import Foundation
 import KeychainAccess
+import Observation
 import OSLog
 
-@MainActor
-final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
+@Observable
+final class OAuth2Service: NSObject, CalendarAuthProviding {
     private let logger = Logger(category: "OAuth2Service")
+    @ObservationIgnored
     private let keychain = Keychain(service: "com.unmissable.app.oauth")
 
     // MARK: - Constants
@@ -23,13 +25,11 @@ final class OAuth2Service: NSObject, ObservableObject, CalendarAuthProviding {
     private static let errorCodeGeneric = -1
     private static let errorCodeFlowStartFailed = -2
 
-    @Published
     var isAuthenticated = false
-    @Published
     var userEmail: String?
-    @Published
     var authorizationError: String?
 
+    @ObservationIgnored
     private nonisolated(unsafe) var notificationToken: (any NSObjectProtocol)?
     private var authState: OIDAuthState?
     private let keychainAccessTokenKey = "google_access_token"

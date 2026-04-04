@@ -269,8 +269,9 @@ final class SnoozeRefireE2ETests: XCTestCase {
         // Trigger rescheduling by changing a preference
         env.preferencesManager.setOverlayShowMinutesBefore(8)
 
-        // Give Combine observer time to fire
-        await Task.yield()
+        // Give @Observable observation time to propagate
+        // swiftlint:disable:next no_raw_task_sleep_in_tests - observation yield
+        try await Task.sleep(for: .milliseconds(10))
 
         // Snooze alert should survive the rescheduling
         let postRescheduleSnoozes = env.eventScheduler.scheduledAlerts.filter { alert in

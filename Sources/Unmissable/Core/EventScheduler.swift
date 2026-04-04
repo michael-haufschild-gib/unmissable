@@ -1,19 +1,20 @@
 import AppKit
-import Combine
 import Foundation
+import Observation
 import OSLog
 
-@MainActor
-final class EventScheduler: ObservableObject {
+@Observable
+final class EventScheduler {
     private let logger = Logger(category: "EventScheduler")
 
-    @Published
     var scheduledAlerts: [ScheduledAlert] = []
 
+    @ObservationIgnored
     private var monitoringTask: Task<Void, Never>?
+    @ObservationIgnored
     private let preferencesManager: PreferencesManager
+    @ObservationIgnored
     private let linkParser: LinkParser
-    private var cancellables = Set<AnyCancellable>()
 
     // Store current events to allow rescheduling
     private var currentEvents: [Event] = []
@@ -45,7 +46,7 @@ final class EventScheduler: ObservableObject {
 
     /// Abstraction over `Date()` for deterministic testing.
     /// Production default returns the current wall-clock time.
-    private nonisolated(unsafe) let now: () -> Date
+    private let now: @Sendable () -> Date
 
     /// Number of events logged on scheduling start for debugging.
     private static let debugLogEventCount = 3
@@ -64,7 +65,7 @@ final class EventScheduler: ObservableObject {
         sleepForSeconds: @escaping @Sendable (TimeInterval) async throws -> Void = { seconds in
             try await Task.sleep(for: .seconds(seconds))
         },
-        now: @escaping () -> Date = { Date() },
+        now: @escaping @Sendable () -> Date = { Date() },
     ) {
         self.preferencesManager = preferencesManager
         self.linkParser = linkParser
@@ -74,36 +75,27 @@ final class EventScheduler: ObservableObject {
     }
 
     private func setupPreferencesObserver() {
-        // Watch for alert timing preference changes
-        Publishers.CombineLatest4(
-            preferencesManager.$overlayShowMinutesBefore,
-            preferencesManager.$useLengthBasedTiming,
-            preferencesManager.$defaultAlertMinutes,
-            preferencesManager.$shortMeetingAlertMinutes,
-        )
-        .sink { [weak self] _, _, _, _ in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                logger.info("Alert preferences changed, rescheduling alerts")
-                rescheduleCurrentAlerts()
-            }
-        }
-        .store(in: &cancellables)
+        observeAlertPreferences()
+    }
 
-        // Also watch for medium/long meeting alerts and sound toggle
-        Publishers.CombineLatest3(
-            preferencesManager.$mediumMeetingAlertMinutes,
-            preferencesManager.$longMeetingAlertMinutes,
-            preferencesManager.$playAlertSound,
-        )
-        .sink { [weak self] _, _, _ in
+    private func observeAlertPreferences() {
+        withObservationTracking {
+            // Touch all preference properties that affect alert scheduling
+            _ = preferencesManager.overlayShowMinutesBefore
+            _ = preferencesManager.useLengthBasedTiming
+            _ = preferencesManager.defaultAlertMinutes
+            _ = preferencesManager.shortMeetingAlertMinutes
+            _ = preferencesManager.mediumMeetingAlertMinutes
+            _ = preferencesManager.longMeetingAlertMinutes
+            _ = preferencesManager.playAlertSound
+        } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 logger.info("Alert preferences changed, rescheduling alerts")
                 rescheduleCurrentAlerts()
+                observeAlertPreferences()
             }
         }
-        .store(in: &cancellables)
     }
 
     func startScheduling(events: [Event], overlayManager: any OverlayManaging) {
@@ -263,9 +255,12 @@ final class EventScheduler: ObservableObject {
             // in-progress meeting would be disorienting. The menu bar shows
             // "Starting" for these events; snoozed alerts are preserved separately.
 
-            // Schedule sound alerts if enabled (using event-specific timing).
-            // When an override is set, overlay already fires at the overridden time,
-            // so sound uses the same timing — no separate sound alert needed.
+            // Schedule a secondary reminder at length-based timing (if it differs from overlay timing).
+            // Despite the historical name "sound alert", this is another .reminder that routes through
+            // deliverAlert → showOverlay (which plays sound internally). If the first overlay is still
+            // visible when this fires, showOverlay's duplicate check silently drops it. The net effect:
+            // if the user dismisses the first overlay early, they get a second reminder closer to start.
+            // When an override is set, a single alert at the override time is sufficient.
             if preferencesManager.soundEnabled, eventOverride == nil {
                 let soundTiming = preferencesManager.alertMinutes(for: event)
                 let soundTime = event.startDate.addingTimeInterval(

@@ -1,6 +1,6 @@
 import Foundation
 
-enum Provider: String, Codable, CaseIterable {
+nonisolated enum Provider: String, Codable, CaseIterable {
     case meet
     case zoom
     case teams

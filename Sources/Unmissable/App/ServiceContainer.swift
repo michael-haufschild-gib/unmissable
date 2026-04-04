@@ -2,7 +2,6 @@ import Foundation
 
 /// Owns the construction and lifecycle of all application services.
 /// AppState reads from this container instead of constructing services directly.
-@MainActor
 final class ServiceContainer {
     let databaseManager: any DatabaseManaging
     let linkParser: LinkParser

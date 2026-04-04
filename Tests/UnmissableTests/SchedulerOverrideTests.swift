@@ -19,10 +19,11 @@ final class SchedulerOverrideTests: XCTestCase {
             userDefaults: testDefaults,
             themeManager: ThemeManager(),
         )
+        let capturedDate = try XCTUnwrap(fixedDate)
         scheduler = EventScheduler(
             preferencesManager: preferencesManager,
             linkParser: LinkParser(),
-            now: { [weak self] in self?.fixedDate ?? Date() },
+            now: { capturedDate },
         )
         overlayManager = TestSafeOverlayManager()
     }
@@ -225,6 +226,67 @@ final class SchedulerOverrideTests: XCTestCase {
             normalAlert.triggerDate,
             expectedNormalTrigger,
             "Normal event should use global overlay timing",
+        )
+    }
+
+    func testScheduleAlerts_overrideWithSoundEnabled_producesSingleAlert() {
+        // When sound is enabled but an override is set, only one alert should fire
+        // (the override controls both overlay and sound timing).
+        preferencesManager.setPlayAlertSound(true)
+
+        let futureStart = fixedDate.addingTimeInterval(3600)
+        let event = Event(
+            id: "sound-override",
+            title: "Demo",
+            startDate: futureStart,
+            endDate: futureStart.addingTimeInterval(3600),
+            calendarId: "cal-1",
+        )
+
+        scheduler.updateAlertOverrides(["sound-override": 10])
+
+        scheduler.scheduleWithoutMonitoring(
+            events: [event],
+            overlayManager: overlayManager,
+        )
+
+        let alerts = scheduler.scheduledAlerts.filter { $0.event.id == "sound-override" }
+        let alert = try XCTUnwrap(
+            alerts.first, "Should produce exactly one alert for override + sound",
+        )
+        // swiftlint:disable:next no_count_only_assertion - count IS the assertion here
+        XCTAssertEqual(alerts.count, 1, "No separate sound alert")
+        XCTAssertEqual(alert.event.id, "sound-override")
+    }
+
+    func testScheduleAlerts_overrideMissedAlertTime_triggersImmediately() {
+        // Event starts in 5 minutes, override is 10 minutes before → alert time already passed
+        let futureStart = fixedDate.addingTimeInterval(300) // 5 min from now
+        let event = Event(
+            id: "missed-override",
+            title: "Urgent Call",
+            startDate: futureStart,
+            endDate: futureStart.addingTimeInterval(1800),
+            calendarId: "cal-1",
+        )
+
+        scheduler.updateAlertOverrides(["missed-override": 10])
+
+        scheduler.scheduleWithoutMonitoring(
+            events: [event],
+            overlayManager: overlayManager,
+        )
+
+        // Alert time was 10 min before = 5 min ago. Meeting hasn't started.
+        // Scheduler should have triggered overlay immediately via missed-alert path.
+        XCTAssertTrue(
+            overlayManager.isOverlayVisible,
+            "Missed override alert should trigger immediate overlay",
+        )
+        XCTAssertEqual(
+            overlayManager.activeEvent?.id,
+            "missed-override",
+            "Immediate overlay should be for the correct event",
         )
     }
 }

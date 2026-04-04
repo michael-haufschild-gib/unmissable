@@ -57,8 +57,8 @@ struct EventRow: View {
     let linkParser: LinkParser
     let onEventTap: (() -> Void)?
 
-    @EnvironmentObject
-    private var appState: AppState
+    @Environment(AppState.self)
+    private var appState
     @Environment(\.design)
     private var design
     @State

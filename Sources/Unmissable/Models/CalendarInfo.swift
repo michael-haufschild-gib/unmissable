@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Alert Mode
 
 /// Controls how a calendar's meeting alerts are delivered.
-enum AlertMode: String, Codable, CaseIterable {
+nonisolated enum AlertMode: String, Codable, CaseIterable {
     /// Full-screen blocking overlay (default, existing behavior).
     case overlay
 
@@ -25,7 +25,7 @@ enum AlertMode: String, Codable, CaseIterable {
 
 // MARK: - Calendar Info
 
-struct CalendarInfo: Identifiable, Codable, Equatable {
+nonisolated struct CalendarInfo: Identifiable, Codable, Equatable {
     let id: String
     let name: String
     let description: String?

@@ -4,13 +4,13 @@
 macOS menu bar app that ensures users never miss meetings via full-screen blocking overlays, calendar integration (Google + Apple), smart meeting link detection, and one-click join.
 
 ## Tech Stack
-Swift 6.1 (StrictConcurrency) | macOS 14.0+ | SwiftUI + AppKit | GRDB.swift | SPM
+Swift 6.3 (strict concurrency) | macOS 14.0+ | SwiftUI + AppKit | GRDB.swift | SPM
 
 ## Constraints
 
 | Constraint | Rule |
 |-----------|------|
-| Concurrency | Swift 6.1 strict concurrency in `Sources/`. Tests use Swift 5 mode. |
+| Concurrency | Swift 6 strict concurrency in all targets (Sources and Tests). |
 | UI tokens | All UI must use design system tokens. Raw values are lint errors. See `docs/meta/styleguide.md`. |
 | Test safety | Never instantiate `OverlayManager` or `AppState()` in tests. Use `TestSafeOverlayManager` / `isTestEnvironment: true`. |
 | Logging | `OSLog` only (subsystem `com.unmissable.app`). No `print()`. No PII. |
@@ -45,3 +45,9 @@ Google Calendar OAuth: copy `Config.plist.example` to `Config.plist` (gitignored
 @docs/architecture.md
 @docs/testing.md
 @docs/meta/styleguide.md
+
+## On-Demand References
+
+| Domain | Serena Memory |
+|--------|---------------|
+| Swift 6.3 changes & pitfalls | `swift_6_3_guide` |

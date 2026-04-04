@@ -424,6 +424,62 @@ custom_rules:
     message: "Empty comments are noise. Write a meaningful comment or remove it."
     severity: error
 
+  # ── Swift 6.3 / @Observable enforcement ──
+
+  no_observable_object:
+    name: "No ObservableObject"
+    included: "Sources/.*\\.swift"
+    regex: ":\\s*ObservableObject\\b|ObservableObject\\s*\\{"
+    message: "Use @Observable macro instead of ObservableObject protocol. See Serena memory swift_6_3_guide."
+    severity: error
+
+  no_published_property:
+    name: "No @Published"
+    included: "Sources/.*\\.swift"
+    regex: "@Published\\b"
+    message: "Use @Observable macro — @Published is not needed. Properties are tracked automatically."
+    severity: error
+
+  no_state_object:
+    name: "No @StateObject"
+    included: "Sources/.*\\.swift"
+    regex: "@StateObject\\b"
+    message: "Use @State instead of @StateObject. @Observable types use @State."
+    severity: error
+
+  no_environment_object:
+    name: "No @EnvironmentObject"
+    included: "Sources/.*\\.swift"
+    regex: "@EnvironmentObject\\b"
+    message: "Use @Environment(Type.self) instead of @EnvironmentObject. See @Observable migration."
+    severity: error
+
+  no_environment_object_modifier:
+    name: "No .environmentObject() modifier"
+    included: "Sources/.*\\.swift"
+    regex: "\\.environmentObject\\("
+    message: "Use .environment(instance) instead of .environmentObject(instance)."
+    severity: error
+
+  no_task_yield:
+    name: "No Task.yield()"
+    regex: "Task\\.yield\\(\\)"
+    message: "Task.yield() is unreliable in Swift 6.3 (swift#74395). Use Task.sleep(for:) or clock-based suspension."
+    severity: error
+
+  no_task_detached:
+    name: "No Task.detached"
+    included: "Sources/.*\\.swift"
+    regex: "Task\\.detached\\b"
+    message: "Use @concurrent nonisolated functions instead of Task.detached for structured concurrency."
+    severity: error
+
+  no_private_module_import:
+    name: "No Private Module Imports"
+    regex: "import\\s+_(Concurrency|StringProcessing)\\b"
+    message: "Use Swift::Task / Swift::Regex module selectors (SE-0491) instead of private module names."
+    severity: error
+
   no_debug_print_in_tests:
     name: "No Debug Prints in Tests"
     included: "Tests/.*\\.swift"

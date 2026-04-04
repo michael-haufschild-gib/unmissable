@@ -1,7 +1,7 @@
 # Architecture Guide
 
 **Purpose**: Where to put code and what patterns to follow in Unmissable.
-**Tech Stack**: Swift 6.1 with StrictConcurrency | macOS 14.0+ | SwiftUI + AppKit | GRDB.swift | SPM
+**Tech Stack**: Swift 6.3 with strict concurrency | macOS 14.0+ | SwiftUI + AppKit | GRDB.swift | SPM
 
 ---
 
@@ -223,3 +223,4 @@ Use `async/await` for all new async code. No completion handlers.
 | Detailed folder map | `codebase_structure` |
 | Design system patterns | `design_system_patterns` |
 | Code style conventions | `style_conventions` |
+| Swift 6.3 changes & pitfalls | `swift_6_3_guide` |

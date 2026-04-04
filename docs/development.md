@@ -1,7 +1,7 @@
 # Development Guide
 
 **Purpose**: Setup, building, running, and deploying Unmissable.
-**Platform**: macOS 14.0+ (Sonoma) | Swift 6.1 with StrictConcurrency | SPM
+**Platform**: macOS 14.0+ (Sonoma) | Swift 6.3 with strict concurrency | SPM
 
 ---
 

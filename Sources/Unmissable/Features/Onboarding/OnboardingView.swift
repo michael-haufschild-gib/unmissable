@@ -16,10 +16,10 @@ enum OnboardingScreen: Int, CaseIterable {
 /// Presented in a standalone 500×600 window by ``OnboardingWindowManager``.
 /// All actions flow through ``AppState`` to maintain the single-source-of-truth pattern.
 struct OnboardingView: View {
-    @EnvironmentObject
-    private var appState: AppState
-    @EnvironmentObject
-    private var calendarService: CalendarService
+    @Environment(AppState.self)
+    private var appState
+    @Environment(CalendarService.self)
+    private var calendarService
     @Environment(\.design)
     private var design
 

@@ -1,16 +1,14 @@
 import AppKit
-import Combine
 import Foundation
+import Observation
 import OSLog
 import SwiftUI
 
-@MainActor
-final class OverlayManager: ObservableObject, OverlayManaging {
+@Observable
+final class OverlayManager: OverlayManaging {
     private let logger = Logger(category: "OverlayManager")
 
-    @Published
     var activeEvent: Event?
-    @Published
     var isOverlayVisible = false
 
     /// Computed time until meeting starts (negative if meeting has started)
@@ -222,7 +220,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
         window.ignoresMouseEvents = false
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-        // Button callbacks run on MainActor since OverlayManager is @MainActor
+        // Button callbacks run on MainActor since OverlayManager is MainActor-isolated
         let linkParser = self.linkParser
         let overlayContent = OverlayContentView(
             event: event,
@@ -248,7 +246,7 @@ final class OverlayManager: ObservableObject, OverlayManaging {
             },
             isFromSnooze: isSnoozedAlert,
         )
-        .environmentObject(preferencesManager)
+        .environment(preferencesManager)
         .themed(themeManager: themeManager)
 
         let hostingView = NSHostingView(rootView: overlayContent)

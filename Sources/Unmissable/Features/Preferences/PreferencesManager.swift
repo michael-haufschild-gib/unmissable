@@ -1,5 +1,5 @@
-import Combine
 import Foundation
+import Observation
 import SwiftUI
 
 // MARK: - Type-safe UserDefaults Keys
@@ -45,10 +45,13 @@ private extension UserDefaults {
     }
 }
 
-@MainActor
-final class PreferencesManager: ObservableObject {
+@Observable
+final class PreferencesManager {
+    @ObservationIgnored
     private let userDefaults: UserDefaults
+    @ObservationIgnored
     private let themeManager: ThemeManager
+    @ObservationIgnored
     private let loginItemManager: any LoginItemManaging
 
     // MARK: - Default Values
@@ -77,35 +80,30 @@ final class PreferencesManager: ObservableObject {
     // `loadPreferences()` assigns directly to the backing stores without triggering persistence.
 
     /// Alert timing (validated to 0-60 minutes)
-    @Published
     private(set) var defaultAlertMinutes: Int = defaultAlertMinutesDefault
     func setDefaultAlertMinutes(_ value: Int) {
         defaultAlertMinutes = Self.clamp(value, to: Self.alertMinutesRange)
         userDefaults.set(defaultAlertMinutes, forKey: PrefKey.defaultAlertMinutes)
     }
 
-    @Published
     private(set) var useLengthBasedTiming: Bool = false
     func setUseLengthBasedTiming(_ value: Bool) {
         useLengthBasedTiming = value
         userDefaults.set(value, forKey: PrefKey.useLengthBasedTiming)
     }
 
-    @Published
     private(set) var shortMeetingAlertMinutes: Int = shortMeetingAlertDefault
     func setShortMeetingAlertMinutes(_ value: Int) {
         shortMeetingAlertMinutes = Self.clamp(value, to: Self.alertMinutesRange)
         userDefaults.set(shortMeetingAlertMinutes, forKey: PrefKey.shortMeetingAlertMinutes)
     }
 
-    @Published
     private(set) var mediumMeetingAlertMinutes: Int = mediumMeetingAlertDefault
     func setMediumMeetingAlertMinutes(_ value: Int) {
         mediumMeetingAlertMinutes = Self.clamp(value, to: Self.alertMinutesRange)
         userDefaults.set(mediumMeetingAlertMinutes, forKey: PrefKey.mediumMeetingAlertMinutes)
     }
 
-    @Published
     private(set) var longMeetingAlertMinutes: Int = longMeetingAlertDefault
     func setLongMeetingAlertMinutes(_ value: Int) {
         longMeetingAlertMinutes = Self.clamp(value, to: Self.alertMinutesRange)
@@ -113,14 +111,12 @@ final class PreferencesManager: ObservableObject {
     }
 
     /// Sync settings (validated to 30-3600 seconds)
-    @Published
     private(set) var syncIntervalSeconds: Int = syncIntervalDefault
     func setSyncIntervalSeconds(_ value: Int) {
         syncIntervalSeconds = Self.clamp(value, to: Self.syncIntervalRange)
         userDefaults.set(syncIntervalSeconds, forKey: PrefKey.syncIntervalSeconds)
     }
 
-    @Published
     private(set) var includeAllDayEvents: Bool = false
     func setIncludeAllDayEvents(_ value: Bool) {
         includeAllDayEvents = value
@@ -128,7 +124,6 @@ final class PreferencesManager: ObservableObject {
     }
 
     /// Theme mode
-    @Published
     private(set) var themeMode: ThemeMode = .system
     func setThemeMode(_ value: ThemeMode) {
         themeMode = value
@@ -137,7 +132,6 @@ final class PreferencesManager: ObservableObject {
     }
 
     /// Accent color
-    @Published
     private(set) var accentColor: AccentColor = .blue
     func setAccentColor(_ value: AccentColor) {
         accentColor = value
@@ -145,35 +139,30 @@ final class PreferencesManager: ObservableObject {
         themeManager.setAccent(value)
     }
 
-    @Published
     private(set) var overlayOpacity: Double = overlayOpacityDefault
     func setOverlayOpacity(_ value: Double) {
         overlayOpacity = Self.clamp(value, to: Self.overlayOpacityRange)
         userDefaults.set(overlayOpacity, forKey: PrefKey.overlayOpacity)
     }
 
-    @Published
     private(set) var overlayShowMinutesBefore: Int = overlayShowMinutesDefault
     func setOverlayShowMinutesBefore(_ value: Int) {
         overlayShowMinutesBefore = Self.clamp(value, to: Self.overlayShowMinutesRange)
         userDefaults.set(overlayShowMinutesBefore, forKey: PrefKey.overlayShowMinutesBefore)
     }
 
-    @Published
     private(set) var fontSize: FontSize = .medium
     func setFontSize(_ value: FontSize) {
         fontSize = value
         userDefaults.set(value.rawValue, forKey: PrefKey.fontSize)
     }
 
-    @Published
     private(set) var minimalMode: Bool = false
     func setMinimalMode(_ value: Bool) {
         minimalMode = value
         userDefaults.set(value, forKey: PrefKey.minimalMode)
     }
 
-    @Published
     private(set) var showOnAllDisplays: Bool = true
     func setShowOnAllDisplays(_ value: Bool) {
         showOnAllDisplays = value
@@ -181,7 +170,6 @@ final class PreferencesManager: ObservableObject {
     }
 
     /// Sound
-    @Published
     private(set) var playAlertSound: Bool = true
     func setPlayAlertSound(_ value: Bool) {
         playAlertSound = value
@@ -197,7 +185,6 @@ final class PreferencesManager: ObservableObject {
         defaultAlertMinutes
     }
 
-    @Published
     private(set) var alertVolume: Double = alertVolumeDefault
     func setAlertVolume(_ value: Double) {
         alertVolume = Self.clamp(value, to: Self.alertVolumeRange)
@@ -205,7 +192,6 @@ final class PreferencesManager: ObservableObject {
     }
 
     /// Focus mode
-    @Published
     private(set) var overrideFocusMode: Bool = true
     func setOverrideFocusMode(_ value: Bool) {
         overrideFocusMode = value
@@ -213,7 +199,6 @@ final class PreferencesManager: ObservableObject {
     }
 
     /// Smart suppression — suppress overlay when the meeting app is already in the foreground
-    @Published
     private(set) var smartSuppression: Bool = true
     func setSmartSuppression(_ value: Bool) {
         smartSuppression = value
@@ -221,7 +206,6 @@ final class PreferencesManager: ObservableObject {
     }
 
     /// Auto-join
-    @Published
     private(set) var autoJoinEnabled: Bool = false
     func setAutoJoinEnabled(_ value: Bool) {
         autoJoinEnabled = value
@@ -229,7 +213,6 @@ final class PreferencesManager: ObservableObject {
     }
 
     /// Snooze
-    @Published
     private(set) var allowSnooze: Bool = true
     func setAllowSnooze(_ value: Bool) {
         allowSnooze = value
@@ -237,14 +220,12 @@ final class PreferencesManager: ObservableObject {
     }
 
     /// Menu bar display
-    @Published
     private(set) var menuBarDisplayMode: MenuBarDisplayMode = .icon
     func setMenuBarDisplayMode(_ value: MenuBarDisplayMode) {
         menuBarDisplayMode = value
         userDefaults.set(value.rawValue, forKey: PrefKey.menuBarDisplayMode)
     }
 
-    @Published
     private(set) var showTodayOnlyInMenuBar: Bool = false
     func setShowTodayOnlyInMenuBar(_ value: Bool) {
         showTodayOnlyInMenuBar = value
@@ -252,7 +233,6 @@ final class PreferencesManager: ObservableObject {
     }
 
     /// Launch at login — defaults to true so the app survives reboots.
-    @Published
     private(set) var launchAtLogin: Bool = true
     func setLaunchAtLogin(_ value: Bool) {
         launchAtLogin = value
@@ -261,7 +241,6 @@ final class PreferencesManager: ObservableObject {
     }
 
     /// Onboarding — tracks whether the user has completed the first-launch onboarding flow.
-    @Published
     private(set) var hasCompletedOnboarding: Bool = false
     func setHasCompletedOnboarding(_ value: Bool) {
         hasCompletedOnboarding = value

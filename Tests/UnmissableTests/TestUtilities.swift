@@ -172,6 +172,7 @@ enum TestUtilities {
 
 // MARK: - Test Accessors for PreferencesManager
 
+@MainActor
 extension PreferencesManager {
     /// Test accessors for easy modification in tests
     var testDefaultAlertMinutes: Int {
@@ -217,6 +218,7 @@ extension PreferencesManager {
 
 // MARK: - Test Extensions for EventScheduler
 
+@MainActor
 extension EventScheduler {
     /// Returns true if a snooze alert is currently scheduled
     var snoozeScheduled: Bool {
@@ -322,6 +324,7 @@ extension TestUtilities {
     // MARK: - UI Testing Utilities
 
     /// Create test environment for SwiftUI views
+    @MainActor
     static func createTestEnvironment() -> DesignTokens {
         // Return a consistent design for testing
         DesignTokens.tokens(for: .light, accent: .blue)

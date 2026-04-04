@@ -7,7 +7,7 @@ import Foundation
 ///
 /// A value of `0` for `alertMinutes` means "no alert" — the event is
 /// silently suppressed from overlay and sound scheduling.
-struct EventOverride: Identifiable, Codable, Equatable {
+nonisolated struct EventOverride: Identifiable, Codable, Equatable {
     /// The ID of the event this override applies to.
     let eventId: String
 

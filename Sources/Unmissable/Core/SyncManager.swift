@@ -1,49 +1,59 @@
-import Combine
 import Foundation
 import Network
+import Observation
 import OSLog
 
-@MainActor
-final class SyncManager: ObservableObject {
+@Observable
+final class SyncManager {
     private let logger = Logger(category: "SyncManager")
 
-    @Published
     var syncStatus: SyncStatus = .idle
-    @Published
     var lastSyncTime: Date?
-    @Published
     var nextSyncTime: Date?
-    @Published
     var isOnline: Bool = true
-    @Published
     var retryCount: Int = 0
 
+    @ObservationIgnored
     private let apiService: any CalendarAPIProviding
+    @ObservationIgnored
     private let databaseManager: any DatabaseManaging
+    @ObservationIgnored
     private let preferencesManager: PreferencesManager
+    @ObservationIgnored
     private var syncTask: Task<Void, Never>?
+    @ObservationIgnored
     private var networkMonitor: NWPathMonitor?
+    @ObservationIgnored
     private var networkMonitorTask: Task<Void, Never>?
-    private var cancellables = Set<AnyCancellable>()
 
-    // Sync completion callback
+    /// Sync completion callback
+    @ObservationIgnored
     var onSyncCompleted: (() async -> Void)?
+    @ObservationIgnored
     private let eventLookAheadDays = 7 // Sync events for next 7 days
 
-    // Retry configuration
+    /// Retry configuration
+    @ObservationIgnored
     private let maxRetries = 5
+    @ObservationIgnored
     private let baseRetryDelay: TimeInterval = 5.0 // Start with 5 seconds
+    @ObservationIgnored
     private var retryTask: Task<Void, Never>?
 
-    // Rate limiting configuration
+    /// Rate limiting configuration
+    @ObservationIgnored
     private var lastManualSyncTime: Date?
+    @ObservationIgnored
     private let minSyncCooldown: TimeInterval = 10.0 // Minimum 10 seconds between manual syncs
 
-    // Network monitor debouncing
+    /// Network monitor debouncing
+    @ObservationIgnored
     private var pendingNetworkUpdate: Task<Void, Never>?
+    @ObservationIgnored
     private let networkDebounceDelay: TimeInterval = 0.5 // 500ms debounce
 
     /// Staleness TTL: clear cached events when the API consistently returns empty
+    @ObservationIgnored
     private var stalenessReferenceDate: Date?
     /// Staleness TTL: 2 hours in seconds.
     private static let stalenessHours = 2
@@ -102,18 +112,23 @@ final class SyncManager: ObservableObject {
     }
 
     private func setupPreferencesObserver() {
-        // Watch for sync interval changes
-        preferencesManager.$syncIntervalSeconds
-            .sink { [weak self] _ in
-                Task { @MainActor in
-                    // Restart periodic sync with new interval
-                    if self?.syncTask != nil {
-                        self?.stopPeriodicSync()
-                        self?.startPeriodicSync()
-                    }
+        observeSyncInterval()
+    }
+
+    private func observeSyncInterval() {
+        withObservationTracking {
+            _ = preferencesManager.syncIntervalSeconds
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                // Restart periodic sync with new interval
+                if self.syncTask != nil {
+                    self.stopPeriodicSync()
+                    self.startPeriodicSync()
                 }
+                self.observeSyncInterval()
             }
-            .store(in: &cancellables)
+        }
     }
 
     private func setupNetworkMonitoring() {

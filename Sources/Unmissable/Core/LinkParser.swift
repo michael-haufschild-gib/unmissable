@@ -1,7 +1,7 @@
 import Foundation
 import OSLog
 
-final class LinkParser: Sendable {
+final nonisolated class LinkParser: Sendable {
     private let logger = Logger(category: "LinkParser")
 
     /// Trusted domains for meeting links — only these are considered valid meeting URLs

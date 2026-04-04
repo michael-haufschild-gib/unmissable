@@ -4,7 +4,7 @@ import OSLog
 
 /// Protocol enabling dependency injection for database operations.
 /// Covers all methods consumed by CalendarService, SyncManager, and ServiceContainer.
-protocol DatabaseManaging: Sendable {
+nonisolated protocol DatabaseManaging: Sendable {
     // MARK: - Event Operations
 
     func saveEvents(_ events: [Event]) async throws

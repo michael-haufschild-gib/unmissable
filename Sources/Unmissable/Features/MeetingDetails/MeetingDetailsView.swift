@@ -7,8 +7,8 @@ struct MeetingDetailsView: View {
     let alertOverrideMinutes: Int?
     @Environment(\.design)
     private var design
-    @EnvironmentObject
-    private var themeManager: ThemeManager
+    @Environment(ThemeManager.self)
+    private var themeManager
 
     init(event: Event, onClose: @escaping () -> Void, alertOverrideMinutes: Int? = nil) {
         self.event = event

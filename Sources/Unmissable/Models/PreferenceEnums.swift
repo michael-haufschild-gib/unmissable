@@ -1,6 +1,6 @@
 import Foundation
 
-enum FontSize: String, CaseIterable {
+nonisolated enum FontSize: String, CaseIterable {
     case small
     case medium
     case large
@@ -23,7 +23,7 @@ enum FontSize: String, CaseIterable {
     }
 }
 
-enum MenuBarDisplayMode: String, CaseIterable {
+nonisolated enum MenuBarDisplayMode: String, CaseIterable {
     case icon
     case timer
     case nameTimer

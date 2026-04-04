@@ -1,7 +1,7 @@
 import Foundation
 
 /// Identifies which calendar backend provided a calendar or event.
-enum CalendarProviderType: String, Codable, CaseIterable {
+nonisolated enum CalendarProviderType: String, Codable, CaseIterable {
     case google
     case apple
 

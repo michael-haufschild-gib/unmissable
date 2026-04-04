@@ -9,10 +9,10 @@ struct OverlayContentView: View {
     let onSnooze: (Int) -> Void
     let isFromSnooze: Bool
 
-    @EnvironmentObject
-    private var preferences: PreferencesManager
-    @EnvironmentObject
-    private var themeManager: ThemeManager
+    @Environment(PreferencesManager.self)
+    private var preferences
+    @Environment(ThemeManager.self)
+    private var themeManager
     @Environment(\.design)
     private var design
     @State
@@ -502,7 +502,7 @@ struct OverlayScaleButtonStyle: ButtonStyle {
         onSnooze: { _ in },
         isFromSnooze: false,
     )
-    .environmentObject(PreferencesManager(themeManager: themeManager))
+    .environment(PreferencesManager(themeManager: themeManager))
     .themed(themeManager: themeManager)
 }
 
@@ -527,7 +527,7 @@ struct OverlayScaleButtonStyle: ButtonStyle {
         onSnooze: { _ in },
         isFromSnooze: false,
     )
-    .environmentObject(PreferencesManager(themeManager: themeManager))
+    .environment(PreferencesManager(themeManager: themeManager))
     .themed(themeManager: themeManager)
 }
 
@@ -552,6 +552,6 @@ struct OverlayScaleButtonStyle: ButtonStyle {
         onSnooze: { _ in },
         isFromSnooze: true,
     )
-    .environmentObject(PreferencesManager(themeManager: themeManager))
+    .environment(PreferencesManager(themeManager: themeManager))
     .themed(themeManager: themeManager)
 }

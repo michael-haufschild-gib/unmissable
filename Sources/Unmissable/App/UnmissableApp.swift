@@ -4,26 +4,26 @@ import SwiftUI
 struct UnmissableApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self)
     var appDelegate
-    @StateObject
+    @State
     private var appState = AppState()
 
     var body: some Scene {
         MenuBarExtra {
             MenuBarView()
-                .environmentObject(appState)
-                .environmentObject(appState.calendar)
+                .environment(appState)
+                .environment(appState.calendar)
                 .themed(themeManager: appState.themeManager)
         } label: {
             MenuBarLabelView()
-                .environmentObject(appState.menuBarPreview)
+                .environment(appState.menuBarPreview)
         }
         .menuBarExtraStyle(.window)
     }
 }
 
 struct MenuBarLabelView: View {
-    @EnvironmentObject
-    var menuBarPreview: MenuBarPreviewManager
+    @Environment(MenuBarPreviewManager.self)
+    var menuBarPreview
     @Environment(\.design)
     private var design
 

@@ -1,3 +1,4 @@
+import TestSupport
 @testable import Unmissable
 import XCTest
 
@@ -141,8 +142,9 @@ final class NotificationCenterTests: XCTestCase {
         XCTAssertFalse(overlayManager.isOverlayVisible, "Notification mode should NOT show overlay")
 
         // Wait for the async Task that sends the notification
+        let notifMgr = try XCTUnwrap(notificationManager)
         try await TestUtilities.waitForAsync {
-            await MainActor.run { self.notificationManager.sentNotifications.count == 1 }
+            await MainActor.run { notifMgr.sentNotifications.count == 1 }
         }
 
         XCTAssertEqual(notificationManager.sentNotifications.first?.event.id, "evt-notif")
@@ -233,8 +235,9 @@ final class NotificationCenterTests: XCTestCase {
         )
 
         // Wait for the notification async task
+        let notifMgr = try XCTUnwrap(notificationManager)
         try await TestUtilities.waitForAsync {
-            await MainActor.run { self.notificationManager.sentNotifications.count == 1 }
+            await MainActor.run { notifMgr.sentNotifications.count == 1 }
         }
 
         // Overlay event should have triggered overlay

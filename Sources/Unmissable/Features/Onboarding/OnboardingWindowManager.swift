@@ -1,4 +1,5 @@
 import AppKit
+import Observation
 import OSLog
 import SwiftUI
 
@@ -7,8 +8,8 @@ import SwiftUI
 /// Follows the same pattern as ``PreferencesWindowManager``: a standalone
 /// `NSWindow` hosting a SwiftUI view, activated in the foreground so it is
 /// immediately visible despite the app being a menu-bar accessory.
-@MainActor
-final class OnboardingWindowManager: NSObject, ObservableObject {
+@Observable
+final class OnboardingWindowManager: NSObject {
     private let logger = Logger(category: "OnboardingWindowManager")
     private var window: NSWindow?
     private let appState: AppState
@@ -31,8 +32,8 @@ final class OnboardingWindowManager: NSObject, ObservableObject {
         logger.info("Creating onboarding window")
 
         let contentView = OnboardingView()
-            .environmentObject(appState)
-            .environmentObject(appState.calendar)
+            .environment(appState)
+            .environment(appState.calendar)
             .themed(themeManager: appState.themeManager)
             .frame(
                 minWidth: Self.windowWidth,

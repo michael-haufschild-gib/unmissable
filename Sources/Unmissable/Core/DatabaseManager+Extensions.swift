@@ -2,9 +2,13 @@ import Foundation
 import GRDB
 import OSLog
 
-private let extensionLogger = Logger(category: "DatabaseManager")
+private nonisolated let extensionLogger = Logger(category: "DatabaseManager")
 
 // MARK: - Alert Overrides
+
+/// Valid range for per-event alert overrides (minutes before start).
+/// Matches PreferencesManager's alertMinutesRange. Zero means "suppress all alerts".
+private nonisolated let alertOverrideMinutesRange = 0 ... 60
 
 extension DatabaseManager {
     func fetchAlertOverride(for eventId: String) async throws -> Int? {
@@ -43,10 +47,20 @@ extension DatabaseManager {
             throw DatabaseError.notInitialized
         }
 
+        // Clamp to valid range (defense-in-depth — UI already constrains values)
+        let clampedMinutes: Int? = minutes.map {
+            min(max($0, alertOverrideMinutesRange.lowerBound), alertOverrideMinutesRange.upperBound)
+        }
+        if let minutes, let clamped = clampedMinutes, minutes != clamped {
+            extensionLogger.warning(
+                "Alert override \(minutes) clamped to \(clamped) for event \(eventId)",
+            )
+        }
+
         try await withTimeout(defaultTimeout) {
             try await dbQueue.write { db in
-                if let minutes {
-                    let override = EventOverride(eventId: eventId, alertMinutes: minutes)
+                if let clampedMinutes {
+                    let override = EventOverride(eventId: eventId, alertMinutes: clampedMinutes)
                     try override.save(db)
                 } else {
                     _ = try EventOverride.deleteOne(db, key: eventId)
@@ -54,7 +68,7 @@ extension DatabaseManager {
             }
         }
 
-        let action = minutes.map { "\($0) minutes" } ?? "cleared"
+        let action = clampedMinutes.map { "\($0) minutes" } ?? "cleared"
         extensionLogger.info("Alert override updated: \(action)")
     }
 }
@@ -216,7 +230,7 @@ extension DatabaseManager {
 
 // MARK: - Error Types
 
-enum DatabaseError: LocalizedError {
+nonisolated enum DatabaseError: LocalizedError {
     case notInitialized
     case migrationFailed(String)
     case timeout

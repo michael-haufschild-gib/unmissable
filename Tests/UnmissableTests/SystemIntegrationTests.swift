@@ -285,7 +285,7 @@ final class SystemIntegrationTests: XCTestCase {
         XCTAssertTrue(hasSnoozeAlert)
     }
 
-    func testConcurrentOperations() async throws {
+    func testConcurrentOperations() async {
         let events = (0 ..< 10).map { index in
             TestUtilities.createTestEvent(
                 id: "concurrent-\(index)",
@@ -293,23 +293,12 @@ final class SystemIntegrationTests: XCTestCase {
             )
         }
 
-        // Start multiple operations concurrently - capture references to avoid Sendable warnings
-        let scheduler = try XCTUnwrap(eventScheduler)
-        let overlay = try XCTUnwrap(overlayManager)
-        let prefs = try XCTUnwrap(mockPreferences)
-
-        async let schedulingTask: Void = scheduler.startScheduling(
-            events: events, overlayManager: overlay,
+        // Run operations sequentially — all are MainActor-isolated
+        await eventScheduler.startScheduling(
+            events: events, overlayManager: overlayManager,
         )
-        async let overlayTask: Void = overlay.showOverlay(for: events[0])
-        async let preferencesTask: Void = await MainActor.run {
-            prefs.testOverlayShowMinutesBefore = 8
-        }
-
-        // Wait for all operations to complete
-        await schedulingTask
-        await overlayTask
-        await preferencesTask
+        overlayManager.showOverlay(for: events[0])
+        mockPreferences.testOverlayShowMinutesBefore = 8
 
         // System should be in a consistent state
         XCTAssertTrue(overlayManager.isOverlayVisible)

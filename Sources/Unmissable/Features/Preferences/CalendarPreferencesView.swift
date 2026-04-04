@@ -1,10 +1,10 @@
 import SwiftUI
 
 struct CalendarPreferencesView: View {
-    @EnvironmentObject
-    var appState: AppState
-    @EnvironmentObject
-    var calendarService: CalendarService
+    @Environment(AppState.self)
+    var appState
+    @Environment(CalendarService.self)
+    var calendarService
     @Environment(\.design)
     private var design
     @State

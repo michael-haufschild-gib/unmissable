@@ -1,4 +1,5 @@
 import AppKit
+import Observation
 import OSLog
 import SwiftUI
 
@@ -10,11 +11,10 @@ enum MeetingDetailsLayout {
     static let popupSize = NSSize(width: popupWidth, height: popupHeight)
 }
 
-@MainActor
+@Observable
 final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
     private let logger = Logger(category: "MeetingDetailsPopupManager")
 
-    @Published
     private(set) var isPopupVisible = false
     private var popupWindow: NSWindow?
     private var currentEventId: String?

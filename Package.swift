@@ -1,4 +1,4 @@
-// swift-tools-version: 6.1
+// swift-tools-version: 6.3
 import PackageDescription
 
 let package = Package(
@@ -42,8 +42,8 @@ let package = Package(
             ],
             path: "Sources/Unmissable",
             swiftSettings: [
-                .enableExperimentalFeature("StrictConcurrency"),
-            ],
+                .defaultIsolation(MainActor.self),
+            ]
         ),
         .target(
             name: "TestSupport",
@@ -91,3 +91,16 @@ let package = Package(
         ),
     ],
 )
+
+// MARK: - ApproachableConcurrency feature flags (low-risk, Swift 6.3)
+
+let approachableConcurrencyFlags: [SwiftSetting] = [
+    .enableUpcomingFeature("InferIsolatedConformances"),
+    .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+    // GlobalActorIsolatedTypesUsability, InferSendableFromCaptures, and
+    // DisableOutwardActorInference are already enabled by default in Swift 6.
+]
+
+for target in package.targets {
+    target.swiftSettings = (target.swiftSettings ?? []) + approachableConcurrencyFlags
+}

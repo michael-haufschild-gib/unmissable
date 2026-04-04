@@ -1,6 +1,7 @@
 import Combine
 import EventKit
 import Foundation
+import Observation
 import OSLog
 
 /// Representation of a connected calendar provider backend.
@@ -11,8 +12,8 @@ struct ProviderBackend {
     let sync: SyncManager
 }
 
-@MainActor
-final class CalendarService: ObservableObject {
+@Observable
+final class CalendarService {
     private let logger = Logger(category: "CalendarService")
 
     // MARK: - Constants
@@ -32,49 +33,48 @@ final class CalendarService: ObservableObject {
         return String(id.prefix(redactedIdLength)) + "..."
     }
 
-    // MARK: - Published State
+    // MARK: - Observable State
 
-    @Published
     var isConnected = false
-    @Published
     var syncStatus: SyncStatus = .idle
-    @Published
     var events: [Event] = []
-    @Published
     var startedEvents: [Event] = []
-    @Published
     var calendars: [CalendarInfo] = []
-    @Published
     var lastSyncTime: Date?
-    @Published
     var nextSyncTime: Date?
-    @Published
     var userEmail: String?
-    @Published
     var authError: String?
-    @Published
     var calendarUpdateError: String?
-    @Published
     var connectedProviders: Set<CalendarProviderType> = []
 
     // MARK: - Private State
 
+    @ObservationIgnored
     private var providers: [CalendarProviderType: ProviderBackend] = [:]
+    @ObservationIgnored
     private let databaseManager: any DatabaseManaging
+    @ObservationIgnored
     private let preferencesManager: PreferencesManager
+    @ObservationIgnored
     private let linkParser: LinkParser
+    @ObservationIgnored
     private var cancellables = Set<AnyCancellable>()
-    private var providerCancellables: [CalendarProviderType: Set<AnyCancellable>] = [:]
+    @ObservationIgnored
+    private var providerObservationTasks: [CalendarProviderType: [Task<Void, Never>]] = [:]
+    @ObservationIgnored
     private var uiRefreshTask: Task<Void, Never>?
     /// Dirty flag: set when sync or timezone changes require a UI refresh.
     /// The timer checks this alongside time-based staleness to avoid unnecessary DB reads.
+    @ObservationIgnored
     private var needsUIRefresh = false
 
     /// Shared EKEventStore for Apple Calendar (reused across auth + API services)
+    @ObservationIgnored
     private let sharedEventStore: EKEventStore
 
     /// Publisher that fires after events are updated from a sync cycle.
     /// Supports multiple observers without retain-cycle risk.
+    @ObservationIgnored
     private let eventsUpdatedSubject = PassthroughSubject<Void, Never>()
     var eventsUpdated: AnyPublisher<Void, Never> {
         eventsUpdatedSubject.eraseToAnyPublisher()
@@ -146,7 +146,8 @@ final class CalendarService: ObservableObject {
         await loadCachedData()
 
         // Remove bindings for this provider
-        providerCancellables[providerType] = nil
+        providerObservationTasks[providerType]?.forEach { $0.cancel() }
+        providerObservationTasks[providerType] = nil
         providers[providerType] = nil
 
         syncAggregatedAuthState()
@@ -198,7 +199,8 @@ final class CalendarService: ObservableObject {
     /// Removes a previously injected backend and updates aggregated state.
     /// Internal access — visible to tests via @testable import.
     func removeTestBackend(type: CalendarProviderType) {
-        providerCancellables[type] = nil
+        providerObservationTasks[type]?.forEach { $0.cancel() }
+        providerObservationTasks[type] = nil
         providers[type] = nil
         syncAggregatedAuthState()
     }
@@ -328,37 +330,59 @@ final class CalendarService: ObservableObject {
     }
 
     private func setupProviderBindings(for backend: ProviderBackend) {
-        var subs = Set<AnyCancellable>()
+        observeSyncStatus(for: backend)
+        observeLastSyncTime(for: backend)
+        observeNextSyncTime(for: backend)
+    }
+
+    private func observeSyncStatus(for backend: ProviderBackend) {
         let providerType = backend.type
-
-        // Combine's @Published fires during willSet — the triggering publisher's
-        // property is still the OLD value at sink time. We fix this by using the
-        // delivered value for the changed provider and reading other providers
-        // directly (their values haven't changed). dropFirst() skips the initial
-        // value emitted at subscription time (already aggregated by injectTestBackend
-        // / getOrCreateBackend).
-        backend.sync.$syncStatus
-            .dropFirst()
-            .sink { [weak self] newStatus in
-                self?.aggregateSyncStatus(changedProvider: providerType, newStatus: newStatus)
+        withObservationTracking {
+            _ = backend.sync.syncStatus
+        } onChange: { [weak self] in
+            // onChange fires during willSet — the new value isn't stored yet.
+            // Defer to the next MainActor turn so the read picks up the new value.
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.aggregateSyncStatus(
+                    changedProvider: providerType,
+                    newStatus: backend.sync.syncStatus,
+                )
+                self.observeSyncStatus(for: backend)
             }
-            .store(in: &subs)
+        }
+    }
 
-        backend.sync.$lastSyncTime
-            .dropFirst()
-            .sink { [weak self] newTime in
-                self?.aggregateSyncTimes(changedProvider: providerType, newLastSync: newTime)
+    private func observeLastSyncTime(for backend: ProviderBackend) {
+        let providerType = backend.type
+        withObservationTracking {
+            _ = backend.sync.lastSyncTime
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.aggregateSyncTimes(
+                    changedProvider: providerType,
+                    newLastSync: backend.sync.lastSyncTime,
+                )
+                self.observeLastSyncTime(for: backend)
             }
-            .store(in: &subs)
+        }
+    }
 
-        backend.sync.$nextSyncTime
-            .dropFirst()
-            .sink { [weak self] newTime in
-                self?.aggregateSyncTimes(changedProvider: providerType, newNextSync: newTime)
+    private func observeNextSyncTime(for backend: ProviderBackend) {
+        let providerType = backend.type
+        withObservationTracking {
+            _ = backend.sync.nextSyncTime
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.aggregateSyncTimes(
+                    changedProvider: providerType,
+                    newNextSync: backend.sync.nextSyncTime,
+                )
+                self.observeNextSyncTime(for: backend)
             }
-            .store(in: &subs)
-
-        providerCancellables[backend.type] = subs
+        }
     }
 
     private func setupSyncCallback(for backend: ProviderBackend) {

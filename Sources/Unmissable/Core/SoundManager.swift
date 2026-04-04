@@ -1,10 +1,11 @@
 import AppKit
 import AVFoundation
 import Foundation
+import Observation
 import OSLog
 
-@MainActor
-final class SoundManager: ObservableObject {
+@Observable
+final class SoundManager {
     private let logger = Logger(category: "SoundManager")
 
     private var audioPlayer: AVAudioPlayer?

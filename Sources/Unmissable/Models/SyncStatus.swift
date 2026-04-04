@@ -1,6 +1,6 @@
 import Foundation
 
-enum SyncStatus: Equatable, CustomStringConvertible {
+nonisolated enum SyncStatus: Equatable, CustomStringConvertible {
     case idle
     case syncing
     case offline

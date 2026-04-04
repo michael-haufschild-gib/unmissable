@@ -2,7 +2,7 @@ import Foundation
 import GRDB
 import OSLog
 
-private let logger = Logger(category: "DatabaseModels")
+private nonisolated let logger = Logger(category: "DatabaseModels")
 
 // MARK: - Cached JSON Coders
 
@@ -10,13 +10,13 @@ private let logger = Logger(category: "DatabaseModels")
 /// are thread-safe when their configuration is not mutated between calls — no custom
 /// strategies are set here, so sharing a single instance avoids hundreds of allocations
 /// per sync cycle.
-private let cachedDecoder = JSONDecoder()
-private let cachedEncoder = JSONEncoder()
+private nonisolated(unsafe) let cachedDecoder = JSONDecoder()
+private nonisolated(unsafe) let cachedEncoder = JSONEncoder()
 
 // MARK: - JSON Column Helpers
 
 /// Decodes a JSON-encoded string column into a Decodable value, returning `defaultValue` on failure.
-private func decodeJSONColumn<T: Decodable>(
+private nonisolated func decodeJSONColumn<T: Decodable>(
     _ row: Row, _ column: Column, default defaultValue: T,
 ) -> T {
     let raw = row[column] as? String ?? "[]"
@@ -30,13 +30,13 @@ private func decodeJSONColumn<T: Decodable>(
 }
 
 /// Decodes a JSON-encoded `[String]` column into `[URL]`, dropping unparseable entries.
-private func decodeJSONURLColumn(_ row: Row, _ column: Column) -> [URL] {
+private nonisolated func decodeJSONURLColumn(_ row: Row, _ column: Column) -> [URL] {
     let strings: [String] = decodeJSONColumn(row, column, default: [])
     return strings.compactMap { URL(string: $0) }
 }
 
 /// Encodes an Encodable value as a JSON string into a persistence container column.
-private func encodeJSONColumn(
+private nonisolated func encodeJSONColumn(
     _ value: some Encodable, into container: inout PersistenceContainer, _ column: Column,
 ) {
     do {
@@ -49,13 +49,13 @@ private func encodeJSONColumn(
 }
 
 /// Encodes `[URL]` as a JSON `[String]` into a persistence container column.
-private func encodeJSONURLColumn(
+private nonisolated func encodeJSONURLColumn(
     _ value: [URL], into container: inout PersistenceContainer, _ column: Column,
 ) {
     encodeJSONColumn(value.map(\.absoluteString), into: &container, column)
 }
 
-extension Event {
+nonisolated extension Event {
     static let databaseTableName = "events"
 
     enum Columns {
@@ -136,9 +136,9 @@ extension Event {
     }
 }
 
-extension Event: FetchableRecord, PersistableRecord {}
+nonisolated extension Event: FetchableRecord, PersistableRecord {}
 
-extension CalendarInfo {
+nonisolated extension CalendarInfo {
     static let databaseTableName = "calendars"
 
     enum Columns {
@@ -201,11 +201,11 @@ extension CalendarInfo {
     }
 }
 
-extension CalendarInfo: FetchableRecord, PersistableRecord {}
+nonisolated extension CalendarInfo: FetchableRecord, PersistableRecord {}
 
 // MARK: - EventOverride
 
-extension EventOverride {
+nonisolated extension EventOverride {
     static let databaseTableName = "event_overrides"
 
     enum Columns {
@@ -224,4 +224,4 @@ extension EventOverride {
     }
 }
 
-extension EventOverride: FetchableRecord, PersistableRecord {}
+nonisolated extension EventOverride: FetchableRecord, PersistableRecord {}

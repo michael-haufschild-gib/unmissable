@@ -6,11 +6,11 @@ import Foundation
 // swiftlint:disable discouraged_optional_collection discouraged_optional_boolean
 
 /// Top-level response for calendar list endpoint
-struct GCalCalendarListResponse: Codable {
+nonisolated struct GCalCalendarListResponse: Codable {
     let items: [GCalCalendarEntry]?
 }
 
-struct GCalCalendarEntry: Codable {
+nonisolated struct GCalCalendarEntry: Codable {
     let id: String
     let summary: String?
     let description: String?
@@ -53,12 +53,12 @@ struct GCalCalendarEntry: Codable {
 }
 
 /// Top-level response for events list endpoint
-struct GCalEventListResponse: Codable {
+nonisolated struct GCalEventListResponse: Codable {
     let items: [GCalEventEntry]?
     let nextPageToken: String?
 }
 
-struct GCalEventEntry: Codable, Equatable {
+nonisolated struct GCalEventEntry: Codable, Equatable {
     let id: String?
     let summary: String?
     let status: String?
@@ -73,17 +73,17 @@ struct GCalEventEntry: Codable, Equatable {
     let hangoutLink: String?
 }
 
-struct GCalDateTime: Codable, Equatable {
+nonisolated struct GCalDateTime: Codable, Equatable {
     let dateTime: String?
     let date: String?
     let timeZone: String?
 }
 
-struct GCalOrganizer: Codable, Equatable {
+nonisolated struct GCalOrganizer: Codable, Equatable {
     let email: String?
 }
 
-struct GCalAttendee: Codable, Equatable {
+nonisolated struct GCalAttendee: Codable, Equatable {
     let email: String?
     let displayName: String?
     let responseStatus: String?
@@ -99,7 +99,7 @@ struct GCalAttendee: Codable, Equatable {
     }
 }
 
-struct GCalAttachment: Codable, Equatable {
+nonisolated struct GCalAttachment: Codable, Equatable {
     let fileUrl: String?
     let title: String?
     let mimeType: String?
@@ -107,11 +107,11 @@ struct GCalAttachment: Codable, Equatable {
     let fileId: String?
 }
 
-struct GCalConferenceData: Codable, Equatable {
+nonisolated struct GCalConferenceData: Codable, Equatable {
     let entryPoints: [GCalEntryPoint]?
 }
 
-struct GCalEntryPoint: Codable, Equatable {
+nonisolated struct GCalEntryPoint: Codable, Equatable {
     let uri: String?
     let entryPointType: String?
 }

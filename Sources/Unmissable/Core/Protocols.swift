@@ -4,8 +4,7 @@ import Foundation
 // MARK: - Protocol Definitions for Dependency Injection
 
 /// Protocol for overlay scheduling and display functionality
-@MainActor
-protocol OverlayManaging: ObservableObject {
+protocol OverlayManaging: AnyObject {
     var activeEvent: Event? { get }
     var isOverlayVisible: Bool { get }
     /// Computed time until meeting starts (negative if meeting has started)
@@ -26,8 +25,7 @@ extension OverlayManaging {
 }
 
 /// Protocol for meeting details popup functionality
-@MainActor
-protocol MeetingDetailsPopupManaging: ObservableObject {
+protocol MeetingDetailsPopupManaging: AnyObject {
     var isPopupVisible: Bool { get }
 
     func showPopup(for event: Event, relativeTo parentWindow: NSWindow?)
@@ -46,7 +44,6 @@ extension MeetingDetailsPopupManaging {
 
 /// Protocol for delivering macOS Notification Center alerts as a lighter
 /// alternative to the full-screen overlay.
-@MainActor
 protocol NotificationManaging {
     /// Request user authorization for notifications. Returns true if granted.
     func requestPermission() async -> Bool
@@ -62,7 +59,6 @@ protocol NotificationManaging {
 
 /// Detects the frontmost application to support smart alert suppression.
 /// When the user already has a meeting app in the foreground, the overlay is unnecessary.
-@MainActor
 protocol ForegroundAppDetecting {
     /// Whether the native app for the given provider is the frontmost application.
     func isMeetingAppInForeground(for provider: Provider) -> Bool
@@ -80,7 +76,6 @@ protocol ForegroundAppDetecting {
 typealias CalendarFetchResults = [String: Result<[Event], any Error>]
 
 /// Protocol for calendar API data fetching, abstracting the provider (Google, Apple, etc.)
-@MainActor
 protocol CalendarAPIProviding {
     var calendars: [CalendarInfo] { get }
     var events: [Event] { get }
@@ -94,7 +89,6 @@ protocol CalendarAPIProviding {
 }
 
 /// Protocol for calendar authentication, abstracting the auth mechanism (OAuth, EventKit, etc.)
-@MainActor
 protocol CalendarAuthProviding {
     var isAuthenticated: Bool { get }
     var userEmail: String? { get }

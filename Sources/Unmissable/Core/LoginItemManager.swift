@@ -2,7 +2,6 @@ import OSLog
 import ServiceManagement
 
 /// Protocol for login item registration, enabling test injection.
-@MainActor
 protocol LoginItemManaging: Sendable {
     /// Registers or unregisters the app as a login item.
     func updateRegistration(enabled: Bool)
@@ -12,7 +11,6 @@ protocol LoginItemManaging: Sendable {
 }
 
 /// Production implementation using SMAppService.
-@MainActor
 final class LoginItemManager: LoginItemManaging {
     private let logger = Logger(category: "LoginItemManager")
 
@@ -37,7 +35,6 @@ final class LoginItemManager: LoginItemManaging {
 }
 
 /// Test-safe implementation that records calls without touching the system.
-@MainActor
 final class TestSafeLoginItemManager: LoginItemManaging {
     /// All registration calls recorded in order. Empty means never called.
     /// Last element is the most recent value (replaces optional Bool tracking).

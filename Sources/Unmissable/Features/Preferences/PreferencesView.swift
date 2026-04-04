@@ -26,8 +26,8 @@ private enum PreferencesTab: Int, CaseIterable {
 }
 
 struct PreferencesView: View {
-    @EnvironmentObject
-    var appState: AppState
+    @Environment(AppState.self)
+    var appState
     @Environment(\.design)
     private var design
     @State
@@ -80,7 +80,7 @@ struct PreferencesView: View {
                     ShortcutsPreferencesView()
                 }
             }
-            .environmentObject(appState.preferences)
+            .environment(appState.preferences)
         }
         .background(design.colors.background)
         .frame(width: Self.windowWidth, height: Self.windowHeight)
@@ -90,8 +90,8 @@ struct PreferencesView: View {
 // MARK: - General Preferences
 
 struct GeneralPreferencesView: View {
-    @EnvironmentObject
-    var preferences: PreferencesManager
+    @Environment(PreferencesManager.self)
+    var preferences
     @Environment(\.design)
     private var design
 
@@ -363,8 +363,8 @@ struct GeneralPreferencesView: View {
 // MARK: - Shortcuts Preferences
 
 struct ShortcutsPreferencesView: View {
-    @EnvironmentObject
-    var preferences: PreferencesManager
+    @Environment(PreferencesManager.self)
+    var preferences
     @Environment(\.design)
     private var design
 

@@ -1,21 +1,25 @@
 import AppKit
 import Combine
 import Foundation
+import Observation
 import OSLog
 
-@MainActor
-final class AppState: ObservableObject {
+@Observable
+final class AppState {
     private let logger = Logger(category: "AppState")
 
     // MARK: - Services (from DI container)
 
+    @ObservationIgnored
     private let services: ServiceContainer
+    @ObservationIgnored
     private lazy var preferencesWindowManager = PreferencesWindowManager(appState: self)
+    @ObservationIgnored
     private lazy var onboardingWindowManager = OnboardingWindowManager(appState: self)
 
-    @Published
     var databaseError: String?
 
+    @ObservationIgnored
     private var cancellables = Set<AnyCancellable>()
 
     init(services: ServiceContainer = ServiceContainer(databaseManager: DatabaseManager())) {
@@ -26,33 +30,9 @@ final class AppState: ObservableObject {
     }
 
     private func setupBindings() {
-        let calendarService = services.calendarService
-        let preferencesManager = services.preferencesManager
-
         // Update menu bar preview when events or started events change.
-        // Combine both arrays so getNextMeeting() can detect in-progress meetings.
-        calendarService.$events
-            .sink { [weak self] events in
-                guard let self else { return }
-                let started = services.calendarService.startedEvents
-                services.menuBarPreviewManager.updateEvents(started + events)
-            }
-            .store(in: &cancellables)
-
-        calendarService.$startedEvents
-            .sink { [weak self] startedEvents in
-                guard let self else { return }
-                let upcoming = services.calendarService.events
-                services.menuBarPreviewManager.updateEvents(startedEvents + upcoming)
-            }
-            .store(in: &cancellables)
-
-        // Observe preference changes to force immediate UI updates
-        preferencesManager.$menuBarDisplayMode
-            .sink { [weak self] _ in
-                self?.objectWillChange.send()
-            }
-            .store(in: &cancellables)
+        observeCalendarEvents()
+        observeStartedEvents()
 
         // Show preferences when app is reopened with no visible windows
         NotificationCenter.default.publisher(for: .showPreferences)
@@ -62,11 +42,39 @@ final class AppState: ObservableObject {
             .store(in: &cancellables)
 
         // Reschedule events after sync updates
-        calendarService.eventsUpdated
+        services.calendarService.eventsUpdated
             .sink { [weak self] in
                 self?.rescheduleEventsAfterSync()
             }
             .store(in: &cancellables)
+    }
+
+    private func observeCalendarEvents() {
+        withObservationTracking {
+            _ = services.calendarService.events
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let events = services.calendarService.events
+                let started = services.calendarService.startedEvents
+                services.menuBarPreviewManager.updateEvents(started + events)
+                self.observeCalendarEvents()
+            }
+        }
+    }
+
+    private func observeStartedEvents() {
+        withObservationTracking {
+            _ = services.calendarService.startedEvents
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let upcoming = services.calendarService.events
+                let startedEvents = services.calendarService.startedEvents
+                services.menuBarPreviewManager.updateEvents(startedEvents + upcoming)
+                self.observeStartedEvents()
+            }
+        }
     }
 
     private func rescheduleEventsAfterSync() {

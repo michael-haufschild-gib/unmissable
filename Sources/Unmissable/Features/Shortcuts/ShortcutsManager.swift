@@ -1,10 +1,11 @@
 import AppKit
 import Foundation
 import Magnet
+import Observation
 import OSLog
 
-@MainActor
-final class ShortcutsManager: ObservableObject {
+@Observable
+final class ShortcutsManager {
     private let logger = Logger(category: "ShortcutsManager")
 
     // MARK: - Display Constants
@@ -14,9 +15,7 @@ final class ShortcutsManager: ObservableObject {
     static let dismissShortcutDisplay = "⌘⎋"
     static let joinShortcutDisplay = "⌘⏎"
 
-    @Published
     var dismissShortcut: HotKey?
-    @Published
     var joinShortcut: HotKey?
 
     private weak var overlayManager: (any OverlayManaging)?

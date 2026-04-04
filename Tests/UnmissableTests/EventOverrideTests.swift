@@ -83,6 +83,22 @@ final class EventOverrideTests: XCTestCase {
         XCTAssertTrue(overrides.isEmpty, "Empty database should return empty dictionary")
     }
 
+    // MARK: - Validation
+
+    func testSaveAlertOverride_negativeMinutes_clampedToZero() async throws {
+        try await db.saveAlertOverride(eventId: "event-1", minutes: -5)
+
+        let result = try await db.fetchAlertOverride(for: "event-1")
+        XCTAssertEqual(result, 0, "Negative minutes should be clamped to 0")
+    }
+
+    func testSaveAlertOverride_excessiveMinutes_clampedToMax() async throws {
+        try await db.saveAlertOverride(eventId: "event-1", minutes: 120)
+
+        let result = try await db.fetchAlertOverride(for: "event-1")
+        XCTAssertEqual(result, 60, "Minutes exceeding 60 should be clamped to 60")
+    }
+
     // MARK: - Override Survives Sync
 
     func testOverrideSurvivesReplaceEvents() async throws {

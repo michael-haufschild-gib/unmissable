@@ -1,7 +1,6 @@
 import Cocoa
 import OSLog
 
-@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let logger = Logger(category: "AppDelegate")
 
