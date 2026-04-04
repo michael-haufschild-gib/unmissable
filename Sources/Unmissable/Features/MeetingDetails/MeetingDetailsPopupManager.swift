@@ -66,7 +66,9 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
 
         // Fetch alert override and update popup content asynchronously
         Task {
-            let override = try? await databaseManager.fetchAlertOverride(for: event.id)
+            let override = try? await databaseManager.fetchAlertOverride(
+                for: event.id, calendarId: event.calendarId,
+            )
             guard override != nil, isPopupVisible, currentEventId == event.id else { return }
             let updatedView = MeetingDetailsView(
                 event: event,

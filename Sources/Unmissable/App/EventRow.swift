@@ -66,6 +66,11 @@ struct EventRow: View {
     @State
     private var currentOverride: Int?
 
+    /// Compound key for looking up this event's alert override.
+    private var overrideKey: String {
+        EventOverride.compoundKey(eventId: event.id, calendarId: event.calendarId)
+    }
+
     init(event: Event, linkParser: LinkParser, onEventTap: (() -> Void)? = nil) {
         self.event = event
         self.linkParser = linkParser
@@ -137,11 +142,11 @@ struct EventRow: View {
         .contextMenu {
             alertOverrideMenu
         }
-        .onChange(of: appState.alertOverrides[event.id]) { _, newValue in
+        .onChange(of: appState.alertOverrides[overrideKey]) { _, newValue in
             currentOverride = newValue
         }
         .onAppear {
-            currentOverride = appState.alertOverrides[event.id]
+            currentOverride = appState.alertOverrides[overrideKey]
         }
         .accessibilityAddTraits(.isButton)
         .accessibilityElement(children: .contain)
@@ -182,6 +187,7 @@ struct EventRow: View {
                     Task {
                         await appState.setAlertOverride(
                             for: event.id,
+                            calendarId: event.calendarId,
                             minutes: option.minutes,
                         )
                         currentOverride = option.minutes

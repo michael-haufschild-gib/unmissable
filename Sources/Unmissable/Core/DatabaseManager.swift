@@ -28,11 +28,17 @@ nonisolated protocol DatabaseManaging: Sendable {
     func deleteEventsForProvider(_ provider: CalendarProviderType) async throws
     func deleteAllDataForProvider(_ provider: CalendarProviderType) async throws
 
+    /// Merges upstream calendars for a provider, preserving user-controlled fields
+    /// (isSelected, alertMode) for existing calendars, inserting new ones with defaults,
+    /// and deleting local calendars that disappeared upstream.
+    func mergeCalendars(provider: CalendarProviderType, upstream: [CalendarInfo]) async throws
+
     // MARK: - Alert Overrides
 
-    func fetchAlertOverride(for eventId: String) async throws -> Int?
+    func fetchAlertOverride(for eventId: String, calendarId: String) async throws -> Int?
+    /// Returns all alert overrides keyed by compound key (eventId_calendarId).
     func fetchAllAlertOverrides() async throws -> [String: Int]
-    func saveAlertOverride(eventId: String, minutes: Int?) async throws
+    func saveAlertOverride(eventId: String, calendarId: String, minutes: Int?) async throws
 
     // MARK: - Search & Maintenance
 
@@ -62,18 +68,6 @@ extension DatabaseManaging {
 
 actor DatabaseManager: DatabaseManaging {
     private let logger = Logger(category: "DatabaseManager")
-
-    private static let redactedPrefixLength = 2
-    private static let redactedIdLength = 8
-
-    private static func redactedCalendarId(_ id: String) -> String {
-        if id.contains("@") {
-            let parts = id.split(separator: "@", maxSplits: 1)
-            let prefix = parts.first.map { $0.prefix(redactedPrefixLength) } ?? ""
-            return "\(prefix)***@\(parts.last ?? "***")"
-        }
-        return String(id.prefix(redactedIdLength)) + "..."
-    }
 
     private(set) var dbQueue: DatabaseQueue?
     private(set) var isInitialized: Bool = false
@@ -210,7 +204,7 @@ actor DatabaseManager: DatabaseManaging {
 
         logger
             .info(
-                "Atomically replaced events for calendar \(Self.redactedCalendarId(calendarId)): \(events.count) events saved",
+                "Atomically replaced events for calendar \(PrivacyUtils.redactedCalendarId(calendarId)): \(events.count) events saved",
             )
     }
 
@@ -277,7 +271,7 @@ actor DatabaseManager: DatabaseManaging {
             }
         }
 
-        logger.info("Deleted events for calendar: \(Self.redactedCalendarId(calendarId))")
+        logger.info("Deleted events for calendar: \(PrivacyUtils.redactedCalendarId(calendarId))")
     }
 
     func deleteOldEvents(before date: Date) async throws {
@@ -411,6 +405,59 @@ actor DatabaseManager: DatabaseManaging {
     func deleteAllDataForProvider(_ provider: CalendarProviderType) async throws {
         try await deleteEventsForProvider(provider)
         try await deleteCalendarsForProvider(provider)
+    }
+
+    func mergeCalendars(provider: CalendarProviderType, upstream: [CalendarInfo]) async throws {
+        guard let dbQueue else {
+            throw DatabaseError.notInitialized
+        }
+
+        try await withTimeout(defaultTimeout) {
+            try await dbQueue.write { db in
+                // Fetch existing calendars for this provider
+                let existing = try CalendarInfo
+                    .filter(CalendarInfo.Columns.sourceProvider == provider.rawValue)
+                    .fetchAll(db)
+                let existingById = Dictionary(uniqueKeysWithValues: existing.map { ($0.id, $0) })
+                let upstreamIds = Set(upstream.map(\.id))
+
+                // Upsert upstream calendars, preserving user-controlled fields
+                for cal in upstream {
+                    if let local = existingById[cal.id] {
+                        // Update API-controlled fields, preserve user choices
+                        let merged = CalendarInfo(
+                            id: cal.id,
+                            name: cal.name,
+                            description: cal.description,
+                            isSelected: local.isSelected,
+                            isPrimary: cal.isPrimary,
+                            colorHex: cal.colorHex,
+                            sourceProvider: cal.sourceProvider,
+                            alertMode: local.alertMode,
+                            lastSyncAt: local.lastSyncAt,
+                            createdAt: local.createdAt,
+                            updatedAt: Date(),
+                        )
+                        try merged.save(db)
+                    } else {
+                        // New calendar — insert with defaults from upstream
+                        try cal.save(db)
+                    }
+                }
+
+                // Delete calendars that disappeared upstream
+                let staleIds = Set(existingById.keys).subtracting(upstreamIds)
+                if !staleIds.isEmpty {
+                    try CalendarInfo
+                        .filter(staleIds.contains(CalendarInfo.Columns.id))
+                        .deleteAll(db)
+                }
+            }
+        }
+
+        logger.info(
+            "Merged \(upstream.count) calendars for provider \(provider.rawValue)",
+        )
     }
 
     // MARK: - Timeout Wrapper

@@ -81,10 +81,26 @@ final class NotificationManager: NSObject, NotificationManaging {
         do {
             try await UNUserNotificationCenter.current().add(request)
             logger.info("Delivered notification for event \(event.id)")
+            AppDiagnostics.record(component: "NotificationManager", phase: "deliver") {
+                [
+                    "eventId": PrivacyUtils.redactedEventId(event.id),
+                    "hasLink": "\(primaryLink != nil)",
+                ]
+            }
         } catch {
             logger.error(
                 "Failed to deliver notification for event \(event.id): \(error.localizedDescription)",
             )
+            AppDiagnostics.record(
+                component: "NotificationManager",
+                phase: "deliver",
+                outcome: .failure,
+            ) {
+                [
+                    "eventId": PrivacyUtils.redactedEventId(event.id),
+                    "error": PrivacyUtils.redactedError(error),
+                ]
+            }
         }
     }
 

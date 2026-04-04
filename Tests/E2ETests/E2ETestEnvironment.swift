@@ -132,12 +132,37 @@ final class E2ETestEnvironment {
     ) async {
         await testClock.advance(bySeconds: advanceBy)
         if !overlayManager.isOverlayVisible {
+            let dump = diagnosticDump(context: [
+                "advancedBy": "\(advanceBy)s",
+                "clockTime": "\(testClock.currentTime)",
+            ])
             XCTFail(
-                "Overlay not visible after advancing clock by \(advanceBy)s",
+                "Overlay not visible after advancing clock by \(advanceBy)s\n\n\(dump)",
                 file: file,
                 line: line,
             )
         }
+    }
+
+    // MARK: - Diagnostic Dump
+
+    /// Produces a diagnostic snapshot for debugging test failures.
+    /// Includes scheduler state, overlay state, DB counts, and recent flight recorder entries.
+    func diagnosticDump(context: [String: String] = [:]) -> String {
+        let stateSnapshot: [String: String] = [
+            "scheduledAlerts": "\(eventScheduler.scheduledAlerts.count)",
+            "alertDetails": eventScheduler.scheduledAlerts.prefix(TestConstants.diagnosticAlertLimit)
+                .map { "\($0.event.id)@\($0.triggerDate)" }
+                .joined(separator: "; "),
+            "overlayVisible": "\(overlayManager.isOverlayVisible)",
+            "activeEvent": overlayManager.activeEvent.map { PrivacyUtils.redactedEventId($0.id) } ?? "<none>",
+            "clockTime": "\(testClock.currentTime)",
+        ]
+
+        return DiagnosticsBookExporter.export(
+            stateSnapshot: stateSnapshot,
+            testContext: context,
+        )
     }
 
     // MARK: - Teardown
@@ -157,6 +182,7 @@ final class E2ETestEnvironment {
 private enum TestConstants {
     static let defaultAlertMinutes = 5
     static let overlayShowMinutesBefore = 2
+    static let diagnosticAlertLimit = 10
     static let fetchLimit = 100
     static let defaultUpcomingLimit = 50
     static let defaultStartedLimit = 10

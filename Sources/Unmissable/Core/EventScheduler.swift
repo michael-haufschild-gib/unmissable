@@ -103,6 +103,13 @@ final class EventScheduler {
         scheduleWithoutMonitoring(events: events, overlayManager: overlayManager)
         startMonitoring(overlayManager: overlayManager)
         logger.debug("Event scheduling setup completed")
+        AppDiagnostics.record(component: "EventScheduler", phase: "startScheduling") {
+            [
+                "events": "\(events.count)",
+                "alerts": "\(self.scheduledAlerts.count)",
+                "monitoring": "true",
+            ]
+        }
     }
 
     /// Schedules alerts and fires missed overlays, but does NOT start the
@@ -225,8 +232,11 @@ final class EventScheduler {
                 continue
             }
 
-            // Check for per-event alert override
-            let eventOverride = alertOverrides[event.id]
+            // Check for per-event alert override (compound key: eventId_calendarId)
+            let overrideKey = EventOverride.compoundKey(
+                eventId: event.id, calendarId: event.calendarId,
+            )
+            let eventOverride = alertOverrides[overrideKey]
 
             // Override of 0 means "no alert" — skip all scheduling for this event
             if eventOverride == 0 { continue }
@@ -287,6 +297,17 @@ final class EventScheduler {
         logger.debug(
             "Scheduled \(self.scheduledAlerts.count) alerts (including \(existingSnoozeAlerts.count) preserved snooze alerts)",
         )
+
+        AppDiagnostics.record(component: "EventScheduler", phase: "scheduleAlerts") {
+            [
+                "inputEvents": "\(events.count)",
+                "scheduledAlerts": "\(self.scheduledAlerts.count)",
+                "preservedSnoozes": "\(existingSnoozeAlerts.count)",
+                "missedAlerts": "\(missedAlertEvents.count)",
+                "skippedAllDay": "\(events.filter(\.isAllDay).count)",
+                "skippedEnded": "\(events.count(where: { $0.endDate < currentTime }))",
+            ]
+        }
 
         return missedAlertEvents
     }
@@ -427,20 +448,32 @@ final class EventScheduler {
     /// Routes an alert through the appropriate delivery channel based on the
     /// event's calendar alert mode. Snooze alerts always use overlay.
     private func handleTriggeredAlert(_ alert: ScheduledAlert, overlayManager: any OverlayManaging) {
+        let alertTypeName: String
         switch alert.alertType {
-        case .reminder:
+        case let .reminder(minutes):
+            alertTypeName = "reminder(\(minutes)min)"
             deliverAlert(for: alert.event, overlayManager: overlayManager, fromSnooze: false)
 
         case .meetingStart:
+            alertTypeName = "meetingStart"
             if preferencesManager.autoJoinEnabled, let url = linkParser.primaryLink(for: alert.event) {
                 logger.info("AUTO-JOIN: Opening meeting for event \(alert.event.id)")
                 NSWorkspace.shared.open(url)
             }
 
-        case .snooze:
+        case let .snooze(until):
+            alertTypeName = "snooze(until:\(until))"
             // Snooze always uses overlay — user explicitly asked to be reminded.
             logger.info("SNOOZE: Re-showing overlay for event \(alert.event.id)")
             overlayManager.showOverlay(for: alert.event, fromSnooze: true)
+        }
+
+        AppDiagnostics.record(component: "EventScheduler", phase: "alertTriggered") {
+            [
+                "eventId": PrivacyUtils.redactedEventId(alert.event.id),
+                "type": alertTypeName,
+                "title": PrivacyUtils.redactedTitle(alert.event.title),
+            ]
         }
     }
 
@@ -461,6 +494,16 @@ final class EventScheduler {
             let primaryLink = linkParser.primaryLink(for: event)
             guard let notificationManager else {
                 logger.error("NotificationManager unavailable — cannot deliver alert for event \(event.id)")
+                AppDiagnostics.record(
+                    component: "EventScheduler",
+                    phase: "deliverAlert",
+                    outcome: .failure,
+                ) {
+                    [
+                        "eventId": PrivacyUtils.redactedEventId(event.id),
+                        "reason": "notificationManagerUnavailable",
+                    ]
+                }
                 return
             }
             Task {
@@ -469,6 +512,14 @@ final class EventScheduler {
 
         case .none:
             logger.info("REMINDER: Suppressed for event \(event.id) (alert mode = none)")
+        }
+
+        AppDiagnostics.record(component: "EventScheduler", phase: "deliverAlert") {
+            [
+                "eventId": PrivacyUtils.redactedEventId(event.id),
+                "mode": mode.rawValue,
+                "fromSnooze": "\(fromSnooze)",
+            ]
         }
     }
 

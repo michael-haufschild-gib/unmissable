@@ -1,5 +1,5 @@
 {
-  "originHash" : "8f75fe9d54f872c1a910f46137d91f67775bebad31440e4dee7556daf8e83c07",
+  "originHash" : "f1779300affe708c646e0bd7b149e93a8c00c52238016d470b41883fbd3ea4d4",
   "pins" : [
     {
       "identity" : "appauth-ios",
@@ -44,15 +44,6 @@
       "state" : {
         "revision" : "df657bc1beba23ffd580953f183cd756b5bcd514",
         "version" : "2.4.1"
-      }
-    },
-    {
-      "identity" : "sparkle",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/sparkle-project/Sparkle.git",
-      "state" : {
-        "revision" : "21d8df80440b1ca3b65fa82e40782f1e5a9e6ba2",
-        "version" : "2.9.0"
       }
     },
     {

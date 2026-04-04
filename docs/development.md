@@ -34,7 +34,7 @@ cp Config.plist.example Config.plist
 swift build
 
 # 5. Run
-swift run
+./Scripts/run-dev.sh
 ```
 
 ---
@@ -44,7 +44,7 @@ swift run
 | Task | Command |
 |------|---------|
 | Build | `swift build` |
-| Run | `swift run` |
+| Run | `./Scripts/run-dev.sh` |
 | Test (XCTest) | `xcodebuild -scheme Unmissable -destination 'platform=macOS' test` |
 | Test (comprehensive) | `./Scripts/run-comprehensive-tests.sh` |
 | Format code | `./Scripts/format.sh` |
@@ -96,12 +96,12 @@ xcodebuild -scheme Unmissable -destination 'platform=macOS' build
 
 ### From Terminal
 ```bash
-# Debug
-swift run
-
-# From build output
-.build/debug/Unmissable
+# Debug (builds + assembles .app bundle + launches)
+./Scripts/run-dev.sh
 ```
+
+> **Note:** Do not use bare `swift run` — it produces an executable without an `.app` bundle,
+> so `UNUserNotificationCenter` and Sparkle crash on startup.
 
 ### From Xcode
 1. Open `Package.swift` in Xcode

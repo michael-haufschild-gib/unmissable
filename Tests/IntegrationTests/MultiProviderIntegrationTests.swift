@@ -115,6 +115,7 @@ final class MultiProviderIntegrationTests: XCTestCase {
         let api = MockCalendarAPIProvider()
 
         let sync = SyncManager(
+            providerType: type,
             apiService: api,
             databaseManager: databaseManager,
             preferencesManager: preferencesManager,

@@ -6,6 +6,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_: Notification) {
         logger.info("Unmissable app finished launching")
+        AppDiagnostics.record(component: "AppDelegate", phase: "launch") {
+            ["sessionId": AppDiagnostics.sessionId]
+        }
 
         // Hide dock icon for menu bar only app
         NSApp.setActivationPolicy(.accessory)
@@ -24,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_: Notification) {
         logger.info("Unmissable app will terminate")
+        AppDiagnostics.record(component: "AppDelegate", phase: "terminate")
     }
 
     func applicationShouldTerminate(_: NSApplication) -> NSApplication.TerminateReply {

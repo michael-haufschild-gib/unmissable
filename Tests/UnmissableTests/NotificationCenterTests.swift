@@ -9,15 +9,20 @@ final class NotificationCenterTests: XCTestCase {
     private var mockPreferences: PreferencesManager!
     private var overlayManager: TestSafeOverlayManager!
     private var notificationManager: TestSafeNotificationManager!
+    /// Fixed reference time for deterministic scheduling.
+    private var fixedDate: Date!
 
     @MainActor
     override func setUp() async throws {
         try await super.setUp()
+        fixedDate = Date()
         mockPreferences = TestUtilities.createTestPreferencesManager()
         mockPreferences.testOverlayShowMinutesBefore = 2
+        let capturedDate = try XCTUnwrap(fixedDate)
         eventScheduler = EventScheduler(
             preferencesManager: mockPreferences,
             linkParser: LinkParser(),
+            now: { capturedDate },
         )
         overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         notificationManager = TestSafeNotificationManager()
@@ -29,6 +34,7 @@ final class NotificationCenterTests: XCTestCase {
         mockPreferences = nil
         overlayManager = nil
         notificationManager = nil
+        fixedDate = nil
         super.tearDown()
     }
 
@@ -107,7 +113,7 @@ final class NotificationCenterTests: XCTestCase {
     @MainActor
     func testDefaultAlertMode_usesOverlay() async {
         let event = TestUtilities.createTestEvent(
-            startDate: Date().addingTimeInterval(60),
+            startDate: fixedDate.addingTimeInterval(60),
             calendarId: "cal-1",
         )
 
@@ -130,7 +136,7 @@ final class NotificationCenterTests: XCTestCase {
 
         let event = TestUtilities.createTestEvent(
             id: "evt-notif",
-            startDate: Date().addingTimeInterval(60),
+            startDate: fixedDate.addingTimeInterval(60),
             calendarId: "cal-notif",
         )
 
@@ -157,7 +163,7 @@ final class NotificationCenterTests: XCTestCase {
         eventScheduler.updateCalendarAlertModes(["cal-silent": .none])
 
         let event = TestUtilities.createTestEvent(
-            startDate: Date().addingTimeInterval(60),
+            startDate: fixedDate.addingTimeInterval(60),
             calendarId: "cal-silent",
         )
 
@@ -182,7 +188,7 @@ final class NotificationCenterTests: XCTestCase {
 
         let event = TestUtilities.createTestEvent(
             id: "snooze-evt",
-            startDate: Date().addingTimeInterval(300),
+            startDate: fixedDate.addingTimeInterval(300),
             calendarId: "cal-notif",
         )
 
@@ -215,17 +221,17 @@ final class NotificationCenterTests: XCTestCase {
 
         let overlayEvent = TestUtilities.createTestEvent(
             id: "evt-overlay",
-            startDate: Date().addingTimeInterval(60),
+            startDate: fixedDate.addingTimeInterval(60),
             calendarId: "cal-overlay",
         )
         let notifEvent = TestUtilities.createTestEvent(
             id: "evt-notif",
-            startDate: Date().addingTimeInterval(60),
+            startDate: fixedDate.addingTimeInterval(60),
             calendarId: "cal-notif",
         )
         let silentEvent = TestUtilities.createTestEvent(
             id: "evt-silent",
-            startDate: Date().addingTimeInterval(60),
+            startDate: fixedDate.addingTimeInterval(60),
             calendarId: "cal-silent",
         )
 
@@ -259,7 +265,7 @@ final class NotificationCenterTests: XCTestCase {
 
         let event = TestUtilities.createTestEvent(
             id: "unknown-evt",
-            startDate: Date().addingTimeInterval(60),
+            startDate: fixedDate.addingTimeInterval(60),
             calendarId: "unknown-cal",
         )
 
@@ -277,7 +283,7 @@ final class NotificationCenterTests: XCTestCase {
     @MainActor
     func testUpdateCalendarAlertModes_doesNotReschedule() async {
         let event = TestUtilities.createTestEvent(
-            startDate: Date().addingTimeInterval(600),
+            startDate: fixedDate.addingTimeInterval(600),
             calendarId: "cal-1",
         )
 

@@ -31,7 +31,7 @@ cp Config.plist.example Config.plist
 # Edit Config.plist with your Google OAuth Client ID
 
 # Build and run
-swift build && swift run
+./Scripts/run-dev.sh
 ```
 
 Get OAuth credentials from [Google Cloud Console](https://console.developers.google.com/) — Enable Calendar API — Create OAuth 2.0 credentials.

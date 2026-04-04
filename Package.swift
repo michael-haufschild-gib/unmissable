@@ -26,8 +26,6 @@ let package = Package(
         // Deterministic clocks and concurrency testing utilities
         .package(url: "https://github.com/pointfreeco/swift-clocks.git", from: "1.0.0"),
         .package(url: "https://github.com/pointfreeco/swift-concurrency-extras.git", from: "1.0.0"),
-        // Auto-updates
-        .package(url: "https://github.com/sparkle-project/Sparkle.git", from: "2.9.0"),
         // Note: SwiftFormat and SwiftLint installed via Homebrew (brew install swiftformat swiftlint)
     ],
     targets: [
@@ -38,7 +36,6 @@ let package = Package(
                 .product(name: "GRDB", package: "GRDB.swift"),
                 .product(name: "KeychainAccess", package: "KeychainAccess"),
                 .product(name: "Magnet", package: "Magnet"),
-                .product(name: "Sparkle", package: "Sparkle"),
             ],
             path: "Sources/Unmissable",
             swiftSettings: [

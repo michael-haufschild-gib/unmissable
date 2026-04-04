@@ -84,6 +84,12 @@ final class AppState {
     private func rescheduleEventsAfterSync() {
         let events = services.calendarService.events
         logger.debug("Rescheduling \(events.count) events after sync")
+        AppDiagnostics.record(component: "AppState", phase: "rescheduleAfterSync") {
+            [
+                "eventCount": "\(events.count)",
+                "overrideCount": "\(self.alertOverrides.count)",
+            ]
+        }
 
         Task {
             await loadAlertOverrides()
@@ -96,7 +102,13 @@ final class AppState {
     }
 
     private func checkInitialState() {
+        let flow = AppDiagnostics.startFlow("initialState", component: "AppState")
         logger.debug("Checking initial state")
+
+        // Register notification categories now that the app bundle proxy exists.
+        // Cannot be done in ServiceContainer.init because UNUserNotificationCenter
+        // requires a bundle proxy that isn't available until the app is running.
+        services.notificationManager.registerCategories()
 
         // Sync login item preference with system state (user may have
         // changed it in System Settings > General > Login Items)
@@ -104,25 +116,43 @@ final class AppState {
 
         // First-time users see the onboarding flow; returning users get the
         // accessibility-permission prompt (no-op if already granted).
-        if !services.preferencesManager.hasCompletedOnboarding {
+        let hasCompletedOnboarding = services.preferencesManager.hasCompletedOnboarding
+        if !hasCompletedOnboarding {
             logger.info("First launch detected — showing onboarding")
             onboardingWindowManager.showOnboarding()
         } else {
             requestAccessibilityPermission()
         }
 
+        AppDiagnostics.record(component: "AppState", phase: "initialChecks") {
+            ["onboardingComplete": "\(hasCompletedOnboarding)"]
+        }
+
         Task {
             if let dbError = await services.databaseManager.initializationError {
                 logger.error("Database initialization failed: \(dbError)")
                 databaseError = dbError
+                AppDiagnostics.endFlow(flow, component: "AppState", outcome: .failure) {
+                    ["reason": "dbInitFailed", "error": PrivacyUtils.redactedErrorString(dbError)]
+                }
+                return
             }
 
             await services.calendarService.checkConnectionStatus()
-            if services.calendarService.isConnected {
+            let isConnected = services.calendarService.isConnected
+            let providerCount = services.calendarService.connectedProviders.count
+            if isConnected {
                 logger.info("Calendar connected, starting sync")
                 await self.startPeriodicSync()
             } else {
                 logger.debug("Not connected to calendar")
+            }
+
+            AppDiagnostics.endFlow(flow, component: "AppState") {
+                [
+                    "calendarConnected": "\(isConnected)",
+                    "providers": "\(providerCount)",
+                ]
             }
         }
     }
@@ -216,16 +246,6 @@ final class AppState {
         services.calendarService
     }
 
-    // MARK: - Update Management
-
-    var canCheckForUpdates: Bool {
-        services.updateManager.canCheckForUpdates
-    }
-
-    func checkForUpdates() {
-        services.updateManager.checkForUpdates()
-    }
-
     func showPreferences() {
         preferencesWindowManager.showPreferences()
     }
@@ -288,10 +308,11 @@ final class AppState {
     /// Sets or clears a per-event alert timing override.
     /// Passing `nil` removes the override (reverts to default timing).
     /// Passing `0` suppresses all alerts for the event.
-    func setAlertOverride(for eventId: String, minutes: Int?) async {
+    func setAlertOverride(for eventId: String, calendarId: String, minutes: Int?) async {
         do {
             try await services.databaseManager.saveAlertOverride(
                 eventId: eventId,
+                calendarId: calendarId,
                 minutes: minutes,
             )
             await loadAlertOverrides()
@@ -323,17 +344,29 @@ final class AppState {
     }
 
     private func startPeriodicSync() async {
+        let flow = AppDiagnostics.startFlow("startPeriodicSync", component: "AppState")
+
         await services.calendarService.checkConnectionStatus()
         await loadAlertOverrides()
         loadCalendarAlertModes()
 
+        let eventCount = services.calendarService.events.count
         services.eventScheduler.startScheduling(
             events: services.calendarService.events,
             overlayManager: services.overlayManager,
         )
 
-        if services.calendarService.isConnected {
-            services.calendarService.primarySync?.startPeriodicSync()
+        let isConnected = services.calendarService.isConnected
+        if isConnected {
+            services.calendarService.startAllPeriodicSync()
+        }
+
+        AppDiagnostics.endFlow(flow, component: "AppState") {
+            [
+                "events": "\(eventCount)",
+                "connected": "\(isConnected)",
+                "overrides": "\(self.alertOverrides.count)",
+            ]
         }
     }
 }

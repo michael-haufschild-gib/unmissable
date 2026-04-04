@@ -14,6 +14,8 @@ final class SyncManager {
     var retryCount: Int = 0
 
     @ObservationIgnored
+    private let providerType: CalendarProviderType
+    @ObservationIgnored
     private let apiService: any CalendarAPIProviding
     @ObservationIgnored
     private let databaseManager: any DatabaseManaging
@@ -72,24 +74,13 @@ final class SyncManager {
     /// Jitter range upper bound for retry delay randomization.
     private static let jitterUpperBound: Double = 1.2
 
-    /// Redacts a calendar ID for logging — Google Calendar IDs often contain emails.
-    private static let redactedPrefixLength = 2
-    private static let redactedIdLength = 8
-
-    private static func redactedCalendarId(_ id: String) -> String {
-        if id.contains("@") {
-            let parts = id.split(separator: "@", maxSplits: 1)
-            let prefix = parts.first.map { $0.prefix(redactedPrefixLength) } ?? ""
-            return "\(prefix)***@\(parts.last ?? "***")"
-        }
-        return String(id.prefix(redactedIdLength)) + "..."
-    }
-
     init(
+        providerType: CalendarProviderType,
         apiService: any CalendarAPIProviding,
         databaseManager: any DatabaseManaging,
         preferencesManager: PreferencesManager,
     ) {
+        self.providerType = providerType
         self.apiService = apiService
         self.databaseManager = databaseManager
         self.preferencesManager = preferencesManager
@@ -230,16 +221,20 @@ final class SyncManager {
     func performSync(isManualSync: Bool = false) async {
         guard shouldStartSync(isManualSync: isManualSync) else { return }
 
+        let flow = AppDiagnostics.startFlow("sync", component: "SyncManager")
         syncStatus = .syncing
         logger.debug("Starting calendar sync (attempt \(self.retryCount + 1))")
 
         let selectedCalendarIds: [String]
         do {
-            let calendars = try await databaseManager.fetchCalendars()
+            let calendars = try await databaseManager.fetchCalendars(for: providerType)
             selectedCalendarIds = calendars.filter(\.isSelected).map(\.id)
         } catch {
             logger.error("Database read error fetching calendars: \(error.localizedDescription)")
             syncStatus = .error("Database read error: \(error.localizedDescription)")
+            AppDiagnostics.endFlow(flow, component: "SyncManager", outcome: .failure) {
+                ["reason": "dbReadError", "error": PrivacyUtils.redactedError(error)]
+            }
             return
         }
 
@@ -247,21 +242,71 @@ final class SyncManager {
             logger.warning("No calendars selected for sync")
             syncStatus = .idle
             updateNextSyncTime()
+            AppDiagnostics.endFlow(flow, component: "SyncManager", outcome: .skipped) {
+                ["reason": "noCalendarsSelected"]
+            }
             return
         }
 
-        do {
-            let results = await fetchEventsFromAPI(for: selectedCalendarIds)
+        await executeSyncCycle(
+            calendarIds: selectedCalendarIds,
+            flow: flow,
+            isManualSync: isManualSync,
+        )
+    }
 
-            let totalEventCount = results.values.reduce(0) { count, result in
-                if case let .success(events) = result { return count + events.count }
-                return count
+    /// Fetches events for the given calendars, logs diagnostics, and saves results.
+    private func executeSyncCycle(
+        calendarIds: [String],
+        flow: FlowContext,
+        isManualSync: Bool,
+    ) async {
+        AppDiagnostics.record(
+            component: "SyncManager",
+            phase: "sync.preconditions",
+            flowId: flow.flowId,
+        ) {
+            [
+                "provider": self.providerType.rawValue,
+                "selectedCalendars": "\(calendarIds.count)",
+                "attempt": "\(self.retryCount + 1)",
+                "isManual": "\(isManualSync)",
+            ]
+        }
+
+        do {
+            let results = await fetchEventsFromAPI(for: calendarIds)
+            var totalEventCount = 0
+            var failCount = 0
+            for result in results.values {
+                switch result {
+                case let .success(events): totalEventCount += events.count
+                case .failure: failCount += 1
+                }
             }
-            let allSucceeded = results.values.allSatisfy { if case .success = $0 { return true }
-                return false
-            }
-            let allFailed = results.values.allSatisfy { if case .failure = $0 { return true }
-                return false
+            let allSucceeded = failCount == 0
+            let allFailed = failCount == results.count
+
+            AppDiagnostics.record(
+                component: "SyncManager",
+                phase: "sync.fetchResults",
+                flowId: flow.flowId,
+            ) {
+                var meta: [String: String] = [
+                    "totalEvents": "\(totalEventCount)",
+                    "allSucceeded": "\(allSucceeded)",
+                    "allFailed": "\(allFailed)",
+                ]
+                for (calId, result) in results {
+                    let key = PrivacyUtils.redactedCalendarId(calId)
+                    switch result {
+                    case let .success(events):
+                        meta["cal:\(key)"] = "ok(\(events.count))"
+                    case let .failure(error):
+                        meta["cal:\(key)"] = "fail(\(PrivacyUtils.redactedError(error)))"
+                    }
+                }
+                return meta
             }
 
             if allFailed {
@@ -273,17 +318,23 @@ final class SyncManager {
             }
 
             if totalEventCount == 0, allSucceeded {
-                await handleAllEmptySuccess(for: selectedCalendarIds)
+                await handleAllEmptySuccess(for: calendarIds)
+                AppDiagnostics.endFlow(flow, component: "SyncManager") {
+                    ["outcome": "allEmpty", "calendars": "\(calendarIds.count)"]
+                }
                 return
             }
 
-            await saveAndFinalize(
-                results: results,
-                selectedCalendarIds: selectedCalendarIds,
-            )
+            await saveAndFinalize(results: results, selectedCalendarIds: calendarIds)
+            AppDiagnostics.endFlow(flow, component: "SyncManager") {
+                ["events": "\(totalEventCount)", "calendars": "\(calendarIds.count)"]
+            }
         } catch {
             logger.error("Sync failed: \(error.localizedDescription)")
             handleSyncError(error)
+            AppDiagnostics.endFlow(flow, component: "SyncManager", outcome: .failure) {
+                ["error": PrivacyUtils.redactedError(error)]
+            }
         }
     }
 
@@ -364,7 +415,7 @@ final class SyncManager {
                     try await databaseManager.replaceEvents(for: calendarId, with: [])
                 } catch {
                     logger.error(
-                        "Failed to clear events for calendar \(Self.redactedCalendarId(calendarId)): \(error.localizedDescription)",
+                        "Failed to clear events for calendar \(PrivacyUtils.redactedCalendarId(calendarId)): \(error.localizedDescription)",
                     )
                 }
             }
@@ -439,7 +490,7 @@ final class SyncManager {
                 // follow the contract. Preserve cache defensively.
                 logger
                     .warning(
-                        "Calendar \(Self.redactedCalendarId(calendarId)) missing from API results, preserving cache",
+                        "Calendar \(PrivacyUtils.redactedCalendarId(calendarId)) missing from API results, preserving cache",
                     )
                 continue
             }
@@ -452,13 +503,13 @@ final class SyncManager {
                 } catch {
                     dbFailedCalendars.append(calendarId)
                     logger.error(
-                        "Failed to save events for calendar \(Self.redactedCalendarId(calendarId)): \(error.localizedDescription)",
+                        "Failed to save events for calendar \(PrivacyUtils.redactedCalendarId(calendarId)): \(error.localizedDescription)",
                     )
                 }
 
             case let .failure(error):
                 logger.debug(
-                    "API failed for calendar \(Self.redactedCalendarId(calendarId)), preserving cache: \(error.localizedDescription)",
+                    "API failed for calendar \(PrivacyUtils.redactedCalendarId(calendarId)), preserving cache: \(error.localizedDescription)",
                 )
             }
         }
@@ -554,39 +605,5 @@ final class SyncManager {
     func forceSyncNow() async {
         logger.debug("Force sync requested")
         await performSync(isManualSync: true)
-    }
-
-    // MARK: - Database Operations
-
-    func getUpcomingEvents(limit: Int = 10) async throws -> [Event] {
-        try await databaseManager.fetchUpcomingEvents(limit: limit)
-    }
-
-    func getEventsInRange(from startDate: Date, to endDate: Date) async throws -> [Event] {
-        try await databaseManager.fetchEvents(from: startDate, to: endDate)
-    }
-
-    func searchEvents(query: String) async throws -> [Event] {
-        try await databaseManager.searchEvents(query: query)
-    }
-
-    func performDatabaseMaintenance() async {
-        logger.debug("Performing database maintenance")
-        do {
-            try await databaseManager.performMaintenance()
-        } catch {
-            logger.error("Database maintenance failed: \(error.localizedDescription)")
-        }
-    }
-}
-
-enum SyncError: LocalizedError {
-    case apiFetchFailed(String)
-
-    var errorDescription: String? {
-        switch self {
-        case let .apiFetchFailed(reason):
-            "Calendar sync failed: \(reason)"
-        }
     }
 }
