@@ -161,49 +161,63 @@ final class MultiProviderIntegrationTests: XCTestCase {
         XCTAssertFalse(calendarService.isConnected)
     }
 
+    // MARK: - Observation Yield
+
+    // swiftlint:disable no_raw_task_sleep_in_tests - observation yield infrastructure
+    private func yieldToObservation() async {
+        try? await Task.sleep(for: .milliseconds(10))
+    }
+
+    // swiftlint:enable no_raw_task_sleep_in_tests
+
     // MARK: - Aggregated Sync Status: One Syncing, One Idle
 
-    // Sync status aggregation is now synchronous (using the delivered Combine value
-    // directly instead of re-reading the stale willSet property), so no async polling
-    // is needed — the aggregate updates inline when the provider status changes.
+    // With @Observable, sync status observation uses withObservationTracking + Task,
+    // so aggregation is async (deferred to the next MainActor turn). Tests must await.
 
-    func testSyncStatusReportsSyncingWhenOneProviderIsSyncing() {
+    func testSyncStatusReportsSyncingWhenOneProviderIsSyncing() async {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         injectProvider(.apple, authenticated: true)
 
         googleSync.syncStatus = .syncing
+        await yieldToObservation()
 
         XCTAssertEqual(calendarService.syncStatus, .syncing)
     }
 
-    func testSyncStatusReturnsToIdleWhenAllProvidersIdle() {
+    func testSyncStatusReturnsToIdleWhenAllProvidersIdle() async {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         injectProvider(.apple, authenticated: true)
 
         googleSync.syncStatus = .syncing
+        await yieldToObservation()
         XCTAssertEqual(calendarService.syncStatus, .syncing)
 
         googleSync.syncStatus = .idle
+        await yieldToObservation()
         XCTAssertEqual(calendarService.syncStatus, .idle)
     }
 
     // MARK: - Aggregated Sync Status: Error Propagation
 
-    func testSyncStatusReportsErrorWhenOneProviderHasError() {
+    func testSyncStatusReportsErrorWhenOneProviderHasError() async {
         injectProvider(.google, authenticated: true)
         let (_, _, appleSync) = injectProvider(.apple, authenticated: true)
 
         appleSync.syncStatus = .error("Apple Calendar sync failed")
+        await yieldToObservation()
 
         XCTAssertEqual(calendarService.syncStatus, .error("Apple Calendar sync failed"))
     }
 
-    func testSyncingTakesPriorityOverError() {
+    func testSyncingTakesPriorityOverError() async {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         let (_, _, appleSync) = injectProvider(.apple, authenticated: true)
 
         appleSync.syncStatus = .error("Some error")
+        await yieldToObservation()
         googleSync.syncStatus = .syncing
+        await yieldToObservation()
 
         XCTAssertEqual(calendarService.syncStatus, .syncing)
     }
@@ -236,22 +250,25 @@ final class MultiProviderIntegrationTests: XCTestCase {
 
     // MARK: - Sync Status Transitions
 
-    func testBothProvidersSyncing_reportsSync() {
+    func testBothProvidersSyncing_reportsSync() async {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         let (_, _, appleSync) = injectProvider(.apple, authenticated: true)
 
         googleSync.syncStatus = .syncing
         appleSync.syncStatus = .syncing
+        await yieldToObservation()
 
         XCTAssertEqual(calendarService.syncStatus, .syncing)
     }
 
-    func testOneProviderSyncingOneError_reportsSyncing() {
+    func testOneProviderSyncingOneError_reportsSyncing() async {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         let (_, _, appleSync) = injectProvider(.apple, authenticated: true)
 
         googleSync.syncStatus = .syncing
+        await yieldToObservation()
         appleSync.syncStatus = .error("Apple error")
+        await yieldToObservation()
 
         XCTAssertEqual(
             calendarService.syncStatus,
@@ -260,12 +277,13 @@ final class MultiProviderIntegrationTests: XCTestCase {
         )
     }
 
-    func testBothProvidersError_reportsFirstError() {
+    func testBothProvidersError_reportsFirstError() async {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         let (_, _, appleSync) = injectProvider(.apple, authenticated: true)
 
         googleSync.syncStatus = .error("Google error")
         appleSync.syncStatus = .error("Apple error")
+        await yieldToObservation()
 
         // Should report one of the errors
         if case .error = calendarService.syncStatus {

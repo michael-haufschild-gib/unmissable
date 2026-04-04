@@ -146,10 +146,9 @@ final class PreferenceGatedFlowsE2ETests: XCTestCase {
         // Toggle sound on — rescheduling should create additional alert
         env.preferencesManager.setPlayAlertSound(true)
 
-        // Give Combine observer time to fire its rescheduling Task.
-        // Task.yield() alone is insufficient in Swift 6.3 — the Combine
-        // pipeline dispatches a Task { @MainActor in ... } that needs
-        // multiple scheduling cycles to run.
+        // Give @Observable observation time to propagate.
+        // A single yield is insufficient — the observation pipeline dispatches
+        // a Task that needs multiple scheduling cycles to complete.
         for _ in 0 ..< 10 {
             // swiftlint:disable:next no_raw_task_sleep_in_tests
             try await Task.sleep(for: .milliseconds(10))

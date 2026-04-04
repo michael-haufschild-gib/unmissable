@@ -1,20 +1,20 @@
-import Combine
 import Foundation
+import Observation
 import OSLog
 
-@MainActor
-final class MenuBarPreviewManager: ObservableObject {
+@Observable
+final class MenuBarPreviewManager {
     private let logger = Logger(category: "MenuBarPreviewManager")
 
-    @Published
     var menuBarText: String?
-    @Published
     var shouldShowIcon: Bool = true
 
+    @ObservationIgnored
     private let preferencesManager: PreferencesManager
+    @ObservationIgnored
     private var events: [Event] = []
+    @ObservationIgnored
     private var timerTask: Task<Void, Never>?
-    private var cancellables = Set<AnyCancellable>()
 
     /// Maximum characters shown for a meeting name before truncation.
     private static let maxMeetingNameLength = 12
@@ -33,15 +33,21 @@ final class MenuBarPreviewManager: ObservableObject {
     }
 
     private func setupBindings() {
-        // Observe preference changes - this should IMMEDIATELY update the display
-        preferencesManager.$menuBarDisplayMode
-            .sink { [weak self] newMode in
-                self?.handlePreferenceChange(newMode)
-            }
-            .store(in: &cancellables)
-
+        observeMenuBarDisplayMode()
         // Initial update
         updateMenuBarDisplay()
+    }
+
+    private func observeMenuBarDisplayMode() {
+        withObservationTracking {
+            _ = preferencesManager.menuBarDisplayMode
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.handlePreferenceChange(preferencesManager.menuBarDisplayMode)
+                self.observeMenuBarDisplayMode()
+            }
+        }
     }
 
     private func handlePreferenceChange(_ newMode: MenuBarDisplayMode) {

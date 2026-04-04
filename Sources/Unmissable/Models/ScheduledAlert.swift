@@ -1,6 +1,6 @@
 import Foundation
 
-struct ScheduledAlert: Identifiable, Equatable {
+nonisolated struct ScheduledAlert: Identifiable, Equatable {
     let id = UUID()
     let event: Event
     let triggerDate: Date

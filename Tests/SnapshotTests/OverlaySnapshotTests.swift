@@ -70,7 +70,7 @@ final class OverlaySnapshotTests: XCTestCase {
             onSnooze: { _ in },
             isFromSnooze: isFromSnooze,
         )
-        .environmentObject(preferencesManager)
+        .environment(preferencesManager)
         .themed(themeManager: themeManager)
         .frame(width: 1200, height: 800)
 

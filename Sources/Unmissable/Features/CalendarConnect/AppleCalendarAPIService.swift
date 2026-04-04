@@ -1,13 +1,16 @@
 import EventKit
 import Foundation
+import Observation
 import OSLog
 
 /// Fetches calendars and events from macOS Calendar via EventKit.
 /// Supports iCloud, Exchange, CalDAV, and any other source configured in System Settings.
-@MainActor
-final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
+@Observable
+final class AppleCalendarAPIService: CalendarAPIProviding {
     private let logger = Logger(category: "AppleCalendarAPI")
+    @ObservationIgnored
     private let eventStore: EKEventStore
+    @ObservationIgnored
     private let linkParser: LinkParser
 
     // MARK: - Constants
@@ -19,11 +22,8 @@ final class AppleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     private static let colorComponentScale: CGFloat = 255
     private static let minColorComponents = 3
 
-    @Published
     var calendars: [CalendarInfo] = []
-    @Published
     var events: [Event] = []
-    @Published
     var lastError: String?
 
     init(eventStore: EKEventStore = EKEventStore(), linkParser: LinkParser) {

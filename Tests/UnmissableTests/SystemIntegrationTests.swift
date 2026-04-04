@@ -285,7 +285,7 @@ final class SystemIntegrationTests: XCTestCase {
         XCTAssertTrue(hasSnoozeAlert)
     }
 
-    func testConcurrentOperations() async throws {
+    func testSequentialOperationsProduceConsistentState() async throws {
         let events = (0 ..< 10).map { index in
             TestUtilities.createTestEvent(
                 id: "concurrent-\(index)",
@@ -293,23 +293,23 @@ final class SystemIntegrationTests: XCTestCase {
             )
         }
 
-        // Start multiple operations concurrently - capture references to avoid Sendable warnings
-        let scheduler = try XCTUnwrap(eventScheduler)
-        let overlay = try XCTUnwrap(overlayManager)
-        let prefs = try XCTUnwrap(mockPreferences)
-
-        async let schedulingTask: Void = scheduler.startScheduling(
-            events: events, overlayManager: overlay,
+        // Run operations sequentially — all are MainActor-isolated
+        await eventScheduler.startScheduling(
+            events: events, overlayManager: overlayManager,
         )
-        async let overlayTask: Void = overlay.showOverlay(for: events[0])
-        async let preferencesTask: Void = await MainActor.run {
-            prefs.testOverlayShowMinutesBefore = 8
-        }
+        overlayManager.showOverlay(for: events[0])
+        mockPreferences.testOverlayShowMinutesBefore = 8
 
-        // Wait for all operations to complete
-        await schedulingTask
-        await overlayTask
-        await preferencesTask
+        // Wait for rescheduling to propagate after preference change
+        let scheduler = try XCTUnwrap(eventScheduler)
+        try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
+            scheduler.scheduledAlerts.contains { alert in
+                if case let .reminder(minutes) = alert.alertType {
+                    return minutes == 8
+                }
+                return false
+            }
+        }
 
         // System should be in a consistent state
         XCTAssertTrue(overlayManager.isOverlayVisible)

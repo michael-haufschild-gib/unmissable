@@ -2,7 +2,78 @@ import Foundation
 import GRDB
 import OSLog
 
-private let extensionLogger = Logger(category: "DatabaseManager")
+private nonisolated let extensionLogger = Logger(category: "DatabaseManager")
+
+// MARK: - Alert Overrides
+
+/// Valid range for per-event alert overrides (minutes before start).
+/// Matches PreferencesManager's alertMinutesRange. Zero means "suppress all alerts".
+private nonisolated let alertOverrideMinutesRange = 0 ... 60
+private nonisolated let redactedIdPrefixLength = 4
+
+extension DatabaseManager {
+    func fetchAlertOverride(for eventId: String) async throws -> Int? {
+        guard let dbQueue else {
+            throw DatabaseError.notInitialized
+        }
+
+        return try await withTimeout(defaultTimeout) {
+            try await dbQueue.read { db in
+                let override = try EventOverride.fetchOne(
+                    db,
+                    key: eventId,
+                )
+                return override?.alertMinutes
+            }
+        }
+    }
+
+    func fetchAllAlertOverrides() async throws -> [String: Int] {
+        guard let dbQueue else {
+            throw DatabaseError.notInitialized
+        }
+
+        return try await withTimeout(defaultTimeout) {
+            try await dbQueue.read { db in
+                let overrides = try EventOverride.fetchAll(db)
+                return Dictionary(
+                    uniqueKeysWithValues: overrides.map { ($0.eventId, $0.alertMinutes) },
+                )
+            }
+        }
+    }
+
+    func saveAlertOverride(eventId: String, minutes: Int?) async throws {
+        guard let dbQueue else {
+            throw DatabaseError.notInitialized
+        }
+
+        // Clamp to valid range (defense-in-depth — UI already constrains values)
+        let clampedMinutes: Int? = minutes.map {
+            min(max($0, alertOverrideMinutesRange.lowerBound), alertOverrideMinutesRange.upperBound)
+        }
+        if let minutes, let clamped = clampedMinutes, minutes != clamped {
+            let redactedId = String(eventId.prefix(redactedIdPrefixLength)) + "…"
+            extensionLogger.warning(
+                "Alert override \(minutes) clamped to \(clamped) for event \(redactedId)",
+            )
+        }
+
+        try await withTimeout(defaultTimeout) {
+            try await dbQueue.write { db in
+                if let clampedMinutes {
+                    let override = EventOverride(eventId: eventId, alertMinutes: clampedMinutes)
+                    try override.save(db)
+                } else {
+                    _ = try EventOverride.deleteOne(db, key: eventId)
+                }
+            }
+        }
+
+        let action = clampedMinutes.map { "\($0) minutes" } ?? "cleared"
+        extensionLogger.info("Alert override updated: \(action)")
+    }
+}
 
 // MARK: - Search & Maintenance
 
@@ -59,10 +130,24 @@ extension DatabaseManager {
         ) ?? Date()
         try await deleteOldEvents(before: cutoffDate)
 
-        // Vacuum database outside a transaction (VACUUM cannot run inside a transaction).
-        // Use longer timeout as VACUUM can take time on large DBs.
+        // Clean up orphaned alert overrides whose events no longer exist
         guard let dbQueue else { return }
 
+        try await withTimeout(defaultTimeout) {
+            try await dbQueue.write { db in
+                let deletedCount = try EventOverride
+                    .filter(sql: "eventId NOT IN (SELECT id FROM \(Event.databaseTableName))")
+                    .deleteAll(db)
+                if deletedCount > 0 {
+                    extensionLogger.info(
+                        "Cleaned up \(deletedCount) orphaned alert overrides",
+                    )
+                }
+            }
+        }
+
+        // Vacuum database outside a transaction (VACUUM cannot run inside a transaction).
+        // Use longer timeout as VACUUM can take time on large DBs.
         try await withTimeout(Self.vacuumTimeoutSeconds) {
             try await dbQueue.barrierWriteWithoutTransaction { db in
                 try db.execute(sql: "VACUUM")
@@ -78,6 +163,7 @@ extension DatabaseManager {
         }
 
         try dbQueue.write { db in
+            try db.execute(sql: "DROP TABLE IF EXISTS event_overrides")
             try db.execute(sql: "DROP TABLE IF EXISTS events_fts")
             try db.execute(sql: "DROP TABLE IF EXISTS events")
             try db.execute(sql: "DROP TABLE IF EXISTS calendars")
@@ -146,7 +232,7 @@ extension DatabaseManager {
 
 // MARK: - Error Types
 
-enum DatabaseError: LocalizedError {
+nonisolated enum DatabaseError: LocalizedError {
     case notInitialized
     case migrationFailed(String)
     case timeout

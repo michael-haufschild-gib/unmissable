@@ -2,7 +2,7 @@ import Foundation
 import GRDB
 import OSLog
 
-private let logger = Logger(category: "DatabaseModels")
+private nonisolated let logger = Logger(category: "DatabaseModels")
 
 // MARK: - Cached JSON Coders
 
@@ -10,13 +10,13 @@ private let logger = Logger(category: "DatabaseModels")
 /// are thread-safe when their configuration is not mutated between calls — no custom
 /// strategies are set here, so sharing a single instance avoids hundreds of allocations
 /// per sync cycle.
-private let cachedDecoder = JSONDecoder()
-private let cachedEncoder = JSONEncoder()
+private nonisolated let cachedDecoder = JSONDecoder()
+private nonisolated let cachedEncoder = JSONEncoder()
 
 // MARK: - JSON Column Helpers
 
 /// Decodes a JSON-encoded string column into a Decodable value, returning `defaultValue` on failure.
-private func decodeJSONColumn<T: Decodable>(
+private nonisolated func decodeJSONColumn<T: Decodable>(
     _ row: Row, _ column: Column, default defaultValue: T,
 ) -> T {
     let raw = row[column] as? String ?? "[]"
@@ -30,13 +30,13 @@ private func decodeJSONColumn<T: Decodable>(
 }
 
 /// Decodes a JSON-encoded `[String]` column into `[URL]`, dropping unparseable entries.
-private func decodeJSONURLColumn(_ row: Row, _ column: Column) -> [URL] {
+private nonisolated func decodeJSONURLColumn(_ row: Row, _ column: Column) -> [URL] {
     let strings: [String] = decodeJSONColumn(row, column, default: [])
     return strings.compactMap { URL(string: $0) }
 }
 
 /// Encodes an Encodable value as a JSON string into a persistence container column.
-private func encodeJSONColumn(
+private nonisolated func encodeJSONColumn(
     _ value: some Encodable, into container: inout PersistenceContainer, _ column: Column,
 ) {
     do {
@@ -49,13 +49,13 @@ private func encodeJSONColumn(
 }
 
 /// Encodes `[URL]` as a JSON `[String]` into a persistence container column.
-private func encodeJSONURLColumn(
+private nonisolated func encodeJSONURLColumn(
     _ value: [URL], into container: inout PersistenceContainer, _ column: Column,
 ) {
     encodeJSONColumn(value.map(\.absoluteString), into: &container, column)
 }
 
-extension Event {
+nonisolated extension Event {
     static let databaseTableName = "events"
 
     enum Columns {
@@ -136,9 +136,9 @@ extension Event {
     }
 }
 
-extension Event: FetchableRecord, PersistableRecord {}
+nonisolated extension Event: FetchableRecord, PersistableRecord {}
 
-extension CalendarInfo {
+nonisolated extension CalendarInfo {
     static let databaseTableName = "calendars"
 
     enum Columns {
@@ -149,6 +149,7 @@ extension CalendarInfo {
         static let isPrimary = Column("isPrimary")
         static let colorHex = Column("colorHex")
         static let sourceProvider = Column("sourceProvider")
+        static let alertMode = Column("alertMode")
         static let lastSyncAt = Column("lastSyncAt")
         static let createdAt = Column("createdAt")
         static let updatedAt = Column("updatedAt")
@@ -173,6 +174,13 @@ extension CalendarInfo {
             }
             sourceProvider = .google
         }
+        if let modeRaw = row[Columns.alertMode] as? String,
+           let mode = AlertMode(rawValue: modeRaw)
+        {
+            alertMode = mode
+        } else {
+            alertMode = .overlay
+        }
         lastSyncAt = row[Columns.lastSyncAt]
         createdAt = row[Columns.createdAt]
         updatedAt = row[Columns.updatedAt]
@@ -186,10 +194,34 @@ extension CalendarInfo {
         container[Columns.isPrimary] = isPrimary
         container[Columns.colorHex] = colorHex
         container[Columns.sourceProvider] = sourceProvider.rawValue
+        container[Columns.alertMode] = alertMode.rawValue
         container[Columns.lastSyncAt] = lastSyncAt
         container[Columns.createdAt] = createdAt
         container[Columns.updatedAt] = updatedAt
     }
 }
 
-extension CalendarInfo: FetchableRecord, PersistableRecord {}
+nonisolated extension CalendarInfo: FetchableRecord, PersistableRecord {}
+
+// MARK: - EventOverride
+
+nonisolated extension EventOverride {
+    static let databaseTableName = "event_overrides"
+
+    enum Columns {
+        static let eventId = Column("eventId")
+        static let alertMinutes = Column("alertMinutes")
+    }
+
+    init(row: Row) {
+        eventId = row[Columns.eventId]
+        alertMinutes = row[Columns.alertMinutes]
+    }
+
+    func encode(to container: inout PersistenceContainer) {
+        container[Columns.eventId] = eventId
+        container[Columns.alertMinutes] = alertMinutes
+    }
+}
+
+nonisolated extension EventOverride: FetchableRecord, PersistableRecord {}

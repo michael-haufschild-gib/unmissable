@@ -79,6 +79,9 @@ enum TestUtilities {
         case .webex:
             [URL(string: "https://example.webex.com/meet/123")!]
 
+        case .discord:
+            [URL(string: "https://discord.gg/abc123")!]
+
         case .generic:
             [URL(string: "https://example.com/meeting")!]
         }
@@ -153,7 +156,11 @@ enum TestUtilities {
         let suiteName = "com.unmissable.test.\(UUID().uuidString)"
         // swiftlint:disable:next force_unwrapping
         let testDefaults = UserDefaults(suiteName: suiteName)!
-        let prefs = PreferencesManager(userDefaults: testDefaults, themeManager: ThemeManager())
+        let prefs = PreferencesManager(
+            userDefaults: testDefaults,
+            themeManager: ThemeManager(),
+            loginItemManager: TestSafeLoginItemManager(),
+        )
         // Set test-specific defaults
         prefs.setDefaultAlertMinutes(defaultAlertMinutes)
         prefs.setUseLengthBasedTiming(false)
@@ -165,12 +172,14 @@ enum TestUtilities {
         prefs.setAutoJoinEnabled(false)
         prefs.setShowOnAllDisplays(true)
         prefs.setOverrideFocusMode(true)
+        prefs.setSmartSuppression(true)
         return prefs
     }
 }
 
 // MARK: - Test Accessors for PreferencesManager
 
+@MainActor
 extension PreferencesManager {
     /// Test accessors for easy modification in tests
     var testDefaultAlertMinutes: Int {
@@ -207,10 +216,16 @@ extension PreferencesManager {
         get { overrideFocusMode }
         set { setOverrideFocusMode(newValue) }
     }
+
+    var testSmartSuppression: Bool {
+        get { smartSuppression }
+        set { setSmartSuppression(newValue) }
+    }
 }
 
 // MARK: - Test Extensions for EventScheduler
 
+@MainActor
 extension EventScheduler {
     /// Returns true if a snooze alert is currently scheduled
     var snoozeScheduled: Bool {
@@ -316,6 +331,7 @@ extension TestUtilities {
     // MARK: - UI Testing Utilities
 
     /// Create test environment for SwiftUI views
+    @MainActor
     static func createTestEnvironment() -> DesignTokens {
         // Return a consistent design for testing
         DesignTokens.tokens(for: .light, accent: .blue)

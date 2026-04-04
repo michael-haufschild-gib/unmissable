@@ -1,20 +1,18 @@
 import AppKit
-import Combine
+import Observation
 import SwiftUI
 
 // swiftlint:disable no_magic_numbers
 
 // MARK: - Theme Manager
 
-@MainActor
-final class ThemeManager: ObservableObject {
-    @Published
+@Observable
+final class ThemeManager {
     var themeMode: ThemeMode = .system
-    @Published
     var accentColor: AccentColor = .blue
-    @Published
     var resolvedTheme: ResolvedTheme = .darkBlue
 
+    @ObservationIgnored
     private var systemAppearanceObserver: NSKeyValueObservation?
 
     init() {
@@ -442,6 +440,9 @@ struct DesignFonts {
     let mono: Font = .system(size: 13, weight: .medium, design: .monospaced)
     let monoSmall: Font = .system(size: 11, weight: .medium, design: .monospaced)
 
+    /// Large icon used for onboarding hero illustrations and splash screens.
+    let heroIcon: Font = .system(size: 64, weight: .regular)
+
     /// Section label (used with .tracking(DesignTracking.sectionLabel) + .textCase(.uppercase))
     let sectionLabel: Font = .system(size: 11, weight: .semibold)
 
@@ -580,7 +581,6 @@ extension EnvironmentValues {
 }
 
 struct ThemedModifier: ViewModifier {
-    @ObservedObject
     var themeManager: ThemeManager
 
     func body(content: Content) -> some View {
@@ -589,7 +589,7 @@ struct ThemedModifier: ViewModifier {
                 for: themeManager.resolvedTheme,
                 accent: themeManager.accentColor,
             ))
-            .environmentObject(themeManager)
+            .environment(themeManager)
     }
 }
 

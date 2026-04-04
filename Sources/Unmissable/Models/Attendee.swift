@@ -1,6 +1,6 @@
 import Foundation
 
-struct Attendee: Identifiable, Codable, Equatable {
+nonisolated struct Attendee: Identifiable, Codable, Equatable {
     /// Email is unique per event in both Google Calendar API and EventKit.
     /// Using email as id preserves Equatable/Codable stability across encode/decode cycles.
     /// **Invariant:** Each Attendee in an Event.attendees array has a distinct email.
@@ -37,7 +37,7 @@ struct Attendee: Identifiable, Codable, Equatable {
     }
 }
 
-enum AttendeeStatus: String, Codable, CaseIterable {
+nonisolated enum AttendeeStatus: String, Codable, CaseIterable {
     case needsAction
     case declined
     case tentative

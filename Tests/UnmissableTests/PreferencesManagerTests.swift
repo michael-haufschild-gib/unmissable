@@ -5,17 +5,24 @@ import XCTest
 final class PreferencesManagerTests: XCTestCase {
     private var preferencesManager: PreferencesManager!
     private var testSuiteName: String!
+    private var testLoginItemManager: TestSafeLoginItemManager!
 
     override func setUp() async throws {
         testSuiteName = "com.unmissable.test.\(UUID().uuidString)"
         // swiftlint:disable:next force_unwrapping
         let testDefaults = UserDefaults(suiteName: testSuiteName)!
-        preferencesManager = PreferencesManager(userDefaults: testDefaults, themeManager: ThemeManager())
+        testLoginItemManager = TestSafeLoginItemManager()
+        preferencesManager = PreferencesManager(
+            userDefaults: testDefaults,
+            themeManager: ThemeManager(),
+            loginItemManager: testLoginItemManager,
+        )
         try await super.setUp()
     }
 
     override func tearDown() async throws {
         preferencesManager = nil
+        testLoginItemManager = nil
         if let suite = testSuiteName {
             UserDefaults.standard.removePersistentDomain(forName: suite)
         }
@@ -34,6 +41,7 @@ final class PreferencesManagerTests: XCTestCase {
         XCTAssertTrue(preferencesManager.showOnAllDisplays)
         XCTAssertTrue(preferencesManager.playAlertSound)
         XCTAssertTrue(preferencesManager.overrideFocusMode)
+        XCTAssertTrue(preferencesManager.launchAtLogin)
     }
 
     func testSyncIntervalSeconds_whenOutOfBounds_clampsToHardcodedBounds() {
@@ -289,5 +297,81 @@ final class PreferencesManagerTests: XCTestCase {
 
         let allSizes = FontSize.allCases
         XCTAssertEqual(allSizes, [.small, .medium, .large])
+    }
+
+    // MARK: - Launch at Login
+
+    func testLaunchAtLogin_defaultsToTrue() {
+        XCTAssertTrue(
+            preferencesManager.launchAtLogin,
+            "Launch at login should default to true on first launch",
+        )
+    }
+
+    func testSetLaunchAtLogin_updatesPropertyAndCallsLoginItemManager() {
+        // Init registers as login item (first launch), so history starts with [true].
+        let historyBefore = testLoginItemManager.registrationHistory
+
+        preferencesManager.setLaunchAtLogin(false)
+        XCTAssertFalse(preferencesManager.launchAtLogin)
+
+        preferencesManager.setLaunchAtLogin(true)
+        XCTAssertTrue(preferencesManager.launchAtLogin)
+
+        // Full history: initial registration + disable + re-enable
+        XCTAssertEqual(testLoginItemManager.registrationHistory, historyBefore + [false, true])
+    }
+
+    func testLaunchAtLogin_persistsAcrossInstances() throws {
+        let loginManager = TestSafeLoginItemManager()
+        preferencesManager.setLaunchAtLogin(false)
+
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: testSuiteName))
+        let newManager = PreferencesManager(
+            userDefaults: defaults,
+            themeManager: ThemeManager(),
+            loginItemManager: loginManager,
+        )
+
+        XCTAssertFalse(
+            newManager.launchAtLogin,
+            "Launch at login should persist false across instances",
+        )
+        // Should NOT have called updateRegistration since key already exists
+        XCTAssertEqual(loginManager.registrationHistory, [])
+    }
+
+    func testLaunchAtLogin_firstLaunch_registersAndPersists() throws {
+        // preferencesManager was created with fresh UserDefaults (no prior keys).
+        // loadPreferences should have detected first launch, called register, and written the key.
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: testSuiteName))
+        let storedValue = try XCTUnwrap(defaults.object(forKey: "launchAtLogin") as? Bool)
+        XCTAssertTrue(storedValue, "First launch should persist launchAtLogin=true")
+        XCTAssertEqual(testLoginItemManager.registrationHistory, [true])
+    }
+
+    func testSyncLoginItemWithSystem_systemEnabled_updatesPreference() {
+        // User disabled in-app, then enabled via System Settings
+        preferencesManager.setLaunchAtLogin(false)
+        testLoginItemManager.stubbedIsRegistered = true
+
+        preferencesManager.syncLoginItemWithSystem()
+
+        XCTAssertTrue(
+            preferencesManager.launchAtLogin,
+            "Should sync preference to true when system reports enabled",
+        )
+    }
+
+    func testSyncLoginItemWithSystem_systemDisabled_doesNotOverridePreference() {
+        // User has preference ON, but system reports not-registered (dev/unsigned build)
+        testLoginItemManager.stubbedIsRegistered = false
+
+        preferencesManager.syncLoginItemWithSystem()
+
+        XCTAssertTrue(
+            preferencesManager.launchAtLogin,
+            "Should NOT override preference when system reports not-registered",
+        )
     }
 }

@@ -1,12 +1,12 @@
 import SwiftUI
 
 struct AppearancePreferencesView: View {
-    @EnvironmentObject
-    var preferences: PreferencesManager
+    @Environment(PreferencesManager.self)
+    var preferences
     @Environment(\.design)
     private var design
-    @EnvironmentObject
-    private var themeManager: ThemeManager
+    @Environment(ThemeManager.self)
+    private var themeManager
 
     private static let themePickerWidth: CGFloat = 160
     private static let menuBarPickerWidth: CGFloat = 140

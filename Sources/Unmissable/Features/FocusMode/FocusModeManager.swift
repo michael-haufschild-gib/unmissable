@@ -1,10 +1,11 @@
 import AppKit
 import Foundation
+import Observation
 import OSLog
 
 /// Owns NotificationCenter observer tokens and removes them on deinit.
-/// Separating this from the @MainActor class avoids nonisolated(unsafe) escape hatches.
-private final class NotificationTokenBag: @unchecked Sendable {
+/// Separating this from the MainActor-isolated class avoids nonisolated(unsafe) escape hatches.
+private final nonisolated class NotificationTokenBag: @unchecked Sendable {
     private let lock = NSLock()
     private var tokens: [NSObjectProtocol] = []
 
@@ -21,8 +22,8 @@ private final class NotificationTokenBag: @unchecked Sendable {
     }
 }
 
-@MainActor
-final class FocusModeManager: ObservableObject {
+@Observable
+final class FocusModeManager {
     private let logger = Logger(category: "FocusModeManager")
 
     // MARK: - Constants
@@ -30,9 +31,7 @@ final class FocusModeManager: ObservableObject {
     private nonisolated static let maxAssertionsFileSize = 1_000_000
     private nonisolated static let maxPrefsFileSize = 5_000_000
 
-    @Published
     var isDoNotDisturbEnabled: Bool = false
-    @Published
     private(set) var dndDetectionAvailable: Bool = true
 
     private let preferencesManager: PreferencesManager
@@ -115,6 +114,7 @@ final class FocusModeManager: ObservableObject {
     /// - Sandboxed: detection unavailable, defaults to "DND off" (overlays always shown)
     /// - Non-sandboxed macOS 12+: reads ~/Library/DoNotDisturb/DB/Assertions.json
     /// - Non-sandboxed legacy: reads ncprefs.plist via plutil
+    @concurrent
     private nonisolated static func runDNDCheck() async -> DNDCheckResult {
         // In sandboxed environments, filesystem-based DND detection is unavailable.
         // Default to "DND off" (overlays always shown) — safe for a meeting reminder app.
@@ -135,9 +135,7 @@ final class FocusModeManager: ObservableObject {
             .path
 
         if FileManager.default.fileExists(atPath: assertionsPath) {
-            return await Task.detached {
-                readAssertionsFile(at: assertionsPath)
-            }.value
+            return readAssertionsFile(at: assertionsPath)
         }
 
         // Fallback: legacy ncprefs.plist (macOS 11 and earlier)
@@ -153,7 +151,7 @@ final class FocusModeManager: ObservableObject {
             return .notFound
         }
 
-        return await readLegacyDNDPrefs(at: prefsPath)
+        return readLegacyDNDPrefs(at: prefsPath)
     }
 
     /// Reads the modern Assertions.json to determine if any Focus mode is active.
@@ -190,38 +188,36 @@ final class FocusModeManager: ObservableObject {
     /// Fragility note: The `dnd_prefs` key structure is an undocumented Apple implementation detail.
     /// It may change or disappear in future macOS versions. This path is only reached on macOS 11
     /// and earlier (macOS 12+ uses Assertions.json above), so the risk is bounded.
-    private nonisolated static func readLegacyDNDPrefs(at prefsPath: String) async -> DNDCheckResult {
-        await Task.detached {
-            do {
-                let data = try Data(contentsOf: URL(fileURLWithPath: prefsPath))
-                guard data.count < maxPrefsFileSize else {
-                    // Safety: don't parse unreasonably large files
-                    return DNDCheckResult.success(false)
-                }
-                guard let plist = try PropertyListSerialization.propertyList(
-                    from: data, options: [], format: nil,
+    private nonisolated static func readLegacyDNDPrefs(at prefsPath: String) -> DNDCheckResult {
+        do {
+            let data = try Data(contentsOf: URL(fileURLWithPath: prefsPath))
+            guard data.count < maxPrefsFileSize else {
+                // Safety: don't parse unreasonably large files
+                return DNDCheckResult.success(false)
+            }
+            guard let plist = try PropertyListSerialization.propertyList(
+                from: data, options: [], format: nil,
+            ) as? [String: Any] else {
+                return .success(false)
+            }
+
+            // The dnd_prefs value is itself a nested plist (binary data blob)
+            if let dndPrefsData = plist["dnd_prefs"] as? Data {
+                guard let dndPrefs = try PropertyListSerialization.propertyList(
+                    from: dndPrefsData, options: [], format: nil,
                 ) as? [String: Any] else {
                     return .success(false)
                 }
-
-                // The dnd_prefs value is itself a nested plist (binary data blob)
-                if let dndPrefsData = plist["dnd_prefs"] as? Data {
-                    guard let dndPrefs = try PropertyListSerialization.propertyList(
-                        from: dndPrefsData, options: [], format: nil,
-                    ) as? [String: Any] else {
-                        return .success(false)
-                    }
-                    if let manuallyEnabled = dndPrefs["userPref"] as? [String: Any],
-                       let enabled = manuallyEnabled["enabled"] as? Bool
-                    {
-                        return .success(enabled)
-                    }
+                if let manuallyEnabled = dndPrefs["userPref"] as? [String: Any],
+                   let enabled = manuallyEnabled["enabled"] as? Bool
+                {
+                    return .success(enabled)
                 }
-                return .success(false)
-            } catch {
-                return .failure(error)
             }
-        }.value
+            return .success(false)
+        } catch {
+            return .failure(error)
+        }
     }
 
     func shouldShowOverlay() -> Bool {
@@ -254,7 +250,7 @@ final class FocusModeManager: ObservableObject {
 
 // MARK: - DND Check Result
 
-private enum DNDCheckResult {
+private nonisolated enum DNDCheckResult {
     case success(Bool)
     case failure(Error)
     case notFound

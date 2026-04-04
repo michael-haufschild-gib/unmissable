@@ -1,10 +1,13 @@
 import Foundation
+import Observation
 import OSLog
 
-@MainActor
-final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
+@Observable
+final class GoogleCalendarAPIService: CalendarAPIProviding {
     private let logger = Logger(category: "GoogleCalendarAPIService")
+    @ObservationIgnored
     private let oauth2Service: OAuth2Service
+    @ObservationIgnored
     private let linkParser: LinkParser
 
     // MARK: - Constants
@@ -20,13 +23,9 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     private nonisolated static let maxLocationLength = 1000
     private nonisolated static let maxOrganizerLength = 320
 
-    @Published
     var calendars: [CalendarInfo] = []
-    @Published
     var events: [Event] = []
-    @Published
     var lastError: String?
-    @Published
     var calendarErrors: [String: String] = [:]
 
     /// URLSession with timeout configuration to prevent indefinite hangs.
@@ -199,6 +198,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
 
     /// Fetches events for a single calendar, handling pagination. Marked `nonisolated` so that
     /// concurrent task group children can execute HTTP requests off the main actor.
+    @concurrent
     private nonisolated func fetchEventsForCalendar(
         calendarId: String,
         startDate: Date,
@@ -487,7 +487,7 @@ final class GoogleCalendarAPIService: ObservableObject, CalendarAPIProviding {
     }
 }
 
-enum GoogleCalendarAPIError: LocalizedError {
+nonisolated enum GoogleCalendarAPIError: LocalizedError {
     case invalidURL
     case invalidResponse
     case requestFailed(Int, String)

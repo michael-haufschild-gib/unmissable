@@ -1,4 +1,5 @@
 import AppKit
+import Observation
 import OSLog
 import SwiftUI
 
@@ -10,11 +11,10 @@ enum MeetingDetailsLayout {
     static let popupSize = NSSize(width: popupWidth, height: popupHeight)
 }
 
-@MainActor
+@Observable
 final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
     private let logger = Logger(category: "MeetingDetailsPopupManager")
 
-    @Published
     private(set) var isPopupVisible = false
     private var popupWindow: NSWindow?
     private var currentEventId: String?
@@ -23,13 +23,15 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
     // swiftlint:disable:next weak_delegate
     private var windowDelegate: PopupWindowDelegate?
     private let themeManager: ThemeManager
+    private let databaseManager: any DatabaseManaging
 
     private static let windowSpacing: CGFloat = 10
     private static let windowLevelOffset = 1
     private static let windowCenterDivisor: CGFloat = 2
 
-    init(themeManager: ThemeManager) {
+    init(themeManager: ThemeManager, databaseManager: any DatabaseManaging) {
         self.themeManager = themeManager
+        self.databaseManager = databaseManager
     }
 
     // MARK: - Popup Management
@@ -50,13 +52,30 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
         // Store parent window reference
         self.parentWindow = parentWindow
 
-        // Create popup window
-        let popup = createPopupWindow(for: event, relativeTo: parentWindow)
+        // Create popup window with nil override initially, then update asynchronously
+        let popup = createPopupWindow(
+            for: event,
+            relativeTo: parentWindow,
+            alertOverrideMinutes: nil,
+        )
         popupWindow = popup
         currentEventId = event.id
         isPopupVisible = true
 
         popup.makeKeyAndOrderFront(nil)
+
+        // Fetch alert override and update popup content asynchronously
+        Task {
+            let override = try? await databaseManager.fetchAlertOverride(for: event.id)
+            guard override != nil, isPopupVisible, currentEventId == event.id else { return }
+            let updatedView = MeetingDetailsView(
+                event: event,
+                onClose: { [weak self] in self?.hidePopup() },
+                alertOverrideMinutes: override,
+            )
+            .themed(themeManager: themeManager)
+            popup.contentView = NSHostingView(rootView: updatedView)
+        }
 
         logger.info("POPUP: Displayed popup for event \(event.id)")
     }
@@ -81,12 +100,20 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
 
     // MARK: - Private Methods
 
-    private func createPopupWindow(for event: Event, relativeTo parentWindow: NSWindow?) -> NSWindow {
+    private func createPopupWindow(
+        for event: Event,
+        relativeTo parentWindow: NSWindow?,
+        alertOverrideMinutes: Int? = nil,
+    ) -> NSWindow {
         // Create the SwiftUI content view
         // Note: No .onDisappear cleanup here — hidePopup() handles all state cleanup.
         // Adding redundant cleanup in onDisappear races with hidePopup() via the window delegate.
-        let contentView = MeetingDetailsView(event: event, onClose: { [weak self] in self?.hidePopup() })
-            .themed(themeManager: themeManager)
+        let contentView = MeetingDetailsView(
+            event: event,
+            onClose: { [weak self] in self?.hidePopup() },
+            alertOverrideMinutes: alertOverrideMinutes,
+        )
+        .themed(themeManager: themeManager)
 
         // Create NSWindow with borderless style for clean popup appearance
         let window = NSWindow(

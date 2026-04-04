@@ -1,11 +1,12 @@
 import Foundation
 import OSLog
 
-final class LinkParser: Sendable {
+final nonisolated class LinkParser: Sendable {
     private let logger = Logger(category: "LinkParser")
 
     /// Trusted domains for meeting links — only these are considered valid meeting URLs
     private static let trustedMeetingDomains = [
+        // Major providers
         "meet.google.com",
         "g.co",
         "zoom.us",
@@ -15,6 +16,27 @@ final class LinkParser: Sendable {
         "gotomeeting.com",
         "whereby.com",
         "around.co",
+        // Enterprise & popular
+        "meet.jit.si",
+        "8x8.vc",
+        "bluejeans.com",
+        "chime.aws",
+        "ringcentral.com",
+        "skype.com",
+        "join.skype.com",
+        // Collaboration & dev tools
+        "discord.gg",
+        "discord.com",
+        "daily.co",
+        "gather.town",
+        "livestorm.co",
+        "vowel.com",
+        "pop.com",
+        "tuple.app",
+        "demio.com",
+        "hopin.com",
+        "streamyard.com",
+        "tandem.chat",
     ]
 
     init() {}
@@ -93,9 +115,14 @@ final class LinkParser: Sendable {
         }
     }
 
-    /// Custom URL schemes used by meeting providers (e.g., zoommtg://, msteams://, webex://).
+    /// Custom URL schemes used by meeting providers (e.g., zoommtg://, msteams://, webex://, skype://).
     /// Centralized here so callers don't need to maintain their own scheme lists.
-    private static let meetingURLSchemes: Set<String> = ["zoommtg", "msteams", "webex"]
+    private static let meetingURLSchemes: Set<String> = [
+        "zoommtg", "msteams", "webex",
+        "callto", "skype",
+        "discord",
+        "ringcentral",
+    ]
 
     /// Checks whether a URL is a meeting link — either a trusted HTTPS domain or a known
     /// meeting app custom scheme (zoommtg://, msteams://, webex://).

@@ -103,9 +103,20 @@ public final class TestSafeOverlayManager: OverlayManaging {
 
     private weak var eventScheduler: EventScheduler?
     private let isTestEnvironment: Bool
+    private let foregroundAppDetector: (any ForegroundAppDetecting)?
+    private let preferencesManager: PreferencesManager?
 
-    public init(isTestEnvironment: Bool = false) {
+    /// Creates a test-safe overlay manager.
+    /// Pass `foregroundAppDetector` and `preferencesManager` to enable smart suppression mirroring.
+    /// Omit them (default) for tests that do not exercise suppression.
+    public init(
+        isTestEnvironment: Bool = false,
+        foregroundAppDetector: (any ForegroundAppDetecting)? = nil,
+        preferencesManager: PreferencesManager? = nil,
+    ) {
         self.isTestEnvironment = isTestEnvironment
+        self.foregroundAppDetector = foregroundAppDetector
+        self.preferencesManager = preferencesManager
     }
 
     public func showOverlay(for event: Event, fromSnooze: Bool = false) {
@@ -115,6 +126,22 @@ public final class TestSafeOverlayManager: OverlayManaging {
         if isOverlayVisible, activeEvent?.id == event.id {
             logger.debug("TEST-SAFE: Skipping — overlay already visible for event \(event.id)")
             return
+        }
+
+        // Mirror production smart suppression when deps are provided
+        if !fromSnooze,
+           let prefs = preferencesManager, prefs.smartSuppression,
+           let detector = foregroundAppDetector,
+           let provider = event.provider
+        {
+            if detector.isMeetingAppInForeground(for: provider) {
+                logger.debug("TEST-SAFE: Smart suppressed — native app in foreground")
+                return
+            }
+            if provider == .meet, detector.isBrowserInForeground() {
+                logger.debug("TEST-SAFE: Smart suppressed — browser in foreground for Meet")
+                return
+            }
         }
 
         // Auto-dismiss for meetings that started too long ago.
@@ -158,6 +185,42 @@ public final class TestSafeOverlayManager: OverlayManaging {
     }
 }
 
+// MARK: - Test-Safe Notification Manager
+
+/// Stubbed notification manager for tests.
+/// Records notifications sent rather than delivering to UNUserNotificationCenter.
+@preconcurrency @MainActor
+public final class TestSafeNotificationManager: NotificationManaging {
+    private let logger = Logger(category: "TestSupport")
+
+    /// All notifications sent during the test.
+    public private(set) var sentNotifications: [(event: Event, primaryLink: URL?)] = []
+
+    /// Whether `requestPermission()` returns true.
+    public var permissionGranted = true
+
+    /// Whether `requestPermission()` was ever called.
+    public private(set) var permissionRequested = false
+
+    public init() {}
+
+    // swiftlint:disable async_without_await - protocol requires async
+    public func requestPermission() async -> Bool {
+        permissionRequested = true
+        return permissionGranted
+    }
+
+    public func sendMeetingNotification(for event: Event, primaryLink: URL?) async {
+        logger.debug("TEST-SAFE: Notification for \(event.title)")
+        sentNotifications.append((event: event, primaryLink: primaryLink))
+    } // swiftlint:enable async_without_await
+
+    /// Registers notification categories (no-op in tests).
+    public func registerCategories() {
+        logger.debug("TEST-SAFE: Registered notification categories")
+    }
+}
+
 // MARK: - Test-Safe Meeting Details Popup
 
 @preconcurrency @MainActor
@@ -187,5 +250,28 @@ public final class TestSafeMeetingDetailsPopupManager: MeetingDetailsPopupManagi
         logger.debug("TEST-SAFE HIDE: Popup")
         lastShownEvent = nil
         isPopupVisible = false
+    }
+}
+
+// MARK: - Test-Safe Foreground App Detector
+
+/// Stubbed foreground app detector for tests.
+/// Set `meetingAppInForeground` and `browserInForeground` to control test behavior.
+@preconcurrency @MainActor
+public final class TestSafeForegroundAppDetector: ForegroundAppDetecting {
+    /// When true, `isMeetingAppInForeground(for:)` returns true for any provider.
+    public var meetingAppInForeground = false
+
+    /// When true, `isBrowserInForeground()` returns true.
+    public var browserInForeground = false
+
+    public init() {}
+
+    public func isMeetingAppInForeground(for _: Provider) -> Bool {
+        meetingAppInForeground
+    }
+
+    public func isBrowserInForeground() -> Bool {
+        browserInForeground
     }
 }

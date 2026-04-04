@@ -1,23 +1,22 @@
 import EventKit
 import Foundation
+import Observation
 import OSLog
 
 /// Handles EventKit permission requests for Apple Calendar access.
 /// No OAuth needed — uses the system permission dialog.
-@MainActor
-final class AppleCalendarAuthService: ObservableObject, CalendarAuthProviding {
+@Observable
+final class AppleCalendarAuthService: CalendarAuthProviding {
     private let logger = Logger(category: "AppleCalendarAuth")
+    @ObservationIgnored
     private let eventStore: EKEventStore
 
     private static let calendarDeniedMessage =
         "Calendar access denied. Grant access in " +
         "System Settings > Privacy & Security > Calendars."
 
-    @Published
     var isAuthenticated = false
-    @Published
     var userEmail: String?
-    @Published
     var authorizationError: String?
 
     init(eventStore: EKEventStore = EKEventStore()) {

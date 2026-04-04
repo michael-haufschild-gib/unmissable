@@ -1,17 +1,19 @@
 import Foundation
+import Observation
 import OSLog
 
-@MainActor
-final class HealthMonitor: ObservableObject {
+@Observable
+final class HealthMonitor {
     private let logger = Logger(category: "HealthMonitor")
 
-    @Published
     var healthStatus: HealthStatus = .healthy
-    @Published
     var metrics = HealthMetrics()
 
+    @ObservationIgnored
     private var healthCheckTask: Task<Void, Never>?
+    @ObservationIgnored
     private let healthCheckInterval: TimeInterval = 60.0 // Check every minute
+    @ObservationIgnored
     private let memoryWarningThresholdMB: Double = 200.0 // Warn if app uses more than 200 MB
 
     /// Retry count above which sync failures are flagged as critical.

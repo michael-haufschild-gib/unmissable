@@ -1,10 +1,11 @@
 import Foundation
 
-enum Provider: String, Codable, CaseIterable {
+nonisolated enum Provider: String, Codable, CaseIterable {
     case meet
     case zoom
     case teams
     case webex
+    case discord
     case generic
 
     var displayName: String {
@@ -17,6 +18,8 @@ enum Provider: String, Codable, CaseIterable {
             "Microsoft Teams"
         case .webex:
             "Cisco Webex"
+        case .discord:
+            "Discord"
         case .generic:
             "Other"
         }
@@ -36,15 +39,37 @@ enum Provider: String, Codable, CaseIterable {
             ["https://teams.microsoft.com", "https://teams.live.com", "msteams://"]
         case .webex:
             ["https://webex.com", "webex://"]
+        case .discord:
+            ["https://discord.gg", "https://discord.com", "discord://"]
         case .generic:
             ["https://", "http://"]
         }
     }
 
+    /// Bundle identifiers of native macOS apps for this provider.
+    /// Used by smart alert suppression to detect if the meeting app is already in the foreground.
+    /// Returns an empty array for browser-based providers (Google Meet) and unknown providers.
+    var knownBundleIdentifiers: [String] {
+        switch self {
+        case .meet:
+            []
+        case .zoom:
+            ["us.zoom.xos"]
+        case .teams:
+            ["com.microsoft.teams", "com.microsoft.teams2"]
+        case .webex:
+            ["com.webex.meetingmanager", "com.cisco.webexmeetings"]
+        case .discord:
+            ["com.hnc.Discord"]
+        case .generic:
+            []
+        }
+    }
+
     /// Classifies a URL as a specific meeting provider.
-    /// Uses host-based matching for accuracy — mirrors the trusted domains in
-    /// `LinkParser.trustedMeetingDomains`. If you add a provider here, update
-    /// LinkParser's domain list too.
+    /// Uses host-based matching for known providers. Additional services
+    /// in `LinkParser.trustedMeetingDomains` (Jitsi, BlueJeans, RingCentral, etc.)
+    /// map to `.generic`. If you add a provider case here, update LinkParser too.
     static func detect(from url: URL) -> Self {
         let scheme = url.scheme?.lowercased() ?? ""
         let host = url.host?.lowercased() ?? ""
@@ -54,6 +79,7 @@ enum Provider: String, Codable, CaseIterable {
         case "zoommtg": return .zoom
         case "msteams": return .teams
         case "webex": return .webex
+        case "discord": return .discord
         default: break
         }
 
@@ -74,6 +100,9 @@ enum Provider: String, Codable, CaseIterable {
         }
         if host == "webex.com" || host.hasSuffix(".webex.com") {
             return .webex
+        }
+        if host == "discord.gg" || host == "discord.com" || host.hasSuffix(".discord.com") {
+            return .discord
         }
         return .generic
     }

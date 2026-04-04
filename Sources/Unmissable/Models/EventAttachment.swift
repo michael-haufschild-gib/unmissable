@@ -2,7 +2,7 @@ import Foundation
 
 /// Represents a file attachment associated with a calendar event
 /// Typically used for Google Drive files attached to Google Calendar events
-struct EventAttachment: Codable, Equatable, Identifiable {
+nonisolated struct EventAttachment: Codable, Equatable, Identifiable {
     /// Stable identity derived from the file URL
     var id: String {
         fileUrl

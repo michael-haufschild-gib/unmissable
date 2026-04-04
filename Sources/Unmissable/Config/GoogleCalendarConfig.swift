@@ -1,6 +1,6 @@
 import Foundation
 
-enum GoogleCalendarConfig {
+nonisolated enum GoogleCalendarConfig {
     // OAuth 2.0 configuration for Google Calendar API
     // Static URL constants — these are hardcoded valid URLs that cannot fail to parse.
     // Force unwrap is correct here; suppressing the lint rule for compile-time constant URLs.

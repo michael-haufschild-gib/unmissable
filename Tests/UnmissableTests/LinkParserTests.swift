@@ -314,4 +314,71 @@ final class LinkParserTests: XCTestCase {
             "https://meet.google.com/abc-defg-hij",
         )
     }
+
+    // MARK: - Expanded Meeting Service Detection
+
+    func testNewServiceDomains() throws {
+        let newDomains = [
+            "https://meet.jit.si/MyRoom",
+            "https://8x8.vc/company/meeting",
+            "https://bluejeans.com/123456",
+            "https://chime.aws/123456",
+            "https://app.ringcentral.com/join/123",
+            "https://join.skype.com/abc123",
+            "https://skype.com/meeting/abc",
+            "https://discord.gg/invite123",
+            "https://discord.com/channels/123/456",
+            "https://daily.co/myroom",
+            "https://gather.town/app/room",
+            "https://livestorm.co/p/webinar",
+            "https://vowel.com/meeting/abc",
+            "https://pop.com/room/abc",
+            "https://tuple.app/session/abc",
+            "https://demio.com/ref/abc",
+            "https://hopin.com/events/abc",
+            "https://streamyard.com/abc",
+            "https://tandem.chat/room/abc",
+        ]
+        for urlString in newDomains {
+            let url = try XCTUnwrap(URL(string: urlString))
+            XCTAssertTrue(
+                linkParser.isMeetingURL(url),
+                "Expected \(urlString) to be detected as meeting URL",
+            )
+        }
+    }
+
+    func testNewServiceDomainsRequireHTTPS() throws {
+        let httpDomains = [
+            "http://meet.jit.si/MyRoom",
+            "http://bluejeans.com/123",
+            "http://chime.aws/123456",
+            "http://8x8.vc/company/meeting",
+            "http://discord.gg/invite123",
+            "http://gather.town/app/room",
+        ]
+        for urlString in httpDomains {
+            let url = try XCTUnwrap(URL(string: urlString))
+            XCTAssertFalse(
+                linkParser.isValidMeetingURL(url),
+                "Expected \(urlString) to fail HTTPS validation",
+            )
+        }
+    }
+
+    func testNewURLSchemes() throws {
+        let schemes = [
+            "callto://+1234567890",
+            "skype://user?call",
+            "discord://channels/123/456",
+            "ringcentral://meeting/123",
+        ]
+        for urlString in schemes {
+            let url = try XCTUnwrap(URL(string: urlString))
+            XCTAssertTrue(
+                linkParser.isMeetingURL(url),
+                "Expected \(urlString) scheme to be detected as meeting URL",
+            )
+        }
+    }
 }

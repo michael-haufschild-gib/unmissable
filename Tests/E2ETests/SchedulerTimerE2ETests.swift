@@ -98,8 +98,9 @@ final class SchedulerTimerE2ETests: XCTestCase {
         // Change preference to trigger rescheduling via Combine observer
         env.preferencesManager.setOverlayShowMinutesBefore(8)
 
-        // Yield to let Combine observer + rescheduling run
-        await Task.yield()
+        // Yield to let @Observable observation + rescheduling run
+        // swiftlint:disable:next no_raw_task_sleep_in_tests - observation yield
+        try await Task.sleep(for: .milliseconds(10))
 
         let postRescheduleSnoozeCount = env.eventScheduler.scheduledAlerts.count(where: { alert in
             if case .snooze = alert.alertType { return true }

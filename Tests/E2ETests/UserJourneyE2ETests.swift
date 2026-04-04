@@ -198,7 +198,8 @@ final class UserJourneyE2ETests: XCTestCase {
         // Step 3: User changes preferences mid-snooze
         env.preferencesManager.setOverlayShowMinutesBefore(5)
         env.preferencesManager.setPlayAlertSound(false)
-        await Task.yield() // Let Combine observer fire
+        // swiftlint:disable:next no_raw_task_sleep_in_tests - observation yield
+        try await Task.sleep(for: .milliseconds(10)) // Let @Observable observation fire
 
         // Step 4: Snooze alert should survive preference change
         let snoozeAlert = try XCTUnwrap(

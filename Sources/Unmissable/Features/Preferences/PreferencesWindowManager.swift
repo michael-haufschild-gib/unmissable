@@ -1,10 +1,11 @@
 import AppKit
+import Observation
 import OSLog
 import SwiftUI
 
 /// Manages the preferences window with proper activation and foreground behavior
-@MainActor
-final class PreferencesWindowManager: NSObject, ObservableObject {
+@Observable
+final class PreferencesWindowManager: NSObject {
     private let logger = Logger(category: "PreferencesWindowManager")
     private var preferencesWindow: NSWindow?
     private let appState: AppState
@@ -33,8 +34,8 @@ final class PreferencesWindowManager: NSObject, ObservableObject {
 
     private func createPreferencesWindow() {
         let contentView = PreferencesView()
-            .environmentObject(appState)
-            .environmentObject(appState.calendar)
+            .environment(appState)
+            .environment(appState.calendar)
             .themed(themeManager: appState.themeManager)
             .frame(minWidth: Self.windowWidth, minHeight: Self.windowHeight)
 
