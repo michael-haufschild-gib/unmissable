@@ -10,8 +10,8 @@ private nonisolated let logger = Logger(category: "DatabaseModels")
 /// are thread-safe when their configuration is not mutated between calls — no custom
 /// strategies are set here, so sharing a single instance avoids hundreds of allocations
 /// per sync cycle.
-private nonisolated(unsafe) let cachedDecoder = JSONDecoder()
-private nonisolated(unsafe) let cachedEncoder = JSONEncoder()
+private nonisolated let cachedDecoder = JSONDecoder()
+private nonisolated let cachedEncoder = JSONEncoder()
 
 // MARK: - JSON Column Helpers
 
