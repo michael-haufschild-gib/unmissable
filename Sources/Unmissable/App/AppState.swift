@@ -19,6 +19,10 @@ final class AppState {
 
     var databaseError: String?
 
+    /// In-memory cache of per-event alert overrides, keyed by event ID.
+    /// Populated by loadAlertOverrides() and read by EventRow to avoid N+1 DB queries.
+    private(set) var alertOverrides: [String: Int] = [:]
+
     @ObservationIgnored
     private var cancellables = Set<AnyCancellable>()
 
@@ -299,20 +303,11 @@ final class AppState {
         }
     }
 
-    /// Fetches the alert override for a single event from the database.
-    func alertOverride(for eventId: String) async -> Int? {
-        do {
-            return try await services.databaseManager.fetchAlertOverride(for: eventId)
-        } catch {
-            logger.error("Failed to fetch alert override: \(error.localizedDescription)")
-            return nil
-        }
-    }
-
     /// Batch-loads all alert overrides from the database and pushes them to the scheduler.
     private func loadAlertOverrides() async {
         do {
             let overrides = try await services.databaseManager.fetchAllAlertOverrides()
+            alertOverrides = overrides
             services.eventScheduler.updateAlertOverrides(overrides)
         } catch {
             logger.error("Failed to load alert overrides: \(error.localizedDescription)")

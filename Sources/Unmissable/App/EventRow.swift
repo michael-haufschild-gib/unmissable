@@ -137,8 +137,11 @@ struct EventRow: View {
         .contextMenu {
             alertOverrideMenu
         }
-        .task {
-            currentOverride = await appState.alertOverride(for: event.id)
+        .onChange(of: appState.alertOverrides[event.id]) { _, newValue in
+            currentOverride = newValue
+        }
+        .onAppear {
+            currentOverride = appState.alertOverrides[event.id]
         }
         .accessibilityAddTraits(.isButton)
         .accessibilityElement(children: .contain)
