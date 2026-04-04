@@ -129,11 +129,11 @@ All diagnostic output is redacted. Sensitive fields are never logged in full:
 | Data Type | Redaction | Example |
 |-----------|-----------|---------|
 | Calendar ID | First 2 chars + `***@domain` | `us***@gmail.com` |
-| Event ID | First 6 chars + `...` | `abc123...` |
+| Event ID | First 6 chars + `…` | `abc123…` |
 | Email | First 2 chars + `***@domain` | `jo***@company.com` |
 | URL | Scheme + host only | `https://meet.google.com/***` |
-| File path | Last 2 components | `.../unmissable/db.sqlite` |
-| Title | First 30 chars + length | `Team Standup...[45 chars]` |
+| File path | Last 2 components | `…/unmissable/db.sqlite` |
+| Title | First 30 chars + length | `Team Standup…[45 chars]` |
 | Error | Truncated at 120 chars | Full text up to limit |
 
 ---

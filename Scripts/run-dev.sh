@@ -3,13 +3,12 @@
 # Development launch script for Unmissable
 # Builds debug, assembles a .app bundle, and opens it.
 # Unlike `swift run`, this creates a proper bundle so UNUserNotificationCenter
-# and Sparkle work correctly.
+# and other bundle-only APIs work correctly.
 
 set -euo pipefail
 
 APP_NAME="Unmissable"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUILD_DIR="${PROJECT_DIR}/.build/arm64-apple-macosx/debug"
 APP_BUNDLE="${PROJECT_DIR}/.build/debug/${APP_NAME}.app"
 CONTENTS_DIR="${APP_BUNDLE}/Contents"
 MACOS_DIR="${CONTENTS_DIR}/MacOS"
@@ -21,6 +20,8 @@ pkill -f "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}" 2>/dev/null || true
 
 echo "Building ${APP_NAME} (debug)..."
 swift build
+
+BUILD_DIR="$(swift build --show-bin-path)"
 
 echo "Assembling .app bundle..."
 rm -rf "${APP_BUNDLE}"

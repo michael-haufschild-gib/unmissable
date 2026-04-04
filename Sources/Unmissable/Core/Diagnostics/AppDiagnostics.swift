@@ -1,17 +1,19 @@
 import Foundation
 import OSLog
 
-/// Central diagnostics facade. Routes structured events to OSLog (always)
-/// and the in-memory `FlightRecorder` (when deep diagnostics are enabled).
+/// Central diagnostics facade. Routes structured events to both OSLog and the
+/// in-memory `FlightRecorder` when deep diagnostics are enabled. When disabled,
+/// `record()` is a no-op — no allocation, no OSLog write. Normal info/warning/error
+/// logging continues via each manager's own `Logger(category:)` in all builds.
 ///
 /// **Static/global by design** — AppDelegate and early bootstrap code need
 /// tracing before the DI container exists. The recorder is cheap (ring buffer
 /// protected by an unfair lock) and never touches disk unless explicitly exported.
 ///
 /// ## Gating
-/// - **DEBUG builds**: deep diagnostics are enabled by default.
-/// - **Release builds**: only OSLog info/warning/error. Deep diagnostics can be
-///   enabled via `UserDefaults(key: "com.unmissable.diagnostics.enabled")` or the
+/// - **DEBUG builds**: deep diagnostics enabled by default (both OSLog + FlightRecorder).
+/// - **Release builds**: deep diagnostics disabled. Can be enabled via
+///   `UserDefaults(key: "com.unmissable.diagnostics.enabled")` or the
 ///   `UNMISSABLE_DIAGNOSTICS` environment variable — intended for field debugging,
 ///   not end-user UI.
 nonisolated enum AppDiagnostics {

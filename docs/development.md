@@ -101,7 +101,7 @@ xcodebuild -scheme Unmissable -destination 'platform=macOS' build
 ```
 
 > **Note:** Do not use bare `swift run` — it produces an executable without an `.app` bundle,
-> so `UNUserNotificationCenter` and Sparkle crash on startup.
+> so `UNUserNotificationCenter` and other bundle-only APIs fail on startup.
 
 ### From Xcode
 1. Open `Package.swift` in Xcode
