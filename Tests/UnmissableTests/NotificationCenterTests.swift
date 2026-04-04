@@ -166,8 +166,9 @@ final class NotificationCenterTests: XCTestCase {
             events: [event], overlayManager: overlayManager,
         )
 
-        // Wait briefly for any async tasks to complete
-        try await TestUtilities.waitForAsync(timeout: 0.5) { true }
+        // Negative test: wait a fixed interval, then verify nothing happened
+        // swiftlint:disable:next no_raw_task_sleep_in_tests
+        try await Task.sleep(for: .milliseconds(100))
 
         XCTAssertFalse(overlayManager.isOverlayVisible)
         XCTAssertEqual(notificationManager.sentNotifications.map(\.event.id), [])

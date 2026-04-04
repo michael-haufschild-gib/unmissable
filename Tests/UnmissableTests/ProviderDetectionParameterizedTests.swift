@@ -25,7 +25,7 @@ struct ProviderDetectionTests {
             ("https://chime.aws/123456", Provider.generic),
             ("https://app.ringcentral.com/join/123", Provider.generic),
             ("https://join.skype.com/abc123", Provider.generic),
-            ("https://discord.gg/invite123", Provider.generic),
+            ("https://discord.gg/invite123", Provider.discord),
             ("https://daily.co/myroom", Provider.generic),
             ("https://gather.town/app/room", Provider.generic),
             ("https://livestorm.co/p/webinar", Provider.generic),

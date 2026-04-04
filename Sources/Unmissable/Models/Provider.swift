@@ -5,6 +5,7 @@ nonisolated enum Provider: String, Codable, CaseIterable {
     case zoom
     case teams
     case webex
+    case discord
     case generic
 
     var displayName: String {
@@ -17,6 +18,8 @@ nonisolated enum Provider: String, Codable, CaseIterable {
             "Microsoft Teams"
         case .webex:
             "Cisco Webex"
+        case .discord:
+            "Discord"
         case .generic:
             "Other"
         }
@@ -36,6 +39,8 @@ nonisolated enum Provider: String, Codable, CaseIterable {
             ["https://teams.microsoft.com", "https://teams.live.com", "msteams://"]
         case .webex:
             ["https://webex.com", "webex://"]
+        case .discord:
+            ["https://discord.gg", "https://discord.com", "discord://"]
         case .generic:
             ["https://", "http://"]
         }
@@ -54,14 +59,16 @@ nonisolated enum Provider: String, Codable, CaseIterable {
             ["com.microsoft.teams", "com.microsoft.teams2"]
         case .webex:
             ["com.webex.meetingmanager", "com.cisco.webexmeetings"]
+        case .discord:
+            ["com.hnc.Discord"]
         case .generic:
             []
         }
     }
 
     /// Classifies a URL as a specific meeting provider.
-    /// Uses host-based matching for the top-4 providers. Additional services
-    /// in `LinkParser.trustedMeetingDomains` (Jitsi, BlueJeans, Skype, etc.)
+    /// Uses host-based matching for known providers. Additional services
+    /// in `LinkParser.trustedMeetingDomains` (Jitsi, BlueJeans, RingCentral, etc.)
     /// map to `.generic`. If you add a provider case here, update LinkParser too.
     static func detect(from url: URL) -> Self {
         let scheme = url.scheme?.lowercased() ?? ""
@@ -72,6 +79,7 @@ nonisolated enum Provider: String, Codable, CaseIterable {
         case "zoommtg": return .zoom
         case "msteams": return .teams
         case "webex": return .webex
+        case "discord": return .discord
         default: break
         }
 
@@ -92,6 +100,9 @@ nonisolated enum Provider: String, Codable, CaseIterable {
         }
         if host == "webex.com" || host.hasSuffix(".webex.com") {
             return .webex
+        }
+        if host == "discord.gg" || host == "discord.com" || host.hasSuffix(".discord.com") {
+            return .discord
         }
         return .generic
     }

@@ -429,7 +429,7 @@ custom_rules:
   no_observable_object:
     name: "No ObservableObject"
     included: "Sources/.*\\.swift"
-    regex: ":\\s*ObservableObject\\b|ObservableObject\\s*\\{"
+    regex: "\\bObservableObject\\b"
     message: "Use @Observable macro instead of ObservableObject protocol. See Serena memory swift_6_3_guide."
     severity: error
 

@@ -112,6 +112,6 @@ final class ProviderTests: XCTestCase {
 
     func testProviderCaseIterable() {
         let allProviders = Set(Provider.allCases)
-        XCTAssertEqual(allProviders, [.meet, .zoom, .teams, .webex, .generic])
+        XCTAssertEqual(allProviders, [.meet, .zoom, .teams, .webex, .discord, .generic])
     }
 }

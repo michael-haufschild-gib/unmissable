@@ -23,7 +23,7 @@ final class EventOverrideTests: XCTestCase {
     override func tearDown() async throws {
         db = nil
         if let dir = tempDir {
-            try? FileManager.default.removeItem(at: dir)
+            try FileManager.default.removeItem(at: dir)
         }
         tempDir = nil
         try await super.tearDown()

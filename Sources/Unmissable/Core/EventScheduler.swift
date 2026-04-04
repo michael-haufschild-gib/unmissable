@@ -459,8 +459,12 @@ final class EventScheduler {
         case .notification:
             logger.info("REMINDER: Sending notification for event \(event.id)")
             let primaryLink = linkParser.primaryLink(for: event)
+            guard let notificationManager else {
+                logger.error("NotificationManager unavailable — cannot deliver alert for event \(event.id)")
+                return
+            }
             Task {
-                await notificationManager?.sendMeetingNotification(for: event, primaryLink: primaryLink)
+                await notificationManager.sendMeetingNotification(for: event, primaryLink: primaryLink)
             }
 
         case .none:

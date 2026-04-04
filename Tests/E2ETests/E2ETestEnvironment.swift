@@ -294,6 +294,8 @@ enum E2EEventBuilder {
             URL(string: "https://teams.microsoft.com/l/meetup-join/e2e-test")!
         case .webex:
             URL(string: "https://example.webex.com/meet/e2e-test")!
+        case .discord:
+            URL(string: "https://discord.gg/e2e-test")!
         case .generic:
             URL(string: "https://example.com/meeting/e2e-test")!
         }

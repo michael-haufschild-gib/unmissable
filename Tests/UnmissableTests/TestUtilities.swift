@@ -79,6 +79,9 @@ enum TestUtilities {
         case .webex:
             [URL(string: "https://example.webex.com/meet/123")!]
 
+        case .discord:
+            [URL(string: "https://discord.gg/abc123")!]
+
         case .generic:
             [URL(string: "https://example.com/meeting")!]
         }

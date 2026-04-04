@@ -5,13 +5,27 @@ import GRDB
 
 extension DatabaseManager {
     /// All database schema migrations, applied sequentially.
-    static let migrator: DatabaseMigrator = {
+    static let migrator: DatabaseMigrator = buildMigrator()
+
+    private static func buildMigrator() -> DatabaseMigrator {
         var migrator = DatabaseMigrator()
 
         #if DEBUG
             migrator.eraseDatabaseOnSchemaChange = true
         #endif
 
+        registerV1CreateTables(&migrator)
+        registerV2EventDetails(&migrator)
+        registerV3Attachments(&migrator)
+        registerV4SourceProvider(&migrator)
+        registerV5DropLegacy(&migrator)
+        registerV6EventOverrides(&migrator)
+        registerV7CalendarAlertMode(&migrator)
+
+        return migrator
+    }
+
+    private static func registerV1CreateTables(_ migrator: inout DatabaseMigrator) {
         migrator.registerMigration("v1-createTables") { db in
             try db.create(table: Event.databaseTableName, ifNotExists: true) { t in
                 t.column("id", .text).primaryKey()
@@ -68,18 +82,31 @@ extension DatabaseManager {
                 }
             }
         }
+    }
 
+    private static func registerV2EventDetails(_ migrator: inout DatabaseMigrator) {
         migrator.registerMigration("v2-eventDetails") { db in
-            let columns = try db.columns(in: Event.databaseTableName).map(\.name)
-            if !columns.contains("description") {
+            let columns = try Set(db.columns(in: Event.databaseTableName).map(\.name))
+            let missing = ["description", "location", "attendees"].filter { !columns.contains($0) }
+            guard !missing.isEmpty else { return }
+            for column in missing {
                 try db.alter(table: Event.databaseTableName) { t in
-                    t.add(column: "description", .text)
-                    t.add(column: "location", .text)
-                    t.add(column: "attendees", .text).notNull().defaults(to: "[]")
+                    switch column {
+                    case "description":
+                        t.add(column: "description", .text)
+                    case "location":
+                        t.add(column: "location", .text)
+                    case "attendees":
+                        t.add(column: "attendees", .text).notNull().defaults(to: "[]")
+                    default:
+                        break
+                    }
                 }
             }
         }
+    }
 
+    private static func registerV3Attachments(_ migrator: inout DatabaseMigrator) {
         migrator.registerMigration("v3-attachments") { db in
             let columns = try db.columns(in: Event.databaseTableName).map(\.name)
             if !columns.contains("attachments") {
@@ -88,7 +115,9 @@ extension DatabaseManager {
                 }
             }
         }
+    }
 
+    private static func registerV4SourceProvider(_ migrator: inout DatabaseMigrator) {
         migrator.registerMigration("v4-sourceProvider") { db in
             let columns = try db.columns(in: CalendarInfo.databaseTableName).map(\.name)
             if !columns.contains("sourceProvider") {
@@ -97,18 +126,24 @@ extension DatabaseManager {
                 }
             }
         }
+    }
 
+    private static func registerV5DropLegacy(_ migrator: inout DatabaseMigrator) {
         migrator.registerMigration("v5-dropLegacySchemaVersion") { db in
             try db.execute(sql: "DROP TABLE IF EXISTS schema_version")
         }
+    }
 
+    private static func registerV6EventOverrides(_ migrator: inout DatabaseMigrator) {
         migrator.registerMigration("v6-eventOverrides") { db in
             try db.create(table: EventOverride.databaseTableName, ifNotExists: true) { t in
                 t.column("eventId", .text).primaryKey()
                 t.column("alertMinutes", .integer).notNull()
             }
         }
+    }
 
+    private static func registerV7CalendarAlertMode(_ migrator: inout DatabaseMigrator) {
         migrator.registerMigration("v7-calendarAlertMode") { db in
             let columns = try db.columns(in: CalendarInfo.databaseTableName).map(\.name)
             if !columns.contains("alertMode") {
@@ -117,7 +152,5 @@ extension DatabaseManager {
                 }
             }
         }
-
-        return migrator
-    }()
+    }
 }

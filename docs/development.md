@@ -11,7 +11,7 @@
 |-------------|-----------------|-----------------|
 | macOS | 14.0 (Sonoma) | - |
 | Xcode | 16+ | App Store |
-| Swift | 6.1+ | Included with Xcode 16.3+ |
+| Swift | 6.3+ | Included with Xcode 26+ |
 | SwiftFormat | Latest | `brew install swiftformat` |
 | SwiftLint | Latest | `brew install swiftlint` |
 

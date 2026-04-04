@@ -25,7 +25,7 @@ final class SchedulerOverrideTests: XCTestCase {
             linkParser: LinkParser(),
             now: { capturedDate },
         )
-        overlayManager = TestSafeOverlayManager()
+        overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
     }
 
     override func tearDown() async throws {

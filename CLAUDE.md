@@ -10,7 +10,7 @@ Swift 6.3 (strict concurrency) | macOS 14.0+ | SwiftUI + AppKit | GRDB.swift | S
 
 | Constraint | Rule |
 |-----------|------|
-| Concurrency | Swift 6 strict concurrency in all targets (Sources and Tests). |
+| Concurrency | Swift 6 strict concurrency + ApproachableConcurrency in all targets. Sources use `defaultIsolation(MainActor.self)`. |
 | UI tokens | All UI must use design system tokens. Raw values are lint errors. See `docs/meta/styleguide.md`. |
 | Test safety | Never instantiate `OverlayManager` or `AppState()` in tests. Use `TestSafeOverlayManager` / `isTestEnvironment: true`. |
 | Logging | `OSLog` only (subsystem `com.unmissable.app`). No `print()`. No PII. |

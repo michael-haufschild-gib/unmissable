@@ -101,14 +101,16 @@ struct [Name]: Identifiable, Codable, Equatable {
 
 ```swift
 import Foundation
+import Observation
 import OSLog
 
-@MainActor
-class [Name]Manager: ObservableObject {
+@Observable
+final class [Name]Manager {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "[Name]Manager")
 
-    @Published private(set) var someState: [Type] = [default]
+    private(set) var someState: [Type] = [default]
 
+    @ObservationIgnored
     private let dependency: DependencyType
 
     init(dependency: DependencyType) {
@@ -146,25 +148,17 @@ Wire up to `AppState` or relevant coordinator after creation.
 
 ```swift
 // Protocol in Protocols.swift
-@MainActor
-protocol OverlayManaging: ObservableObject {
+protocol OverlayManaging: AnyObject {
     var activeEvent: Event? { get }
     func showOverlay(for event: Event)
 }
 
-// Production implementation
-class OverlayManager: OverlayManaging { ... }
+// Production implementation (@Observable via defaultIsolation)
+@Observable
+final class OverlayManager: OverlayManaging { ... }
 
 // Test-safe implementation
-class TestSafeOverlayManager: OverlayManaging { ... }
-
-// Factory pattern
-enum OverlayManagerFactory {
-    @MainActor
-    static func create(isTestEnvironment: Bool) -> any OverlayManaging {
-        isTestEnvironment ? TestSafeOverlayManager() : OverlayManager()
-    }
-}
+final class TestSafeOverlayManager: OverlayManaging { ... }
 ```
 
 ### ServiceContainer (DI Root)
@@ -182,9 +176,9 @@ final class ServiceContainer {
 }
 ```
 
-### @MainActor for UI Code
+### defaultIsolation and @MainActor
 
-Always use `@MainActor` for classes that modify UI state, protocols that touch UI, and methods called from SwiftUI views.
+The `Unmissable` target uses `.defaultIsolation(MainActor.self)` — all types are implicitly `@MainActor`. Value types and utilities that must escape MainActor are marked `nonisolated`. Use `@concurrent nonisolated` for async functions that must run on the background executor.
 
 ### Async/Await for Concurrency
 
@@ -205,7 +199,10 @@ Use `async/await` for all new async code. No completion handlers.
 - Don't use legacy `Custom*` types. Do use `UM*` equivalents.
 
 **Concurrency**:
-- Don't access UI from background threads. Do use `@MainActor`.
+- Don't use `ObservableObject`/`@Published`. Do use `@Observable` macro.
+- Don't use `@StateObject`/`@EnvironmentObject`. Do use `@State`/`@Environment(Type.self)`.
+- Don't assume `nonisolated async` runs on background. Do use `@concurrent nonisolated` for background work.
+- Don't use `Task.yield()` in loops. Do use `clock.sleep()` or continuation-based suspension.
 - Don't use completion handlers for new async code. Do use `async/await`.
 
 **Dependencies**:

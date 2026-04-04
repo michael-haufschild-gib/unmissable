@@ -9,6 +9,7 @@ private nonisolated let extensionLogger = Logger(category: "DatabaseManager")
 /// Valid range for per-event alert overrides (minutes before start).
 /// Matches PreferencesManager's alertMinutesRange. Zero means "suppress all alerts".
 private nonisolated let alertOverrideMinutesRange = 0 ... 60
+private nonisolated let redactedIdPrefixLength = 4
 
 extension DatabaseManager {
     func fetchAlertOverride(for eventId: String) async throws -> Int? {
@@ -52,8 +53,9 @@ extension DatabaseManager {
             min(max($0, alertOverrideMinutesRange.lowerBound), alertOverrideMinutesRange.upperBound)
         }
         if let minutes, let clamped = clampedMinutes, minutes != clamped {
+            let redactedId = String(eventId.prefix(redactedIdPrefixLength)) + "…"
             extensionLogger.warning(
-                "Alert override \(minutes) clamped to \(clamped) for event \(eventId)",
+                "Alert override \(minutes) clamped to \(clamped) for event \(redactedId)",
             )
         }
 

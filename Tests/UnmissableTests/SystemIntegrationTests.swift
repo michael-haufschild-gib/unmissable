@@ -285,7 +285,7 @@ final class SystemIntegrationTests: XCTestCase {
         XCTAssertTrue(hasSnoozeAlert)
     }
 
-    func testSequentialOperationsProduceConsistentState() async {
+    func testSequentialOperationsProduceConsistentState() async throws {
         let events = (0 ..< 10).map { index in
             TestUtilities.createTestEvent(
                 id: "concurrent-\(index)",
@@ -299,6 +299,17 @@ final class SystemIntegrationTests: XCTestCase {
         )
         overlayManager.showOverlay(for: events[0])
         mockPreferences.testOverlayShowMinutesBefore = 8
+
+        // Wait for rescheduling to propagate after preference change
+        let scheduler = try XCTUnwrap(eventScheduler)
+        try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
+            scheduler.scheduledAlerts.contains { alert in
+                if case let .reminder(minutes) = alert.alertType {
+                    return minutes == 8
+                }
+                return false
+            }
+        }
 
         // System should be in a consistent state
         XCTAssertTrue(overlayManager.isOverlayVisible)
