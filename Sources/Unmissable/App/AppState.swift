@@ -322,7 +322,7 @@ final class AppState {
             )
             await loadAlertOverrides()
             logger.info(
-                "Alert override set for event \(eventId): \(minutes.map(String.init) ?? "default")",
+                "Alert override set for event \(PrivacyUtils.redactedEventId(eventId)): \(minutes.map(String.init) ?? "default")",
             )
         } catch {
             logger.error("Failed to save alert override: \(error.localizedDescription)")

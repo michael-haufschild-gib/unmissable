@@ -15,6 +15,7 @@ final nonisolated class FlightRecorder: Sendable {
     private let storage: OSAllocatedUnfairLock<RingBuffer>
 
     nonisolated init(capacity: Int = FlightRecorder.defaultCapacity) {
+        precondition(capacity > 0, "FlightRecorder capacity must be greater than 0")
         storage = OSAllocatedUnfairLock(initialState: RingBuffer(capacity: capacity))
     }
 
