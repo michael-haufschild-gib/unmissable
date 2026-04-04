@@ -42,9 +42,14 @@ nonisolated enum AppDiagnostics {
     }
 
     /// Cached release-mode override. Computed once on first access.
+    /// Only `UNMISSABLE_DIAGNOSTICS=1` (or `true`/`yes`/`on`) enables;
+    /// `=0`, `=false`, or empty string do not.
     private static let _releaseOverrideEnabled: Bool = {
-        if ProcessInfo.processInfo.environment["UNMISSABLE_DIAGNOSTICS"] != nil {
-            return true
+        if let value = ProcessInfo.processInfo.environment["UNMISSABLE_DIAGNOSTICS"] {
+            let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if ["1", "true", "yes", "on"].contains(normalized) {
+                return true
+            }
         }
         return UserDefaults.standard.bool(forKey: "com.unmissable.diagnostics.enabled")
     }()
@@ -85,7 +90,7 @@ nonisolated enum AppDiagnostics {
         )
 
         recorder.append(record)
-        logger.debug("\(record.summary)")
+        logger.debug("\(record.summary, privacy: .public)")
     }
 
     // MARK: - Flow Tracking

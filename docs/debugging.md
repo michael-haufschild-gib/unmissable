@@ -34,8 +34,8 @@ startup, auth, sync, database, scheduler, notification, and overlay subsystems.
 # Standard dev launch (diagnostics enabled by default in debug)
 ./Scripts/run-dev.sh
 
-# Release build with diagnostics override
-UNMISSABLE_DIAGNOSTICS=1 open .build/release/Unmissable.app
+# Release build with diagnostics override (-n forces new instance)
+UNMISSABLE_DIAGNOSTICS=1 open -n ./Unmissable.app
 ```
 
 ---
