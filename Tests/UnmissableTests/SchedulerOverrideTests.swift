@@ -229,7 +229,7 @@ final class SchedulerOverrideTests: XCTestCase {
         )
     }
 
-    func testScheduleAlerts_overrideWithSoundEnabled_producesSingleAlert() {
+    func testScheduleAlerts_overrideWithSoundEnabled_producesSingleAlert() throws {
         // When sound is enabled but an override is set, only one alert should fire
         // (the override controls both overlay and sound timing).
         preferencesManager.setPlayAlertSound(true)

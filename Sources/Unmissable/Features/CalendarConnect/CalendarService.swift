@@ -59,8 +59,9 @@ final class CalendarService {
     private let linkParser: LinkParser
     @ObservationIgnored
     private var cancellables = Set<AnyCancellable>()
-    @ObservationIgnored
-    private var providerObservationTasks: [CalendarProviderType: [Task<Void, Never>]] = [:]
+    // Observation stops naturally when a provider is removed from `providers`
+    // (the observe* methods guard on `providers[type]` and bail if nil).
+
     @ObservationIgnored
     private var uiRefreshTask: Task<Void, Never>?
     /// Dirty flag: set when sync or timezone changes require a UI refresh.
@@ -146,8 +147,7 @@ final class CalendarService {
         await loadCachedData()
 
         // Remove bindings for this provider
-        providerObservationTasks[providerType]?.forEach { $0.cancel() }
-        providerObservationTasks[providerType] = nil
+        // Observation stops automatically — observe* methods guard on providers[type]
         providers[providerType] = nil
 
         syncAggregatedAuthState()
@@ -199,8 +199,6 @@ final class CalendarService {
     /// Removes a previously injected backend and updates aggregated state.
     /// Internal access — visible to tests via @testable import.
     func removeTestBackend(type: CalendarProviderType) {
-        providerObservationTasks[type]?.forEach { $0.cancel() }
-        providerObservationTasks[type] = nil
         providers[type] = nil
         syncAggregatedAuthState()
     }
@@ -330,57 +328,57 @@ final class CalendarService {
     }
 
     private func setupProviderBindings(for backend: ProviderBackend) {
-        observeSyncStatus(for: backend)
-        observeLastSyncTime(for: backend)
-        observeNextSyncTime(for: backend)
+        observeSyncStatus(for: backend.type)
+        observeLastSyncTime(for: backend.type)
+        observeNextSyncTime(for: backend.type)
     }
 
-    private func observeSyncStatus(for backend: ProviderBackend) {
-        let providerType = backend.type
+    private func observeSyncStatus(for providerType: CalendarProviderType) {
+        guard let backend = providers[providerType] else { return }
         withObservationTracking {
             _ = backend.sync.syncStatus
         } onChange: { [weak self] in
             // onChange fires during willSet — the new value isn't stored yet.
             // Defer to the next MainActor turn so the read picks up the new value.
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, let backend = self.providers[providerType] else { return }
                 self.aggregateSyncStatus(
                     changedProvider: providerType,
                     newStatus: backend.sync.syncStatus,
                 )
-                self.observeSyncStatus(for: backend)
+                self.observeSyncStatus(for: providerType)
             }
         }
     }
 
-    private func observeLastSyncTime(for backend: ProviderBackend) {
-        let providerType = backend.type
+    private func observeLastSyncTime(for providerType: CalendarProviderType) {
+        guard let backend = providers[providerType] else { return }
         withObservationTracking {
             _ = backend.sync.lastSyncTime
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, let backend = self.providers[providerType] else { return }
                 self.aggregateSyncTimes(
                     changedProvider: providerType,
                     newLastSync: backend.sync.lastSyncTime,
                 )
-                self.observeLastSyncTime(for: backend)
+                self.observeLastSyncTime(for: providerType)
             }
         }
     }
 
-    private func observeNextSyncTime(for backend: ProviderBackend) {
-        let providerType = backend.type
+    private func observeNextSyncTime(for providerType: CalendarProviderType) {
+        guard let backend = providers[providerType] else { return }
         withObservationTracking {
             _ = backend.sync.nextSyncTime
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, let backend = self.providers[providerType] else { return }
                 self.aggregateSyncTimes(
                     changedProvider: providerType,
                     newNextSync: backend.sync.nextSyncTime,
                 )
-                self.observeNextSyncTime(for: backend)
+                self.observeNextSyncTime(for: providerType)
             }
         }
     }

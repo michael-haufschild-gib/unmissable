@@ -153,7 +153,11 @@ enum TestUtilities {
         let suiteName = "com.unmissable.test.\(UUID().uuidString)"
         // swiftlint:disable:next force_unwrapping
         let testDefaults = UserDefaults(suiteName: suiteName)!
-        let prefs = PreferencesManager(userDefaults: testDefaults, themeManager: ThemeManager())
+        let prefs = PreferencesManager(
+            userDefaults: testDefaults,
+            themeManager: ThemeManager(),
+            loginItemManager: TestSafeLoginItemManager(),
+        )
         // Set test-specific defaults
         prefs.setDefaultAlertMinutes(defaultAlertMinutes)
         prefs.setUseLengthBasedTiming(false)

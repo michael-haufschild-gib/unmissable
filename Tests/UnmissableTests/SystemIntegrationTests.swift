@@ -285,7 +285,7 @@ final class SystemIntegrationTests: XCTestCase {
         XCTAssertTrue(hasSnoozeAlert)
     }
 
-    func testConcurrentOperations() async {
+    func testSequentialOperationsProduceConsistentState() async {
         let events = (0 ..< 10).map { index in
             TestUtilities.createTestEvent(
                 id: "concurrent-\(index)",
