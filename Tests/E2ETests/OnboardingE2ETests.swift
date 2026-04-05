@@ -23,13 +23,14 @@ import Testing
 /// launch the real app and confirm that close/continue buttons respond without
 /// requiring an external `app.activate()` call.
 @MainActor
-struct OnboardingE2ETests {
+final class OnboardingE2ETests {
     private let appState: AppState
     private let manager: OnboardingWindowManager
     private let preferencesManager: PreferencesManager
+    private let suiteName: String
 
     init() {
-        let suiteName = "com.unmissable.onboarding-test.\(UUID().uuidString)"
+        suiteName = "com.unmissable.onboarding-test.\(UUID().uuidString)"
         // swiftlint:disable:next force_unwrapping
         let testDefaults = UserDefaults(suiteName: suiteName)!
         let theme = ThemeManager()
@@ -51,6 +52,10 @@ struct OnboardingE2ETests {
 
         appState = AppState(services: services, isTestEnvironment: true)
         manager = OnboardingWindowManager(appState: appState)
+    }
+
+    deinit {
+        UserDefaults.standard.removePersistentDomain(forName: suiteName)
     }
 
     // MARK: - Window Creation

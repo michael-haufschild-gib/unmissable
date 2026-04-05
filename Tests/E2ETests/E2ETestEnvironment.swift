@@ -14,6 +14,7 @@ final class E2ETestEnvironment {
     let testClock: TestClock
 
     private let tempDatabaseURL: URL
+    private let userDefaultsSuiteName: String
 
     init(useTestClock: Bool = true) async throws {
         // Create an isolated temporary database for each test environment
@@ -29,9 +30,9 @@ final class E2ETestEnvironment {
         }
 
         // Use isolated UserDefaults to avoid cross-test pollution
-        let suiteName = "com.unmissable.e2e.\(UUID().uuidString)"
+        userDefaultsSuiteName = "com.unmissable.e2e.\(UUID().uuidString)"
         // swiftlint:disable:next force_unwrapping
-        let testDefaults = UserDefaults(suiteName: suiteName)!
+        let testDefaults = UserDefaults(suiteName: userDefaultsSuiteName)!
         preferencesManager = PreferencesManager(userDefaults: testDefaults, themeManager: ThemeManager())
         // Set deterministic test defaults
         preferencesManager.setDefaultAlertMinutes(TestConstants.defaultAlertMinutes)
@@ -65,8 +66,9 @@ final class E2ETestEnvironment {
     }
 
     deinit {
-        // Clean up temporary database file
+        // Clean up temporary database file and isolated UserDefaults suite.
         try? FileManager.default.removeItem(at: tempDatabaseURL)
+        UserDefaults.standard.removePersistentDomain(forName: userDefaultsSuiteName)
     }
 
     // MARK: - Database Seeding

@@ -10,7 +10,14 @@ import XCTest
 ///
 /// **Not a regression test** — safe to delete once the queries are confirmed.
 final class MenuBarDiscoveryTests: XCTestCase {
-    func testDiscoverAccessibilityTree() {
+    func testDiscoverAccessibilityTree() throws {
+        // This is a one-shot spike test for discovering the accessibility tree.
+        // It is not a regression test and is skipped by default in CI.
+        // Set the environment variable to run it locally:
+        //   RUN_DISCOVERY_TESTS=1 xcodebuild test -scheme UnmissableUITests ...
+        guard ProcessInfo.processInfo.environment["RUN_DISCOVERY_TESTS"] != nil else {
+            throw XCTSkip("Set RUN_DISCOVERY_TESTS=1 to run this discovery spike")
+        }
         let app = XCUIApplication()
         app.launchArguments = UnmissableUITestSupport.launchArguments(onboardingCompleted: true)
         app.launch()

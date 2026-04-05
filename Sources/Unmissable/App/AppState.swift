@@ -34,7 +34,14 @@ final class AppState {
     ) {
         self.services = services
 
-        guard !isTestEnvironment else { return }
+        guard !isTestEnvironment else {
+            // Skip all bindings in the test harness:
+            // - setupBindings() creates Combine publishers tied to live services
+            //   (notification center, calendar) that cause cross-test pollution.
+            // - observeAppLaunch() fires checkInitialState() which opens windows
+            //   and calls NSApp APIs that crash or corrupt state in XCTest hosts.
+            return
+        }
         setupBindings()
         observeAppLaunch()
     }

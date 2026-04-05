@@ -92,23 +92,23 @@ Key facts:
 
 ### Build System
 
-- **SPM-only** — no `.xcodeproj` or `.xcworkspace` exists
-- `Package.swift`: swift-tools-version 6.3, macOS 14.0+
-- Build: `swift build`
-- Tests: `./Scripts/test.sh` (wraps `swift test` with worker limits, timeouts)
-- Release: `./Scripts/build-release.sh` (SPM build → manual .app bundle creation)
+- **Xcode project** — generated from `project.yml` via xcodegen
+- `project.yml`: macOS 15.0+, Xcode 16.3
+- Build: `xcodebuild build -project Unmissable.xcodeproj -scheme Unmissable`
+- Tests: `./Scripts/test.sh` (wraps `xcodebuild test-without-building` with worker limits, timeouts)
+- Release: `./Scripts/build-release.sh` (xcodebuild archive → .app bundle)
 - Swift 6.3 strict concurrency with `defaultIsolation(MainActor.self)`
 - ApproachableConcurrency flags: `InferIsolatedConformances`, `NonisolatedNonsendingByDefault`
 
-### Existing Test Targets (in Package.swift)
+### Existing Test Targets (in project.yml)
 
 | Target | Path | Dependencies |
 |---|---|---|
 | `UnmissableTests` | Tests/UnmissableTests/ | Unmissable, TestSupport, SnapshotTesting |
-| `IntegrationTests` | Tests/IntegrationTests/ | Unmissable |
 | `SnapshotTests` | Tests/SnapshotTests/ | Unmissable, TestSupport, SnapshotTesting |
 | `E2ETests` | Tests/E2ETests/ | Unmissable, TestSupport |
 | `TestSupport` (library) | Tests/TestSupport/ | Unmissable, Clocks, ConcurrencyExtras |
+| `UnmissableUITests` | Tests/UITests/ | (UI Testing Bundle, targets Unmissable app) |
 
 ### Key Test Infrastructure
 
@@ -465,7 +465,7 @@ final class MenuBarE2EUITests: XCTestCase {
 
 ### Step 7: Update CI/Scripts
 
-**File: `Scripts/test.sh`** — no changes needed. Continue using `swift test` for existing targets.
+**File: `Scripts/test.sh`** — no changes needed. Continues using `xcodebuild test-without-building` for existing targets.
 
 **New file: `Scripts/test-ui.sh`**:
 ```bash
@@ -499,14 +499,13 @@ Remove `Tests/E2ETests/MenuBarEntryPointE2ETests.swift` (created earlier this se
 
 | File | Action | Description |
 |---|---|---|
-| `Package.swift` | Edit | Add MenuBarExtraAccess dependency |
+| `project.yml` | Edit | Add MenuBarExtraAccess dependency, add UnmissableUITests target |
 | `Sources/Unmissable/App/UnmissableApp.swift` | Edit | Integrate MenuBarExtraAccess, add accessibility identifiers |
 | `Sources/Unmissable/App/AppDelegate.swift` | Edit | Add `--uitesting` launch argument guard |
-| `Unmissable.xcodeproj` | Create | Xcode project with UI test target (via Xcode GUI) |
+| `Unmissable.xcodeproj` | Regenerate | `xcodegen generate` after project.yml changes |
 | `Tests/UITests/MenuBarDiscoveryTests.swift` | Create | Spike test to discover accessibility tree |
 | `Tests/UITests/MenuBarE2EUITests.swift` | Create | Real E2E tests |
 | `Scripts/test-ui.sh` | Create | xcodebuild test runner for UI tests |
-| `Tests/E2ETests/MenuBarEntryPointE2ETests.swift` | Delete | Superseded by XCUITest |
 
 ### Files Changed Earlier This Session (keep as-is)
 
@@ -530,7 +529,7 @@ The biggest unknown is whether XCUITest can find the `NSStatusItem` button. Thre
 
 ## Verification
 
-1. `swift build` succeeds with MenuBarExtraAccess
+1. `xcodebuild build -project Unmissable.xcodeproj -scheme Unmissable` succeeds
 2. Existing `./Scripts/test.sh` still passes (no regressions)
 3. Discovery spike prints the accessibility tree and identifies the status item query
 4. UI tests launch the app, click the icon, verify the popover opens

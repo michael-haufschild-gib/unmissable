@@ -9,7 +9,7 @@ cd "$PROJECT_DIR"
 
 XCODEPROJ="Unmissable.xcodeproj"
 SCHEME="Unmissable"
-DESTINATION="platform=macOS,arch=arm64"
+DESTINATION="platform=macOS"
 
 echo "Building Unmissable..."
 xcodebuild build \

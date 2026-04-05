@@ -294,9 +294,13 @@ struct MenuBarE2ETests {
         // Switch to icon mode
         env.preferencesManager.setMenuBarDisplayMode(.icon)
 
-        // Allow observation to fire
-        // swiftlint:disable:next no_raw_task_sleep_in_tests
-        try await Task.sleep(for: .milliseconds(200))
+        // Poll until the observation fires and menuBarText clears, instead of
+        // sleeping for a fixed wall-clock duration.
+        let deadline = Date().addingTimeInterval(2.0)
+        while env.menuBarPreviewManager.menuBarText != nil, Date() < deadline {
+            // swiftlint:disable:next no_raw_task_sleep_in_tests
+            try? await Task.sleep(for: .milliseconds(10))
+        }
 
         #expect(env.menuBarPreviewManager.shouldShowIcon)
         #expect(env.menuBarPreviewManager.menuBarText == nil)

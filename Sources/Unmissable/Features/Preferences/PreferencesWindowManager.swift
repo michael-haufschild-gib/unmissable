@@ -92,16 +92,21 @@ final class PreferencesWindowManager: NSObject {
     }
 
     private func activateWindow(_ window: NSWindow) {
-        // Match the stronger onboarding activation path so the preferences
-        // window is frontmost and interactive even when launched from the menu
-        // bar app or while another app currently has focus.
+        // Correct activation sequence for LSUIElement / menu-bar apps (mirrors
+        // OnboardingWindowManager): set .regular policy first, bring the window
+        // to the front, then activate the app so the system honours the request.
+        // Activating before makeKeyAndOrderFront can leave the window behind
+        // the current foreground app on macOS 15.
         NSApp.setActivationPolicy(.regular)
-        _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
-        NSApp.activate(ignoringOtherApps: true)
         window.orderFrontRegardless()
         window.makeMain()
         window.makeKeyAndOrderFront(nil)
-        DispatchQueue.main.asyncAfter(deadline: .now() + Activation.settleDelay) {
+        _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
+        NSApp.activate(ignoringOtherApps: true)
+        // Re-run after a brief settle. [weak window] ensures we do not retain
+        // a window that is closed before the delay fires.
+        DispatchQueue.main.asyncAfter(deadline: .now() + Activation.settleDelay) { [weak window] in
+            guard let window else { return }
             _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
             NSApp.activate(ignoringOtherApps: true)
             window.makeMain()

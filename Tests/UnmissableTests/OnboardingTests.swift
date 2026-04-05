@@ -3,7 +3,7 @@ import Testing
 @testable import Unmissable
 
 @MainActor
-struct OnboardingTests {
+final class OnboardingTests {
     private var preferencesManager: PreferencesManager
     private let testSuiteName: String
 
@@ -16,6 +16,10 @@ struct OnboardingTests {
             themeManager: ThemeManager(),
             loginItemManager: TestSafeLoginItemManager(),
         )
+    }
+
+    deinit {
+        UserDefaults.standard.removePersistentDomain(forName: testSuiteName)
     }
 
     // MARK: - hasCompletedOnboarding Default

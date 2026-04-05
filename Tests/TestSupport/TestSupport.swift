@@ -301,13 +301,15 @@ public final class TestMenuBarEnvironment {
     /// The preferences manager backed by an isolated UserDefaults suite.
     public let preferencesManager: PreferencesManager
 
+    private let userDefaultsSuiteName: String
+
     public init() {
         let theme = ThemeManager()
         themeManager = theme
 
-        let suiteName = "com.unmissable.menubar-test.\(UUID().uuidString)"
+        userDefaultsSuiteName = "com.unmissable.menubar-test.\(UUID().uuidString)"
         // swiftlint:disable:next force_unwrapping
-        let testDefaults = UserDefaults(suiteName: suiteName)!
+        let testDefaults = UserDefaults(suiteName: userDefaultsSuiteName)!
         let prefs = PreferencesManager(
             userDefaults: testDefaults,
             themeManager: theme,
@@ -326,6 +328,10 @@ public final class TestMenuBarEnvironment {
         appState = AppState(services: services, isTestEnvironment: true)
         calendarService = services.calendarService
         menuBarPreviewManager = services.menuBarPreviewManager
+    }
+
+    deinit {
+        UserDefaults.standard.removePersistentDomain(forName: userDefaultsSuiteName)
     }
 
     private static let defaultPopoverWidth: CGFloat = 340

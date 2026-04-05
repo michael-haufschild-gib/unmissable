@@ -3,19 +3,21 @@ import Testing
 @testable import Unmissable
 
 @MainActor
-struct SchedulerOverrideTests {
+final class SchedulerOverrideTests {
     private var scheduler: EventScheduler
     private var preferencesManager: PreferencesManager
     private var overlayManager: TestSafeOverlayManager
     private var fixedDate: Date
+    private let suiteName: String
 
     /// Default calendar ID matching the test events.
     private let calId = "cal-1"
 
     init() {
         fixedDate = Date()
+        suiteName = "com.unmissable.scheduler-override-test.\(UUID().uuidString)"
         // swiftlint:disable:next force_unwrapping
-        let testDefaults = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
+        let testDefaults = UserDefaults(suiteName: suiteName)!
         preferencesManager = PreferencesManager(
             userDefaults: testDefaults,
             themeManager: ThemeManager(),
@@ -27,6 +29,10 @@ struct SchedulerOverrideTests {
             now: { capturedDate },
         )
         overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
+    }
+
+    deinit {
+        UserDefaults.standard.removePersistentDomain(forName: suiteName)
     }
 
     /// Builds a compound override key matching the scheduler's lookup format.

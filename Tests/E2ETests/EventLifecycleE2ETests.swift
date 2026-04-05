@@ -99,8 +99,7 @@ struct EventLifecycleE2ETests {
             events: upcoming, overlayManager: env.overlayManager,
         )
         let alertEventIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
-        #expect(alertEventIds.isSuperset(of: [futureEvent.id]))
-        #expect(alertEventIds.isDisjoint(with: [pastEvent.id]))
+        #expect(alertEventIds == Set([futureEvent.id]), "Only the future event should be scheduled")
     }
 
     // MARK: - Started Meetings

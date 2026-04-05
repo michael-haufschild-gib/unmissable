@@ -10,7 +10,7 @@ APP_NAME="Unmissable"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 XCODEPROJ="$PROJECT_DIR/Unmissable.xcodeproj"
 SCHEME="Unmissable"
-DESTINATION="platform=macOS,arch=arm64"
+DESTINATION="platform=macOS"
 cd "$PROJECT_DIR"
 
 # Kill any running instance

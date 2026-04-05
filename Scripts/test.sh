@@ -25,7 +25,7 @@ cd "$PROJECT_DIR"
 
 XCODEPROJ="Unmissable.xcodeproj"
 SCHEME="Unmissable"
-DESTINATION="platform=macOS,arch=arm64"
+DESTINATION="platform=macOS"
 
 LOG_DIR="$PROJECT_DIR/.build/test-logs"
 LOG_FILE="$LOG_DIR/test-output.log"
@@ -227,8 +227,8 @@ if [ "$TEST_EXIT" -eq 124 ] 2>/dev/null || grep -q "^TIMEOUT:" "$LOG_FILE" 2>/de
 fi
 
 # Parse xcodebuild test results
-TOTAL_TESTS=$(grep -c "Test Case.*passed\|Test Case.*failed" "$LOG_FILE" 2>/dev/null || echo "0")
-TOTAL_FAILURES=$(grep -c "Test Case.*failed" "$LOG_FILE" 2>/dev/null || echo "0")
+TOTAL_TESTS=$(grep -cE "Test Case.*passed|Test Case.*failed" "$LOG_FILE" 2>/dev/null) || TOTAL_TESTS=0
+TOTAL_FAILURES=$(grep -cE "Test Case.*failed" "$LOG_FILE" 2>/dev/null) || TOTAL_FAILURES=0
 
 # --- Step 6: Report ---
 

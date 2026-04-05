@@ -3,16 +3,22 @@ import Testing
 @testable import Unmissable
 
 @MainActor
-struct AlertTimingResolutionTests {
+final class AlertTimingResolutionTests {
     private var preferencesManager: PreferencesManager
+    private let suiteName: String
 
     init() {
+        suiteName = "com.unmissable.alert-timing-test.\(UUID().uuidString)"
         // swiftlint:disable:next force_unwrapping
-        let testDefaults = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
+        let testDefaults = UserDefaults(suiteName: suiteName)!
         preferencesManager = PreferencesManager(
             userDefaults: testDefaults,
             themeManager: ThemeManager(),
         )
+    }
+
+    deinit {
+        UserDefaults.standard.removePersistentDomain(forName: suiteName)
     }
 
     @Test
