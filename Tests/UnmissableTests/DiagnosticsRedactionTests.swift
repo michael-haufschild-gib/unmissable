@@ -1,114 +1,131 @@
 import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
-final class DiagnosticsRedactionTests: XCTestCase {
+struct DiagnosticsRedactionTests {
     // MARK: - Event ID Redaction
 
-    func testRedactedEventId_shortId_returnsUnchanged() {
-        XCTAssertEqual(PrivacyUtils.redactedEventId("abc"), "abc")
+    @Test
+    func redactedEventId_shortId_returnsUnchanged() {
+        #expect(PrivacyUtils.redactedEventId("abc") == "abc")
     }
 
-    func testRedactedEventId_longId_truncatesToPrefix() {
+    @Test
+    func redactedEventId_longId_truncatesToPrefix() {
         let id = "abc123-long-uuid-string-here"
         let result = PrivacyUtils.redactedEventId(id)
-        XCTAssertEqual(result, "abc123…")
-        XCTAssertFalse(result.contains("long-uuid"))
+        #expect(result == "abc123…")
+        #expect(!result.contains("long-uuid"))
     }
 
     // MARK: - Email Redaction
 
-    func testRedactedEmail_validEmail_showsPrefixAndDomain() {
+    @Test
+    func redactedEmail_validEmail_showsPrefixAndDomain() {
         let result = PrivacyUtils.redactedEmail("john.doe@example.com")
-        XCTAssertEqual(result, "jo***@example.com")
+        #expect(result == "jo***@example.com")
     }
 
-    func testRedactedEmail_nil_returnsNone() {
-        XCTAssertEqual(PrivacyUtils.redactedEmail(nil), "<none>")
+    @Test
+    func redactedEmail_nil_returnsNone() {
+        #expect(PrivacyUtils.redactedEmail(nil) == "<none>")
     }
 
-    func testRedactedEmail_empty_returnsNone() {
-        XCTAssertEqual(PrivacyUtils.redactedEmail(""), "<none>")
+    @Test
+    func redactedEmail_empty_returnsNone() {
+        #expect(PrivacyUtils.redactedEmail("") == "<none>")
     }
 
-    func testRedactedEmail_noAtSign_returnsStars() {
-        XCTAssertEqual(PrivacyUtils.redactedEmail("not-an-email"), "***")
+    @Test
+    func redactedEmail_noAtSign_returnsStars() {
+        #expect(PrivacyUtils.redactedEmail("not-an-email") == "***")
     }
 
     // MARK: - Path Redaction
 
-    func testRedactedPath_longPath_showsLastTwoComponents() {
+    @Test
+    func redactedPath_longPath_showsLastTwoComponents() {
         let path = "/Users/name/Library/Application Support/unmissable/db.sqlite"
         let result = PrivacyUtils.redactedPath(path)
-        XCTAssertEqual(result, "…/unmissable/db.sqlite")
-        XCTAssertFalse(result.contains("name"))
+        #expect(result == "…/unmissable/db.sqlite")
+        #expect(!result.contains("name"))
     }
 
-    func testRedactedPath_shortPath_stillRedactsWithPrefix() {
+    @Test
+    func redactedPath_shortPath_stillRedactsWithPrefix() {
         let path = "unmissable/db.sqlite"
-        XCTAssertEqual(PrivacyUtils.redactedPath(path), "…/unmissable/db.sqlite")
+        #expect(PrivacyUtils.redactedPath(path) == "…/unmissable/db.sqlite")
     }
 
-    func testRedactedPath_empty_returnsNone() {
-        XCTAssertEqual(PrivacyUtils.redactedPath(""), "<none>")
+    @Test
+    func redactedPath_empty_returnsNone() {
+        #expect(PrivacyUtils.redactedPath("") == "<none>")
     }
 
     // MARK: - URL Redaction
 
-    func testRedactedURL_validURL_showsSchemeAndHost() {
+    @Test
+    func redactedURL_validURL_showsSchemeAndHost() {
         let url = URL(string: "https://meet.google.com/abc-defg?authuser=0")
         let result = PrivacyUtils.redactedURL(url)
-        XCTAssertEqual(result, "https://meet.google.com/***")
-        XCTAssertFalse(result.contains("abc-defg"))
-        XCTAssertFalse(result.contains("authuser"))
+        #expect(result == "https://meet.google.com/***")
+        #expect(!result.contains("abc-defg"))
+        #expect(!result.contains("authuser"))
     }
 
-    func testRedactedURL_nil_returnsNone() {
-        XCTAssertEqual(PrivacyUtils.redactedURL(nil as URL?), "<none>")
+    @Test
+    func redactedURL_nil_returnsNone() {
+        #expect(PrivacyUtils.redactedURL(nil as URL?) == "<none>")
     }
 
-    func testRedactedURL_string_valid() {
+    @Test
+    func redactedURL_string_valid() {
         let result = PrivacyUtils.redactedURL("https://zoom.us/j/123456789")
-        XCTAssertEqual(result, "https://zoom.us/***")
+        #expect(result == "https://zoom.us/***")
     }
 
     // MARK: - Error Redaction
 
-    func testRedactedError_shortMessage_returnsUnchanged() {
+    @Test
+    func redactedError_shortMessage_returnsUnchanged() {
         let error = NSError(domain: "test", code: 1, userInfo: [
             NSLocalizedDescriptionKey: "Short error",
         ])
         let result = PrivacyUtils.redactedError(error)
-        XCTAssertEqual(result, "Short error")
+        #expect(result == "Short error")
     }
 
-    func testRedactedErrorString_longMessage_truncates() {
+    @Test
+    func redactedErrorString_longMessage_truncates() {
         let longMessage = String(repeating: "x", count: 200)
         let result = PrivacyUtils.redactedErrorString(longMessage)
-        XCTAssertTrue(result.count < longMessage.count)
-        XCTAssertTrue(result.hasSuffix("…[truncated]"))
+        #expect(result.count < longMessage.count)
+        #expect(result.hasSuffix("…[truncated]"))
     }
 
     // MARK: - Title Redaction
 
-    func testRedactedTitle_shortTitle_returnsUnchanged() {
-        XCTAssertEqual(PrivacyUtils.redactedTitle("Team Standup"), "Team Standup")
+    @Test
+    func redactedTitle_shortTitle_returnsUnchanged() {
+        #expect(PrivacyUtils.redactedTitle("Team Standup") == "Team Standup")
     }
 
-    func testRedactedTitle_longTitle_truncatesWithCharCount() {
+    @Test
+    func redactedTitle_longTitle_truncatesWithCharCount() {
         let title = "Very Long Meeting Title That Exceeds The Maximum Display Length"
         let result = PrivacyUtils.redactedTitle(title)
-        XCTAssertEqual(
-            result,
-            "Very Long Meeting Title That E…[\(title.count) chars]",
+        #expect(
+            result == "Very Long Meeting Title That E…[\(title.count) chars]",
         )
     }
 
-    func testRedactedTitle_nil_returnsUntitled() {
-        XCTAssertEqual(PrivacyUtils.redactedTitle(nil), "<untitled>")
+    @Test
+    func redactedTitle_nil_returnsUntitled() {
+        #expect(PrivacyUtils.redactedTitle(nil) == "<untitled>")
     }
 
-    func testRedactedTitle_empty_returnsUntitled() {
-        XCTAssertEqual(PrivacyUtils.redactedTitle(""), "<untitled>")
+    @Test
+    func redactedTitle_empty_returnsUntitled() {
+        #expect(PrivacyUtils.redactedTitle("") == "<untitled>")
     }
 }

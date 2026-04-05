@@ -1,27 +1,21 @@
 import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 /// E2E tests for scheduler timer-based triggering and snooze re-fire.
 /// These tests verify the real Timer-based code paths in EventScheduler.
 @MainActor
-final class SchedulerTimerE2ETests: XCTestCase {
-    private var env: E2ETestEnvironment!
+struct SchedulerTimerE2ETests {
+    private let env: E2ETestEnvironment
 
-    override func setUp() async throws {
-        try await super.setUp()
+    init() async throws {
         env = try await E2ETestEnvironment()
-    }
-
-    override func tearDown() async throws {
-        env.tearDown()
-        env = nil
-        try await super.tearDown()
     }
 
     // MARK: - Timer-Based Overlay Trigger
 
-    func testSchedulerTimerTriggersOverlayAtCorrectTime() async throws {
+    @Test
+    func schedulerTimerTriggersOverlayAtCorrectTime() async throws {
         // Set overlay to show 0 minutes before — alert triggers at event start time.
         // With test clock, the monitoring loop sleeps are instant (autoAdvance
         // moves clock forward), so the alert fires without wall-clock delay.
@@ -34,19 +28,21 @@ final class SchedulerTimerE2ETests: XCTestCase {
         )
 
         try await env.seedAndSchedule([nearEvent], startMonitoring: true)
+        defer { env.tearDown() }
 
         // Wait for monitoring loop to fire and show overlay.
         // Uses wall-clock polling instead of Task.yield + sleep which hangs
         // in Swift 6.3 due to MainActor starvation.
         await env.waitForOverlay()
 
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
-        XCTAssertEqual(env.overlayManager.activeEvent?.id, nearEvent.id)
+        #expect(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent?.id == nearEvent.id)
     }
 
     // MARK: - Snooze Schedules Future Re-Fire
 
-    func testSnoozeCreatesScheduledAlertWithCorrectTiming() async throws {
+    @Test
+    func snoozeCreatesScheduledAlertWithCorrectTiming() async throws {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-snooze-refire",
             title: "Snooze Refire Test",
@@ -57,7 +53,7 @@ final class SchedulerTimerE2ETests: XCTestCase {
 
         // Show overlay and snooze
         env.overlayManager.showOverlayImmediately(for: event)
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.isOverlayVisible)
 
         let snoozeMinutes = 5
         env.overlayManager.snoozeOverlay(for: snoozeMinutes)
@@ -68,18 +64,19 @@ final class SchedulerTimerE2ETests: XCTestCase {
             return false
         }
 
-        let alert = try XCTUnwrap(snoozeAlert)
-        XCTAssertEqual(alert.event.id, event.id)
+        let alert = try #require(snoozeAlert)
+        #expect(alert.event.id == event.id)
 
         // Trigger time should be ~5 minutes from test clock's "now"
         let secondsUntilSnooze = alert.triggerDate.timeIntervalSince(env.testClock.currentTime)
-        XCTAssertGreaterThan(secondsUntilSnooze, 4 * 60 - 5) // At least ~4 min 55s
-        XCTAssertLessThan(secondsUntilSnooze, 5 * 60 + 5) // At most ~5 min 5s
+        #expect(secondsUntilSnooze > 4 * 60 - 5) // At least ~4 min 55s
+        #expect(secondsUntilSnooze < 5 * 60 + 5) // At most ~5 min 5s
     }
 
     // MARK: - Snooze Preserved During Rescheduling
 
-    func testSnoozeAlertSurvivesRescheduling() async throws {
+    @Test
+    func snoozeAlertSurvivesRescheduling() async throws {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-snooze-survive",
             minutesFromNow: 20,
@@ -93,7 +90,7 @@ final class SchedulerTimerE2ETests: XCTestCase {
             if case .snooze = alert.alertType { return true }
             return false
         })
-        XCTAssertEqual(initialSnoozeCount, 1)
+        #expect(initialSnoozeCount == 1)
 
         // Change preference to trigger rescheduling via Combine observer
         env.preferencesManager.setOverlayShowMinutesBefore(8)
@@ -106,16 +103,16 @@ final class SchedulerTimerE2ETests: XCTestCase {
             if case .snooze = alert.alertType { return true }
             return false
         })
-        XCTAssertEqual(
-            postRescheduleSnoozeCount,
-            1,
+        #expect(
+            postRescheduleSnoozeCount == 1,
             "Snooze alert should be preserved during rescheduling",
         )
     }
 
     // MARK: - Scheduler Correctly Handles App-Start-Late Scenario
 
-    func testSchedulerShowsOverlayImmediatelyForMissedAlertTime() async throws {
+    @Test
+    func schedulerShowsOverlayImmediatelyForMissedAlertTime() async throws {
         // Simulate: app started late, event overlay alert time already passed
         // but meeting hasn't started yet
         env.preferencesManager.setOverlayShowMinutesBefore(10)
@@ -131,13 +128,14 @@ final class SchedulerTimerE2ETests: XCTestCase {
 
         // startScheduling calls showOverlay synchronously for missed alerts
         // before starting the monitoring loop, so the overlay is already visible.
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
-        XCTAssertEqual(env.overlayManager.activeEvent?.id, event.id)
+        #expect(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent?.id == event.id)
     }
 
     // MARK: - Multiple Providers Through Full Stack
 
-    func testAllProviderTypesPreservedThroughDBAndScheduler() async throws {
+    @Test
+    func allProviderTypesPreservedThroughDBAndScheduler() async throws {
         let providers: [Provider] = [.meet, .zoom, .teams, .webex, .generic]
         var events: [Event] = []
 
@@ -159,29 +157,30 @@ final class SchedulerTimerE2ETests: XCTestCase {
         // Known providers (meet, zoom, teams, webex) should be detected as online meetings
         let knownProviders: [Provider] = [.meet, .zoom, .teams, .webex]
         for provider in knownProviders {
-            let event = try XCTUnwrap(
+            let event = try #require(
                 fetched.first { $0.id == "e2e-provider-\(provider.rawValue)" },
                 "Should find event for provider \(provider.rawValue)",
             )
-            XCTAssertEqual(event.provider, provider)
-            XCTAssertTrue(LinkParser().isOnlineMeeting(event), "\(provider.rawValue) should be online meeting")
-            XCTAssertNotNil(
-                LinkParser().primaryLink(for: event),
+            #expect(event.provider == provider)
+            #expect(LinkParser().isOnlineMeeting(event), "\(provider.rawValue) should be online meeting")
+            #expect(
+                LinkParser().primaryLink(for: event) != nil,
                 "\(provider.rawValue) should have a primary link",
             )
         }
 
         // Generic provider may or may not be detected as online meeting depending on
         // LinkParser — the important thing is the link is preserved
-        let genericEvent = try XCTUnwrap(
+        let genericEvent = try #require(
             fetched.first { $0.id == "e2e-provider-generic" },
         )
-        XCTAssertFalse(genericEvent.links.isEmpty, "Generic event should still have links")
+        #expect(!genericEvent.links.isEmpty, "Generic event should still have links")
     }
 
     // MARK: - Database Search (FTS)
 
-    func testDatabaseSearchFindsEventsByTitle() async throws {
+    @Test
+    func databaseSearchFindsEventsByTitle() async throws {
         let events = [
             E2EEventBuilder.futureEvent(
                 id: "e2e-search-standup",
@@ -203,17 +202,18 @@ final class SchedulerTimerE2ETests: XCTestCase {
         try await env.seedEvents(events)
 
         let standupResults = try await env.databaseManager.searchEvents(query: "Standup")
-        let standupMatch = try XCTUnwrap(standupResults.first)
-        XCTAssertEqual(standupMatch.id, "e2e-search-standup")
+        let standupMatch = try #require(standupResults.first)
+        #expect(standupMatch.id == "e2e-search-standup")
 
         let sprintResults = try await env.databaseManager.searchEvents(query: "Sprint")
-        let sprintMatch = try XCTUnwrap(sprintResults.first)
-        XCTAssertEqual(sprintMatch.id, "e2e-search-planning")
+        let sprintMatch = try #require(sprintResults.first)
+        #expect(sprintMatch.id == "e2e-search-planning")
     }
 
     // MARK: - Event Duration Calculation Through DB
 
-    func testEventDurationPreservedThroughDatabase() async throws {
+    @Test
+    func eventDurationPreservedThroughDatabase() async throws {
         let shortEvent = E2EEventBuilder.futureEvent(
             id: "e2e-duration-short",
             minutesFromNow: 10,
@@ -228,12 +228,12 @@ final class SchedulerTimerE2ETests: XCTestCase {
         try await env.seedEvents([shortEvent, longEvent])
         let fetched = try await env.fetchUpcomingEvents()
 
-        let fetchedShort = try XCTUnwrap(fetched.first { $0.id == "e2e-duration-short" })
-        let fetchedLong = try XCTUnwrap(fetched.first { $0.id == "e2e-duration-long" })
+        let fetchedShort = try #require(fetched.first { $0.id == "e2e-duration-short" })
+        let fetchedLong = try #require(fetched.first { $0.id == "e2e-duration-long" })
 
         // Duration should be preserved through DB round-trip
-        XCTAssertEqual(fetchedShort.duration, 15 * 60, accuracy: 1.0)
-        XCTAssertEqual(fetchedLong.duration, 120 * 60, accuracy: 1.0)
+        #expect(abs(fetchedShort.duration - 15 * 60) <= 1.0)
+        #expect(abs(fetchedLong.duration - 120 * 60) <= 1.0)
 
         // Length-based timing should work with DB-fetched events
         env.preferencesManager.setUseLengthBasedTiming(true)
@@ -243,7 +243,7 @@ final class SchedulerTimerE2ETests: XCTestCase {
         let shortAlertMin = env.preferencesManager.alertMinutes(for: fetchedShort)
         let longAlertMin = env.preferencesManager.alertMinutes(for: fetchedLong)
 
-        XCTAssertEqual(shortAlertMin, 2, "Short event from DB should use short alert minutes")
-        XCTAssertEqual(longAlertMin, 10, "Long event from DB should use long alert minutes")
+        #expect(shortAlertMin == 2, "Short event from DB should use short alert minutes")
+        #expect(longAlertMin == 10, "Long event from DB should use long alert minutes")
     }
 }

@@ -1,6 +1,11 @@
 import Cocoa
 import OSLog
 
+enum AppRuntime {
+    static let isUITesting = ProcessInfo.processInfo.arguments.contains("--uitesting")
+    static let requiresRegularActivation = ProcessInfo.processInfo.arguments.contains("--ui-testing-regular-activation")
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let logger = Logger(category: "AppDelegate")
 
@@ -10,8 +15,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ["sessionId": AppDiagnostics.sessionId]
         }
 
-        // Hide dock icon for menu bar only app
-        NSApp.setActivationPolicy(.accessory)
+        if AppRuntime.requiresRegularActivation {
+            NSApp.setActivationPolicy(.regular)
+            _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
+            NSApp.activate(ignoringOtherApps: true)
+            logger.info("UI testing mode — forcing .regular activation policy")
+        } else {
+            NSApp.setActivationPolicy(.accessory)
+        }
 
         // Register URL scheme handler
         NSAppleEventManager.shared().setEventHandler(

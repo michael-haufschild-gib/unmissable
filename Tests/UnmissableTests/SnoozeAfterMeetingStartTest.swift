@@ -1,12 +1,13 @@
-import TestSupport
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 /// Tests snooze timer expiring after meeting has started.
 /// Verifies snoozed overlays appear even when the meeting has already started.
 @MainActor
-final class SnoozeAfterMeetingStartTest: XCTestCase {
-    func testSnoozeTimerExpiresAfterMeetingStarted() async throws {
+struct SnoozeAfterMeetingStartTest {
+    @Test
+    func snoozeTimerExpiresAfterMeetingStarted() async throws {
         let preferencesManager = PreferencesManager(themeManager: ThemeManager())
         let overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         let eventScheduler = EventScheduler(preferencesManager: preferencesManager, linkParser: LinkParser())
@@ -21,11 +22,11 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
 
         // Show initial overlay
         overlayManager.showOverlayImmediately(for: testEvent, fromSnooze: false)
-        XCTAssertTrue(overlayManager.isOverlayVisible, "Initial overlay should be visible")
+        #expect(overlayManager.isOverlayVisible, "Initial overlay should be visible")
 
         // Snooze for 5 minutes
         overlayManager.snoozeOverlay(for: 5)
-        XCTAssertFalse(overlayManager.isOverlayVisible, "Overlay should be hidden after snooze")
+        #expect(!overlayManager.isOverlayVisible, "Overlay should be hidden after snooze")
 
         // Wait for meeting to start
         try await TestUtilities.waitForAsync(timeout: 4.0) { @MainActor @Sendable in
@@ -33,24 +34,24 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
         }
 
         let meetingHasStarted = testEvent.startDate < Date()
-        XCTAssertTrue(meetingHasStarted, "Meeting should have started by now")
+        #expect(meetingHasStarted, "Meeting should have started by now")
 
         // Show overlay from snooze after meeting started
         overlayManager.showOverlay(for: testEvent, fromSnooze: true)
 
-        XCTAssertTrue(
+        #expect(
             overlayManager.isOverlayVisible,
             "Snoozed overlay should be visible even after meeting started",
         )
-        let activeEvent = try XCTUnwrap(overlayManager.activeEvent)
-        XCTAssertEqual(activeEvent.id, testEvent.id, "Should show correct event")
+        let activeEvent = try #require(overlayManager.activeEvent)
+        #expect(activeEvent.id == testEvent.id, "Should show correct event")
 
         // Verify overlay stays visible for snoozed alerts
         try await TestUtilities.waitForAsync(timeout: 2.0) { @MainActor @Sendable in
             overlayManager.isOverlayVisible
         }
 
-        XCTAssertTrue(
+        #expect(
             overlayManager.isOverlayVisible,
             "Snoozed overlay should remain visible longer than regular overlays",
         )
@@ -59,7 +60,8 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
         eventScheduler.stopScheduling()
     }
 
-    func testSnoozeAutoHideThresholds() async throws {
+    @Test
+    func snoozeAutoHideThresholds() async throws {
         let overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
 
         let meetingStartTime = Date().addingTimeInterval(-600) // 10 minutes ago
@@ -76,8 +78,8 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
             !overlayManager.isOverlayVisible
         }
 
-        XCTAssertFalse(
-            overlayManager.isOverlayVisible,
+        #expect(
+            !overlayManager.isOverlayVisible,
             "Regular overlay should auto-hide for meetings that started >5 minutes ago",
         )
 
@@ -88,7 +90,7 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
             overlayManager.isOverlayVisible
         }
 
-        XCTAssertTrue(
+        #expect(
             overlayManager.isOverlayVisible,
             "Snoozed overlay should remain visible for meetings that started <30 minutes ago",
         )
@@ -96,7 +98,8 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
         overlayManager.hideOverlay()
     }
 
-    func testSnoozeLoggingAndDebugInfo() {
+    @Test
+    func snoozeLoggingAndDebugInfo() {
         let preferencesManager = PreferencesManager(themeManager: ThemeManager())
         let overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         let eventScheduler = EventScheduler(preferencesManager: preferencesManager, linkParser: LinkParser())
@@ -110,7 +113,7 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
 
         eventScheduler.scheduleSnooze(for: testEvent, minutes: 1)
 
-        XCTAssertTrue(
+        #expect(
             eventScheduler.scheduledAlerts.contains { alert in
                 if case .snooze = alert.alertType {
                     return alert.event.id == testEvent.id
@@ -120,13 +123,14 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
         )
 
         overlayManager.showOverlayImmediately(for: testEvent, fromSnooze: true)
-        XCTAssertTrue(overlayManager.isOverlayVisible, "Snoozed overlay should be visible")
+        #expect(overlayManager.isOverlayVisible, "Snoozed overlay should be visible")
 
         overlayManager.hideOverlay()
         eventScheduler.stopScheduling()
     }
 
-    func testOverlayMessagingForSnoozedMeetings() {
+    @Test
+    func overlayMessagingForSnoozedMeetings() {
         // Verify OverlayContentView can be constructed for each snoozed meeting state
         let futureView = OverlayContentView(
             event: TestUtilities.createTestEvent(
@@ -168,8 +172,8 @@ final class SnoozeAfterMeetingStartTest: XCTestCase {
         )
 
         // Verify all views constructed without issues by checking a meaningful property
-        XCTAssertEqual(futureView.event.id, "snooze-future-test")
-        XCTAssertEqual(recentView.event.id, "snooze-recent-test")
-        XCTAssertEqual(ongoingView.event.id, "snooze-ongoing-test")
+        #expect(futureView.event.id == "snooze-future-test")
+        #expect(recentView.event.id == "snooze-recent-test")
+        #expect(ongoingView.event.id == "snooze-ongoing-test")
     }
 }

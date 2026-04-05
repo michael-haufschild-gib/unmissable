@@ -1,29 +1,23 @@
 import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 /// E2E tests for the calendar sync flow at the database boundary.
 /// Tests the data pipeline that runs after API responses arrive:
 /// events → DB save → scheduler update → overlay trigger.
 /// The OAuth/network layer requires real credentials and is tested separately.
 @MainActor
-final class CalendarSyncE2ETests: XCTestCase {
-    private var env: E2ETestEnvironment!
+struct CalendarSyncE2ETests {
+    private let env: E2ETestEnvironment
 
-    override func setUp() async throws {
-        try await super.setUp()
+    init() async throws {
         env = try await E2ETestEnvironment()
-    }
-
-    override func tearDown() async throws {
-        env.tearDown()
-        env = nil
-        try await super.tearDown()
     }
 
     // MARK: - Simulated Sync: New Events Arrive
 
-    func testNewEventsFromSyncAreScheduled() async throws {
+    @Test
+    func newEventsFromSyncAreScheduled() async throws {
         // Simulate what happens when sync brings new events
         let syncedEvents = (0 ..< 3).map { i in
             E2EEventBuilder.futureEvent(
@@ -44,12 +38,13 @@ final class CalendarSyncE2ETests: XCTestCase {
         )
 
         let scheduledIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
-        XCTAssertEqual(scheduledIds, Set(syncedEvents.map(\.id)))
+        #expect(scheduledIds == Set(syncedEvents.map(\.id)))
     }
 
     // MARK: - Simulated Sync: Events Updated
 
-    func testUpdatedEventsFromSyncRescheduleCorrectly() async throws {
+    @Test
+    func updatedEventsFromSyncRescheduleCorrectly() async throws {
         // Initial sync
         let initialEvents = [
             E2EEventBuilder.futureEvent(
@@ -86,14 +81,13 @@ final class CalendarSyncE2ETests: XCTestCase {
             events: secondFetch, overlayManager: env.overlayManager,
         )
 
-        let updatedAlert = try XCTUnwrap(env.eventScheduler.scheduledAlerts.first)
-        XCTAssertEqual(updatedAlert.event.title, "Updated Title")
+        let updatedAlert = try #require(env.eventScheduler.scheduledAlerts.first)
+        #expect(updatedAlert.event.title == "Updated Title")
 
         // Alert trigger time should have changed
         if let initialTrigger = initialAlertTrigger {
-            XCTAssertNotEqual(
-                updatedAlert.triggerDate,
-                initialTrigger,
+            #expect(
+                updatedAlert.triggerDate != initialTrigger,
                 "Alert should be rescheduled when event time changes",
             )
         }
@@ -101,7 +95,8 @@ final class CalendarSyncE2ETests: XCTestCase {
 
     // MARK: - Simulated Sync: Events Deleted
 
-    func testDeletedEventsFromSyncRemoveAlerts() async throws {
+    @Test
+    func deletedEventsFromSyncRemoveAlerts() async throws {
         // Initial sync with 3 events
         let initialEvents = E2EEventBuilder.eventBatch(
             count: 3, startingMinutesFromNow: 15, calendarId: "sync-delete-cal",
@@ -113,7 +108,7 @@ final class CalendarSyncE2ETests: XCTestCase {
             events: firstFetch, overlayManager: env.overlayManager,
         )
         let initialAlertIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
-        XCTAssertEqual(initialAlertIds, Set(["e2e-batch-0", "e2e-batch-1", "e2e-batch-2"]))
+        #expect(initialAlertIds == Set(["e2e-batch-0", "e2e-batch-1", "e2e-batch-2"]))
 
         // Second sync: only 1 event remains (2 were cancelled)
         let remainingEvents = [
@@ -134,12 +129,13 @@ final class CalendarSyncE2ETests: XCTestCase {
         )
 
         let remainingAlertIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
-        XCTAssertEqual(remainingAlertIds, ["e2e-batch-0"], "Only the surviving event should have alerts")
+        #expect(remainingAlertIds == ["e2e-batch-0"], "Only the surviving event should have alerts")
     }
 
     // MARK: - Calendar Selection Changes
 
-    func testCalendarDeselectionRemovesItsEvents() async throws {
+    @Test
+    func calendarDeselectionRemovesItsEvents() async throws {
         let cal1Events = (0 ..< 3).map { i in
             E2EEventBuilder.futureEvent(
                 id: "e2e-cal-sel-1-\(i)",
@@ -163,7 +159,7 @@ final class CalendarSyncE2ETests: XCTestCase {
             events: allEvents, overlayManager: env.overlayManager,
         )
         let initialCalendarIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.calendarId))
-        XCTAssertEqual(initialCalendarIds, Set(["selected-cal", "deselected-cal"]))
+        #expect(initialCalendarIds == Set(["selected-cal", "deselected-cal"]))
 
         // Simulate deselecting "deselected-cal" by deleting its events
         try await env.databaseManager.deleteEventsForCalendar("deselected-cal")
@@ -176,14 +172,15 @@ final class CalendarSyncE2ETests: XCTestCase {
         )
 
         let afterCalendarIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.calendarId))
-        XCTAssertEqual(afterCalendarIds, Set(["selected-cal"]))
+        #expect(afterCalendarIds == Set(["selected-cal"]))
         let remainingAlertIds = env.eventScheduler.scheduledAlerts.map(\.event.id).sorted()
-        XCTAssertEqual(remainingAlertIds, ["e2e-cal-sel-1-0", "e2e-cal-sel-1-1", "e2e-cal-sel-1-2"])
+        #expect(remainingAlertIds == ["e2e-cal-sel-1-0", "e2e-cal-sel-1-1", "e2e-cal-sel-1-2"])
     }
 
     // MARK: - Calendar Metadata Persistence
 
-    func testCalendarInfoSavedAndFetchedCorrectly() async throws {
+    @Test
+    func calendarInfoSavedAndFetchedCorrectly() async throws {
         let calendars = [
             CalendarInfo(
                 id: "cal-1",
@@ -212,22 +209,23 @@ final class CalendarSyncE2ETests: XCTestCase {
         try await env.seedCalendars(calendars)
 
         let fetched = try await env.databaseManager.fetchCalendars()
-        XCTAssertEqual(Set(fetched.map(\.id)), Set(["cal-1", "cal-2"]))
+        #expect(Set(fetched.map(\.id)) == Set(["cal-1", "cal-2"]))
 
-        let workCal = try XCTUnwrap(fetched.first { $0.id == "cal-1" })
-        XCTAssertEqual(workCal.name, "Work Calendar")
-        XCTAssertTrue(workCal.isSelected)
-        XCTAssertTrue(workCal.isPrimary)
+        let workCal = try #require(fetched.first { $0.id == "cal-1" })
+        #expect(workCal.name == "Work Calendar")
+        #expect(workCal.isSelected)
+        #expect(workCal.isPrimary)
 
-        let personalCal = try XCTUnwrap(fetched.first { $0.id == "cal-2" })
-        XCTAssertEqual(personalCal.name, "Personal Calendar")
-        XCTAssertFalse(personalCal.isSelected)
-        XCTAssertFalse(personalCal.isPrimary)
+        let personalCal = try #require(fetched.first { $0.id == "cal-2" })
+        #expect(personalCal.name == "Personal Calendar")
+        #expect(!personalCal.isSelected)
+        #expect(!personalCal.isPrimary)
     }
 
     // MARK: - Sync With No Changes Is Idempotent
 
-    func testRepeatedSyncWithSameDataIsIdempotent() async throws {
+    @Test
+    func repeatedSyncWithSameDataIsIdempotent() async throws {
         let events = E2EEventBuilder.eventBatch(
             count: 3, startingMinutesFromNow: 20, calendarId: "idempotent-cal",
         )
@@ -235,37 +233,39 @@ final class CalendarSyncE2ETests: XCTestCase {
         // First sync
         try await env.databaseManager.replaceEvents(for: "idempotent-cal", with: events)
         let firstFetch = try await env.fetchUpcomingEvents()
-        XCTAssertEqual(firstFetch.map(\.id), ["e2e-batch-0", "e2e-batch-1", "e2e-batch-2"])
+        #expect(firstFetch.map(\.id) == ["e2e-batch-0", "e2e-batch-1", "e2e-batch-2"])
 
         // Second sync with same data
         try await env.databaseManager.replaceEvents(for: "idempotent-cal", with: events)
         let secondFetch = try await env.fetchUpcomingEvents()
-        XCTAssertEqual(secondFetch.map(\.id), ["e2e-batch-0", "e2e-batch-1", "e2e-batch-2"])
+        #expect(secondFetch.map(\.id) == ["e2e-batch-0", "e2e-batch-1", "e2e-batch-2"])
 
         // Event data should be identical
         for (first, second) in zip(firstFetch, secondFetch) {
-            XCTAssertEqual(first.id, second.id)
-            XCTAssertEqual(first.title, second.title)
+            #expect(first.id == second.id)
+            #expect(first.title == second.title)
         }
     }
 
     // MARK: - CalendarService Initialization Without OAuth
 
-    func testCalendarServiceInitializesDisconnected() {
+    @Test
+    func calendarServiceInitializesDisconnected() {
         let calendarService = CalendarService(
             preferencesManager: env.preferencesManager,
             databaseManager: env.databaseManager,
             linkParser: LinkParser(),
         )
 
-        XCTAssertFalse(calendarService.isConnected)
-        XCTAssertEqual(calendarService.syncStatus, .idle)
-        XCTAssertEqual(calendarService.events, [])
-        XCTAssertEqual(calendarService.calendars, [])
-        XCTAssertNil(calendarService.userEmail)
+        #expect(!calendarService.isConnected)
+        #expect(calendarService.syncStatus == .idle)
+        #expect(calendarService.events.isEmpty)
+        #expect(calendarService.calendars.isEmpty)
+        #expect(calendarService.userEmail == nil)
     }
 
-    func testCalendarServiceDisconnectClearsState() async {
+    @Test
+    func calendarServiceDisconnectClearsState() async {
         let calendarService = CalendarService(
             preferencesManager: env.preferencesManager,
             databaseManager: env.databaseManager,
@@ -279,7 +279,7 @@ final class CalendarSyncE2ETests: XCTestCase {
 
         await calendarService.disconnectAll()
 
-        XCTAssertFalse(calendarService.isConnected)
-        XCTAssertEqual(calendarService.events, [])
+        #expect(!calendarService.isConnected)
+        #expect(calendarService.events.isEmpty)
     }
 }

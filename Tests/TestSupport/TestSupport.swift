@@ -3,6 +3,7 @@ import Clocks
 import ConcurrencyExtras
 import Foundation
 import OSLog
+import SwiftUI
 @testable import Unmissable
 
 // MARK: - Controllable Test Clock
@@ -87,13 +88,11 @@ public final class TestClock {
 // MARK: - Test-Safe Implementations
 
 /// Test-safe overlay manager that doesn't create actual UI elements
-@preconcurrency @MainActor
+@preconcurrency @MainActor @Observable
 public final class TestSafeOverlayManager: OverlayManaging {
     private let logger = Logger(category: "TestSupport")
 
-    @Published
     public var activeEvent: Event?
-    @Published
     public var isOverlayVisible = false
 
     /// Computed time until meeting starts (negative if meeting has started)
@@ -223,11 +222,10 @@ public final class TestSafeNotificationManager: NotificationManaging {
 
 // MARK: - Test-Safe Meeting Details Popup
 
-@preconcurrency @MainActor
+@preconcurrency @MainActor @Observable
 public final class TestSafeMeetingDetailsPopupManager: MeetingDetailsPopupManaging {
     private let logger = Logger(category: "TestSupport")
 
-    @Published
     public private(set) var isPopupVisible = false
     public private(set) var lastShownEvent: Event?
 
@@ -274,4 +272,123 @@ public final class TestSafeForegroundAppDetector: ForegroundAppDetecting {
     public func isBrowserInForeground() -> Bool {
         browserInForeground
     }
+}
+
+// MARK: - Test Menu Bar Environment
+
+/// Provides a fully wired test-safe environment for rendering `MenuBarView`
+/// and `MenuBarLabelView` in snapshot and E2E tests. Uses `TestSafeOverlayManager`
+/// so no fullscreen UI or side effects are triggered.
+///
+/// Usage:
+/// ```swift
+/// let env = TestMenuBarEnvironment()
+/// env.calendarService.isConnected = true
+/// env.calendarService.events = [someEvent]
+/// let controller = env.hostMenuBarView(size: CGSize(width: 340, height: 600))
+/// assertSnapshot(of: controller, as: .image(...))
+/// ```
+@preconcurrency @MainActor
+public final class TestMenuBarEnvironment {
+    /// The test-scoped AppState (created with `isTestEnvironment: true`).
+    public let appState: AppState
+    /// The calendar service wired into the test AppState.
+    public let calendarService: CalendarService
+    /// The theme manager shared across all test views.
+    public let themeManager: ThemeManager
+    /// The menu bar preview manager for label state assertions.
+    public let menuBarPreviewManager: MenuBarPreviewManager
+    /// The preferences manager backed by an isolated UserDefaults suite.
+    public let preferencesManager: PreferencesManager
+
+    private let userDefaultsSuiteName: String
+
+    public init() {
+        let theme = ThemeManager()
+        themeManager = theme
+
+        userDefaultsSuiteName = "com.unmissable.menubar-test.\(UUID().uuidString)"
+        // swiftlint:disable:next force_unwrapping
+        let testDefaults = UserDefaults(suiteName: userDefaultsSuiteName)!
+        let prefs = PreferencesManager(
+            userDefaults: testDefaults,
+            themeManager: theme,
+            loginItemManager: TestSafeLoginItemManager(),
+        )
+
+        let dbManager = DatabaseManager()
+        let overlayStub = TestSafeOverlayManager(isTestEnvironment: true)
+        let services = ServiceContainer(
+            databaseManager: dbManager,
+            themeManager: theme,
+            overlayManagerOverride: overlayStub,
+            preferencesManagerOverride: prefs,
+        )
+        preferencesManager = services.preferencesManager
+        appState = AppState(services: services, isTestEnvironment: true)
+        calendarService = services.calendarService
+        menuBarPreviewManager = services.menuBarPreviewManager
+    }
+
+    deinit {
+        UserDefaults.standard.removePersistentDomain(forName: userDefaultsSuiteName)
+    }
+
+    private static let defaultPopoverWidth: CGFloat = 340
+    private static let defaultPopoverHeight: CGFloat = 600
+    private static let defaultLabelWidth: CGFloat = 200
+    private static let defaultLabelHeight: CGFloat = 22
+
+    /// Hosts `MenuBarView` in an `NSHostingController` with the correct environment.
+    public func hostMenuBarView(
+        size: CGSize = CGSize(
+            width: TestMenuBarEnvironment.defaultPopoverWidth,
+            height: TestMenuBarEnvironment.defaultPopoverHeight,
+        ),
+    ) -> NSHostingController<some View> {
+        let view = MenuBarView()
+            .environment(appState)
+            .environment(calendarService)
+            .themed(themeManager: themeManager)
+            .frame(width: size.width, height: size.height)
+        return NSHostingController(rootView: view)
+    }
+
+    /// Hosts `MenuBarLabelView` in an `NSHostingController` with the correct environment.
+    public func hostMenuBarLabelView(
+        size: CGSize = CGSize(
+            width: TestMenuBarEnvironment.defaultLabelWidth,
+            height: TestMenuBarEnvironment.defaultLabelHeight,
+        ),
+    ) -> NSHostingController<some View> {
+        let view = MenuBarLabelView()
+            .environment(menuBarPreviewManager)
+            .themed(themeManager: themeManager)
+            .frame(width: size.width, height: size.height)
+        return NSHostingController(rootView: view)
+    }
+}
+
+// MARK: - Accessibility Identifier Lookup
+
+/// Recursively searches an `NSView` hierarchy for a descendant whose
+/// `accessibilityIdentifier()` matches the given string.
+///
+/// Useful for verifying that SwiftUI views rendered via `NSHostingController`
+/// contain the expected interactive elements.
+///
+///     let controller = env.hostMenuBarView()
+///     controller.view.layoutSubtreeIfNeeded()
+///     XCTAssertNotNil(findAccessibilityElement(identifier: "quit-button", in: controller.view))
+@preconcurrency @MainActor
+public func findAccessibilityElement(identifier: String, in view: NSView) -> NSView? {
+    if view.accessibilityIdentifier() == identifier {
+        return view
+    }
+    for subview in view.subviews {
+        if let found = findAccessibilityElement(identifier: identifier, in: subview) {
+            return found
+        }
+    }
+    return nil
 }

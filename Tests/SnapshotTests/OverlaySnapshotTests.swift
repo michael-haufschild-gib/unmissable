@@ -1,11 +1,12 @@
 import AppKit
+import Foundation
 import SnapshotTesting
 import SwiftUI
+import Testing
 @testable import Unmissable
-import XCTest
 
 @MainActor
-final class OverlaySnapshotTests: XCTestCase {
+struct OverlaySnapshotTests {
     // Snapshot tests use `.image` strategy to catch visual regressions:
     // wrong colors, broken layout, clipped text, missing elements.
     // All event dates (including createdAt/updatedAt) are fixed to epoch-based
@@ -22,7 +23,8 @@ final class OverlaySnapshotTests: XCTestCase {
 
     private let snapshotSize = CGSize(width: 1200, height: 800)
 
-    func testOverlayContentBeforeMeeting() {
+    @Test
+    func overlayContentBeforeMeeting() {
         let controller = makeHostingController(event: createSampleEvent())
         assertSnapshot(
             of: controller,
@@ -30,7 +32,8 @@ final class OverlaySnapshotTests: XCTestCase {
         )
     }
 
-    func testOverlayContentWithoutMeetingLink() {
+    @Test
+    func overlayContentWithoutMeetingLink() {
         let controller = makeHostingController(event: createSampleEventWithoutLink())
         assertSnapshot(
             of: controller,
@@ -38,7 +41,8 @@ final class OverlaySnapshotTests: XCTestCase {
         )
     }
 
-    func testOverlayContentWithLongTitle() {
+    @Test
+    func overlayContentWithLongTitle() {
         let controller = makeHostingController(event: createSampleEventWithLongTitle())
         assertSnapshot(
             of: controller,
@@ -46,7 +50,8 @@ final class OverlaySnapshotTests: XCTestCase {
         )
     }
 
-    func testOverlayContentFromSnooze() {
+    @Test
+    func overlayContentFromSnooze() {
         let controller = makeHostingController(event: createSampleEvent(), isFromSnooze: true)
         assertSnapshot(
             of: controller,

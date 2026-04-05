@@ -1,43 +1,30 @@
-import Combine
-import TestSupport
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 @MainActor
-final class SystemIntegrationTests: XCTestCase {
-    private var mockPreferences: PreferencesManager!
-    private var eventScheduler: EventScheduler!
-    private var overlayManager: TestSafeOverlayManager!
-    private var cancellables: Set<AnyCancellable>!
+struct SystemIntegrationTests {
+    private var mockPreferences: PreferencesManager
+    private var eventScheduler: EventScheduler
+    private var overlayManager: TestSafeOverlayManager
 
-    override func setUp() async throws {
-        try await super.setUp()
-
+    init() {
         mockPreferences = TestUtilities.createTestPreferencesManager()
         mockPreferences.testSoundEnabled = false // Disable sound to simplify alert counting
         overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         eventScheduler = EventScheduler(preferencesManager: mockPreferences, linkParser: LinkParser())
-        cancellables = Set<AnyCancellable>()
 
         // Connect the components
         overlayManager.setEventScheduler(eventScheduler)
     }
 
-    override func tearDown() async throws {
-        eventScheduler.stopScheduling()
-        overlayManager.hideOverlay()
-        cancellables.removeAll()
-
-        eventScheduler = nil
-        overlayManager = nil
-        mockPreferences = nil
-
-        try await super.tearDown()
-    }
-
     // MARK: - End-to-End Event Flow Tests
 
-    func testCompleteEventSchedulingFlow() async throws {
+    @Test
+    func completeEventSchedulingFlow() async throws {
+        defer { eventScheduler.stopScheduling()
+            overlayManager.hideOverlay()
+        }
         let futureEvent = TestUtilities.createTestEvent(
             title: "Integration Test Meeting",
             startDate: Date().addingTimeInterval(600), // 10 minutes from now
@@ -50,18 +37,22 @@ final class SystemIntegrationTests: XCTestCase {
         await eventScheduler.startScheduling(events: [futureEvent], overlayManager: overlayManager)
 
         // Verify alert was scheduled
-        XCTAssertEqual(eventScheduler.scheduledAlerts.map(\.event.id), [futureEvent.id])
-        let alert = try XCTUnwrap(eventScheduler.scheduledAlerts.first)
-        XCTAssertEqual(alert.event.id, futureEvent.id)
+        #expect(eventScheduler.scheduledAlerts.map(\.event.id) == [futureEvent.id])
+        let alert = try #require(eventScheduler.scheduledAlerts.first)
+        #expect(alert.event.id == futureEvent.id)
 
         if case let .reminder(minutes) = alert.alertType {
-            XCTAssertEqual(minutes, 9)
+            #expect(minutes == 9)
         } else {
-            XCTFail("Expected reminder alert type")
+            Issue.record("Expected reminder alert type")
         }
     }
 
-    func testEventSchedulingWithPreferenceChanges() async throws {
+    @Test
+    func eventSchedulingWithPreferenceChanges() async throws {
+        defer { eventScheduler.stopScheduling()
+            overlayManager.hideOverlay()
+        }
         // Disable sound alerts to isolate overlay scheduling verification
         mockPreferences.testSoundEnabled = false
 
@@ -79,13 +70,13 @@ final class SystemIntegrationTests: XCTestCase {
         await eventScheduler.startScheduling(events: events, overlayManager: overlayManager)
 
         let initialAlertCount = eventScheduler.scheduledAlerts.count
-        XCTAssertEqual(initialAlertCount, 2)
+        #expect(initialAlertCount == 2)
 
         // Change preferences
         mockPreferences.testOverlayShowMinutesBefore = 10
 
         // Wait for rescheduling to complete
-        let scheduler = try XCTUnwrap(eventScheduler)
+        let scheduler = eventScheduler
         try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
             // Check if any alert has the new timing to confirm rescheduling happened
             return scheduler.scheduledAlerts.contains { alert in
@@ -100,12 +91,16 @@ final class SystemIntegrationTests: XCTestCase {
         let updatedAlerts = eventScheduler.scheduledAlerts
         for alert in updatedAlerts {
             if case let .reminder(minutes) = alert.alertType {
-                XCTAssertEqual(minutes, 10)
+                #expect(minutes == 10)
             }
         }
     }
 
-    func testSnoozeWorkflow() async throws {
+    @Test
+    func snoozeWorkflow() async throws {
+        defer { eventScheduler.stopScheduling()
+            overlayManager.hideOverlay()
+        }
         let event = TestUtilities.createTestEvent(
             startDate: Date().addingTimeInterval(300), // 5 minutes from now
         )
@@ -114,13 +109,13 @@ final class SystemIntegrationTests: XCTestCase {
 
         // Simulate overlay being shown
         overlayManager.showOverlayImmediately(for: event)
-        XCTAssertTrue(overlayManager.isOverlayVisible)
+        #expect(overlayManager.isOverlayVisible)
 
         // Snooze the overlay
         overlayManager.snoozeOverlay(for: 2) // 2 minutes
 
         // Overlay should be hidden
-        XCTAssertFalse(overlayManager.isOverlayVisible)
+        #expect(!overlayManager.isOverlayVisible)
 
         // Check that snooze alert was scheduled
         let snoozeAlerts = eventScheduler.scheduledAlerts.filter { alert in
@@ -128,30 +123,38 @@ final class SystemIntegrationTests: XCTestCase {
             return false
         }
 
-        XCTAssertEqual(snoozeAlerts.map(\.event.id), [event.id])
+        #expect(snoozeAlerts.map(\.event.id) == [event.id])
 
-        if case let .snooze(until) = try XCTUnwrap(snoozeAlerts.first?.alertType) {
+        if case let .snooze(until) = try #require(snoozeAlerts.first?.alertType) {
             let expectedTime = Date().addingTimeInterval(2 * 60)
             let timeDifference = abs(until.timeIntervalSince(expectedTime))
-            XCTAssertLessThan(timeDifference, 5.0) // Allow 5 second tolerance
+            #expect(timeDifference < 5.0) // Allow 5 second tolerance
         }
     }
 
-    func testOverlayShowAndHideIntegration() {
+    @Test
+    func overlayShowAndHideIntegration() {
+        defer { eventScheduler.stopScheduling()
+            overlayManager.hideOverlay()
+        }
         let event = TestUtilities.createTestEvent()
 
         overlayManager.showOverlayImmediately(for: event)
-        XCTAssertTrue(overlayManager.isOverlayVisible)
-        XCTAssertEqual(overlayManager.activeEvent?.id, event.id)
+        #expect(overlayManager.isOverlayVisible)
+        #expect(overlayManager.activeEvent?.id == event.id)
 
         overlayManager.hideOverlay()
-        XCTAssertFalse(overlayManager.isOverlayVisible)
-        XCTAssertNil(overlayManager.activeEvent)
+        #expect(!overlayManager.isOverlayVisible)
+        #expect(overlayManager.activeEvent == nil)
     }
 
     // MARK: - Multi-Event Coordination Tests
 
-    func testMultipleEventsScheduling() async {
+    @Test
+    func multipleEventsScheduling() async {
+        defer { eventScheduler.stopScheduling()
+            overlayManager.hideOverlay()
+        }
         let events = (0 ..< 5).map { index in
             TestUtilities.createTestEvent(
                 id: "multi-event-\(index)",
@@ -165,15 +168,19 @@ final class SystemIntegrationTests: XCTestCase {
         // Should have scheduled alerts for all events
         let alerts = eventScheduler.scheduledAlerts
         let alertEventIds = alerts.map(\.event.id)
-        XCTAssertEqual(alertEventIds, (0 ..< 5).map { "multi-event-\($0)" })
+        #expect(alertEventIds == (0 ..< 5).map { "multi-event-\($0)" })
 
         // Alerts should be sorted by trigger time
         let triggerTimes = alerts.map(\.triggerDate)
         let sortedTimes = triggerTimes.sorted()
-        XCTAssertEqual(triggerTimes, sortedTimes)
+        #expect(triggerTimes == sortedTimes)
     }
 
-    func testOverlappingEventsHandling() async {
+    @Test
+    func overlappingEventsHandling() async {
+        defer { eventScheduler.stopScheduling()
+            overlayManager.hideOverlay()
+        }
         let baseTime = Date().addingTimeInterval(600) // 10 minutes from now
 
         let overlappingEvents = [
@@ -193,34 +200,42 @@ final class SystemIntegrationTests: XCTestCase {
 
         // Both events should be scheduled
         let alertEventIds = Set(eventScheduler.scheduledAlerts.map(\.event.id))
-        XCTAssertEqual(alertEventIds, Set(["overlap1", "overlap2"]))
+        #expect(alertEventIds == Set(["overlap1", "overlap2"]))
 
         // Test that overlays can be shown for overlapping events
         overlayManager.showOverlay(for: overlappingEvents[0])
-        XCTAssertEqual(overlayManager.activeEvent?.id, "overlap1")
+        #expect(overlayManager.activeEvent?.id == "overlap1")
 
         overlayManager.showOverlay(for: overlappingEvents[1])
-        XCTAssertEqual(overlayManager.activeEvent?.id, "overlap2") // Should replace first overlay
+        #expect(overlayManager.activeEvent?.id == "overlap2") // Should replace first overlay
     }
 
     // MARK: - Error Recovery Tests
 
-    func testSystemRecoveryAfterError() async {
+    @Test
+    func systemRecoveryAfterError() async {
+        defer { eventScheduler.stopScheduling()
+            overlayManager.hideOverlay()
+        }
         let validEvent = TestUtilities.createTestEvent(id: "valid")
 
         await eventScheduler.startScheduling(events: [validEvent], overlayManager: overlayManager)
-        XCTAssertEqual(eventScheduler.scheduledAlerts.map(\.event.id), ["valid"])
+        #expect(eventScheduler.scheduledAlerts.map(\.event.id) == ["valid"])
 
         // Simulate error by stopping and restarting
         eventScheduler.stopScheduling()
-        XCTAssertEqual(eventScheduler.scheduledAlerts, [], "Should have no alerts after stop")
+        #expect(eventScheduler.scheduledAlerts.isEmpty, "Should have no alerts after stop")
 
         // System should recover by restarting scheduling
         await eventScheduler.startScheduling(events: [validEvent], overlayManager: overlayManager)
-        XCTAssertEqual(eventScheduler.scheduledAlerts.map(\.event.id), ["valid"])
+        #expect(eventScheduler.scheduledAlerts.map(\.event.id) == ["valid"])
     }
 
-    func testMemoryPressureHandling() async throws {
+    @Test
+    func memoryPressureHandling() async {
+        defer { eventScheduler.stopScheduling()
+            overlayManager.hideOverlay()
+        }
         // Test with a large number of events to simulate memory pressure
         let largeEventCount = 200
         let events = (0 ..< largeEventCount).map { index in
@@ -230,62 +245,70 @@ final class SystemIntegrationTests: XCTestCase {
             )
         }
 
-        let scheduler = try XCTUnwrap(eventScheduler)
-        let overlay = try XCTUnwrap(overlayManager)
+        let scheduler = eventScheduler
+        let overlay = overlayManager
         let (_, schedulingTime) = await TestUtilities.measureTimeAsync { @MainActor @Sendable in
             await scheduler.startScheduling(events: events, overlayManager: overlay)
         }
 
-        XCTAssertLessThan(
-            schedulingTime, 5.0, "Scheduling 200 events should complete in under 5 seconds",
+        #expect(
+            schedulingTime < 5.0, "Scheduling 200 events should complete in under 5 seconds",
         )
         let alerts = eventScheduler.scheduledAlerts
-        XCTAssertEqual(alerts.map(\.event.id).prefix(1), ["memory-test-0"])
-        XCTAssertGreaterThanOrEqual(alerts.count, largeEventCount, "Should schedule all events")
+        #expect(alerts.map(\.event.id).prefix(1) == ["memory-test-0"])
+        #expect(alerts.count >= largeEventCount, "Should schedule all events")
 
         // Test that the system remains responsive
         let testEvent = TestUtilities.createTestEvent(id: "responsiveness-test")
         overlayManager.showOverlayImmediately(for: testEvent)
-        XCTAssertTrue(overlayManager.isOverlayVisible)
+        #expect(overlayManager.isOverlayVisible)
 
         overlayManager.hideOverlay()
-        XCTAssertFalse(overlayManager.isOverlayVisible)
+        #expect(!overlayManager.isOverlayVisible)
     }
 
     // MARK: - State Consistency Tests
 
-    func testStateConsistencyAcrossComponents() async {
+    @Test
+    func stateConsistencyAcrossComponents() async {
+        defer { eventScheduler.stopScheduling()
+            overlayManager.hideOverlay()
+        }
         let event = TestUtilities.createTestEvent()
 
         // Initial state
-        XCTAssertFalse(overlayManager.isOverlayVisible)
-        XCTAssertEqual(eventScheduler.scheduledAlerts, [], "Should start with no alerts")
+        #expect(!overlayManager.isOverlayVisible)
+        #expect(eventScheduler.scheduledAlerts.isEmpty, "Should start with no alerts")
 
         // Start scheduling
         await eventScheduler.startScheduling(events: [event], overlayManager: overlayManager)
 
         // EventScheduler should have alerts
-        XCTAssertGreaterThanOrEqual(eventScheduler.scheduledAlerts.count, 1)
+        #expect(eventScheduler.scheduledAlerts.count >= 1)
 
         // Show overlay
         overlayManager.showOverlayImmediately(for: event)
-        XCTAssertTrue(overlayManager.isOverlayVisible)
-        XCTAssertEqual(overlayManager.activeEvent?.id, event.id)
+        #expect(overlayManager.isOverlayVisible)
+        #expect(overlayManager.activeEvent?.id == event.id)
 
         // Snooze overlay
         overlayManager.snoozeOverlay(for: 1)
-        XCTAssertFalse(overlayManager.isOverlayVisible)
-        XCTAssertNil(overlayManager.activeEvent)
+        #expect(!overlayManager.isOverlayVisible)
+        #expect(overlayManager.activeEvent == nil)
 
         // EventScheduler should have snooze alert
         let hasSnoozeAlert = eventScheduler.scheduledAlerts.contains { alert in
             if case .snooze = alert.alertType { return true }
             return false
         }
-        XCTAssertTrue(hasSnoozeAlert)
+        #expect(hasSnoozeAlert)
     }
 
-    func testSequentialOperationsProduceConsistentState() async throws {
+    @Test
+    func sequentialOperationsProduceConsistentState() async throws {
+        defer { eventScheduler.stopScheduling()
+            overlayManager.hideOverlay()
+        }
         let events = (0 ..< 10).map { index in
             TestUtilities.createTestEvent(
                 id: "concurrent-\(index)",
@@ -301,7 +324,7 @@ final class SystemIntegrationTests: XCTestCase {
         mockPreferences.testOverlayShowMinutesBefore = 8
 
         // Wait for rescheduling to propagate after preference change
-        let scheduler = try XCTUnwrap(eventScheduler)
+        let scheduler = eventScheduler
         try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
             scheduler.scheduledAlerts.contains { alert in
                 if case let .reminder(minutes) = alert.alertType {
@@ -312,13 +335,17 @@ final class SystemIntegrationTests: XCTestCase {
         }
 
         // System should be in a consistent state
-        XCTAssertTrue(overlayManager.isOverlayVisible)
-        XCTAssertGreaterThanOrEqual(eventScheduler.scheduledAlerts.count, 1)
+        #expect(overlayManager.isOverlayVisible)
+        #expect(eventScheduler.scheduledAlerts.count >= 1)
     }
 
     // MARK: - Performance Integration Tests
 
-    func testEndToEndPerformance() async throws {
+    @Test
+    func endToEndPerformance() async {
+        defer { eventScheduler.stopScheduling()
+            overlayManager.hideOverlay()
+        }
         let eventCount = 50
         let events = (0 ..< eventCount).map { index in
             TestUtilities.createTestEvent(
@@ -327,9 +354,9 @@ final class SystemIntegrationTests: XCTestCase {
             )
         }
 
-        let scheduler = try XCTUnwrap(eventScheduler)
-        let overlay = try XCTUnwrap(overlayManager)
-        let prefs = try XCTUnwrap(mockPreferences)
+        let scheduler = eventScheduler
+        let overlay = overlayManager
+        let prefs = mockPreferences
         let (_, totalTime) = await TestUtilities.measureTimeAsync { @MainActor @Sendable in
             // Full end-to-end workflow
             await scheduler.startScheduling(events: events, overlayManager: overlay)
@@ -347,12 +374,16 @@ final class SystemIntegrationTests: XCTestCase {
             try? await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in true }
         }
 
-        XCTAssertLessThan(totalTime, 10.0, "End-to-end workflow should complete in under 10 seconds")
+        #expect(totalTime < 10.0, "End-to-end workflow should complete in under 10 seconds")
     }
 
     // MARK: - Data Flow Tests
 
-    func testPreferenceChangePropagation() async throws {
+    @Test
+    func preferenceChangePropagation() async throws {
+        defer { eventScheduler.stopScheduling()
+            overlayManager.hideOverlay()
+        }
         let event = TestUtilities.createTestEvent(
             startDate: Date().addingTimeInterval(1800), // 30 minutes from now
         )
@@ -364,20 +395,20 @@ final class SystemIntegrationTests: XCTestCase {
         await eventScheduler.startScheduling(events: [event], overlayManager: overlayManager)
 
         // Only overlay alert, no sound
-        XCTAssertEqual(eventScheduler.scheduledAlerts.map(\.event.id), [event.id])
+        #expect(eventScheduler.scheduledAlerts.map(\.event.id) == [event.id])
 
         // Enable sound alerts
         mockPreferences.testSoundEnabled = true
         mockPreferences.testDefaultAlertMinutes = 3
 
         // Wait for preference change to propagate
-        let scheduler = try XCTUnwrap(eventScheduler)
+        let scheduler = eventScheduler
         try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
             return scheduler.scheduledAlerts.count >= 1
         }
 
         // Should now have different alert configuration
         let updatedAlerts = eventScheduler.scheduledAlerts
-        XCTAssertGreaterThanOrEqual(updatedAlerts.count, 1)
+        #expect(updatedAlerts.count >= 1)
     }
 }

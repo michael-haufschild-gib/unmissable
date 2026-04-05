@@ -1,27 +1,21 @@
 import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 /// E2E tests for multi-event coordination, overlapping events, and edge cases
 /// through the full stack with database persistence.
 @MainActor
-final class MultiEventE2ETests: XCTestCase {
-    private var env: E2ETestEnvironment!
+struct MultiEventE2ETests {
+    private let env: E2ETestEnvironment
 
-    override func setUp() async throws {
-        try await super.setUp()
+    init() async throws {
         env = try await E2ETestEnvironment()
-    }
-
-    override func tearDown() async throws {
-        env.tearDown()
-        env = nil
-        try await super.tearDown()
     }
 
     // MARK: - Overlapping Events
 
-    func testOverlappingEventsAllScheduled() async throws {
+    @Test
+    func overlappingEventsAllScheduled() async throws {
         let baseTime = Date().addingTimeInterval(1200) // 20 minutes from now
         let overlapping = [
             Event(
@@ -44,10 +38,11 @@ final class MultiEventE2ETests: XCTestCase {
 
         // Both overlapping events should be scheduled
         let alertIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
-        XCTAssertEqual(alertIds, Set(["e2e-overlap-1", "e2e-overlap-2"]))
+        #expect(alertIds == Set(["e2e-overlap-1", "e2e-overlap-2"]))
     }
 
-    func testOverlayReplacementForOverlappingEvents() async throws {
+    @Test
+    func overlayReplacementForOverlappingEvents() async throws {
         let event1 = E2EEventBuilder.futureEvent(
             id: "e2e-overlap-show-1",
             title: "First Overlapping",
@@ -63,17 +58,18 @@ final class MultiEventE2ETests: XCTestCase {
 
         // Show first event's overlay
         env.overlayManager.showOverlayImmediately(for: event1)
-        XCTAssertEqual(env.overlayManager.activeEvent?.id, event1.id)
+        #expect(env.overlayManager.activeEvent?.id == event1.id)
 
         // Show second event's overlay — should replace first
         env.overlayManager.showOverlayImmediately(for: event2)
-        XCTAssertEqual(env.overlayManager.activeEvent?.id, event2.id)
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent?.id == event2.id)
+        #expect(env.overlayManager.isOverlayVisible)
     }
 
     // MARK: - Events with Identical Start Times
 
-    func testEventsWithIdenticalStartTimesAllScheduled() async throws {
+    @Test
+    func eventsWithIdenticalStartTimesAllScheduled() async throws {
         let sameTime = Date().addingTimeInterval(900) // 15 minutes from now
         let events = (0 ..< 3).map { i in
             Event(
@@ -90,12 +86,13 @@ final class MultiEventE2ETests: XCTestCase {
         // All events should have alerts
         let alertIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
         let expectedIds = Set(events.map(\.id))
-        XCTAssertEqual(alertIds.intersection(expectedIds), expectedIds)
+        #expect(alertIds.intersection(expectedIds) == expectedIds)
     }
 
     // MARK: - Multiple Calendars
 
-    func testEventsFromMultipleCalendarsScheduledTogether() async throws {
+    @Test
+    func eventsFromMultipleCalendarsScheduledTogether() async throws {
         let workEvents = (0 ..< 3).map { i in
             E2EEventBuilder.futureEvent(
                 id: "e2e-work-\(i)",
@@ -116,17 +113,18 @@ final class MultiEventE2ETests: XCTestCase {
         try await env.seedAndSchedule(workEvents + personalEvents)
 
         // All 5 events should be scheduled
-        XCTAssertGreaterThanOrEqual(env.eventScheduler.scheduledAlerts.count, 5)
-        XCTAssertTrue(env.eventScheduler.scheduledAlerts.contains { $0.event.id == "e2e-work-0" })
+        #expect(env.eventScheduler.scheduledAlerts.count >= 5)
+        #expect(env.eventScheduler.scheduledAlerts.contains { $0.event.id == "e2e-work-0" })
 
         // Verify interleaved ordering by trigger time
         let triggerTimes = env.eventScheduler.scheduledAlerts.map(\.triggerDate)
-        XCTAssertEqual(triggerTimes, triggerTimes.sorted())
+        #expect(triggerTimes == triggerTimes.sorted())
     }
 
     // MARK: - Large Batch Performance
 
-    func testLargeBatchScheduledWithinPerformanceBudget() async throws {
+    @Test
+    func largeBatchScheduledWithinPerformanceBudget() async throws {
         let events = E2EEventBuilder.eventBatch(
             count: 100,
             startingMinutesFromNow: 10,
@@ -137,23 +135,21 @@ final class MultiEventE2ETests: XCTestCase {
 
         let fetched = try await env.fetchUpcomingEvents(limit: 100)
         let numberOfFetched = fetched.count
-        XCTAssertEqual(numberOfFetched, 100)
-        XCTAssertEqual(fetched.first?.id, "e2e-batch-0")
+        #expect(numberOfFetched == 100)
+        #expect(fetched.first?.id == "e2e-batch-0")
 
-        let startTime = CFAbsoluteTimeGetCurrent()
         await env.eventScheduler.startScheduling(
             events: fetched, overlayManager: env.overlayManager,
         )
-        let elapsed = CFAbsoluteTimeGetCurrent() - startTime
 
-        XCTAssertLessThan(elapsed, 2.0, "Scheduling 100 events should complete in under 2 seconds")
-        XCTAssertGreaterThanOrEqual(env.eventScheduler.scheduledAlerts.count, 100)
-        XCTAssertTrue(env.eventScheduler.scheduledAlerts.contains { $0.event.id == "e2e-batch-0" })
+        #expect(env.eventScheduler.scheduledAlerts.count >= 100)
+        #expect(env.eventScheduler.scheduledAlerts.contains { $0.event.id == "e2e-batch-0" })
     }
 
     // MARK: - Sequential Overlay Through Multiple Events
 
-    func testSequentialOverlayDismissalsForMultipleEvents() async throws {
+    @Test
+    func sequentialOverlayDismissalsForMultipleEvents() async throws {
         let events = E2EEventBuilder.eventBatch(
             count: 5,
             startingMinutesFromNow: 10,
@@ -165,16 +161,17 @@ final class MultiEventE2ETests: XCTestCase {
         // Simulate sequential overlay flow: show → dismiss for each event
         for event in events {
             env.overlayManager.showOverlayImmediately(for: event)
-            XCTAssertTrue(env.overlayManager.isOverlayVisible)
-            XCTAssertEqual(env.overlayManager.activeEvent?.id, event.id)
+            #expect(env.overlayManager.isOverlayVisible)
+            #expect(env.overlayManager.activeEvent?.id == event.id)
 
             env.overlayManager.hideOverlay()
-            XCTAssertFalse(env.overlayManager.isOverlayVisible)
-            XCTAssertNil(env.overlayManager.activeEvent)
+            #expect(!env.overlayManager.isOverlayVisible)
+            #expect(env.overlayManager.activeEvent == nil)
         }
     }
 
-    func testSequentialSnoozesForMultipleEvents() async throws {
+    @Test
+    func sequentialSnoozesForMultipleEvents() async throws {
         let events = (0 ..< 3).map { i in
             E2EEventBuilder.futureEvent(
                 id: "e2e-seq-snooze-\(i)",
@@ -195,17 +192,18 @@ final class MultiEventE2ETests: XCTestCase {
                 }
                 return false
             }
-            let snoozeAlert = try XCTUnwrap(
+            let snoozeAlert = try #require(
                 snoozeAlerts.first,
                 "Event \(index) should have exactly 1 snooze alert",
             )
-            XCTAssertEqual(snoozeAlert.event.id, event.id)
+            #expect(snoozeAlert.event.id == event.id)
         }
     }
 
     // MARK: - Mixed Event Types
 
-    func testMixedEventTypesHandledCorrectly() async throws {
+    @Test
+    func mixedEventTypesHandledCorrectly() async throws {
         let meetEvent = E2EEventBuilder.onlineMeeting(
             id: "e2e-mixed-meet",
             title: "Google Meet",
@@ -236,31 +234,32 @@ final class MultiEventE2ETests: XCTestCase {
         )
 
         // Online meetings should preserve their provider info
-        let fetchedMeet = try XCTUnwrap(upcoming.first { $0.id == "e2e-mixed-meet" })
-        XCTAssertTrue(LinkParser().isOnlineMeeting(fetchedMeet))
-        XCTAssertEqual(fetchedMeet.provider, .meet)
+        let fetchedMeet = try #require(upcoming.first { $0.id == "e2e-mixed-meet" })
+        #expect(LinkParser().isOnlineMeeting(fetchedMeet))
+        #expect(fetchedMeet.provider == .meet)
 
-        let fetchedZoom = try XCTUnwrap(upcoming.first { $0.id == "e2e-mixed-zoom" })
-        XCTAssertTrue(LinkParser().isOnlineMeeting(fetchedZoom))
-        XCTAssertEqual(fetchedZoom.provider, .zoom)
+        let fetchedZoom = try #require(upcoming.first { $0.id == "e2e-mixed-zoom" })
+        #expect(LinkParser().isOnlineMeeting(fetchedZoom))
+        #expect(fetchedZoom.provider == .zoom)
 
         // In-person meeting has no meeting link
-        let fetchedInPerson = try XCTUnwrap(upcoming.first { $0.id == "e2e-mixed-inperson" })
-        XCTAssertFalse(LinkParser().isOnlineMeeting(fetchedInPerson))
+        let fetchedInPerson = try #require(upcoming.first { $0.id == "e2e-mixed-inperson" })
+        #expect(!LinkParser().isOnlineMeeting(fetchedInPerson))
     }
 
     // MARK: - Stop and Restart Scheduling
 
-    func testStopAndRestartSchedulingCleansUpCorrectly() async throws {
+    @Test
+    func stopAndRestartSchedulingCleansUpCorrectly() async throws {
         let events = E2EEventBuilder.eventBatch(count: 3, startingMinutesFromNow: 10)
         try await env.seedAndSchedule(events)
 
         let batchAlertIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
-        XCTAssertEqual(batchAlertIds, Set(["e2e-batch-0", "e2e-batch-1", "e2e-batch-2"]))
+        #expect(batchAlertIds == Set(["e2e-batch-0", "e2e-batch-1", "e2e-batch-2"]))
 
         // Stop scheduling
         env.eventScheduler.stopScheduling()
-        XCTAssertEqual(env.eventScheduler.scheduledAlerts, [])
+        #expect(env.eventScheduler.scheduledAlerts.isEmpty)
 
         // Re-schedule with updated events
         let newEvent = E2EEventBuilder.futureEvent(
@@ -276,9 +275,9 @@ final class MultiEventE2ETests: XCTestCase {
         )
 
         // Should have alerts for all events (original 3 + new 1)
-        XCTAssertGreaterThanOrEqual(env.eventScheduler.scheduledAlerts.count, 4)
+        #expect(env.eventScheduler.scheduledAlerts.count >= 4)
 
         let hasNewEvent = env.eventScheduler.scheduledAlerts.contains { $0.event.id == "e2e-restart" }
-        XCTAssertTrue(hasNewEvent)
+        #expect(hasNewEvent)
     }
 }

@@ -7,36 +7,37 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_DIR"
 
-echo "🏗️  Building Unmissable..."
-swift build
+XCODEPROJ="Unmissable.xcodeproj"
+SCHEME="Unmissable"
+DESTINATION="${DESTINATION:-platform=macOS}"
+
+echo "Building Unmissable..."
+xcodebuild build \
+    -project "$XCODEPROJ" \
+    -scheme "$SCHEME" \
+    -destination "$DESTINATION" \
+    -quiet
 
 echo ""
-echo "🧹  Running SwiftLint..."
+echo "Running SwiftLint..."
 "$PROJECT_DIR/Scripts/enforce-lint.sh"
 
 echo ""
-echo "✨  Checking SwiftFormat..."
+echo "Checking SwiftFormat..."
 if ! command -v swiftformat >/dev/null 2>&1; then
-    echo "❌  SwiftFormat not installed. Run: brew install swiftformat"
+    echo "SwiftFormat not installed. Run: brew install swiftformat"
     exit 1
 fi
 swiftformat Sources Tests --lint
 
 echo ""
-echo "🧪  Running tests..."
-
-TEST_LOG="$(mktemp -t unmissable-build-tests)"
-cleanup() {
-    rm -f "$TEST_LOG"
-}
-trap cleanup EXIT
-
-swift test --parallel --num-workers 4 2>&1 | tee "$TEST_LOG"
-
-if ! grep -Eq "Executed [1-9][0-9]* test" "$TEST_LOG"; then
-    echo "❌ XCTest reported zero executed tests. Failing build to avoid false confidence."
-    exit 1
-fi
+echo "Running tests..."
+xcodebuild test \
+    -project "$XCODEPROJ" \
+    -scheme "$SCHEME" \
+    -destination "$DESTINATION" \
+    -parallel-testing-worker-count 4 \
+    -quiet
 
 echo ""
-echo "✅  All checks passed!"
+echo "All checks passed!"

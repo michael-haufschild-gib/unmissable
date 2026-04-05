@@ -1,27 +1,21 @@
 import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 /// E2E tests for the overlay trigger and interaction flow through the full stack.
 /// Tests: DB event → scheduler trigger → overlay shows → snooze/dismiss/join → state consistency.
 @MainActor
-final class OverlayFlowE2ETests: XCTestCase {
-    private var env: E2ETestEnvironment!
+struct OverlayFlowE2ETests {
+    private let env: E2ETestEnvironment
 
-    override func setUp() async throws {
-        try await super.setUp()
+    init() async throws {
         env = try await E2ETestEnvironment()
-    }
-
-    override func tearDown() async throws {
-        env.tearDown()
-        env = nil
-        try await super.tearDown()
     }
 
     // MARK: - Overlay Triggered from DB Events
 
-    func testSchedulerTriggersOverlayForImminentEvent() async throws {
+    @Test
+    func schedulerTriggersOverlayForImminentEvent() async throws {
         // Event starting very soon with overlayShowMinutesBefore = 0
         // This makes the scheduler show the overlay at event start time.
         // Test clock auto-advances through the sleep, so no real wait needed.
@@ -34,20 +28,22 @@ final class OverlayFlowE2ETests: XCTestCase {
         )
 
         try await env.seedAndSchedule([imminentEvent], startMonitoring: true)
+        defer { env.tearDown() }
 
         // Wait for monitoring loop to fire and show overlay.
         // Uses wall-clock polling instead of Task.yield + sleep which hangs
         // in Swift 6.3 due to MainActor starvation.
         await env.waitForOverlay()
 
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
-        XCTAssertEqual(env.overlayManager.activeEvent?.id, imminentEvent.id)
-        XCTAssertEqual(env.overlayManager.activeEvent?.title, "Imminent Meeting")
+        #expect(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent?.id == imminentEvent.id)
+        #expect(env.overlayManager.activeEvent?.title == "Imminent Meeting")
     }
 
     // MARK: - Snooze Flow Through Full Stack
 
-    func testSnoozeFlowFromOverlayThroughScheduler() async throws {
+    @Test
+    func snoozeFlowFromOverlayThroughScheduler() async throws {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-snooze-flow",
             title: "Snooze Flow Meeting",
@@ -58,15 +54,15 @@ final class OverlayFlowE2ETests: XCTestCase {
 
         // Manually show overlay (simulating scheduler trigger)
         env.overlayManager.showOverlayImmediately(for: event)
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
-        XCTAssertEqual(env.overlayManager.activeEvent?.id, event.id)
+        #expect(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent?.id == event.id)
 
         // Snooze for 3 minutes
         env.overlayManager.snoozeOverlay(for: 3)
 
         // Verify: overlay hidden
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
-        XCTAssertNil(env.overlayManager.activeEvent)
+        #expect(!env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent == nil)
 
         // Verify: snooze alert scheduled in EventScheduler
         let snoozeAlerts = env.eventScheduler.scheduledAlerts.filter { alert in
@@ -74,20 +70,21 @@ final class OverlayFlowE2ETests: XCTestCase {
             return false
         }
         // Verify snooze is for the correct event
-        let snoozeAlert = try XCTUnwrap(snoozeAlerts.first, "Should have exactly one snooze alert")
-        XCTAssertEqual(snoozeAlert.event.id, event.id)
+        let snoozeAlert = try #require(snoozeAlerts.first, "Should have exactly one snooze alert")
+        #expect(snoozeAlert.event.id == event.id)
 
         // Verify snooze time is approximately correct (3 minutes from now)
         if case let .snooze(until) = snoozeAlert.alertType {
             let expectedTime = env.testClock.currentTime.addingTimeInterval(3 * 60)
             let drift = abs(until.timeIntervalSince(expectedTime))
-            XCTAssertLessThan(drift, 5.0, "Snooze time should be ~3 minutes from test clock")
+            #expect(drift < 5.0, "Snooze time should be ~3 minutes from test clock")
         } else {
-            XCTFail("Expected snooze alert type")
+            Issue.record("Expected snooze alert type")
         }
     }
 
-    func testSnoozeWithDifferentDurationsSchedulesCorrectly() async throws {
+    @Test
+    func snoozeWithDifferentDurationsSchedulesCorrectly() async throws {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-snooze-durations",
             minutesFromNow: 30,
@@ -98,27 +95,26 @@ final class OverlayFlowE2ETests: XCTestCase {
             env.eventScheduler.scheduledAlerts.removeAll()
 
             env.overlayManager.showOverlayImmediately(for: event)
-            XCTAssertTrue(env.overlayManager.isOverlayVisible)
+            #expect(env.overlayManager.isOverlayVisible)
 
             env.overlayManager.snoozeOverlay(for: duration)
 
-            XCTAssertFalse(env.overlayManager.isOverlayVisible)
+            #expect(!env.overlayManager.isOverlayVisible)
 
             // Find the snooze alert and verify its duration
             let snoozeAlert = env.eventScheduler.scheduledAlerts.first { alert in
                 if case .snooze = alert.alertType { return true }
                 return false
             }
-            let unwrappedSnooze = try XCTUnwrap(
+            let unwrappedSnooze = try #require(
                 snoozeAlert,
                 "Snooze alert should exist for \(duration) minutes",
             )
 
             if case let .snooze(until) = unwrappedSnooze.alertType {
                 let expectedMinutes = Int(ceil(until.timeIntervalSince(env.testClock.currentTime) / 60))
-                XCTAssertEqual(
-                    expectedMinutes,
-                    duration,
+                #expect(
+                    expectedMinutes == duration,
                     "Snooze should schedule for \(duration) minutes",
                 )
             }
@@ -127,7 +123,8 @@ final class OverlayFlowE2ETests: XCTestCase {
 
     // MARK: - Dismiss Flow
 
-    func testDismissFlowDoesNotScheduleSnooze() async throws {
+    @Test
+    func dismissFlowDoesNotScheduleSnooze() async throws {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-dismiss-flow",
             title: "Dismiss Flow Meeting",
@@ -138,24 +135,25 @@ final class OverlayFlowE2ETests: XCTestCase {
 
         // Show and dismiss
         env.overlayManager.showOverlayImmediately(for: event)
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.isOverlayVisible)
 
         env.overlayManager.hideOverlay()
 
         // Verify: overlay hidden, no snooze
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
-        XCTAssertNil(env.overlayManager.activeEvent)
+        #expect(!env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent == nil)
 
         let hasSnooze = env.eventScheduler.scheduledAlerts.contains { alert in
             if case .snooze = alert.alertType { return true }
             return false
         }
-        XCTAssertFalse(hasSnooze, "Dismiss should not create a snooze alert")
+        #expect(!hasSnooze, "Dismiss should not create a snooze alert")
     }
 
     // MARK: - Auto-Hide for Old Meetings
 
-    func testOverlayAutoHidesForMeetingStartedTooLongAgo() async throws {
+    @Test
+    func overlayAutoHidesForMeetingStartedTooLongAgo() async throws {
         // Meeting that started more than 5 minutes ago (non-snooze threshold)
         let oldEvent = E2EEventBuilder.startedEvent(
             id: "e2e-auto-hide",
@@ -168,13 +166,14 @@ final class OverlayFlowE2ETests: XCTestCase {
         // Try to show overlay for this old meeting — should auto-dismiss
         env.overlayManager.showOverlayImmediately(for: oldEvent)
 
-        XCTAssertFalse(
-            env.overlayManager.isOverlayVisible,
+        #expect(
+            !env.overlayManager.isOverlayVisible,
             "Overlay should auto-hide for meetings started >5 minutes ago",
         )
     }
 
-    func testOverlayShowsForRecentlyStartedMeeting() async throws {
+    @Test
+    func overlayShowsForRecentlyStartedMeeting() async throws {
         // Meeting that started just 2 minutes ago
         let recentEvent = E2EEventBuilder.startedEvent(
             id: "e2e-recent-start",
@@ -186,14 +185,15 @@ final class OverlayFlowE2ETests: XCTestCase {
 
         env.overlayManager.showOverlayImmediately(for: recentEvent)
 
-        XCTAssertTrue(
+        #expect(
             env.overlayManager.isOverlayVisible,
             "Overlay should show for recently started meetings",
         )
-        XCTAssertEqual(env.overlayManager.activeEvent?.id, recentEvent.id)
+        #expect(env.overlayManager.activeEvent?.id == recentEvent.id)
     }
 
-    func testSnoozedOverlayHasLongerAutoHideThreshold() async throws {
+    @Test
+    func snoozedOverlayHasLongerAutoHideThreshold() async throws {
         // Meeting started 20 minutes ago — normally would auto-hide
         // But fromSnooze allows up to 30 minutes
         let snoozedEvent = E2EEventBuilder.startedEvent(
@@ -207,7 +207,7 @@ final class OverlayFlowE2ETests: XCTestCase {
         // Show as if from snooze
         env.overlayManager.showOverlayImmediately(for: snoozedEvent, fromSnooze: true)
 
-        XCTAssertTrue(
+        #expect(
             env.overlayManager.isOverlayVisible,
             "Snoozed overlay should show for meetings started up to 30 minutes ago",
         )
@@ -215,7 +215,8 @@ final class OverlayFlowE2ETests: XCTestCase {
 
     // MARK: - Overlay Replaces Previous Event
 
-    func testOverlayReplacesActiveEventWhenNewOneTriggered() async throws {
+    @Test
+    func overlayReplacesActiveEventWhenNewOneTriggered() async throws {
         let event1 = E2EEventBuilder.futureEvent(
             id: "e2e-replace-1",
             title: "First Meeting",
@@ -230,17 +231,18 @@ final class OverlayFlowE2ETests: XCTestCase {
         try await env.seedAndSchedule([event1, event2])
 
         env.overlayManager.showOverlayImmediately(for: event1)
-        XCTAssertEqual(env.overlayManager.activeEvent?.id, event1.id)
+        #expect(env.overlayManager.activeEvent?.id == event1.id)
 
         // Second event overlay replaces first
         env.overlayManager.showOverlayImmediately(for: event2)
-        XCTAssertEqual(env.overlayManager.activeEvent?.id, event2.id)
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent?.id == event2.id)
+        #expect(env.overlayManager.isOverlayVisible)
     }
 
     // MARK: - State Consistency After Operations
 
-    func testStateConsistencyAfterSnoozeAndDismissCycle() async throws {
+    @Test
+    func stateConsistencyAfterSnoozeAndDismissCycle() async throws {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-state-consistency",
             minutesFromNow: 15,
@@ -249,27 +251,28 @@ final class OverlayFlowE2ETests: XCTestCase {
 
         // Show → snooze → show again → dismiss
         env.overlayManager.showOverlayImmediately(for: event)
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.isOverlayVisible)
 
         env.overlayManager.snoozeOverlay(for: 5)
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
-        XCTAssertNil(env.overlayManager.activeEvent)
+        #expect(!env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent == nil)
 
         // Simulate snooze firing — show again
         env.overlayManager.showOverlayImmediately(for: event, fromSnooze: true)
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
-        XCTAssertEqual(env.overlayManager.activeEvent?.id, event.id)
+        #expect(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent?.id == event.id)
 
         // Dismiss
         env.overlayManager.hideOverlay()
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
-        XCTAssertNil(env.overlayManager.activeEvent)
-        XCTAssertEqual(env.overlayManager.timeUntilMeeting, 0)
+        #expect(!env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent == nil)
+        #expect(env.overlayManager.timeUntilMeeting == 0)
     }
 
     // MARK: - Rapid Interactions Don't Corrupt State
 
-    func testRapidShowHideDoesNotCorruptState() async throws {
+    @Test
+    func rapidShowHideDoesNotCorruptState() async throws {
         let event = E2EEventBuilder.futureEvent(id: "e2e-rapid", minutesFromNow: 10)
         try await env.seedAndSchedule([event])
 
@@ -279,11 +282,12 @@ final class OverlayFlowE2ETests: XCTestCase {
         }
 
         // Final state should be clean
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
-        XCTAssertNil(env.overlayManager.activeEvent)
+        #expect(!env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent == nil)
     }
 
-    func testRapidSnoozeDoesNotAccumulateSnoozeAlerts() async throws {
+    @Test
+    func rapidSnoozeDoesNotAccumulateSnoozeAlerts() async throws {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-rapid-snooze",
             minutesFromNow: 15,
@@ -302,31 +306,33 @@ final class OverlayFlowE2ETests: XCTestCase {
             if case .snooze = alert.alertType { return true }
             return false
         }
-        let rapidSnooze = try XCTUnwrap(snoozeAlerts.first, "Should have exactly one snooze alert")
-        XCTAssertEqual(rapidSnooze.event.id, event.id)
+        let rapidSnooze = try #require(snoozeAlerts.first, "Should have exactly one snooze alert")
+        #expect(rapidSnooze.event.id == event.id)
     }
 
     // MARK: - Snooze While No Overlay Is No-Op
 
-    func testSnoozeWithNoActiveOverlayIsNoOp() async throws {
+    @Test
+    func snoozeWithNoActiveOverlayIsNoOp() async throws {
         let event = E2EEventBuilder.futureEvent(id: "e2e-no-overlay-snooze", minutesFromNow: 20)
         try await env.seedAndSchedule([event])
 
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
+        #expect(!env.overlayManager.isOverlayVisible)
 
         env.overlayManager.snoozeOverlay(for: 5)
 
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
+        #expect(!env.overlayManager.isOverlayVisible)
         let hasSnooze = env.eventScheduler.scheduledAlerts.contains { alert in
             if case .snooze = alert.alertType { return true }
             return false
         }
-        XCTAssertFalse(hasSnooze, "Snooze with no active overlay should not schedule anything")
+        #expect(!hasSnooze, "Snooze with no active overlay should not schedule anything")
     }
 
     // MARK: - Snooze After Meeting Start Through Full Stack
 
-    func testSnoozedOverlayShowsFromDBEventAfterMeetingStarts() async throws {
+    @Test
+    func snoozedOverlayShowsFromDBEventAfterMeetingStarts() async throws {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-snooze-db-start",
             title: "Snooze DB Meeting",
@@ -338,33 +344,34 @@ final class OverlayFlowE2ETests: XCTestCase {
 
         // Show overlay and snooze
         env.overlayManager.showOverlayImmediately(for: event)
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.isOverlayVisible)
 
         env.overlayManager.snoozeOverlay(for: 5)
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
+        #expect(!env.overlayManager.isOverlayVisible)
 
         // Verify snooze alert exists
         let hasSnooze = env.eventScheduler.scheduledAlerts.contains { alert in
             if case .snooze = alert.alertType { return true }
             return false
         }
-        XCTAssertTrue(hasSnooze, "Snooze should be scheduled")
+        #expect(hasSnooze, "Snooze should be scheduled")
 
         // Simulate snooze firing after meeting started by re-fetching from DB
         _ = try await env.fetchUpcomingEvents()
 
         // Show from snooze — this should work even if startDate is now in the past
         env.overlayManager.showOverlayImmediately(for: event, fromSnooze: true)
-        XCTAssertTrue(
+        #expect(
             env.overlayManager.isOverlayVisible,
             "Snoozed overlay should show from DB-fetched event",
         )
-        XCTAssertEqual(env.overlayManager.activeEvent?.id, event.id)
+        #expect(env.overlayManager.activeEvent?.id == event.id)
     }
 
     // MARK: - Online Meeting Data Preserved in Overlay
 
-    func testOnlineMeetingDataAvailableInOverlay() async throws {
+    @Test
+    func onlineMeetingDataAvailableInOverlay() async throws {
         let meetEvent = E2EEventBuilder.onlineMeeting(
             id: "e2e-meet-overlay",
             title: "Google Meet E2E",
@@ -376,14 +383,14 @@ final class OverlayFlowE2ETests: XCTestCase {
 
         // Fetch from DB and show overlay
         let fetched = try await env.fetchUpcomingEvents()
-        let dbEvent = try XCTUnwrap(fetched.first)
+        let dbEvent = try #require(fetched.first)
 
         env.overlayManager.showOverlayImmediately(for: dbEvent)
 
-        let activeEvent = try XCTUnwrap(env.overlayManager.activeEvent)
-        XCTAssertTrue(LinkParser().isOnlineMeeting(activeEvent))
-        let link = try XCTUnwrap(LinkParser().primaryLink(for: activeEvent))
-        XCTAssertEqual(link.host, "meet.google.com")
-        XCTAssertEqual(activeEvent.provider, .meet)
+        let activeEvent = try #require(env.overlayManager.activeEvent)
+        #expect(LinkParser().isOnlineMeeting(activeEvent))
+        let link = try #require(LinkParser().primaryLink(for: activeEvent))
+        #expect(link.host == "meet.google.com")
+        #expect(activeEvent.provider == .meet)
     }
 }

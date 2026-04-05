@@ -1,117 +1,134 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
-final class ProviderTests: XCTestCase {
-    func testProviderDetectionFromGoogleMeetURL() throws {
-        let meetUrl1 = try XCTUnwrap(URL(string: "https://meet.google.com/abc-defg-hij"))
-        let meetUrl2 = try XCTUnwrap(URL(string: "https://g.co/meet/xyz"))
+struct ProviderTests {
+    @Test
+    func providerDetectionFromGoogleMeetURL() throws {
+        let meetUrl1 = try #require(URL(string: "https://meet.google.com/abc-defg-hij"))
+        let meetUrl2 = try #require(URL(string: "https://g.co/meet/xyz"))
 
-        XCTAssertEqual(Provider.detect(from: meetUrl1), .meet)
-        XCTAssertEqual(Provider.detect(from: meetUrl2), .meet)
+        #expect(Provider.detect(from: meetUrl1) == .meet)
+        #expect(Provider.detect(from: meetUrl2) == .meet)
     }
 
-    func testProviderDetectionFromZoomURL() throws {
-        let zoomUrl1 = try XCTUnwrap(URL(string: "https://zoom.us/j/123456789"))
-        let zoomUrl2 = try XCTUnwrap(URL(string: "zoommtg://zoom.us/join?confno=123456789"))
+    @Test
+    func providerDetectionFromZoomURL() throws {
+        let zoomUrl1 = try #require(URL(string: "https://zoom.us/j/123456789"))
+        let zoomUrl2 = try #require(URL(string: "zoommtg://zoom.us/join?confno=123456789"))
 
-        XCTAssertEqual(Provider.detect(from: zoomUrl1), .zoom)
-        XCTAssertEqual(Provider.detect(from: zoomUrl2), .zoom)
+        #expect(Provider.detect(from: zoomUrl1) == .zoom)
+        #expect(Provider.detect(from: zoomUrl2) == .zoom)
     }
 
-    func testProviderDetectionFromTeamsURL() throws {
-        let teamsUrl1 = try XCTUnwrap(URL(string: "https://teams.microsoft.com/l/meetup-join/..."))
-        let teamsUrl2 = try XCTUnwrap(URL(string: "https://teams.live.com/meet/..."))
-        let teamsUrl3 = try XCTUnwrap(URL(string: "msteams://teams.microsoft.com/..."))
+    @Test
+    func providerDetectionFromTeamsURL() throws {
+        let teamsUrl1 = try #require(URL(string: "https://teams.microsoft.com/l/meetup-join/..."))
+        let teamsUrl2 = try #require(URL(string: "https://teams.live.com/meet/..."))
+        let teamsUrl3 = try #require(URL(string: "msteams://teams.microsoft.com/..."))
 
-        XCTAssertEqual(Provider.detect(from: teamsUrl1), .teams)
-        XCTAssertEqual(Provider.detect(from: teamsUrl2), .teams)
-        XCTAssertEqual(Provider.detect(from: teamsUrl3), .teams)
+        #expect(Provider.detect(from: teamsUrl1) == .teams)
+        #expect(Provider.detect(from: teamsUrl2) == .teams)
+        #expect(Provider.detect(from: teamsUrl3) == .teams)
     }
 
-    func testProviderDetectionFromWebexURL() throws {
-        let webexUrl1 = try XCTUnwrap(URL(string: "https://webex.com/meet/user.name"))
-        let webexUrl2 = try XCTUnwrap(URL(string: "webex://webex.com/join/..."))
+    @Test
+    func providerDetectionFromWebexURL() throws {
+        let webexUrl1 = try #require(URL(string: "https://webex.com/meet/user.name"))
+        let webexUrl2 = try #require(URL(string: "webex://webex.com/join/..."))
 
-        XCTAssertEqual(Provider.detect(from: webexUrl1), .webex)
-        XCTAssertEqual(Provider.detect(from: webexUrl2), .webex)
+        #expect(Provider.detect(from: webexUrl1) == .webex)
+        #expect(Provider.detect(from: webexUrl2) == .webex)
     }
 
-    func testProviderDetectionFromGenericURL() throws {
-        let genericUrl1 = try XCTUnwrap(URL(string: "https://example.com/meeting"))
-        let genericUrl2 = try XCTUnwrap(URL(string: "https://custom-platform.com/room/123"))
+    @Test
+    func providerDetectionFromGenericURL() throws {
+        let genericUrl1 = try #require(URL(string: "https://example.com/meeting"))
+        let genericUrl2 = try #require(URL(string: "https://custom-platform.com/room/123"))
 
-        XCTAssertEqual(Provider.detect(from: genericUrl1), .generic)
-        XCTAssertEqual(Provider.detect(from: genericUrl2), .generic)
+        #expect(Provider.detect(from: genericUrl1) == .generic)
+        #expect(Provider.detect(from: genericUrl2) == .generic)
     }
 
-    func testProviderDisplayNames() {
-        XCTAssertEqual(Provider.meet.displayName, "Google Meet")
-        XCTAssertEqual(Provider.zoom.displayName, "Zoom")
-        XCTAssertEqual(Provider.teams.displayName, "Microsoft Teams")
-        XCTAssertEqual(Provider.webex.displayName, "Cisco Webex")
-        XCTAssertEqual(Provider.generic.displayName, "Other")
+    @Test
+    func providerDisplayNames() {
+        #expect(Provider.meet.displayName == "Google Meet")
+        #expect(Provider.zoom.displayName == "Zoom")
+        #expect(Provider.teams.displayName == "Microsoft Teams")
+        #expect(Provider.webex.displayName == "Cisco Webex")
+        #expect(Provider.generic.displayName == "Other")
     }
 
-    func testProviderIconNames() {
-        XCTAssertEqual(Provider.meet.iconName, "video.fill")
-        XCTAssertEqual(Provider.zoom.iconName, "video.fill")
-        XCTAssertEqual(Provider.teams.iconName, "video.fill")
-        XCTAssertEqual(Provider.webex.iconName, "video.fill")
-        XCTAssertEqual(Provider.generic.iconName, "link")
+    @Test
+    func providerIconNames() {
+        #expect(Provider.meet.iconName == "video.fill")
+        #expect(Provider.zoom.iconName == "video.fill")
+        #expect(Provider.teams.iconName == "video.fill")
+        #expect(Provider.webex.iconName == "video.fill")
+        #expect(Provider.generic.iconName == "link")
     }
 
     // MARK: - Edge Cases
 
-    func testProviderDetectionFromSubdomainZoom() throws {
-        let url = try XCTUnwrap(URL(string: "https://us02web.zoom.us/j/123456789"))
-        XCTAssertEqual(Provider.detect(from: url), .zoom, "Subdomain zoom URLs should detect as Zoom")
+    @Test
+    func providerDetectionFromSubdomainZoom() throws {
+        let url = try #require(URL(string: "https://us02web.zoom.us/j/123456789"))
+        #expect(Provider.detect(from: url) == .zoom, "Subdomain zoom URLs should detect as Zoom")
     }
 
-    func testProviderDetectionFromSubdomainWebex() throws {
-        let url = try XCTUnwrap(URL(string: "https://company.webex.com/meet/user"))
-        XCTAssertEqual(Provider.detect(from: url), .webex, "Subdomain webex URLs should detect as Webex")
+    @Test
+    func providerDetectionFromSubdomainWebex() throws {
+        let url = try #require(URL(string: "https://company.webex.com/meet/user"))
+        #expect(Provider.detect(from: url) == .webex, "Subdomain webex URLs should detect as Webex")
     }
 
-    func testProviderDetection_caseInsensitive() throws {
-        let url = try XCTUnwrap(URL(string: "https://MEET.GOOGLE.COM/abc"))
-        XCTAssertEqual(Provider.detect(from: url), .meet, "Detection should be case-insensitive")
+    @Test
+    func providerDetection_caseInsensitive() throws {
+        let url = try #require(URL(string: "https://MEET.GOOGLE.COM/abc"))
+        #expect(Provider.detect(from: url) == .meet, "Detection should be case-insensitive")
     }
 
-    func testProviderDetection_fileURL_returnsGeneric() throws {
-        let url = try XCTUnwrap(URL(string: "file:///Users/test/document.pdf"))
-        XCTAssertEqual(Provider.detect(from: url), .generic)
+    @Test
+    func providerDetection_fileURL_returnsGeneric() throws {
+        let url = try #require(URL(string: "file:///Users/test/document.pdf"))
+        #expect(Provider.detect(from: url) == .generic)
     }
 
-    func testProviderDetection_urlWithPort_detectsCorrectly() throws {
-        let url = try XCTUnwrap(URL(string: "https://meet.google.com:443/abc"))
-        XCTAssertEqual(Provider.detect(from: url), .meet)
+    @Test
+    func providerDetection_urlWithPort_detectsCorrectly() throws {
+        let url = try #require(URL(string: "https://meet.google.com:443/abc"))
+        #expect(Provider.detect(from: url) == .meet)
     }
 
     // MARK: - Codable
 
-    func testProviderCodableRoundTrip() throws {
+    @Test
+    func providerCodableRoundTrip() throws {
         for provider in Provider.allCases {
             let data = try JSONEncoder().encode(provider)
             let decoded = try JSONDecoder().decode(Provider.self, from: data)
-            XCTAssertEqual(decoded, provider)
+            #expect(decoded == provider)
         }
     }
 
-    func testProviderDecodingFromRawValue() throws {
+    @Test
+    func providerDecodingFromRawValue() throws {
         let json = Data("\"meet\"".utf8)
         let decoded = try JSONDecoder().decode(Provider.self, from: json)
-        XCTAssertEqual(decoded, .meet)
+        #expect(decoded == .meet)
     }
 
-    func testProviderDecodingInvalidRawValueThrows() {
+    @Test
+    func providerDecodingInvalidRawValueThrows() {
         let json = Data("\"slack\"".utf8)
-        XCTAssertThrowsError(try JSONDecoder().decode(Provider.self, from: json))
+        #expect(throws: (any Error).self) { try JSONDecoder().decode(Provider.self, from: json) }
     }
 
     // MARK: - CaseIterable
 
-    func testProviderCaseIterable() {
+    @Test
+    func providerCaseIterable() {
         let allProviders = Set(Provider.allCases)
-        XCTAssertEqual(allProviders, [.meet, .zoom, .teams, .webex, .discord, .generic])
+        #expect(allProviders == [.meet, .zoom, .teams, .webex, .discord, .generic])
     }
 }

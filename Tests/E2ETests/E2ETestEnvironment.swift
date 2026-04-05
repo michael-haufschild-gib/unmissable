@@ -1,7 +1,6 @@
 import Foundation
-import TestSupport
+import Testing
 @testable import Unmissable
-import XCTest
 
 /// Full-stack test environment that wires up the real composition root with a test-scoped database.
 /// This enables true end-to-end testing: DB → fetch → schedule → overlay.
@@ -15,6 +14,7 @@ final class E2ETestEnvironment {
     let testClock: TestClock
 
     private let tempDatabaseURL: URL
+    private let userDefaultsSuiteName: String
 
     init(useTestClock: Bool = true) async throws {
         // Create an isolated temporary database for each test environment
@@ -30,9 +30,9 @@ final class E2ETestEnvironment {
         }
 
         // Use isolated UserDefaults to avoid cross-test pollution
-        let suiteName = "com.unmissable.e2e.\(UUID().uuidString)"
+        userDefaultsSuiteName = "com.unmissable.e2e.\(UUID().uuidString)"
         // swiftlint:disable:next force_unwrapping
-        let testDefaults = UserDefaults(suiteName: suiteName)!
+        let testDefaults = UserDefaults(suiteName: userDefaultsSuiteName)!
         preferencesManager = PreferencesManager(userDefaults: testDefaults, themeManager: ThemeManager())
         // Set deterministic test defaults
         preferencesManager.setDefaultAlertMinutes(TestConstants.defaultAlertMinutes)
@@ -66,8 +66,9 @@ final class E2ETestEnvironment {
     }
 
     deinit {
-        // Clean up temporary database file
+        // Clean up temporary database file and isolated UserDefaults suite.
         try? FileManager.default.removeItem(at: tempDatabaseURL)
+        UserDefaults.standard.removePersistentDomain(forName: userDefaultsSuiteName)
     }
 
     // MARK: - Database Seeding
@@ -127,8 +128,7 @@ final class E2ETestEnvironment {
     /// - Parameter advanceBy: How far to advance simulated time (default 10 min).
     func waitForOverlay(
         advanceBy: TimeInterval = 600,
-        file: StaticString = #filePath,
-        line: UInt = #line,
+        sourceLocation: SourceLocation = #_sourceLocation,
     ) async {
         await testClock.advance(bySeconds: advanceBy)
         if !overlayManager.isOverlayVisible {
@@ -136,10 +136,9 @@ final class E2ETestEnvironment {
                 "advancedBy": "\(advanceBy)s",
                 "clockTime": "\(testClock.currentTime)",
             ])
-            XCTFail(
+            Issue.record(
                 "Overlay not visible after advancing clock by \(advanceBy)s\n\n\(dump)",
-                file: file,
-                line: line,
+                sourceLocation: sourceLocation,
             )
         }
     }
@@ -199,11 +198,14 @@ private enum TestConstants {
 
 enum E2EError: LocalizedError {
     case databaseInitFailed(String)
+    case waitTimeout(String)
 
     var errorDescription: String? {
         switch self {
         case let .databaseInitFailed(message):
             "E2E database initialization failed: \(message)"
+        case let .waitTimeout(description):
+            "E2E wait timed out: \(description)"
         }
     }
 }
@@ -357,23 +359,24 @@ enum E2EEventBuilder {
 
 // MARK: - E2E Assertion Helpers
 
-extension XCTestCase {
-    /// Waits for an async condition with a descriptive failure message
-    @MainActor
-    func e2eWait(
-        timeout: TimeInterval = 5.0,
-        description: String,
-        condition: @escaping @MainActor @Sendable () -> Bool,
-    ) async throws {
-        let deadline = Date().addingTimeInterval(timeout)
-        while !condition() {
-            guard Date() < deadline else {
-                XCTFail("E2E wait timed out: \(description)")
-                return
-            }
-            // E2E polling utility (equivalent to TestUtilities.waitForAsync)
-            // swiftlint:disable:next no_raw_task_sleep_in_tests
-            try await Task.sleep(nanoseconds: TestConstants.e2ePollIntervalNanoseconds)
+/// Waits for an async condition with a descriptive failure message.
+///
+/// Throws `E2EError.waitTimeout` on timeout so the calling test stops
+/// immediately rather than continuing with stale state that produces
+/// confusing cascading assertion failures.
+@MainActor
+func e2eWait(
+    timeout: TimeInterval = 5.0,
+    description: String,
+    condition: @escaping @MainActor @Sendable () -> Bool,
+) async throws {
+    let deadline = Date().addingTimeInterval(timeout)
+    while !condition() {
+        guard Date() < deadline else {
+            throw E2EError.waitTimeout(description)
         }
+        // E2E polling utility (equivalent to TestUtilities.waitForAsync)
+        // swiftlint:disable:next no_raw_task_sleep_in_tests
+        try await Task.sleep(nanoseconds: TestConstants.e2ePollIntervalNanoseconds)
     }
 }

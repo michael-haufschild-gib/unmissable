@@ -1,0 +1,57 @@
+{
+  "configurations" : [
+    {
+      "id" : "B2C3D4E5-F6A7-8901-BCDE-F12345678901",
+      "name" : "Full",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : {
+      "targets" : [
+        {
+          "containerPath" : "container:Unmissable.xcodeproj",
+          "identifier" : "Unmissable",
+          "name" : "Unmissable"
+        }
+      ]
+    },
+    "testExecutionOrdering" : "random",
+    "testTimeoutsEnabled" : true,
+    "defaultTestExecutionTimeAllowance" : 60,
+    "maximumTestExecutionTimeAllowance" : 600
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Unmissable.xcodeproj",
+        "identifier" : "UnmissableTests",
+        "name" : "UnmissableTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:Unmissable.xcodeproj",
+        "identifier" : "IntegrationTests",
+        "name" : "IntegrationTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:Unmissable.xcodeproj",
+        "identifier" : "E2ETests",
+        "name" : "E2ETests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:Unmissable.xcodeproj",
+        "identifier" : "SnapshotTests",
+        "name" : "SnapshotTests"
+      }
+    }
+  ],
+  "version" : 1
+}

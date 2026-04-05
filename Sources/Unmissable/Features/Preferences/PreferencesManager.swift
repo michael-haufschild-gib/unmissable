@@ -237,6 +237,8 @@ final class PreferencesManager {
     func setLaunchAtLogin(_ value: Bool) {
         launchAtLogin = value
         userDefaults.set(value, forKey: PrefKey.launchAtLogin)
+
+        guard !AppRuntime.isUITesting else { return }
         loginItemManager.updateRegistration(enabled: value)
     }
 
@@ -375,7 +377,9 @@ final class PreferencesManager {
             // First launch — register as login item by default
             launchAtLogin = true
             userDefaults.set(true, forKey: PrefKey.launchAtLogin)
-            loginItemManager.updateRegistration(enabled: true)
+            if !AppRuntime.isUITesting {
+                loginItemManager.updateRegistration(enabled: true)
+            }
         } else {
             launchAtLogin = userDefaults.object(forKey: PrefKey.launchAtLogin) as? Bool ?? true
         }

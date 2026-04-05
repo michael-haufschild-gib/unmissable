@@ -1,28 +1,21 @@
 import Foundation
-import TestSupport
+import Testing
 @testable import Unmissable
-import XCTest
 
 /// E2E tests for preference changes cascading through the full stack:
 /// preference change → rescheduling → correct alert timing → overlay behavior.
 @MainActor
-final class PreferenceCascadeE2ETests: XCTestCase {
-    private var env: E2ETestEnvironment!
+struct PreferenceCascadeE2ETests {
+    private let env: E2ETestEnvironment
 
-    override func setUp() async throws {
-        try await super.setUp()
+    init() async throws {
         env = try await E2ETestEnvironment()
-    }
-
-    override func tearDown() async throws {
-        env.tearDown()
-        env = nil
-        try await super.tearDown()
     }
 
     // MARK: - Default Alert Minutes
 
-    func testDefaultAlertMinutesAffectsScheduledAlertTiming() async throws {
+    @Test
+    func defaultAlertMinutesAffectsScheduledAlertTiming() async throws {
         env.preferencesManager.setOverlayShowMinutesBefore(5)
         env.preferencesManager.setPlayAlertSound(false)
 
@@ -33,11 +26,11 @@ final class PreferenceCascadeE2ETests: XCTestCase {
         try await env.seedAndSchedule([event])
 
         // Verify alert is scheduled for 5 minutes before
-        let alert = try XCTUnwrap(env.eventScheduler.scheduledAlerts.first)
+        let alert = try #require(env.eventScheduler.scheduledAlerts.first)
         if case let .reminder(minutes) = alert.alertType {
-            XCTAssertEqual(minutes, 5)
+            #expect(minutes == 5)
         } else {
-            XCTFail("Expected reminder alert")
+            Issue.record("Expected reminder alert")
         }
 
         // Change to 10 minutes before
@@ -51,11 +44,11 @@ final class PreferenceCascadeE2ETests: XCTestCase {
         let fetched = try await env.fetchUpcomingEvents()
         await freshScheduler.startScheduling(events: fetched, overlayManager: freshOverlay)
 
-        let freshAlert = try XCTUnwrap(freshScheduler.scheduledAlerts.first)
+        let freshAlert = try #require(freshScheduler.scheduledAlerts.first)
         if case let .reminder(minutes) = freshAlert.alertType {
-            XCTAssertEqual(minutes, 10, "New scheduler should use updated preference of 10 minutes")
+            #expect(minutes == 10, "New scheduler should use updated preference of 10 minutes")
         } else {
-            XCTFail("Expected reminder alert")
+            Issue.record("Expected reminder alert")
         }
 
         freshScheduler.stopScheduling()
@@ -63,7 +56,8 @@ final class PreferenceCascadeE2ETests: XCTestCase {
 
     // MARK: - Length-Based Timing
 
-    func testLengthBasedTimingDifferentiatesEventDurations() async throws {
+    @Test
+    func lengthBasedTimingDifferentiatesEventDurations() async throws {
         env.preferencesManager.setUseLengthBasedTiming(true)
         env.preferencesManager.setShortMeetingAlertMinutes(1)
         env.preferencesManager.setMediumMeetingAlertMinutes(5)
@@ -87,17 +81,16 @@ final class PreferenceCascadeE2ETests: XCTestCase {
 
         try await env.seedAndSchedule([shortEvent, longEvent])
 
-        let shortAlert = try XCTUnwrap(
+        let shortAlert = try #require(
             env.eventScheduler.scheduledAlerts.first { $0.event.id == "e2e-short" },
         )
-        let longAlert = try XCTUnwrap(
+        let longAlert = try #require(
             env.eventScheduler.scheduledAlerts.first { $0.event.id == "e2e-long" },
         )
 
         // They should have different trigger times due to different alert minutes
-        XCTAssertNotEqual(
-            shortAlert.triggerDate,
-            longAlert.triggerDate,
+        #expect(
+            shortAlert.triggerDate != longAlert.triggerDate,
             "Short and long events should have different alert timing",
         )
 
@@ -105,14 +98,14 @@ final class PreferenceCascadeE2ETests: XCTestCase {
         let shortLeadTime = shortEvent.startDate.timeIntervalSince(shortAlert.triggerDate)
         let longLeadTime = longEvent.startDate.timeIntervalSince(longAlert.triggerDate)
 
-        XCTAssertLessThan(
-            shortLeadTime,
-            longLeadTime,
+        #expect(
+            shortLeadTime < longLeadTime,
             "Short meetings should have less lead time than long meetings",
         )
     }
 
-    func testLengthBasedTimingAffectsSoundAlertTiming() {
+    @Test
+    func lengthBasedTimingAffectsSoundAlertTiming() {
         // Length-based timing affects SOUND alerts (via alertMinutes(for:)),
         // not OVERLAY alerts (which use overlayShowMinutesBefore).
         env.preferencesManager.setUseLengthBasedTiming(true)
@@ -135,8 +128,8 @@ final class PreferenceCascadeE2ETests: XCTestCase {
         // Verify alertMinutes returns different values for different durations
         let shortAlertMinutes = env.preferencesManager.alertMinutes(for: shortEvent)
         let longAlertMinutes = env.preferencesManager.alertMinutes(for: longEvent)
-        XCTAssertEqual(shortAlertMinutes, 1)
-        XCTAssertEqual(longAlertMinutes, 10)
+        #expect(shortAlertMinutes == 1)
+        #expect(longAlertMinutes == 10)
 
         // Toggle LB off — both should use defaultAlertMinutes
         env.preferencesManager.setUseLengthBasedTiming(false)
@@ -144,13 +137,14 @@ final class PreferenceCascadeE2ETests: XCTestCase {
 
         let shortAlertMinutesOff = env.preferencesManager.alertMinutes(for: shortEvent)
         let longAlertMinutesOff = env.preferencesManager.alertMinutes(for: longEvent)
-        XCTAssertEqual(shortAlertMinutesOff, 3, "Should use default when LB is off")
-        XCTAssertEqual(longAlertMinutesOff, 3, "Should use default when LB is off")
+        #expect(shortAlertMinutesOff == 3, "Should use default when LB is off")
+        #expect(longAlertMinutesOff == 3, "Should use default when LB is off")
     }
 
     // MARK: - Sound Alert Toggle
 
-    func testSoundAlertToggleAffectsAlertCount() async throws {
+    @Test
+    func soundAlertToggleAffectsAlertCount() async throws {
         env.preferencesManager.setPlayAlertSound(false)
         env.preferencesManager.setOverlayShowMinutesBefore(5)
         env.preferencesManager.setDefaultAlertMinutes(3)
@@ -176,9 +170,8 @@ final class PreferenceCascadeE2ETests: XCTestCase {
         let alertsWithSound = freshScheduler.scheduledAlerts.count
 
         // When sound alert and overlay alert have different timings, we should get 2 alerts
-        XCTAssertGreaterThan(
-            alertsWithSound,
-            alertsWithoutSound,
+        #expect(
+            alertsWithSound > alertsWithoutSound,
             "Enabling sound should add an additional alert when timings differ",
         )
 
@@ -187,7 +180,8 @@ final class PreferenceCascadeE2ETests: XCTestCase {
 
     // MARK: - Overlay Show Minutes Before
 
-    func testOverlayShowMinutesBeforeAffectsWhenAlertFires() async throws {
+    @Test
+    func overlayShowMinutesBeforeAffectsWhenAlertFires() async throws {
         env.preferencesManager.setPlayAlertSound(false)
 
         let event = E2EEventBuilder.futureEvent(
@@ -199,7 +193,7 @@ final class PreferenceCascadeE2ETests: XCTestCase {
         env.preferencesManager.setOverlayShowMinutesBefore(2)
         try await env.seedAndSchedule([event])
 
-        let alert2Min = try XCTUnwrap(env.eventScheduler.scheduledAlerts.first)
+        let alert2Min = try #require(env.eventScheduler.scheduledAlerts.first)
         let leadTime2 = event.startDate.timeIntervalSince(alert2Min.triggerDate)
 
         // Re-schedule with 8 minutes before
@@ -211,12 +205,12 @@ final class PreferenceCascadeE2ETests: XCTestCase {
             events: fetched, overlayManager: env.overlayManager,
         )
 
-        let alert8Min = try XCTUnwrap(env.eventScheduler.scheduledAlerts.first)
+        let alert8Min = try #require(env.eventScheduler.scheduledAlerts.first)
         let leadTime8 = event.startDate.timeIntervalSince(alert8Min.triggerDate)
 
         // 8-minute lead time should be larger than 2-minute lead time
-        XCTAssertGreaterThan(leadTime8, leadTime2)
-        XCTAssertGreaterThan(leadTime8, 7 * 60, "Lead time should be at least 7 minutes")
-        XCTAssertLessThan(leadTime2, 3 * 60, "Lead time should be under 3 minutes")
+        #expect(leadTime8 > leadTime2)
+        #expect(leadTime8 > 7 * 60, "Lead time should be at least 7 minutes")
+        #expect(leadTime2 < 3 * 60, "Lead time should be under 3 minutes")
     }
 }

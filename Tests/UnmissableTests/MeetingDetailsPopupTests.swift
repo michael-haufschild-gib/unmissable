@@ -1,73 +1,71 @@
-import TestSupport
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 @MainActor
-final class MeetingDetailsPopupTests: XCTestCase {
-    private var popupManager: TestSafeMeetingDetailsPopupManager?
+struct MeetingDetailsPopupTests {
+    private var popupManager: TestSafeMeetingDetailsPopupManager
 
-    override func setUp() async throws {
-        try await super.setUp()
+    init() {
         popupManager = TestSafeMeetingDetailsPopupManager()
-    }
-
-    override func tearDown() async throws {
-        popupManager?.hidePopup()
-        popupManager = nil
-        try await super.tearDown()
     }
 
     // MARK: - Basic Popup Functionality Tests
 
-    func testShowPopupBasicFunctionality() throws {
-        let pm = try XCTUnwrap(popupManager)
+    @Test
+    func showPopupBasicFunctionality() {
+        let pm = popupManager
         let sampleEvent = createSampleEvent()
 
         pm.showPopup(for: sampleEvent)
-        XCTAssertTrue(pm.isPopupVisible, "Popup should be visible after showing")
+        #expect(pm.isPopupVisible, "Popup should be visible after showing")
     }
 
-    func testHidePopupFunctionality() throws {
-        let pm = try XCTUnwrap(popupManager)
+    @Test
+    func hidePopupFunctionality() {
+        let pm = popupManager
         let sampleEvent = createSampleEvent()
 
         pm.showPopup(for: sampleEvent)
-        XCTAssertTrue(pm.isPopupVisible, "Popup should be visible after showing")
+        #expect(pm.isPopupVisible, "Popup should be visible after showing")
 
         pm.hidePopup()
-        XCTAssertFalse(pm.isPopupVisible, "Popup should be hidden after hiding")
+        #expect(!pm.isPopupVisible, "Popup should be hidden after hiding")
     }
 
-    func testPreventMultiplePopupsForSameEvent() throws {
-        let pm = try XCTUnwrap(popupManager)
+    @Test
+    func preventMultiplePopupsForSameEvent() {
+        let pm = popupManager
         let sampleEvent = createSampleEvent()
 
         pm.showPopup(for: sampleEvent)
-        XCTAssertTrue(pm.isPopupVisible, "First popup should be visible")
+        #expect(pm.isPopupVisible, "First popup should be visible")
 
         pm.showPopup(for: sampleEvent)
-        XCTAssertTrue(pm.isPopupVisible, "Popup should still be visible, not duplicated")
+        #expect(pm.isPopupVisible, "Popup should still be visible, not duplicated")
     }
 
     // MARK: - Memory Management Tests
 
-    func testPopupCleanupAfterHiding() throws {
-        let pm = try XCTUnwrap(popupManager)
+    @Test
+    func popupCleanupAfterHiding() {
+        let pm = popupManager
         let sampleEvent = createSampleEvent()
 
         for _ in 0 ..< 10 {
             pm.showPopup(for: sampleEvent)
-            XCTAssertTrue(pm.isPopupVisible)
+            #expect(pm.isPopupVisible)
 
             pm.hidePopup()
-            XCTAssertFalse(pm.isPopupVisible)
+            #expect(!pm.isPopupVisible)
         }
 
-        XCTAssertFalse(pm.isPopupVisible, "Final state should be hidden")
+        #expect(!pm.isPopupVisible, "Final state should be hidden")
     }
 
-    func testHidePopupClosesWindowWithoutAccumulation() async throws {
-        let pm = try XCTUnwrap(popupManager)
+    @Test
+    func hidePopupClosesWindowWithoutAccumulation() async throws {
+        let pm = popupManager
         let sampleEvent = createSampleEvent()
 
         pm.showPopup(for: sampleEvent)
@@ -80,13 +78,14 @@ final class MeetingDetailsPopupTests: XCTestCase {
             !pm.isPopupVisible
         }
 
-        XCTAssertFalse(pm.isPopupVisible)
+        #expect(!pm.isPopupVisible)
     }
 
     // MARK: - Deadlock Prevention Tests
 
-    func testRapidShowHideCycles() throws {
-        let pm = try XCTUnwrap(popupManager)
+    @Test
+    func rapidShowHideCycles() {
+        let pm = popupManager
         let sampleEvent = createSampleEvent()
 
         for _ in 0 ..< 20 {
@@ -94,11 +93,12 @@ final class MeetingDetailsPopupTests: XCTestCase {
             pm.hidePopup()
         }
 
-        XCTAssertFalse(pm.isPopupVisible, "Should end in hidden state")
+        #expect(!pm.isPopupVisible, "Should end in hidden state")
     }
 
-    func testConcurrentPopupOperations() async throws {
-        let pm = try XCTUnwrap(popupManager)
+    @Test
+    func concurrentPopupOperations() async throws {
+        let pm = popupManager
         let sampleEvent = createSampleEvent()
 
         for _ in 0 ..< 5 {
@@ -109,13 +109,14 @@ final class MeetingDetailsPopupTests: XCTestCase {
             pm.hidePopup()
         }
 
-        XCTAssertFalse(pm.isPopupVisible, "Should end in hidden state after operations")
+        #expect(!pm.isPopupVisible, "Should end in hidden state after operations")
     }
 
     // MARK: - Edge Case Tests
 
-    func testPopupWithEmptyEvent() throws {
-        let pm = try XCTUnwrap(popupManager)
+    @Test
+    func popupWithEmptyEvent() {
+        let pm = popupManager
         let emptyEvent = Event(
             id: "empty",
             title: "",
@@ -125,14 +126,15 @@ final class MeetingDetailsPopupTests: XCTestCase {
         )
 
         pm.showPopup(for: emptyEvent)
-        XCTAssertTrue(pm.isPopupVisible, "Popup should show even for empty event")
+        #expect(pm.isPopupVisible, "Popup should show even for empty event")
 
         pm.hidePopup()
-        XCTAssertFalse(pm.isPopupVisible)
+        #expect(!pm.isPopupVisible)
     }
 
-    func testPopupWithVeryLongContent() throws {
-        let pm = try XCTUnwrap(popupManager)
+    @Test
+    func popupWithVeryLongContent() {
+        let pm = popupManager
         let longDescription = String(repeating: "This is a very long description. ", count: 500)
         let manyAttendees = (1 ... 100).map { index in
             Attendee(
@@ -155,16 +157,17 @@ final class MeetingDetailsPopupTests: XCTestCase {
         )
 
         pm.showPopup(for: longEvent)
-        XCTAssertTrue(pm.isPopupVisible, "Popup should show even with very long content")
+        #expect(pm.isPopupVisible, "Popup should show even with very long content")
 
         pm.hidePopup()
-        XCTAssertFalse(pm.isPopupVisible)
+        #expect(!pm.isPopupVisible)
     }
 
     // MARK: - Production UI Tests
 
-    func testPopupInProductionMode() async throws {
-        let pm = try XCTUnwrap(popupManager)
+    @Test
+    func popupInProductionMode() async throws {
+        let pm = popupManager
         let sampleEvent = createSampleEvent()
 
         pm.showPopup(for: sampleEvent)
@@ -173,7 +176,7 @@ final class MeetingDetailsPopupTests: XCTestCase {
             pm.isPopupVisible
         }
 
-        XCTAssertTrue(pm.isPopupVisible, "Popup should work in production mode")
+        #expect(pm.isPopupVisible, "Popup should work in production mode")
 
         pm.hidePopup()
 
@@ -181,41 +184,44 @@ final class MeetingDetailsPopupTests: XCTestCase {
             !pm.isPopupVisible
         }
 
-        XCTAssertFalse(pm.isPopupVisible, "Popup should be properly dismissed in production mode")
+        #expect(!pm.isPopupVisible, "Popup should be properly dismissed in production mode")
     }
 
     // MARK: - UI Integration Tests
 
-    func testPopupPreservesEventDataAfterShow() throws {
-        let pm = try XCTUnwrap(popupManager)
+    @Test
+    func popupPreservesEventDataAfterShow() throws {
+        let pm = popupManager
         let sampleEvent = createSampleEvent()
 
         pm.showPopup(for: sampleEvent)
 
-        let shownEvent = try XCTUnwrap(pm.lastShownEvent)
-        XCTAssertEqual(shownEvent.id, sampleEvent.id)
-        XCTAssertEqual(shownEvent.title, sampleEvent.title)
-        XCTAssertEqual(shownEvent.organizer, sampleEvent.organizer)
-        XCTAssertEqual(shownEvent.attendees.map(\.email), sampleEvent.attendees.map(\.email))
+        let shownEvent = try #require(pm.lastShownEvent)
+        #expect(shownEvent.id == sampleEvent.id)
+        #expect(shownEvent.title == sampleEvent.title)
+        #expect(shownEvent.organizer == sampleEvent.organizer)
+        #expect(shownEvent.attendees.map(\.email) == sampleEvent.attendees.map(\.email))
 
         pm.hidePopup()
     }
 
-    func testHidePopupClearsLastShownEvent() throws {
-        let pm = try XCTUnwrap(popupManager)
+    @Test
+    func hidePopupClearsLastShownEvent() {
+        let pm = popupManager
         let sampleEvent = createSampleEvent()
 
         pm.showPopup(for: sampleEvent)
-        XCTAssertEqual(pm.lastShownEvent?.id, sampleEvent.id, "lastShownEvent should match shown event")
+        #expect(pm.lastShownEvent?.id == sampleEvent.id, "lastShownEvent should match shown event")
 
         pm.hidePopup()
-        XCTAssertNil(pm.lastShownEvent, "lastShownEvent should be cleared on hide")
+        #expect(pm.lastShownEvent == nil, "lastShownEvent should be cleared on hide")
     }
 
     // MARK: - Performance Tests
 
-    func testPopupPerformanceUnderLoad() throws {
-        let pm = try XCTUnwrap(popupManager)
+    @Test
+    func popupPerformanceUnderLoad() {
+        let pm = popupManager
         let heavyEvent = Event(
             id: "performance",
             title: "Performance Test Meeting",
@@ -237,8 +243,8 @@ final class MeetingDetailsPopupTests: XCTestCase {
         pm.showPopup(for: heavyEvent)
         let duration = CFAbsoluteTimeGetCurrent() - startTime
 
-        XCTAssertTrue(pm.isPopupVisible, "Popup should handle heavy content")
-        XCTAssertLessThan(duration, 0.5, "Popup should appear within 500ms even with heavy content")
+        #expect(pm.isPopupVisible, "Popup should handle heavy content")
+        #expect(duration < 0.5, "Popup should appear within 500ms even with heavy content")
 
         pm.hidePopup()
     }

@@ -1,28 +1,28 @@
-import TestSupport
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 @MainActor
-final class SchedulerOverrideTests: XCTestCase {
-    private var scheduler: EventScheduler!
-    private var preferencesManager: PreferencesManager!
-    private var overlayManager: TestSafeOverlayManager!
-    private var fixedDate: Date!
+final class SchedulerOverrideTests {
+    private var scheduler: EventScheduler
+    private var preferencesManager: PreferencesManager
+    private var overlayManager: TestSafeOverlayManager
+    private var fixedDate: Date
+    private let suiteName: String
 
     /// Default calendar ID matching the test events.
     private let calId = "cal-1"
 
-    override func setUp() async throws {
-        try await super.setUp()
+    init() {
         fixedDate = Date()
-        let testDefaults = try XCTUnwrap(
-            UserDefaults(suiteName: "test-\(UUID().uuidString)"),
-        )
+        suiteName = "com.unmissable.scheduler-override-test.\(UUID().uuidString)"
+        // swiftlint:disable:next force_unwrapping
+        let testDefaults = UserDefaults(suiteName: suiteName)!
         preferencesManager = PreferencesManager(
             userDefaults: testDefaults,
             themeManager: ThemeManager(),
         )
-        let capturedDate = try XCTUnwrap(fixedDate)
+        let capturedDate = fixedDate
         scheduler = EventScheduler(
             preferencesManager: preferencesManager,
             linkParser: LinkParser(),
@@ -31,12 +31,8 @@ final class SchedulerOverrideTests: XCTestCase {
         overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
     }
 
-    override func tearDown() async throws {
-        scheduler = nil
-        preferencesManager = nil
-        overlayManager = nil
-        fixedDate = nil
-        try await super.tearDown()
+    deinit {
+        UserDefaults.standard.removePersistentDomain(forName: suiteName)
     }
 
     /// Builds a compound override key matching the scheduler's lookup format.
@@ -44,7 +40,8 @@ final class SchedulerOverrideTests: XCTestCase {
         EventOverride.compoundKey(eventId: eventId, calendarId: calId)
     }
 
-    func testScheduleAlerts_withOverride_usesOverrideTiming() throws {
+    @Test
+    func scheduleAlerts_withOverride_usesOverrideTiming() throws {
         let futureStart = fixedDate.addingTimeInterval(3600) // 1 hour from now
         let event = Event(
             id: "override-test",
@@ -64,19 +61,19 @@ final class SchedulerOverrideTests: XCTestCase {
 
         // Should have exactly one alert at 10 minutes before
         let alerts = scheduler.scheduledAlerts.filter { $0.event.id == "override-test" }
-        let alert = try XCTUnwrap(
+        let alert = try #require(
             alerts.first,
             "Overridden event should have a scheduled alert",
         )
         let expectedTrigger = futureStart.addingTimeInterval(-600)
-        XCTAssertEqual(
-            alert.triggerDate,
-            expectedTrigger,
+        #expect(
+            alert.triggerDate == expectedTrigger,
             "Alert should trigger 10 minutes before event start",
         )
     }
 
-    func testScheduleAlerts_zeroOverride_suppressesAllAlerts() {
+    @Test
+    func scheduleAlerts_zeroOverride_suppressesAllAlerts() {
         let futureStart = fixedDate.addingTimeInterval(3600)
         let event = Event(
             id: "suppressed-test",
@@ -95,13 +92,14 @@ final class SchedulerOverrideTests: XCTestCase {
         )
 
         let alerts = scheduler.scheduledAlerts.filter { $0.event.id == "suppressed-test" }
-        XCTAssertTrue(
+        #expect(
             alerts.isEmpty,
             "Zero override should suppress all alerts for this event",
         )
     }
 
-    func testScheduleAlerts_noOverride_usesDefaultTiming() {
+    @Test
+    func scheduleAlerts_noOverride_usesDefaultTiming() {
         let futureStart = fixedDate.addingTimeInterval(3600)
         let event = Event(
             id: "default-test",
@@ -125,14 +123,14 @@ final class SchedulerOverrideTests: XCTestCase {
             -TimeInterval(overlayMinutes) * 60,
         )
         let overlayAlert = scheduler.scheduledAlerts.first { $0.event.id == "default-test" }
-        XCTAssertEqual(
-            overlayAlert?.triggerDate,
-            expectedTrigger,
+        #expect(
+            overlayAlert?.triggerDate == expectedTrigger,
             "Default event should use global overlay timing",
         )
     }
 
-    func testUpdateAlertOverrides_triggersReschedule() {
+    @Test
+    func updateAlertOverrides_triggersReschedule() {
         let futureStart = fixedDate.addingTimeInterval(3600)
         let event = Event(
             id: "reschedule-test",
@@ -156,21 +154,20 @@ final class SchedulerOverrideTests: XCTestCase {
         let updatedTrigger = scheduler.scheduledAlerts
             .first { $0.event.id == "reschedule-test" }?.triggerDate
 
-        XCTAssertNotEqual(
-            initialTrigger,
-            updatedTrigger,
+        #expect(
+            initialTrigger != updatedTrigger,
             "Updating overrides should reschedule with new timing",
         )
 
         let expectedTrigger = futureStart.addingTimeInterval(-60)
-        XCTAssertEqual(
-            updatedTrigger,
-            expectedTrigger,
+        #expect(
+            updatedTrigger == expectedTrigger,
             "After override, alert should fire 1 minute before",
         )
     }
 
-    func testScheduleAlerts_mixOfOverriddenAndDefault() throws {
+    @Test
+    func scheduleAlerts_mixOfOverriddenAndDefault() throws {
         let futureStart = fixedDate.addingTimeInterval(3600)
 
         let criticalEvent = Event(
@@ -208,36 +205,35 @@ final class SchedulerOverrideTests: XCTestCase {
         // Critical: overridden to 15 minutes
         let criticalAlert = scheduler.scheduledAlerts
             .first { $0.event.id == "critical" }
-        XCTAssertEqual(
-            criticalAlert?.triggerDate,
-            futureStart.addingTimeInterval(-900),
+        #expect(
+            criticalAlert?.triggerDate == futureStart.addingTimeInterval(-900),
             "Critical event should alert 15 minutes before",
         )
 
         // Optional: suppressed
         let optionalAlerts = scheduler.scheduledAlerts
             .filter { $0.event.id == "optional" }
-        XCTAssertTrue(
+        #expect(
             optionalAlerts.isEmpty,
             "Optional event with 0 override should have no alerts",
         )
 
         // Normal: uses default timing (global overlayShowMinutesBefore)
-        let normalAlert = try XCTUnwrap(
+        let normalAlert = try #require(
             scheduler.scheduledAlerts.first { $0.event.id == "normal" },
             "Normal event should have a scheduled alert using default timing",
         )
         let expectedNormalTrigger = futureStart.addingTimeInterval(
             -TimeInterval(preferencesManager.overlayShowMinutesBefore) * 60,
         )
-        XCTAssertEqual(
-            normalAlert.triggerDate,
-            expectedNormalTrigger,
+        #expect(
+            normalAlert.triggerDate == expectedNormalTrigger,
             "Normal event should use global overlay timing",
         )
     }
 
-    func testScheduleAlerts_overrideWithSoundEnabled_producesSingleAlert() throws {
+    @Test
+    func scheduleAlerts_overrideWithSoundEnabled_producesSingleAlert() throws {
         // When sound is enabled but an override is set, only one alert should fire
         // (the override controls both overlay and sound timing).
         preferencesManager.setPlayAlertSound(true)
@@ -259,15 +255,15 @@ final class SchedulerOverrideTests: XCTestCase {
         )
 
         let alerts = scheduler.scheduledAlerts.filter { $0.event.id == "sound-override" }
-        let alert = try XCTUnwrap(
+        let alert = try #require(
             alerts.first, "Should produce exactly one alert for override + sound",
         )
-        // swiftlint:disable:next no_count_only_assertion - count IS the assertion here
-        XCTAssertEqual(alerts.count, 1, "No separate sound alert")
-        XCTAssertEqual(alert.event.id, "sound-override")
+        #expect(alerts.count == 1, "No separate sound alert")
+        #expect(alert.event.id == "sound-override")
     }
 
-    func testScheduleAlerts_overrideMissedAlertTime_triggersImmediately() {
+    @Test
+    func scheduleAlerts_overrideMissedAlertTime_triggersImmediately() {
         // Event starts in 5 minutes, override is 10 minutes before → alert time already passed
         let futureStart = fixedDate.addingTimeInterval(300) // 5 min from now
         let event = Event(
@@ -287,13 +283,12 @@ final class SchedulerOverrideTests: XCTestCase {
 
         // Alert time was 10 min before = 5 min ago. Meeting hasn't started.
         // Scheduler should have triggered overlay immediately via missed-alert path.
-        XCTAssertTrue(
+        #expect(
             overlayManager.isOverlayVisible,
             "Missed override alert should trigger immediate overlay",
         )
-        XCTAssertEqual(
-            overlayManager.activeEvent?.id,
-            "missed-override",
+        #expect(
+            overlayManager.activeEvent?.id == "missed-override",
             "Immediate overlay should be for the correct event",
         )
     }

@@ -1,13 +1,15 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 /// Verifies that model types expose human-readable display properties
 /// suitable for UI labels and screen reader descriptions.
 @MainActor
-final class DisplayPropertyTests: XCTestCase {
+struct DisplayPropertyTests {
     // MARK: - Event Display Data
 
-    func testEventProvidesHumanReadableProperties() {
+    @Test
+    func eventProvidesHumanReadableProperties() {
         let start = Date()
         let end = start.addingTimeInterval(3600)
 
@@ -23,11 +25,11 @@ final class DisplayPropertyTests: XCTestCase {
             updatedAt: Date(),
         )
 
-        XCTAssertEqual(event.title, "Design Review")
-        XCTAssertEqual(event.organizer, "alice@example.com")
-        XCTAssertEqual(event.startDate, start)
-        XCTAssertEqual(event.endDate, end)
-        XCTAssertEqual(event.duration, 3600)
+        #expect(event.title == "Design Review")
+        #expect(event.organizer == "alice@example.com")
+        #expect(event.startDate == start)
+        #expect(event.endDate == end)
+        #expect(event.duration == 3600)
     }
 
     // Provider display names and attendee status display texts are
@@ -36,26 +38,25 @@ final class DisplayPropertyTests: XCTestCase {
 
     // MARK: - Sync Status
 
-    func testSyncStatusDescriptionIsReadable() {
-        XCTAssertEqual(SyncStatus.idle.description, "Ready")
-        XCTAssertEqual(
-            SyncStatus.syncing.description,
-            "Syncing...",
+    @Test
+    func syncStatusDescriptionIsReadable() {
+        #expect(SyncStatus.idle.description == "Ready")
+        #expect(
+            SyncStatus.syncing.description == "Syncing...",
         )
-        XCTAssertEqual(
-            SyncStatus.offline.description,
-            "Offline",
+        #expect(
+            SyncStatus.offline.description == "Offline",
         )
-        XCTAssertEqual(
-            SyncStatus.error("timeout").description,
-            "Error: timeout",
+        #expect(
+            SyncStatus.error("timeout").description == "Error: timeout",
         )
     }
 
     // MARK: - Health Status
 
-    func testHealthStatusIsHealthyReturnsCorrectValues() {
-        XCTAssertTrue(HealthStatus.healthy.isHealthy)
+    @Test
+    func healthStatusIsHealthyReturnsCorrectValues() {
+        #expect(HealthStatus.healthy.isHealthy)
 
         let warning = HealthIssue(
             severity: .warning,
@@ -64,7 +65,7 @@ final class DisplayPropertyTests: XCTestCase {
             suggestion: "Check network connection",
         )
         let degraded = HealthStatus.degraded(issues: [warning])
-        XCTAssertFalse(degraded.isHealthy)
+        #expect(!degraded.isHealthy)
 
         let error = HealthIssue(
             severity: .error,
@@ -73,14 +74,17 @@ final class DisplayPropertyTests: XCTestCase {
             suggestion: "Restart the app",
         )
         let critical = HealthStatus.critical(issues: [error])
-        XCTAssertFalse(critical.isHealthy)
+        #expect(!critical.isHealthy)
     }
 
-    func testHealthStatusEquatable_healthyEqualsHealthy() {
-        XCTAssertEqual(HealthStatus.healthy, HealthStatus.healthy)
+    @Test
+    func healthStatusEquatable_healthyEqualsHealthy() {
+        let status = HealthStatus.healthy
+        #expect(status == .healthy)
     }
 
-    func testHealthStatusEquatable_degradedWithSameIssuesAreEqual() {
+    @Test
+    func healthStatusEquatable_degradedWithSameIssuesAreEqual() {
         let issue = HealthIssue(
             severity: .warning,
             component: "Test",
@@ -92,46 +96,49 @@ final class DisplayPropertyTests: XCTestCase {
         // using the SAME instance.
         let status1 = HealthStatus.degraded(issues: [issue])
         let status2 = HealthStatus.degraded(issues: [issue])
-        XCTAssertEqual(status1, status2)
+        #expect(status1 == status2)
     }
 
-    func testHealthStatusEquatable_healthyNotEqualToDegraded() {
+    @Test
+    func healthStatusEquatable_healthyNotEqualToDegraded() {
         let issue = HealthIssue(
             severity: .warning,
             component: "Test",
             message: "msg",
             suggestion: "sug",
         )
-        XCTAssertNotEqual(HealthStatus.healthy, HealthStatus.degraded(issues: [issue]))
+        #expect(HealthStatus.healthy != HealthStatus.degraded(issues: [issue]))
     }
 
-    func testHealthStatusEquatable_degradedNotEqualToCritical() {
+    @Test
+    func healthStatusEquatable_degradedNotEqualToCritical() {
         let issue = HealthIssue(
             severity: .error,
             component: "DB",
             message: "msg",
             suggestion: "sug",
         )
-        XCTAssertNotEqual(
-            HealthStatus.degraded(issues: [issue]),
-            HealthStatus.critical(issues: [issue]),
+        #expect(
+            HealthStatus.degraded(issues: [issue]) != HealthStatus.critical(issues: [issue]),
         )
     }
 
-    func testHealthSeverityAllCases() {
-        XCTAssertEqual(
-            HealthIssue.Severity.allCases,
-            [.warning, .error],
+    @Test
+    func healthSeverityAllCases() {
+        #expect(
+            HealthIssue.Severity.allCases == [.warning, .error],
             "Severity allCases should contain exactly warning and error",
         )
     }
 
-    func testHealthSeverityRawValues() {
-        XCTAssertEqual(HealthIssue.Severity.warning.rawValue, "warning")
-        XCTAssertEqual(HealthIssue.Severity.error.rawValue, "error")
+    @Test
+    func healthSeverityRawValues() {
+        #expect(HealthIssue.Severity.warning.rawValue == "warning")
+        #expect(HealthIssue.Severity.error.rawValue == "error")
     }
 
-    func testHealthIssueCarriesAccessibleContext() {
+    @Test
+    func healthIssueCarriesAccessibleContext() {
         let issue = HealthIssue(
             severity: .warning,
             component: "Calendar Service",
@@ -139,15 +146,13 @@ final class DisplayPropertyTests: XCTestCase {
             suggestion: "Connect a calendar in settings",
         )
 
-        XCTAssertEqual(issue.severity, .warning)
-        XCTAssertEqual(issue.component, "Calendar Service")
-        XCTAssertEqual(
-            issue.message,
-            "No calendars connected",
+        #expect(issue.severity == .warning)
+        #expect(issue.component == "Calendar Service")
+        #expect(
+            issue.message == "No calendars connected",
         )
-        XCTAssertEqual(
-            issue.suggestion,
-            "Connect a calendar in settings",
+        #expect(
+            issue.suggestion == "Connect a calendar in settings",
         )
     }
 }

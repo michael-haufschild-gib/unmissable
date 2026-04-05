@@ -1,96 +1,98 @@
 import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
-final class DiagnosticsTests: XCTestCase {
-    override func setUp() {
-        super.setUp()
+/// Shared AppDiagnostics.recorder singleton requires serial execution to prevent cross-test interference.
+@Suite(.serialized)
+struct DiagnosticsTests {
+    init() {
         AppDiagnostics.recorder.clear()
-    }
-
-    override func tearDown() {
-        AppDiagnostics.recorder.clear()
-        super.tearDown()
     }
 
     // MARK: - Gating
 
-    func testIsEnabled_inDebugBuild_returnsTrue() {
+    @Test
+    func isEnabled_inDebugBuild_returnsTrue() {
         #if DEBUG
-            XCTAssertTrue(AppDiagnostics.isEnabled)
+            #expect(AppDiagnostics.isEnabled)
         #endif
     }
 
     // MARK: - Recording
 
-    func testRecord_whenEnabled_appendsWithCorrectFields() throws {
+    @Test
+    func record_whenEnabled_appendsWithCorrectFields() throws {
         AppDiagnostics.record(component: "Test", phase: "check", outcome: .info)
 
-        let record = try XCTUnwrap(AppDiagnostics.recorder.snapshot().first)
-        XCTAssertEqual(record.component, "Test")
-        XCTAssertEqual(record.phase, "check")
-        XCTAssertEqual(record.outcome, .info)
-        XCTAssertEqual(record.sessionId, AppDiagnostics.sessionId)
+        let record = try #require(AppDiagnostics.recorder.snapshot().first)
+        #expect(record.component == "Test")
+        #expect(record.phase == "check")
+        #expect(record.outcome == .info)
+        #expect(record.sessionId == AppDiagnostics.sessionId)
     }
 
-    func testRecord_metadataClosureIsEvaluated() throws {
+    @Test
+    func record_metadataClosureIsEvaluated() throws {
         var closureCalled = false
         AppDiagnostics.record(component: "Test", phase: "meta") {
             closureCalled = true
             return ["key": "value"]
         }
 
-        XCTAssertTrue(closureCalled)
-        let record = try XCTUnwrap(AppDiagnostics.recorder.snapshot().first)
-        XCTAssertEqual(record.metadata["key"], "value")
+        #expect(closureCalled)
+        let record = try #require(AppDiagnostics.recorder.snapshot().first)
+        #expect(record.metadata["key"] == "value")
     }
 
     // MARK: - Session ID
 
-    func testSessionId_isStableUUIDFormat() throws {
+    @Test
+    func sessionId_isStableUUIDFormat() throws {
         let id1 = AppDiagnostics.sessionId
         let id2 = AppDiagnostics.sessionId
-        XCTAssertEqual(id1, id2)
+        #expect(id1 == id2)
         // Verify it's a valid UUID by parsing
-        let parsed = try XCTUnwrap(UUID(uuidString: id1), "Session ID should be valid UUID")
-        XCTAssertEqual(parsed.uuidString.lowercased(), id1.lowercased())
+        let parsed = try #require(UUID(uuidString: id1), "Session ID should be valid UUID")
+        #expect(parsed.uuidString.lowercased() == id1.lowercased())
     }
 
     // MARK: - Flow Tracking
 
-    func testStartAndEndFlow_correlatesViaFlowId() throws {
+    @Test
+    func startAndEndFlow_correlatesViaFlowId() throws {
         let flow = AppDiagnostics.startFlow("testOp", component: "TestComp")
         // Flow ID is a valid UUID
-        let parsedFlowId = try XCTUnwrap(UUID(uuidString: flow.flowId), "Flow ID should be valid UUID")
-        XCTAssertEqual(parsedFlowId.uuidString.lowercased(), flow.flowId.lowercased())
+        let parsedFlowId = try #require(UUID(uuidString: flow.flowId), "Flow ID should be valid UUID")
+        #expect(parsedFlowId.uuidString.lowercased() == flow.flowId.lowercased())
 
         AppDiagnostics.endFlow(flow, component: "TestComp", outcome: .success) {
             ["result": "ok"]
         }
 
         let records = AppDiagnostics.recorder.snapshot()
-        let startRecord = try XCTUnwrap(records.first, "Should have start record")
-        let endRecord = try XCTUnwrap(records.last, "Should have end record")
+        let startRecord = try #require(records.first, "Should have start record")
+        let endRecord = try #require(records.last, "Should have end record")
 
         // Both records share the same flowId
-        XCTAssertEqual(startRecord.flowId, endRecord.flowId)
-        XCTAssertEqual(startRecord.flowId, flow.flowId)
+        #expect(startRecord.flowId == endRecord.flowId)
+        #expect(startRecord.flowId == flow.flowId)
 
         // Start record
-        XCTAssertEqual(startRecord.phase, "testOp.start")
-        XCTAssertEqual(startRecord.outcome, .info)
+        #expect(startRecord.phase == "testOp.start")
+        #expect(startRecord.outcome == .info)
 
         // End record
-        XCTAssertEqual(endRecord.phase, "testOp.end")
-        XCTAssertEqual(endRecord.outcome, .success)
-        let durationMs = try XCTUnwrap(endRecord.durationMs, "End record should have duration")
-        XCTAssertGreaterThanOrEqual(durationMs, 0, "Duration should be non-negative")
-        XCTAssertEqual(endRecord.metadata["result"], "ok")
+        #expect(endRecord.phase == "testOp.end")
+        #expect(endRecord.outcome == .success)
+        let durationMs = try #require(endRecord.durationMs, "End record should have duration")
+        #expect(durationMs >= 0, "Duration should be non-negative")
+        #expect(endRecord.metadata["result"] == "ok")
     }
 
     // MARK: - Ring Buffer Bounds
 
-    func testFlightRecorder_respectsCapacity_dropsOldest() {
+    @Test
+    func flightRecorder_respectsCapacity_dropsOldest() {
         let smallRecorder = FlightRecorder(capacity: 3)
 
         for i in 0 ..< 5 {
@@ -108,72 +110,78 @@ final class DiagnosticsTests: XCTestCase {
 
         // Oldest records (0, 1) dropped; newest (2, 3, 4) remain
         let snapshot = smallRecorder.snapshot()
-        XCTAssertEqual(snapshot[0].phase, "item2")
-        XCTAssertEqual(snapshot[1].phase, "item3")
-        XCTAssertEqual(snapshot[2].phase, "item4")
+        #expect(snapshot[0].phase == "item2")
+        #expect(snapshot[1].phase == "item3")
+        #expect(snapshot[2].phase == "item4")
     }
 
-    func testFlightRecorder_clear_removesAllRecords() {
+    @Test
+    func flightRecorder_clear_removesAllRecords() {
         AppDiagnostics.record(component: "Test", phase: "one")
         AppDiagnostics.record(component: "Test", phase: "two")
-        XCTAssertEqual(AppDiagnostics.recorder.snapshot().first?.phase, "one")
+        #expect(AppDiagnostics.recorder.snapshot().first?.phase == "one")
 
         AppDiagnostics.recorder.clear()
         // After clear, a new record should be the only one
         AppDiagnostics.record(component: "Test", phase: "after-clear")
-        XCTAssertEqual(AppDiagnostics.recorder.snapshot().first?.phase, "after-clear")
-        XCTAssertNil(
-            AppDiagnostics.recorder.snapshot().dropFirst().first,
+        #expect(AppDiagnostics.recorder.snapshot().first?.phase == "after-clear")
+        #expect(
+            AppDiagnostics.recorder.snapshot().dropFirst().first == nil,
             "Should have exactly one record after clear + one append",
         )
     }
 
-    func testFlightRecorder_tail_returnsCorrectLastN() {
+    @Test
+    func flightRecorder_tail_returnsCorrectLastN() {
         for i in 0 ..< 10 {
             AppDiagnostics.record(component: "Test", phase: "item\(i)")
         }
 
         let tail = AppDiagnostics.recorder.tail(3)
-        XCTAssertEqual(tail[0].phase, "item7")
-        XCTAssertEqual(tail[1].phase, "item8")
-        XCTAssertEqual(tail[2].phase, "item9")
+        #expect(tail[0].phase == "item7")
+        #expect(tail[1].phase == "item8")
+        #expect(tail[2].phase == "item9")
     }
 
     // MARK: - JSONL Export
 
-    func testExportJSONL_producesDecodableRecords() throws {
+    @Test
+    func exportJSONL_producesDecodableRecords() throws {
         AppDiagnostics.record(component: "A", phase: "start", outcome: .info) {
             ["key": "val"]
         }
         AppDiagnostics.record(component: "B", phase: "end", outcome: .success)
 
         let data = AppDiagnostics.recorder.exportJSONL()
-        let string = try XCTUnwrap(
+        let string = try #require(
             String(data: data, encoding: .utf8),
             "JSONL export should be valid UTF-8",
         )
 
         let lines = string.split(separator: "\n")
-        let firstLineData = try Data(XCTUnwrap(lines.first).utf8)
+        let firstLine = try #require(lines.first)
+        let firstLineData = Data(firstLine.utf8)
         let firstDecoded = try JSONDecoder.diagnosticDecoder.decode(
             DiagnosticRecord.self,
             from: firstLineData,
         )
-        XCTAssertEqual(firstDecoded.component, "A")
-        XCTAssertEqual(firstDecoded.metadata["key"], "val")
+        #expect(firstDecoded.component == "A")
+        #expect(firstDecoded.metadata["key"] == "val")
 
-        let secondLineData = try Data(XCTUnwrap(lines.dropFirst().first).utf8)
+        let secondLine = try #require(lines.dropFirst().first)
+        let secondLineData = Data(secondLine.utf8)
         let secondDecoded = try JSONDecoder.diagnosticDecoder.decode(
             DiagnosticRecord.self,
             from: secondLineData,
         )
-        XCTAssertEqual(secondDecoded.component, "B")
-        XCTAssertEqual(secondDecoded.sessionId, AppDiagnostics.sessionId)
+        #expect(secondDecoded.component == "B")
+        #expect(secondDecoded.sessionId == AppDiagnostics.sessionId)
     }
 
     // MARK: - DiagnosticRecord Summary
 
-    func testRecordSummary_includesAllFields() {
+    @Test
+    func recordSummary_includesAllFields() {
         let record = DiagnosticRecord(
             timestamp: Date(),
             sessionId: "sess",
@@ -186,15 +194,15 @@ final class DiagnosticsTests: XCTestCase {
         )
 
         // Assert exact summary format
-        XCTAssertEqual(
-            record.summary,
-            "Sync.fetch=success 42ms flow=flow-123 count=5",
+        #expect(
+            record.summary == "Sync.fetch=success 42ms flow=flow-123 count=5",
         )
     }
 
     // MARK: - Bug Book Export
 
-    func testBugBookExport_containsSessionAndStateAndFailures() throws {
+    @Test
+    func bugBookExport_containsSessionAndStateAndFailures() throws {
         AppDiagnostics.record(component: "Test", phase: "action", outcome: .failure) {
             ["detail": "something broke"]
         }
@@ -207,28 +215,28 @@ final class DiagnosticsTests: XCTestCase {
         let lines = book.components(separatedBy: "\n")
 
         // Verify header
-        XCTAssertEqual(lines[0], "# Unmissable Diagnostic Report")
+        #expect(lines[0] == "# Unmissable Diagnostic Report")
 
         // Verify the state snapshot section has the injected values
-        let alertLine = try XCTUnwrap(
+        let alertLine = try #require(
             lines.first { $0 == "- **alerts**: 2" },
             "Bug book should contain alerts state line",
         )
-        XCTAssertEqual(alertLine, "- **alerts**: 2")
+        #expect(alertLine == "- **alerts**: 2")
 
         // Verify test context
-        let testNameLine = try XCTUnwrap(
+        let testNameLine = try #require(
             lines.first { $0 == "- **testName**: myTest" },
             "Bug book should contain test context",
         )
-        XCTAssertEqual(testNameLine, "- **testName**: myTest")
+        #expect(testNameLine == "- **testName**: myTest")
 
         // Verify failures section exists with the failure record
-        let failureHeader = try XCTUnwrap(
+        let failureHeader = try #require(
             lines.first { $0.hasPrefix("## Failures") },
             "Bug book should contain Failures section",
         )
-        XCTAssertEqual(failureHeader, "## Failures (1)")
+        #expect(failureHeader == "## Failures (1)")
     }
 }
 

@@ -1,29 +1,22 @@
 import Foundation
-import TestSupport
+import Testing
 @testable import Unmissable
-import XCTest
 
 /// E2E tests for preference toggles that gate overlay and scheduling behavior.
 /// Each test verifies that a preference change flows through the full stack:
 /// UserDefaults → PreferencesManager → EventScheduler → overlay → observable behavior.
 @MainActor
-final class PreferenceGatedFlowsE2ETests: XCTestCase {
-    private var env: E2ETestEnvironment!
+struct PreferenceGatedFlowsE2ETests {
+    private let env: E2ETestEnvironment
 
-    override func setUp() async throws {
-        try await super.setUp()
+    init() async throws {
         env = try await E2ETestEnvironment()
-    }
-
-    override func tearDown() async throws {
-        env.tearDown()
-        env = nil
-        try await super.tearDown()
     }
 
     // MARK: - AllowSnooze = false
 
-    func testAllowSnoozeFalse_snoozeCallIsNoOp() async throws {
+    @Test
+    func allowSnoozeFalse_snoozeCallIsNoOp() async throws {
         env.preferencesManager.setAllowSnooze(false)
 
         let event = E2EEventBuilder.futureEvent(
@@ -34,12 +27,12 @@ final class PreferenceGatedFlowsE2ETests: XCTestCase {
         try await env.seedAndSchedule([event])
 
         env.overlayManager.showOverlayImmediately(for: event)
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.isOverlayVisible)
 
         // Production flow: OverlayContentView checks `preferences.allowSnooze`
         // before rendering snooze menu. Simulate the same gate:
         let canSnooze = env.preferencesManager.allowSnooze
-        XCTAssertFalse(canSnooze, "allowSnooze should be false")
+        #expect(!canSnooze, "allowSnooze should be false")
 
         // If user somehow triggers snooze despite UI hiding it, verify manager handles it
         // (This tests the defense-in-depth: snooze still works at manager level,
@@ -49,18 +42,19 @@ final class PreferenceGatedFlowsE2ETests: XCTestCase {
         }
 
         // Overlay should still be visible since snooze was gated
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
-        XCTAssertEqual(env.overlayManager.activeEvent?.id, event.id)
+        #expect(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent?.id == event.id)
 
         // No snooze alerts should exist
         let hasSnooze = env.eventScheduler.scheduledAlerts.contains { alert in
             if case .snooze = alert.alertType { return true }
             return false
         }
-        XCTAssertFalse(hasSnooze, "No snooze alert when allowSnooze is false")
+        #expect(!hasSnooze, "No snooze alert when allowSnooze is false")
     }
 
-    func testAllowSnoozeToggle_midSessionBehaviorChange() async throws {
+    @Test
+    func allowSnoozeToggle_midSessionBehaviorChange() async throws {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-snooze-toggle",
             title: "Snooze Toggle Meeting",
@@ -73,26 +67,27 @@ final class PreferenceGatedFlowsE2ETests: XCTestCase {
         env.overlayManager.showOverlayImmediately(for: event)
 
         // Simulate UI gate: no snooze available
-        XCTAssertFalse(env.preferencesManager.allowSnooze)
+        #expect(!env.preferencesManager.allowSnooze)
 
         // Toggle snooze on mid-session
         env.preferencesManager.setAllowSnooze(true)
-        XCTAssertTrue(env.preferencesManager.allowSnooze)
+        #expect(env.preferencesManager.allowSnooze)
 
         // Now snooze should work
         env.overlayManager.snoozeOverlay(for: 5)
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
+        #expect(!env.overlayManager.isOverlayVisible)
 
         let hasSnooze = env.eventScheduler.scheduledAlerts.contains { alert in
             if case .snooze = alert.alertType { return true }
             return false
         }
-        XCTAssertTrue(hasSnooze, "Snooze should work after toggling allowSnooze on")
+        #expect(hasSnooze, "Snooze should work after toggling allowSnooze on")
     }
 
     // MARK: - Sound Enabled/Disabled Through Scheduler
 
-    func testSoundEnabled_createsAdditionalSoundAlerts() async throws {
+    @Test
+    func soundEnabled_createsAdditionalSoundAlerts() async throws {
         env.preferencesManager.setPlayAlertSound(true)
         env.preferencesManager.setDefaultAlertMinutes(3) // Sound at 3 min before
         env.preferencesManager.setOverlayShowMinutesBefore(5) // Overlay at 5 min before
@@ -105,14 +100,15 @@ final class PreferenceGatedFlowsE2ETests: XCTestCase {
 
         // With sound ON and different timing, should have 2 alerts (overlay + sound)
         let alertCount = env.eventScheduler.scheduledAlerts.count
-        XCTAssertEqual(alertCount, 2, "Should have both overlay and sound alerts")
+        #expect(alertCount == 2, "Should have both overlay and sound alerts")
 
         // Both should be for the same event
         let alertEventIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
-        XCTAssertEqual(alertEventIds, Set(["e2e-sound-on"]))
+        #expect(alertEventIds == Set(["e2e-sound-on"]))
     }
 
-    func testSoundDisabled_onlyOverlayAlert() async throws {
+    @Test
+    func soundDisabled_onlyOverlayAlert() async throws {
         env.preferencesManager.setPlayAlertSound(false)
         env.preferencesManager.setOverlayShowMinutesBefore(5)
 
@@ -124,12 +120,13 @@ final class PreferenceGatedFlowsE2ETests: XCTestCase {
 
         // With sound OFF, should have only 1 alert (overlay only)
         let alerts = env.eventScheduler.scheduledAlerts
-        let soloAlert = try XCTUnwrap(alerts.first, "Should have at least one alert when sound disabled")
-        XCTAssertEqual(soloAlert.event.id, "e2e-sound-off")
-        XCTAssertEqual(alerts.map(\.event.id), ["e2e-sound-off"], "Only overlay alert with sound off")
+        let soloAlert = try #require(alerts.first, "Should have at least one alert when sound disabled")
+        #expect(soloAlert.event.id == "e2e-sound-off")
+        #expect(alerts.map(\.event.id) == ["e2e-sound-off"], "Only overlay alert with sound off")
     }
 
-    func testSoundToggleMidSession_reschedulesAlerts() async throws {
+    @Test
+    func soundToggleMidSession_reschedulesAlerts() async throws {
         env.preferencesManager.setPlayAlertSound(false)
         env.preferencesManager.setDefaultAlertMinutes(3)
         env.preferencesManager.setOverlayShowMinutesBefore(5)
@@ -141,7 +138,7 @@ final class PreferenceGatedFlowsE2ETests: XCTestCase {
         try await env.seedAndSchedule([event])
 
         let initialCount = env.eventScheduler.scheduledAlerts.count
-        XCTAssertEqual(initialCount, 1, "Only overlay alert with sound off")
+        #expect(initialCount == 1, "Only overlay alert with sound off")
 
         // Toggle sound on — rescheduling should create additional alert
         env.preferencesManager.setPlayAlertSound(true)
@@ -155,12 +152,13 @@ final class PreferenceGatedFlowsE2ETests: XCTestCase {
         }
 
         let newCount = env.eventScheduler.scheduledAlerts.count
-        XCTAssertEqual(newCount, 2, "Should have both overlay and sound alerts after toggling on")
+        #expect(newCount == 2, "Should have both overlay and sound alerts after toggling on")
     }
 
     // MARK: - Length-Based Timing Through Full Overlay Trigger
 
-    func testLengthBasedTiming_differentTimingsForDifferentDurations() async throws {
+    @Test
+    func lengthBasedTiming_differentTimingsForDifferentDurations() async throws {
         env.preferencesManager.setUseLengthBasedTiming(true)
         env.preferencesManager.setShortMeetingAlertMinutes(1)
         env.preferencesManager.setMediumMeetingAlertMinutes(3)
@@ -186,16 +184,16 @@ final class PreferenceGatedFlowsE2ETests: XCTestCase {
         // Verify the preference returns different alert minutes
         let shortAlertMin = env.preferencesManager.alertMinutes(for: shortMeeting)
         let longAlertMin = env.preferencesManager.alertMinutes(for: longMeeting)
-        XCTAssertEqual(shortAlertMin, 1, "Short meeting should use 1-minute alert")
-        XCTAssertEqual(longAlertMin, 8, "Long meeting should use 8-minute alert")
+        #expect(shortAlertMin == 1, "Short meeting should use 1-minute alert")
+        #expect(longAlertMin == 8, "Long meeting should use 8-minute alert")
 
         // Verify scheduler created alerts with different timings
         let shortAlerts = env.eventScheduler.scheduledAlerts.filter { $0.event.id == "e2e-lb-short" }
         let longAlerts = env.eventScheduler.scheduledAlerts.filter { $0.event.id == "e2e-lb-long" }
 
         // Each event should have an overlay alert (same timing) + a sound alert (different timing)
-        XCTAssertGreaterThanOrEqual(shortAlerts.count, 1)
-        XCTAssertGreaterThanOrEqual(longAlerts.count, 1)
+        #expect(shortAlerts.count >= 1)
+        #expect(longAlerts.count >= 1)
 
         // The sound alerts should have different lead times reflecting length-based timing
         let shortSoundAlert = shortAlerts.first { alert in
@@ -207,16 +205,17 @@ final class PreferenceGatedFlowsE2ETests: XCTestCase {
             return false
         }
 
-        let unwrappedShort = try XCTUnwrap(shortSoundAlert, "Short meeting should have 1-minute sound alert")
-        XCTAssertEqual(unwrappedShort.event.id, "e2e-lb-short")
+        let unwrappedShort = try #require(shortSoundAlert, "Short meeting should have 1-minute sound alert")
+        #expect(unwrappedShort.event.id == "e2e-lb-short")
 
-        let unwrappedLong = try XCTUnwrap(longSoundAlert, "Long meeting should have 8-minute sound alert")
-        XCTAssertEqual(unwrappedLong.event.id, "e2e-lb-long")
+        let unwrappedLong = try #require(longSoundAlert, "Long meeting should have 8-minute sound alert")
+        #expect(unwrappedLong.event.id == "e2e-lb-long")
     }
 
     // MARK: - Focus Mode Override Preference Through Full Overlay Trigger
 
-    func testFocusModeOverride_overlayShowsDespiteDND() async throws {
+    @Test
+    func focusModeOverride_overlayShowsDespiteDND() async throws {
         env.preferencesManager.setOverlayShowMinutesBefore(0)
 
         let focusModeManager = FocusModeManager(
@@ -237,33 +236,34 @@ final class PreferenceGatedFlowsE2ETests: XCTestCase {
         try await env.seedAndSchedule([event])
 
         // Check before showing — DND should suppress
-        XCTAssertFalse(focusModeManager.shouldShowOverlay())
+        #expect(!focusModeManager.shouldShowOverlay())
 
         // Now toggle override on
         env.preferencesManager.setOverrideFocusMode(true)
-        XCTAssertTrue(focusModeManager.shouldShowOverlay())
+        #expect(focusModeManager.shouldShowOverlay())
 
         // With override on, overlay should work
         if focusModeManager.shouldShowOverlay() {
             env.overlayManager.showOverlayImmediately(for: event)
         }
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
-        XCTAssertEqual(env.overlayManager.activeEvent?.id, event.id)
+        #expect(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent?.id == event.id)
 
         // Full cycle: snooze → re-fire check
         env.overlayManager.snoozeOverlay(for: 5)
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
+        #expect(!env.overlayManager.isOverlayVisible)
 
         let hasSnooze = env.eventScheduler.scheduledAlerts.contains { alert in
             if case .snooze = alert.alertType { return true }
             return false
         }
-        XCTAssertTrue(hasSnooze, "Snooze should work with focus override enabled")
+        #expect(hasSnooze, "Snooze should work with focus override enabled")
     }
 
     // MARK: - Overlay Show Minutes Before = 0 (At Event Start)
 
-    func testOverlayShowAtEventStart_triggersImmediately() async throws {
+    @Test
+    func overlayShowAtEventStart_triggersImmediately() async throws {
         env.preferencesManager.setOverlayShowMinutesBefore(0)
         env.preferencesManager.setPlayAlertSound(false)
 
@@ -273,11 +273,12 @@ final class PreferenceGatedFlowsE2ETests: XCTestCase {
             minutesFromNow: 1,
         )
         try await env.seedAndSchedule([event], startMonitoring: true)
+        defer { env.tearDown() }
 
         // Advance clock to fire the monitoring loop's alert
         await env.waitForOverlay()
 
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
-        XCTAssertEqual(env.overlayManager.activeEvent?.id, event.id)
+        #expect(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent?.id == event.id)
     }
 }

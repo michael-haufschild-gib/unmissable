@@ -1,90 +1,86 @@
 #!/bin/bash
 
 # Release build script for Unmissable
-# Creates a distributable .app bundle without requiring Apple Developer account
+# Creates a distributable .app bundle via xcodebuild archive
 
 set -euo pipefail
 
 # Configuration
 APP_NAME="Unmissable"
-BUNDLE_ID="com.unmissable.app"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUILD_DIR="${PROJECT_DIR}/.build/release"
+XCODEPROJ="$PROJECT_DIR/Unmissable.xcodeproj"
+SCHEME="Unmissable"
+BUILD_DIR="${PROJECT_DIR}/build"
+ARCHIVE_PATH="${BUILD_DIR}/${APP_NAME}.xcarchive"
 APP_BUNDLE="${PROJECT_DIR}/${APP_NAME}.app"
-CONTENTS_DIR="${APP_BUNDLE}/Contents"
-MACOS_DIR="${CONTENTS_DIR}/MacOS"
-RESOURCES_DIR="${CONTENTS_DIR}/Resources"
 cd "$PROJECT_DIR"
 
-echo "🏗️  Building ${APP_NAME} for release..."
+echo "Building ${APP_NAME} for release..."
 
-# Clean previous app bundle
-echo "🧹  Cleaning previous app bundle..."
+# Clean previous build artifacts
+echo "Cleaning previous build artifacts..."
+rm -rf "${BUILD_DIR}"
 rm -rf "${APP_BUNDLE}"
+mkdir -p "${BUILD_DIR}"
 
-# Build with Swift Package Manager in release mode
-echo "📦  Building with Swift Package Manager..."
-swift build --configuration release
+# Archive — output logged so failures are diagnosable on CI/local
+echo "Archiving with xcodebuild (log: ${BUILD_DIR}/archive.log)..."
+xcodebuild archive \
+    -project "$XCODEPROJ" \
+    -scheme "$SCHEME" \
+    -destination "generic/platform=macOS" \
+    -archivePath "$ARCHIVE_PATH" \
+    2>&1 | tee "${BUILD_DIR}/archive.log"
 
-# Create app bundle structure
-echo "📁  Creating app bundle structure..."
-mkdir -p "${MACOS_DIR}"
-mkdir -p "${RESOURCES_DIR}"
-
-# Copy executable
-echo "📋  Copying executable..."
-cp "${BUILD_DIR}/${APP_NAME}" "${MACOS_DIR}/"
-
-# Copy Info.plist
-echo "📄  Copying Info.plist..."
-cp "${PROJECT_DIR}/Info.plist" "${CONTENTS_DIR}/"
-
-# Copy resources if they exist
-if [ -d "${PROJECT_DIR}/Sources/${APP_NAME}/Resources" ] && [ "$(ls -A "${PROJECT_DIR}/Sources/${APP_NAME}/Resources" 2>/dev/null)" ]; then
-    echo "📦  Copying resources..."
-    cp -R "${PROJECT_DIR}/Sources/${APP_NAME}/Resources/"* "${RESOURCES_DIR}/"
+# Extract .app from archive
+echo "Extracting app bundle from archive..."
+ARCHIVED_APP="${ARCHIVE_PATH}/Products/Applications/${APP_NAME}.app"
+if [ -d "$ARCHIVED_APP" ]; then
+    cp -R "$ARCHIVED_APP" "$APP_BUNDLE"
 else
-    echo "📦  No resources directory found, skipping..."
+    echo "ERROR: Archived app not found at $ARCHIVED_APP"
+    exit 1
 fi
 
 # Copy Config.plist if it exists (OAuth configuration)
+RESOURCES_DIR="${APP_BUNDLE}/Contents/Resources"
 if [ -f "${PROJECT_DIR}/Config.plist" ]; then
-    echo "⚙️  Copying configuration..."
+    echo "Copying configuration..."
+    mkdir -p "$RESOURCES_DIR"
     cp "${PROJECT_DIR}/Config.plist" "${RESOURCES_DIR}/"
 else
-    echo "⚠️  Config.plist not found - app may not work without OAuth configuration"
+    echo "WARNING: Config.plist not found - app may not work without OAuth configuration"
 fi
 
-# Make executable
-echo "🔧  Setting executable permissions..."
-chmod +x "${MACOS_DIR}/${APP_NAME}"
-
-# Code sign with ad-hoc signature (self-signed, no developer account required)
-echo "✍️  Code signing with ad-hoc signature..."
+# Ad-hoc code sign (no developer account required)
+echo "Code signing with ad-hoc signature..."
 codesign --force --deep --sign - "${APP_BUNDLE}"
 
 # Verify the bundle
-echo "✅  Verifying app bundle..."
+echo "Verifying app bundle..."
+MACOS_DIR="${APP_BUNDLE}/Contents/MacOS"
+CONTENTS_DIR="${APP_BUNDLE}/Contents"
 if [ -x "${MACOS_DIR}/${APP_NAME}" ] && [ -f "${CONTENTS_DIR}/Info.plist" ]; then
-    echo "✅  App bundle created successfully!"
-    echo "📦  Location: ${APP_BUNDLE}"
+    echo "App bundle created successfully!"
+    echo "Location: ${APP_BUNDLE}"
     echo ""
-    echo "📋  Installation instructions:"
+    echo "Installation instructions:"
     echo "   1. Move ${APP_BUNDLE} to /Applications/"
     echo "   2. Open System Settings > General > Login Items"
     echo "   3. Add ${APP_NAME} to login items"
     echo ""
-    echo "🔍  Bundle contents:"
-    ls -la "${APP_BUNDLE}/Contents/"
+    echo "Bundle contents:"
+    ls -la "${CONTENTS_DIR}/"
     echo ""
-    ls -la "${MACOS_DIR}/"
-    echo ""
-    echo "✅  Code signature verification:"
+    echo "Code signature verification:"
     codesign -dv "${APP_BUNDLE}"
 else
-    echo "❌  App bundle verification failed"
+    echo "ERROR: App bundle verification failed"
     exit 1
 fi
 
+# Cleanup archive
+rm -rf "${BUILD_DIR}"
+
 echo ""
-echo "🎉  Release build complete!"
+echo "Release build complete!"

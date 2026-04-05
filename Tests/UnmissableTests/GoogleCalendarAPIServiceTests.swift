@@ -1,26 +1,22 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 @MainActor
-final class GoogleCalendarAPIServiceTests: XCTestCase {
-    private var apiService: GoogleCalendarAPIService!
+struct GoogleCalendarAPIServiceTests {
+    private var apiService: GoogleCalendarAPIService
 
-    override func setUp() async throws {
-        try await super.setUp()
+    init() {
         let oauth2Service = OAuth2Service()
         apiService = GoogleCalendarAPIService(
             oauth2Service: oauth2Service, linkParser: LinkParser(),
         )
     }
 
-    override func tearDown() async throws {
-        apiService = nil
-        try await super.tearDown()
-    }
-
     // MARK: - convertToEvent: Valid Events
 
-    func testConvertToEvent_validEventWithAllFields_returnsCorrectEvent() throws {
+    @Test
+    func convertToEvent_validEventWithAllFields_returnsCorrectEvent() throws {
         let entry = GCalEventEntry(
             id: "event-123",
             summary: "Team Standup",
@@ -47,17 +43,18 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
 
         let event = apiService.convertToEvent(from: entry, calendarId: "primary")
 
-        let unwrapped = try XCTUnwrap(event)
-        XCTAssertEqual(unwrapped.id, "event-123")
-        XCTAssertEqual(unwrapped.title, "Team Standup")
-        XCTAssertEqual(unwrapped.organizer, "lead@example.com")
-        XCTAssertEqual(unwrapped.calendarId, "primary")
-        XCTAssertFalse(unwrapped.isAllDay)
-        XCTAssertEqual(event?.description, "Daily standup meeting")
-        XCTAssertEqual(event?.location, "Room 42")
+        let unwrapped = try #require(event)
+        #expect(unwrapped.id == "event-123")
+        #expect(unwrapped.title == "Team Standup")
+        #expect(unwrapped.organizer == "lead@example.com")
+        #expect(unwrapped.calendarId == "primary")
+        #expect(!unwrapped.isAllDay)
+        #expect(event?.description == "Daily standup meeting")
+        #expect(event?.location == "Room 42")
     }
 
-    func testConvertToEvent_minimalEvent_onlyRequiredFields() throws {
+    @Test
+    func convertToEvent_minimalEvent_onlyRequiredFields() throws {
         let entry = GCalEventEntry(
             id: "min-1",
             summary: "Quick Chat",
@@ -75,17 +72,18 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
 
         let event = apiService.convertToEvent(from: entry, calendarId: "work")
 
-        let unwrapped = try XCTUnwrap(event)
-        XCTAssertEqual(unwrapped.title, "Quick Chat")
-        XCTAssertNil(unwrapped.organizer)
-        XCTAssertNil(unwrapped.description)
-        XCTAssertNil(unwrapped.location)
-        XCTAssertEqual(unwrapped.attendees, [])
+        let unwrapped = try #require(event)
+        #expect(unwrapped.title == "Quick Chat")
+        #expect(unwrapped.organizer == nil)
+        #expect(unwrapped.description == nil)
+        #expect(unwrapped.location == nil)
+        #expect(unwrapped.attendees.isEmpty)
     }
 
     // MARK: - convertToEvent: Filtered Events
 
-    func testConvertToEvent_cancelledEvent_returnsNil() {
+    @Test
+    func convertToEvent_cancelledEvent_returnsNil() {
         let entry = GCalEventEntry(
             id: "cancelled-1",
             summary: "Cancelled Meeting",
@@ -101,10 +99,11 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
             hangoutLink: nil,
         )
 
-        XCTAssertNil(apiService.convertToEvent(from: entry, calendarId: "primary"))
+        #expect(apiService.convertToEvent(from: entry, calendarId: "primary") == nil)
     }
 
-    func testConvertToEvent_selfDeclined_returnsNil() {
+    @Test
+    func convertToEvent_selfDeclined_returnsNil() {
         let entry = GCalEventEntry(
             id: "declined-1",
             summary: "Meeting I Declined",
@@ -129,10 +128,11 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
             hangoutLink: nil,
         )
 
-        XCTAssertNil(apiService.convertToEvent(from: entry, calendarId: "primary"))
+        #expect(apiService.convertToEvent(from: entry, calendarId: "primary") == nil)
     }
 
-    func testConvertToEvent_missingId_returnsNil() {
+    @Test
+    func convertToEvent_missingId_returnsNil() {
         let entry = GCalEventEntry(
             id: nil,
             summary: "No ID",
@@ -148,10 +148,11 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
             hangoutLink: nil,
         )
 
-        XCTAssertNil(apiService.convertToEvent(from: entry, calendarId: "primary"))
+        #expect(apiService.convertToEvent(from: entry, calendarId: "primary") == nil)
     }
 
-    func testConvertToEvent_missingSummary_returnsNil() {
+    @Test
+    func convertToEvent_missingSummary_returnsNil() {
         let entry = GCalEventEntry(
             id: "no-title-1",
             summary: nil,
@@ -167,12 +168,13 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
             hangoutLink: nil,
         )
 
-        XCTAssertNil(apiService.convertToEvent(from: entry, calendarId: "primary"))
+        #expect(apiService.convertToEvent(from: entry, calendarId: "primary") == nil)
     }
 
     // MARK: - convertToEvent: All-Day Events
 
-    func testConvertToEvent_allDayEvent_usesDateField() throws {
+    @Test
+    func convertToEvent_allDayEvent_usesDateField() throws {
         let entry = GCalEventEntry(
             id: "all-day-1",
             summary: "Company Holiday",
@@ -190,14 +192,15 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
 
         let event = apiService.convertToEvent(from: entry, calendarId: "primary")
 
-        let unwrapped = try XCTUnwrap(event)
-        XCTAssertTrue(unwrapped.isAllDay)
-        XCTAssertEqual(unwrapped.title, "Company Holiday")
+        let unwrapped = try #require(event)
+        #expect(unwrapped.isAllDay)
+        #expect(unwrapped.title == "Company Holiday")
     }
 
     // MARK: - convertToEvent: Conference Data
 
-    func testConvertToEvent_withConferenceData_extractsMeetLink() throws {
+    @Test
+    func convertToEvent_withConferenceData_extractsMeetLink() throws {
         let entry = GCalEventEntry(
             id: "meet-1",
             summary: "Video Call",
@@ -222,16 +225,16 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
 
         let event = apiService.convertToEvent(from: entry, calendarId: "primary")
 
-        let unwrapped = try XCTUnwrap(event)
-        XCTAssertEqual(
-            unwrapped.links.first?.absoluteString,
-            "https://meet.google.com/abc-defg-hij",
+        let unwrapped = try #require(event)
+        #expect(
+            unwrapped.links.first?.absoluteString == "https://meet.google.com/abc-defg-hij",
         )
     }
 
     // MARK: - convertToEvent: Attachments
 
-    func testConvertToEvent_withAttachments_parsesAttachmentFields() throws {
+    @Test
+    func convertToEvent_withAttachments_parsesAttachmentFields() throws {
         let entry = GCalEventEntry(
             id: "attach-1",
             summary: "Design Review",
@@ -257,14 +260,15 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
 
         let event = apiService.convertToEvent(from: entry, calendarId: "primary")
 
-        let unwrapped = try XCTUnwrap(event)
-        XCTAssertEqual(unwrapped.attachments.first?.title, "Design Spec")
-        XCTAssertEqual(unwrapped.attachments.first?.mimeType, "application/pdf")
+        let unwrapped = try #require(event)
+        #expect(unwrapped.attachments.first?.title == "Design Spec")
+        #expect(unwrapped.attachments.first?.mimeType == "application/pdf")
     }
 
     // MARK: - convertToEvent: HangoutLink Fallback
 
-    func testConvertToEvent_withHangoutLinkButNoConferenceData_extractsMeetLink() throws {
+    @Test
+    func convertToEvent_withHangoutLinkButNoConferenceData_extractsMeetLink() throws {
         let entry = GCalEventEntry(
             id: "hangout-1",
             summary: "Hangout Meeting",
@@ -281,16 +285,16 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
         )
 
         let event = apiService.convertToEvent(from: entry, calendarId: "primary")
-        let unwrapped = try XCTUnwrap(event)
+        let unwrapped = try #require(event)
 
-        XCTAssertEqual(
-            unwrapped.links.first?.host,
-            "meet.google.com",
+        #expect(
+            unwrapped.links.first?.host == "meet.google.com",
             "hangoutLink should be extracted as a meeting link",
         )
     }
 
-    func testConvertToEvent_phoneOnlyEntryPoints_noVideoLink() throws {
+    @Test
+    func convertToEvent_phoneOnlyEntryPoints_noVideoLink() throws {
         let entry = GCalEventEntry(
             id: "phone-only-1",
             summary: "Phone Meeting",
@@ -311,13 +315,14 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
         )
 
         let event = apiService.convertToEvent(from: entry, calendarId: "primary")
-        let unwrapped = try XCTUnwrap(event)
+        let unwrapped = try #require(event)
 
-        XCTAssertEqual(unwrapped.title, "Phone Meeting")
-        XCTAssertEqual(unwrapped.links, [], "tel: URIs should be filtered out of meeting links")
+        #expect(unwrapped.title == "Phone Meeting")
+        #expect(unwrapped.links.isEmpty, "tel: URIs should be filtered out of meeting links")
     }
 
-    func testConvertToEvent_malformedDateTimeString_returnsNil() {
+    @Test
+    func convertToEvent_malformedDateTimeString_returnsNil() {
         let entry = GCalEventEntry(
             id: "malformed-date",
             summary: "Bad Date Meeting",
@@ -334,10 +339,11 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
         )
 
         let event = apiService.convertToEvent(from: entry, calendarId: "primary")
-        XCTAssertNil(event, "Malformed date should result in nil event")
+        #expect(event == nil, "Malformed date should result in nil event")
     }
 
-    func testConvertToEvent_missingStartDate_returnsNil() {
+    @Test
+    func convertToEvent_missingStartDate_returnsNil() {
         let entry = GCalEventEntry(
             id: "no-start",
             summary: "No Start",
@@ -354,12 +360,13 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
         )
 
         let event = apiService.convertToEvent(from: entry, calendarId: "primary")
-        XCTAssertNil(event, "Missing start date should result in nil event")
+        #expect(event == nil, "Missing start date should result in nil event")
     }
 
     // MARK: - convertToEvent: Attendee Conversion
 
-    func testConvertToEvent_attendeesWithAllFields_mapsCorrectly() throws {
+    @Test
+    func convertToEvent_attendeesWithAllFields_mapsCorrectly() throws {
         let entry = GCalEventEntry(
             id: "attendee-1",
             summary: "Team Sync",
@@ -402,16 +409,16 @@ final class GoogleCalendarAPIServiceTests: XCTestCase {
 
         let event = apiService.convertToEvent(from: entry, calendarId: "primary")
 
-        let unwrapped = try XCTUnwrap(event)
-        XCTAssertEqual(unwrapped.attendees.count, 3) // swiftlint:disable:this no_count_only_assertion
-        XCTAssertEqual(unwrapped.attendees.first(where: \.isOrganizer)?.email, "lead@example.com")
+        let unwrapped = try #require(event)
+        #expect(unwrapped.attendees.count == 3)
+        #expect(unwrapped.attendees.first(where: \.isOrganizer)?.email == "lead@example.com")
 
         let organizer = unwrapped.attendees.first(where: \.isOrganizer)
-        XCTAssertEqual(organizer?.email, "lead@example.com")
-        XCTAssertEqual(organizer?.name, "Lead")
+        #expect(organizer?.email == "lead@example.com")
+        #expect(organizer?.name == "Lead")
 
         let optional = unwrapped.attendees.first(where: \.isOptional)
-        XCTAssertEqual(optional?.email, "optional@example.com")
-        XCTAssertEqual(optional?.status, .tentative)
+        #expect(optional?.email == "optional@example.com")
+        #expect(optional?.status == .tentative)
     }
 }

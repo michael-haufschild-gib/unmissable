@@ -19,7 +19,7 @@
 
 ## Running Tests
 
-All test commands go through `Scripts/test.sh`, which enforces a **4-worker parallel limit**, kills zombie processes, separates lint/build/test phases, and writes machine-readable results. Do **not** run bare `swift test` — it spawns unlimited parallel processes.
+All test commands go through `Scripts/test.sh`, which uses `xcodebuild` with a **4-worker parallel limit**, separates lint/build/test phases, and writes machine-readable results. Do **not** run bare `xcodebuild test` without worker limits.
 
 ```bash
 # Run all tests (recommended)
@@ -31,7 +31,7 @@ All test commands go through `Scripts/test.sh`, which enforces a **4-worker para
 # Skip lint (useful when iterating on test fixes)
 ./Scripts/test.sh --skip-lint
 
-# Clean build + all tests (fixes SPM lock issues)
+# Clean build + all tests
 ./Scripts/test.sh --clean
 
 # Lint only (strict — all warnings are errors)
@@ -39,6 +39,9 @@ All test commands go through `Scripts/test.sh`, which enforces a **4-worker para
 
 # Full build + lint + format + test cycle
 ./Scripts/build.sh
+
+# UI tests (XCUITest)
+./Scripts/test-ui.sh
 ```
 
 The script outputs a clear status line (`PASS`, `FAIL`, `BUILD_FAIL`, `LINT_FAIL`, or `TIMEOUT`) and writes a JSON summary to `.build/test-result.json`.

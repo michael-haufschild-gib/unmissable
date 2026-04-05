@@ -1,24 +1,23 @@
-import TestSupport
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 // MARK: - Notification Center Alert Mode Tests
 
-final class NotificationCenterTests: XCTestCase {
-    private var eventScheduler: EventScheduler!
-    private var mockPreferences: PreferencesManager!
-    private var overlayManager: TestSafeOverlayManager!
-    private var notificationManager: TestSafeNotificationManager!
+@MainActor
+struct NotificationCenterTests {
+    private var eventScheduler: EventScheduler
+    private var mockPreferences: PreferencesManager
+    private var overlayManager: TestSafeOverlayManager
+    private var notificationManager: TestSafeNotificationManager
     /// Fixed reference time for deterministic scheduling.
-    private var fixedDate: Date!
+    private var fixedDate: Date
 
-    @MainActor
-    override func setUp() async throws {
-        try await super.setUp()
+    init() {
         fixedDate = Date()
         mockPreferences = TestUtilities.createTestPreferencesManager()
         mockPreferences.testOverlayShowMinutesBefore = 2
-        let capturedDate = try XCTUnwrap(fixedDate)
+        let capturedDate = fixedDate
         eventScheduler = EventScheduler(
             preferencesManager: mockPreferences,
             linkParser: LinkParser(),
@@ -29,49 +28,40 @@ final class NotificationCenterTests: XCTestCase {
         eventScheduler.setNotificationManager(notificationManager)
     }
 
-    override func tearDown() {
-        eventScheduler = nil
-        mockPreferences = nil
-        overlayManager = nil
-        notificationManager = nil
-        fixedDate = nil
-        super.tearDown()
-    }
-
     // MARK: - AlertMode Enum
 
-    @MainActor
-    func testAlertMode_rawValueRoundTrip() {
+    @Test
+    func alertMode_rawValueRoundTrip() {
         for mode in AlertMode.allCases {
             let decoded = AlertMode(rawValue: mode.rawValue)
-            XCTAssertEqual(decoded, mode, "Round-trip failed for \(mode)")
+            #expect(decoded == mode, "Round-trip failed for \(mode)")
         }
     }
 
-    @MainActor
-    func testAlertMode_displayNames() {
-        XCTAssertEqual(AlertMode.overlay.displayName, "Full-Screen Overlay")
-        XCTAssertEqual(AlertMode.notification.displayName, "Notification")
-        XCTAssertEqual(AlertMode.none.displayName, "None")
+    @Test
+    func alertMode_displayNames() {
+        #expect(AlertMode.overlay.displayName == "Full-Screen Overlay")
+        #expect(AlertMode.notification.displayName == "Notification")
+        #expect(AlertMode.none.displayName == "None")
     }
 
-    @MainActor
-    func testAlertMode_rawValues() {
-        XCTAssertEqual(AlertMode.overlay.rawValue, "overlay")
-        XCTAssertEqual(AlertMode.notification.rawValue, "notification")
-        XCTAssertEqual(AlertMode.none.rawValue, "none")
+    @Test
+    func alertMode_rawValues() {
+        #expect(AlertMode.overlay.rawValue == "overlay")
+        #expect(AlertMode.notification.rawValue == "notification")
+        #expect(AlertMode.none.rawValue == "none")
     }
 
     // MARK: - CalendarInfo AlertMode
 
-    @MainActor
-    func testCalendarInfo_defaultAlertModeIsOverlay() {
+    @Test
+    func calendarInfo_defaultAlertModeIsOverlay() {
         let calendar = CalendarInfo(id: "cal-1", name: "Work")
-        XCTAssertEqual(calendar.alertMode, .overlay)
+        #expect(calendar.alertMode == .overlay)
     }
 
-    @MainActor
-    func testCalendarInfo_withAlertModePreservesOtherFields() {
+    @Test
+    func calendarInfo_withAlertModePreservesOtherFields() {
         let calendar = CalendarInfo(
             id: "cal-1",
             name: "Work",
@@ -84,17 +74,17 @@ final class NotificationCenterTests: XCTestCase {
 
         let updated = calendar.withAlertMode(.notification)
 
-        XCTAssertEqual(updated.id, "cal-1")
-        XCTAssertEqual(updated.name, "Work")
-        XCTAssertTrue(updated.isSelected)
-        XCTAssertTrue(updated.isPrimary)
-        XCTAssertEqual(updated.colorHex, "#FF0000")
-        XCTAssertEqual(updated.sourceProvider, .google)
-        XCTAssertEqual(updated.alertMode, .notification)
+        #expect(updated.id == "cal-1")
+        #expect(updated.name == "Work")
+        #expect(updated.isSelected)
+        #expect(updated.isPrimary)
+        #expect(updated.colorHex == "#FF0000")
+        #expect(updated.sourceProvider == .google)
+        #expect(updated.alertMode == .notification)
     }
 
-    @MainActor
-    func testCalendarInfo_withSelectionPreservesAlertMode() {
+    @Test
+    func calendarInfo_withSelectionPreservesAlertMode() {
         let calendar = CalendarInfo(
             id: "cal-1",
             name: "Work",
@@ -104,14 +94,14 @@ final class NotificationCenterTests: XCTestCase {
 
         let updated = calendar.withSelection(true)
 
-        XCTAssertTrue(updated.isSelected)
-        XCTAssertEqual(updated.alertMode, .notification)
+        #expect(updated.isSelected)
+        #expect(updated.alertMode == .notification)
     }
 
     // MARK: - Overlay Mode (Default)
 
-    @MainActor
-    func testDefaultAlertMode_usesOverlay() async {
+    @Test
+    func defaultAlertMode_usesOverlay() async {
         let event = TestUtilities.createTestEvent(
             startDate: fixedDate.addingTimeInterval(60),
             calendarId: "cal-1",
@@ -123,15 +113,15 @@ final class NotificationCenterTests: XCTestCase {
             events: [event], overlayManager: overlayManager,
         )
 
-        XCTAssertTrue(overlayManager.isOverlayVisible, "Default mode should show overlay")
-        XCTAssertEqual(overlayManager.activeEvent?.id, event.id)
-        XCTAssertEqual(notificationManager.sentNotifications.map(\.event.id), [])
+        #expect(overlayManager.isOverlayVisible, "Default mode should show overlay")
+        #expect(overlayManager.activeEvent?.id == event.id)
+        #expect(notificationManager.sentNotifications.map(\.event.id).isEmpty)
     }
 
     // MARK: - Notification Mode
 
-    @MainActor
-    func testNotificationMode_sendsNotificationNotOverlay() async throws {
+    @Test
+    func notificationMode_sendsNotificationNotOverlay() async throws {
         eventScheduler.updateCalendarAlertModes(["cal-notif": .notification])
 
         let event = TestUtilities.createTestEvent(
@@ -145,21 +135,21 @@ final class NotificationCenterTests: XCTestCase {
             events: [event], overlayManager: overlayManager,
         )
 
-        XCTAssertFalse(overlayManager.isOverlayVisible, "Notification mode should NOT show overlay")
+        #expect(!overlayManager.isOverlayVisible, "Notification mode should NOT show overlay")
 
         // Wait for the async Task that sends the notification
-        let notifMgr = try XCTUnwrap(notificationManager)
+        let notifMgr = notificationManager
         try await TestUtilities.waitForAsync {
             await MainActor.run { notifMgr.sentNotifications.count == 1 }
         }
 
-        XCTAssertEqual(notificationManager.sentNotifications.first?.event.id, "evt-notif")
+        #expect(notificationManager.sentNotifications.first?.event.id == "evt-notif")
     }
 
     // MARK: - None Mode
 
-    @MainActor
-    func testNoneMode_suppressesAllAlerts() async throws {
+    @Test
+    func noneMode_suppressesAllAlerts() async throws {
         eventScheduler.updateCalendarAlertModes(["cal-silent": .none])
 
         let event = TestUtilities.createTestEvent(
@@ -176,14 +166,14 @@ final class NotificationCenterTests: XCTestCase {
         // swiftlint:disable:next no_raw_task_sleep_in_tests
         try await Task.sleep(for: .milliseconds(100))
 
-        XCTAssertFalse(overlayManager.isOverlayVisible)
-        XCTAssertEqual(notificationManager.sentNotifications.map(\.event.id), [])
+        #expect(!overlayManager.isOverlayVisible)
+        #expect(notificationManager.sentNotifications.map(\.event.id).isEmpty)
     }
 
     // MARK: - Snooze Always Uses Overlay
 
-    @MainActor
-    func testSnooze_alwaysUsesOverlay_regardlessOfCalendarMode() async {
+    @Test
+    func snooze_alwaysUsesOverlay_regardlessOfCalendarMode() async {
         eventScheduler.updateCalendarAlertModes(["cal-notif": .notification])
 
         let event = TestUtilities.createTestEvent(
@@ -196,7 +186,7 @@ final class NotificationCenterTests: XCTestCase {
             events: [event], overlayManager: overlayManager,
         )
 
-        XCTAssertFalse(overlayManager.isOverlayVisible)
+        #expect(!overlayManager.isOverlayVisible)
 
         eventScheduler.scheduleSnooze(for: event, minutes: 1)
 
@@ -205,14 +195,14 @@ final class NotificationCenterTests: XCTestCase {
             return false
         }
         // Verify both presence and identity of the snooze alert
-        XCTAssertEqual(snoozeAlerts.first?.event.id, "snooze-evt")
-        XCTAssertEqual(snoozeAlerts.first?.event.calendarId, "cal-notif")
+        #expect(snoozeAlerts.first?.event.id == "snooze-evt")
+        #expect(snoozeAlerts.first?.event.calendarId == "cal-notif")
     }
 
     // MARK: - Mixed Calendars
 
-    @MainActor
-    func testMixedModes_routeCorrectly() async throws {
+    @Test
+    func mixedModes_routeCorrectly() async throws {
         eventScheduler.updateCalendarAlertModes([
             "cal-overlay": .overlay,
             "cal-notif": .notification,
@@ -242,25 +232,25 @@ final class NotificationCenterTests: XCTestCase {
         )
 
         // Wait for the notification async task
-        let notifMgr = try XCTUnwrap(notificationManager)
+        let notifMgr = notificationManager
         try await TestUtilities.waitForAsync {
             await MainActor.run { notifMgr.sentNotifications.count == 1 }
         }
 
         // Overlay event should have triggered overlay
-        XCTAssertTrue(overlayManager.isOverlayVisible)
+        #expect(overlayManager.isOverlayVisible)
 
         // Notification event should have sent exactly one notification
-        XCTAssertEqual(notificationManager.sentNotifications.first?.event.id, "evt-notif")
+        #expect(notificationManager.sentNotifications.first?.event.id == "evt-notif")
         // Verify no extra notifications from overlay or silent events
         let notifEventIds = notificationManager.sentNotifications.map(\.event.id)
-        XCTAssertEqual(notifEventIds, ["evt-notif"])
+        #expect(notifEventIds == ["evt-notif"])
     }
 
     // MARK: - Unknown Calendar Defaults to Overlay
 
-    @MainActor
-    func testUnknownCalendar_defaultsToOverlay() async {
+    @Test
+    func unknownCalendar_defaultsToOverlay() async {
         eventScheduler.updateCalendarAlertModes(["other-cal": .notification])
 
         let event = TestUtilities.createTestEvent(
@@ -274,14 +264,14 @@ final class NotificationCenterTests: XCTestCase {
             events: [event], overlayManager: overlayManager,
         )
 
-        XCTAssertTrue(overlayManager.isOverlayVisible)
-        XCTAssertEqual(overlayManager.activeEvent?.id, "unknown-evt")
+        #expect(overlayManager.isOverlayVisible)
+        #expect(overlayManager.activeEvent?.id == "unknown-evt")
     }
 
     // MARK: - Alert Mode Update Does Not Reschedule
 
-    @MainActor
-    func testUpdateCalendarAlertModes_doesNotReschedule() async {
+    @Test
+    func updateCalendarAlertModes_doesNotReschedule() async {
         let event = TestUtilities.createTestEvent(
             startDate: fixedDate.addingTimeInterval(600),
             calendarId: "cal-1",
@@ -296,6 +286,6 @@ final class NotificationCenterTests: XCTestCase {
         eventScheduler.updateCalendarAlertModes(["cal-1": .notification])
 
         let alertsAfter = eventScheduler.scheduledAlerts.map(\.event.id)
-        XCTAssertEqual(alertsAfter, alertsBefore)
+        #expect(alertsAfter == alertsBefore)
     }
 }

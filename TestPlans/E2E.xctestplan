@@ -1,0 +1,36 @@
+{
+  "configurations" : [
+    {
+      "id" : "C3D4E5F6-A7B8-9012-CDEF-123456789012",
+      "name" : "E2E",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : {
+      "targets" : [
+        {
+          "containerPath" : "container:Unmissable.xcodeproj",
+          "identifier" : "Unmissable",
+          "name" : "Unmissable"
+        }
+      ]
+    },
+    "testExecutionOrdering" : "random",
+    "testTimeoutsEnabled" : true,
+    "defaultTestExecutionTimeAllowance" : 120,
+    "maximumTestExecutionTimeAllowance" : 600
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Unmissable.xcodeproj",
+        "identifier" : "E2ETests",
+        "name" : "E2ETests"
+      }
+    }
+  ],
+  "version" : 1
+}
