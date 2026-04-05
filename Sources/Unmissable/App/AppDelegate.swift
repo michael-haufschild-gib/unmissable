@@ -4,6 +4,11 @@ import OSLog
 enum AppRuntime {
     static let isUITesting = ProcessInfo.processInfo.arguments.contains("--uitesting")
     static let requiresRegularActivation = ProcessInfo.processInfo.arguments.contains("--ui-testing-regular-activation")
+
+    /// True when the process hosts a test bundle (XCTest or Swift Testing).
+    /// Used by the app entry point to create AppState with `isTestEnvironment: true`
+    /// so that side-effectful launch work (window creation, NSApp activation) is skipped.
+    static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -15,7 +20,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ["sessionId": AppDiagnostics.sessionId]
         }
 
-        if AppRuntime.requiresRegularActivation {
+        if AppRuntime.isRunningTests {
+            logger.info("Test environment — skipping activation policy change")
+        } else if AppRuntime.requiresRegularActivation {
             NSApp.setActivationPolicy(.regular)
             _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
             NSApp.activate(ignoringOtherApps: true)

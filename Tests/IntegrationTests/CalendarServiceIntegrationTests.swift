@@ -1,19 +1,18 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
-final class CalendarServiceIntegrationTests: XCTestCase {
-    private var calendarService: CalendarService!
-    private var preferencesManager: PreferencesManager!
-    private var databaseManager: DatabaseManager!
-    private var tempDatabaseURL: URL!
+@MainActor
+struct CalendarServiceIntegrationTests {
+    private let calendarService: CalendarService
+    private let preferencesManager: PreferencesManager
+    private let databaseManager: DatabaseManager
+    /// Retains the temp directory until the struct is deallocated, then removes it.
+    private let tempDir: TemporaryDirectory
 
-    @MainActor
-    override func setUp() async throws {
-        // Use isolated temp database to avoid polluting production data
-        let tempDir = FileManager.default.temporaryDirectory
-        tempDatabaseURL = tempDir.appendingPathComponent(
-            "unmissable-integration-\(UUID().uuidString).db",
-        )
+    init() throws {
+        tempDir = try TemporaryDirectory(prefix: "unmissable-integration")
+        let tempDatabaseURL = tempDir.url.appendingPathComponent("test.db")
         databaseManager = DatabaseManager(databaseURL: tempDatabaseURL)
 
         preferencesManager = PreferencesManager(themeManager: ThemeManager())
@@ -22,37 +21,25 @@ final class CalendarServiceIntegrationTests: XCTestCase {
             databaseManager: databaseManager,
             linkParser: LinkParser(),
         )
-        try await super.setUp()
     }
 
-    override func tearDown() async throws {
-        calendarService = nil
-        preferencesManager = nil
-        databaseManager = nil
-        if let url = tempDatabaseURL {
-            try? FileManager.default.removeItem(at: url)
-        }
-        tempDatabaseURL = nil
-        try await super.tearDown()
+    @Test
+    func calendarServiceInitialization() {
+        #expect(!calendarService.isConnected)
+        #expect(calendarService.syncStatus == .idle)
+        #expect(calendarService.events.isEmpty)
+        #expect(calendarService.calendars.isEmpty)
     }
 
-    @MainActor
-    func testCalendarServiceInitialization() {
-        XCTAssertFalse(calendarService.isConnected)
-        XCTAssertEqual(calendarService.syncStatus, .idle)
-        XCTAssertEqual(calendarService.events, [])
-        XCTAssertEqual(calendarService.calendars, [])
+    @Test
+    func oAuth2StateExposedViaCalendarService() {
+        #expect(!calendarService.isConnected)
+        #expect(calendarService.userEmail == nil)
+        #expect(calendarService.authError == nil)
     }
 
-    @MainActor
-    func testOAuth2StateExposedViaCalendarService() {
-        XCTAssertFalse(calendarService.isConnected)
-        XCTAssertNil(calendarService.userEmail)
-        XCTAssertNil(calendarService.authError)
-    }
-
-    @MainActor
-    func testCalendarSelectionUpdate() throws {
+    @Test
+    func calendarSelectionUpdate() throws {
         let mockCalendar = CalendarInfo(
             id: "test-calendar",
             name: "Test Calendar",
@@ -63,27 +50,27 @@ final class CalendarServiceIntegrationTests: XCTestCase {
         calendarService.calendars = [mockCalendar]
         calendarService.updateCalendarSelection("test-calendar", isSelected: true)
 
-        let updatedCalendar = try XCTUnwrap(
+        let updatedCalendar = try #require(
             calendarService.calendars.first { $0.id == "test-calendar" },
         )
-        XCTAssertTrue(updatedCalendar.isSelected)
+        #expect(updatedCalendar.isSelected)
     }
 
-    @MainActor
-    func testSyncWithoutConnection() async {
+    @Test
+    func syncWithoutConnection() async {
         await calendarService.syncEvents()
 
-        XCTAssertTrue(
+        #expect(
             calendarService.syncStatus == .idle || calendarService.syncStatus == .offline,
         )
     }
 
-    @MainActor
-    func testDisconnectAll() async {
+    @Test
+    func disconnectAll() async {
         await calendarService.disconnectAll()
 
-        XCTAssertFalse(calendarService.isConnected)
-        XCTAssertEqual(calendarService.events, [])
-        XCTAssertEqual(calendarService.calendars, [])
+        #expect(!calendarService.isConnected)
+        #expect(calendarService.events.isEmpty)
+        #expect(calendarService.calendars.isEmpty)
     }
 }

@@ -42,6 +42,17 @@ struct ProviderTests {
     }
 
     @Test
+    func providerDetectionFromDiscordURL() throws {
+        let discordUrl1 = try #require(URL(string: "https://discord.gg/abc123"))
+        let discordUrl2 = try #require(URL(string: "https://discord.com/invite/abc123"))
+        let discordUrl3 = try #require(URL(string: "discord://discord.com/channels/123"))
+
+        #expect(Provider.detect(from: discordUrl1) == .discord)
+        #expect(Provider.detect(from: discordUrl2) == .discord)
+        #expect(Provider.detect(from: discordUrl3) == .discord)
+    }
+
+    @Test
     func providerDetectionFromGenericURL() throws {
         let genericUrl1 = try #require(URL(string: "https://example.com/meeting"))
         let genericUrl2 = try #require(URL(string: "https://custom-platform.com/room/123"))

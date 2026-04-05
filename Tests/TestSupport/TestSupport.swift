@@ -6,6 +6,30 @@ import OSLog
 import SwiftUI
 @testable import Unmissable
 
+// MARK: - Temporary Directory
+
+/// Owns a temporary directory and removes it (along with its contents) on deallocation.
+/// Use in Swift Testing struct suites to replace XCTest `tearDown` cleanup.
+///
+/// **Note**: If a database file inside the directory still has open handles when `deinit` runs,
+/// `removeItem` may silently fail. This is acceptable — the OS cleans `/tmp` periodically,
+/// and GRDB closes connections via ARC once all references are released.
+public final class TemporaryDirectory: @unchecked Sendable {
+    /// The URL of the temporary directory.
+    public let url: URL
+
+    /// Creates a uniquely-named directory under the system temp folder.
+    public init(prefix: String) throws {
+        url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(prefix)-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+    }
+
+    deinit {
+        try? FileManager.default.removeItem(at: url)
+    }
+}
+
 // MARK: - Controllable Test Clock
 
 /// Bridges PointFree's `TestClock<Duration>` to EventScheduler's closure-based
@@ -100,6 +124,11 @@ public final class TestSafeOverlayManager: OverlayManaging {
         activeEvent?.startDate.timeIntervalSinceNow ?? 0
     }
 
+    /// Max age (seconds) before auto-dismissing a non-snoozed overlay (mirrors production).
+    private static let normalMaxAgeSeconds: TimeInterval = 300
+    /// Max age (seconds) before auto-dismissing a snoozed overlay (mirrors production).
+    private static let snoozeMaxAgeSeconds: TimeInterval = 1800
+
     private weak var eventScheduler: EventScheduler?
     private let isTestEnvironment: Bool
     private let foregroundAppDetector: (any ForegroundAppDetecting)?
@@ -148,9 +177,9 @@ public final class TestSafeOverlayManager: OverlayManaging {
         // not simulated time. Events created relative to Date() should not be dismissed
         // just because a TestClock advanced virtual time past their start.
         let timeSinceStart = Date().timeIntervalSince(event.startDate)
-        let snoozeMaxAgeSeconds: TimeInterval = 1800
-        let normalMaxAgeSeconds: TimeInterval = 300
-        let maxAge: TimeInterval = fromSnooze ? snoozeMaxAgeSeconds : normalMaxAgeSeconds
+        let maxAge: TimeInterval = fromSnooze
+            ? Self.snoozeMaxAgeSeconds
+            : Self.normalMaxAgeSeconds
         if timeSinceStart > maxAge {
             logger
                 .debug(
@@ -334,10 +363,14 @@ public final class TestMenuBarEnvironment {
         UserDefaults.standard.removePersistentDomain(forName: userDefaultsSuiteName)
     }
 
-    private static let defaultPopoverWidth: CGFloat = 340
-    private static let defaultPopoverHeight: CGFloat = 600
-    private static let defaultLabelWidth: CGFloat = 200
-    private static let defaultLabelHeight: CGFloat = 22
+    /// Default width for the menu bar popover in test host views.
+    public static let defaultPopoverWidth: CGFloat = 340
+    /// Default height for the menu bar popover in test host views.
+    public static let defaultPopoverHeight: CGFloat = 600
+    /// Default width for the menu bar label in test host views.
+    public static let defaultLabelWidth: CGFloat = 200
+    /// Default height for the menu bar label in test host views.
+    public static let defaultLabelHeight: CGFloat = 22
 
     /// Hosts `MenuBarView` in an `NSHostingController` with the correct environment.
     public func hostMenuBarView(

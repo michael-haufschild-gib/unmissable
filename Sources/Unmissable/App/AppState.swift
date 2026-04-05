@@ -52,8 +52,7 @@ final class AppState {
 
     private func setupBindings() {
         // Update menu bar preview when events or started events change.
-        observeCalendarEvents()
-        observeStartedEvents()
+        observeCalendarEventChanges()
 
         // Show preferences when app is reopened with no visible windows
         NotificationCenter.default.publisher(for: .showPreferences)
@@ -90,30 +89,20 @@ final class AppState {
             .store(in: &cancellables)
     }
 
-    private func observeCalendarEvents() {
+    /// Observes both `events` and `startedEvents` in a single tracking block.
+    /// When either changes (e.g. after a sync), the menu bar preview is updated once
+    /// instead of twice.
+    private func observeCalendarEventChanges() {
         withObservationTracking {
             _ = services.calendarService.events
+            _ = services.calendarService.startedEvents
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 let events = services.calendarService.events
                 let started = services.calendarService.startedEvents
                 services.menuBarPreviewManager.updateEvents(started + events)
-                self.observeCalendarEvents()
-            }
-        }
-    }
-
-    private func observeStartedEvents() {
-        withObservationTracking {
-            _ = services.calendarService.startedEvents
-        } onChange: { [weak self] in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                let upcoming = services.calendarService.events
-                let startedEvents = services.calendarService.startedEvents
-                services.menuBarPreviewManager.updateEvents(startedEvents + upcoming)
-                self.observeStartedEvents()
+                observeCalendarEventChanges()
             }
         }
     }

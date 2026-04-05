@@ -1,5 +1,6 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 // MARK: - Mock Calendar Auth Provider
 
@@ -63,19 +64,16 @@ final class MockCalendarAPIProvider: CalendarAPIProviding {
 // MARK: - Multi-Provider Integration Tests
 
 @MainActor
-final class MultiProviderIntegrationTests: XCTestCase {
-    private var calendarService: CalendarService!
-    private var preferencesManager: PreferencesManager!
-    private var databaseManager: DatabaseManager!
-    private var tempDatabaseURL: URL!
+struct MultiProviderIntegrationTests {
+    private let calendarService: CalendarService
+    private let preferencesManager: PreferencesManager
+    private let databaseManager: DatabaseManager
+    /// Retains the temp directory until the struct is deallocated, then removes it.
+    private let tempDir: TemporaryDirectory
 
-    override func setUp() async throws {
-        try await super.setUp()
-
-        let tempDir = FileManager.default.temporaryDirectory
-        tempDatabaseURL = tempDir.appendingPathComponent(
-            "unmissable-multiprovider-\(UUID().uuidString).db",
-        )
+    init() throws {
+        tempDir = try TemporaryDirectory(prefix: "unmissable-multiprovider")
+        let tempDatabaseURL = tempDir.url.appendingPathComponent("test.db")
         databaseManager = DatabaseManager(databaseURL: tempDatabaseURL)
         preferencesManager = PreferencesManager(themeManager: ThemeManager())
         calendarService = CalendarService(
@@ -83,17 +81,6 @@ final class MultiProviderIntegrationTests: XCTestCase {
             databaseManager: databaseManager,
             linkParser: LinkParser(),
         )
-    }
-
-    override func tearDown() async throws {
-        calendarService = nil
-        preferencesManager = nil
-        databaseManager = nil
-        if let url = tempDatabaseURL {
-            try? FileManager.default.removeItem(at: url)
-        }
-        tempDatabaseURL = nil
-        try await super.tearDown()
     }
 
     // MARK: - Helpers
@@ -127,39 +114,42 @@ final class MultiProviderIntegrationTests: XCTestCase {
 
     // MARK: - Two Providers Connected
 
-    func testConnectingTwoProvidersReportsBothInConnectedProviders() {
+    @Test
+    func connectingTwoProvidersReportsBothInConnectedProviders() {
         injectProvider(.google, authenticated: true, email: "user@gmail.com")
         injectProvider(.apple, authenticated: true)
 
-        XCTAssertEqual(calendarService.connectedProviders, Set([.google, .apple]))
-        XCTAssertTrue(calendarService.isConnected)
-        XCTAssertEqual(calendarService.userEmail, "user@gmail.com")
+        #expect(calendarService.connectedProviders == Set([.google, .apple]))
+        #expect(calendarService.isConnected)
+        #expect(calendarService.userEmail == "user@gmail.com")
     }
 
     // MARK: - Disconnect One Provider
 
-    func testDisconnectingOneProviderLeavesOtherConnected() {
+    @Test
+    func disconnectingOneProviderLeavesOtherConnected() {
         injectProvider(.google, authenticated: true, email: "user@gmail.com")
         injectProvider(.apple, authenticated: true)
 
-        XCTAssertEqual(calendarService.connectedProviders, Set([.google, .apple]))
+        #expect(calendarService.connectedProviders == Set([.google, .apple]))
 
         calendarService.removeTestBackend(type: .google)
 
-        XCTAssertEqual(calendarService.connectedProviders, Set([.apple]))
-        XCTAssertTrue(calendarService.isConnected)
-        XCTAssertNil(calendarService.userEmail, "Email should clear when Google is disconnected")
+        #expect(calendarService.connectedProviders == Set([.apple]))
+        #expect(calendarService.isConnected)
+        #expect(calendarService.userEmail == nil, "Email should clear when Google is disconnected")
     }
 
-    func testDisconnectingBothProvidersReportsDisconnected() {
+    @Test
+    func disconnectingBothProvidersReportsDisconnected() {
         injectProvider(.google, authenticated: true)
         injectProvider(.apple, authenticated: true)
 
         calendarService.removeTestBackend(type: .google)
         calendarService.removeTestBackend(type: .apple)
 
-        XCTAssertEqual(calendarService.connectedProviders, Set<CalendarProviderType>())
-        XCTAssertFalse(calendarService.isConnected)
+        #expect(calendarService.connectedProviders == Set<CalendarProviderType>())
+        #expect(!calendarService.isConnected)
     }
 
     // MARK: - Observation Yield
@@ -173,45 +163,46 @@ final class MultiProviderIntegrationTests: XCTestCase {
 
     // MARK: - Aggregated Sync Status: One Syncing, One Idle
 
-    // With @Observable, sync status observation uses withObservationTracking + Task,
-    // so aggregation is async (deferred to the next MainActor turn). Tests must await.
-
-    func testSyncStatusReportsSyncingWhenOneProviderIsSyncing() async {
+    @Test
+    func syncStatusReportsSyncingWhenOneProviderIsSyncing() async {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         injectProvider(.apple, authenticated: true)
 
         googleSync.syncStatus = .syncing
         await yieldToObservation()
 
-        XCTAssertEqual(calendarService.syncStatus, .syncing)
+        #expect(calendarService.syncStatus == .syncing)
     }
 
-    func testSyncStatusReturnsToIdleWhenAllProvidersIdle() async {
+    @Test
+    func syncStatusReturnsToIdleWhenAllProvidersIdle() async {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         injectProvider(.apple, authenticated: true)
 
         googleSync.syncStatus = .syncing
         await yieldToObservation()
-        XCTAssertEqual(calendarService.syncStatus, .syncing)
+        #expect(calendarService.syncStatus == .syncing)
 
         googleSync.syncStatus = .idle
         await yieldToObservation()
-        XCTAssertEqual(calendarService.syncStatus, .idle)
+        #expect(calendarService.syncStatus == .idle)
     }
 
     // MARK: - Aggregated Sync Status: Error Propagation
 
-    func testSyncStatusReportsErrorWhenOneProviderHasError() async {
+    @Test
+    func syncStatusReportsErrorWhenOneProviderHasError() async {
         injectProvider(.google, authenticated: true)
         let (_, _, appleSync) = injectProvider(.apple, authenticated: true)
 
         appleSync.syncStatus = .error("Apple Calendar sync failed")
         await yieldToObservation()
 
-        XCTAssertEqual(calendarService.syncStatus, .error("Apple Calendar sync failed"))
+        #expect(calendarService.syncStatus == .error("Apple Calendar sync failed"))
     }
 
-    func testSyncingTakesPriorityOverError() async {
+    @Test
+    func syncingTakesPriorityOverError() async {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         let (_, _, appleSync) = injectProvider(.apple, authenticated: true)
 
@@ -220,38 +211,41 @@ final class MultiProviderIntegrationTests: XCTestCase {
         googleSync.syncStatus = .syncing
         await yieldToObservation()
 
-        XCTAssertEqual(calendarService.syncStatus, .syncing)
+        #expect(calendarService.syncStatus == .syncing)
     }
 
     // MARK: - Auth Error Propagation
 
-    func testAuthErrorFromOneProviderIsExposed() {
+    @Test
+    func authErrorFromOneProviderIsExposed() {
         injectProvider(.google, authenticated: false, authError: "Token expired")
         injectProvider(.apple, authenticated: true)
 
-        XCTAssertEqual(calendarService.authError, "Token expired")
+        #expect(calendarService.authError == "Token expired")
         // Apple is still connected
-        XCTAssertTrue(calendarService.isConnected)
+        #expect(calendarService.isConnected)
     }
 
     // MARK: - Reconnect After Disconnect
 
-    func testReconnectingSameProviderRestoresState() {
+    @Test
+    func reconnectingSameProviderRestoresState() {
         injectProvider(.google, authenticated: true, email: "user@gmail.com")
-        XCTAssertEqual(calendarService.connectedProviders, Set([.google]))
+        #expect(calendarService.connectedProviders == Set([.google]))
 
         calendarService.removeTestBackend(type: .google)
-        XCTAssertEqual(calendarService.connectedProviders, Set<CalendarProviderType>())
+        #expect(calendarService.connectedProviders == Set<CalendarProviderType>())
 
         // Reconnect
         injectProvider(.google, authenticated: true, email: "user@gmail.com")
-        XCTAssertEqual(calendarService.connectedProviders, Set([.google]))
-        XCTAssertEqual(calendarService.userEmail, "user@gmail.com")
+        #expect(calendarService.connectedProviders == Set([.google]))
+        #expect(calendarService.userEmail == "user@gmail.com")
     }
 
     // MARK: - Sync Status Transitions
 
-    func testBothProvidersSyncing_reportsSync() async {
+    @Test
+    func bothProvidersSyncingReportsSync() async {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         let (_, _, appleSync) = injectProvider(.apple, authenticated: true)
 
@@ -259,10 +253,11 @@ final class MultiProviderIntegrationTests: XCTestCase {
         appleSync.syncStatus = .syncing
         await yieldToObservation()
 
-        XCTAssertEqual(calendarService.syncStatus, .syncing)
+        #expect(calendarService.syncStatus == .syncing)
     }
 
-    func testOneProviderSyncingOneError_reportsSyncing() async {
+    @Test
+    func oneProviderSyncingOneErrorReportsSyncing() async {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         let (_, _, appleSync) = injectProvider(.apple, authenticated: true)
 
@@ -271,14 +266,14 @@ final class MultiProviderIntegrationTests: XCTestCase {
         appleSync.syncStatus = .error("Apple error")
         await yieldToObservation()
 
-        XCTAssertEqual(
-            calendarService.syncStatus,
-            .syncing,
+        #expect(
+            calendarService.syncStatus == .syncing,
             "Syncing should take priority over error",
         )
     }
 
-    func testBothProvidersError_reportsFirstError() async {
+    @Test
+    func bothProvidersErrorReportsError() async {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         let (_, _, appleSync) = injectProvider(.apple, authenticated: true)
 
@@ -287,26 +282,27 @@ final class MultiProviderIntegrationTests: XCTestCase {
         await yieldToObservation()
 
         // Should report one of the errors
-        if case .error = calendarService.syncStatus {
-            // Expected
-        } else {
-            XCTFail("Expected error status when both providers have errors")
+        guard case .error = calendarService.syncStatus else {
+            Issue.record("Expected error status when both providers have errors")
+            return
         }
     }
 
     // MARK: - Edge Cases
 
-    func testProviderWithNilEmail_emailIsNil() {
+    @Test
+    func providerWithNilEmailIsNil() {
         injectProvider(.google, authenticated: true, email: nil)
-        XCTAssertNil(calendarService.userEmail)
-        XCTAssertTrue(calendarService.isConnected)
+        #expect(calendarService.userEmail == nil)
+        #expect(calendarService.isConnected)
     }
 
-    func testUnauthenticatedProviderNotInConnectedSet() {
+    @Test
+    func unauthenticatedProviderNotInConnectedSet() {
         injectProvider(.google, authenticated: false)
         injectProvider(.apple, authenticated: true)
 
-        XCTAssertEqual(calendarService.connectedProviders, Set([.apple]))
-        XCTAssertTrue(calendarService.isConnected)
+        #expect(calendarService.connectedProviders == Set([.apple]))
+        #expect(calendarService.isConnected)
     }
 }

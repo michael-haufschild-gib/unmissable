@@ -93,6 +93,15 @@ final class OnboardingWindowManager: NSObject {
     }
 
     private func activateWindow(_ window: NSWindow) {
+        guard !AppRuntime.isRunningTests else {
+            // Test processes lack a proper window server connection.
+            // Calling makeMain/makeKeyAndOrderFront triggers an uncaught ObjC
+            // exception that aborts the process. Just make the window visible.
+            window.orderFrontRegardless()
+            logger.info("Test environment — skipping full window activation")
+            return
+        }
+
         // Correct activation sequence for LSUIElement / menu-bar apps:
         // 1. Switch to .regular so macOS grants full window focus.
         // 2. Bring the window to the front and make it key.

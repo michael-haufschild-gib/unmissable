@@ -236,7 +236,8 @@ struct GoogleCalendarModelsTests {
         """.utf8)
 
         let entry = try decoder.decode(GCalEventEntry.self, from: json)
-        #expect(entry.attendees.isEmpty)
+        let attendees = try #require(entry.attendees)
+        #expect(attendees.isEmpty)
     }
 
     // MARK: - GCalCalendarListResponse
@@ -307,7 +308,8 @@ struct GoogleCalendarModelsTests {
 
         let response = try decoder.decode(GCalEventListResponse.self, from: json)
 
-        #expect(response.items.isEmpty)
+        let items = try #require(response.items)
+        #expect(items.isEmpty)
         #expect(response.nextPageToken == nil)
     }
 }

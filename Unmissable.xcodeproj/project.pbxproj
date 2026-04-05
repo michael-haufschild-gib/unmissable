@@ -18,6 +18,8 @@
 		176BAD0A4C8C77F5EE5BB605 /* CalendarProviderTypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF4D95EEA2C9A851541F7312 /* CalendarProviderTypeTests.swift */; };
 		17CC699115DB40F61E70FA99 /* DatabaseConcurrencyIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB7A96A55047E63A347812F /* DatabaseConcurrencyIntegrationTests.swift */; };
 		18042D4F5CBEB725DF296507 /* SnoozeRefireE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0E46CF1B85628F582A7D3B0 /* SnoozeRefireE2ETests.swift */; };
+		18F4F69D89133B532E6F8864 /* ConcurrencyExtras in Frameworks */ = {isa = PBXBuildFile; productRef = 724FE560D01C9F5E609A7150 /* ConcurrencyExtras */; };
+		198F45B9BA0C985378FAB623 /* TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6CF6FC631371A3092EBF3AA /* TestSupport.swift */; };
 		1B2C821122F3D105CD16905B /* UnmissableApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09D7CDDB58A3D48F6CFD80EB /* UnmissableApp.swift */; };
 		1E9A8B02F7E920B58C97DD0B /* Event.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51E80DAA7F37113C68E6F99 /* Event.swift */; };
 		1F0CED7FB3B7AE43E4C6CE9C /* GoogleCalendarAPIServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA1D25D27317803AE4AC562 /* GoogleCalendarAPIServiceTests.swift */; };
@@ -70,6 +72,7 @@
 		6AB17E67C46A0E08EE2CCB2E /* HTMLTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2009403A4FE3EDE0D0252762 /* HTMLTextView.swift */; };
 		7004D483CDB207DBFD5CC935 /* SyncManagerLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F6F42D7C03009093294667F /* SyncManagerLifecycleTests.swift */; };
 		716B2EBD2DF1C15DCDC7E462 /* GoogleCalendarConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FEE7757A31E4B66999763C0 /* GoogleCalendarConfig.swift */; };
+		72317C203D630FA3EF0DF314 /* Clocks in Frameworks */ = {isa = PBXBuildFile; productRef = 04FFE9FF844C108F8424812C /* Clocks */; };
 		730636203D92808C19FAF503 /* OverlayManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E36E7AF9180BB51942C29A7 /* OverlayManager.swift */; };
 		740E36C8B9FEBC819D5D9ED4 /* LinkParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E586B0712AFF934D90C3D4AE /* LinkParserTests.swift */; };
 		7429393557C8B894CBAFF7F6 /* Styles.swift in Sources */ = {isa = PBXBuildFile; fileRef = A35D13F723366EE6D9E67D7E /* Styles.swift */; };
@@ -376,6 +379,15 @@
 				DDD215E73E40398BC4F2E258 /* KeychainAccess in Frameworks */,
 				284876E0D1025C955BF0875F /* Magnet in Frameworks */,
 				F0321F069C8E110DD3F8C265 /* MenuBarExtraAccess in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E2B4F5A7133E9952655E085F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72317C203D630FA3EF0DF314 /* Clocks in Frameworks */,
+				18F4F69D89133B532E6F8864 /* ConcurrencyExtras in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -734,6 +746,7 @@
 			buildConfigurationList = 4F050CBFF5865AAD4FAE5A0E /* Build configuration list for PBXNativeTarget "IntegrationTests" */;
 			buildPhases = (
 				8E02596AA9A002ACA2B96F63 /* Sources */,
+				E2B4F5A7133E9952655E085F /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -742,6 +755,8 @@
 			);
 			name = IntegrationTests;
 			packageProductDependencies = (
+				04FFE9FF844C108F8424812C /* Clocks */,
+				724FE560D01C9F5E609A7150 /* ConcurrencyExtras */,
 			);
 			productName = IntegrationTests;
 			productReference = 6539D50276CF2096BF17A805 /* IntegrationTests.xctest */;
@@ -996,6 +1011,7 @@
 				17CC699115DB40F61E70FA99 /* DatabaseConcurrencyIntegrationTests.swift in Sources */,
 				D1BE6624CFC859B00CC95483 /* DatabaseManagerIntegrationTests.swift in Sources */,
 				3DAD3B0D33F0A3CB9F90733B /* MultiProviderIntegrationTests.swift in Sources */,
+				198F45B9BA0C985378FAB623 /* TestSupport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1667,6 +1683,11 @@
 			package = 813DF40F97C7F9F068C9B0AF /* XCRemoteSwiftPackageReference "swift-clocks" */;
 			productName = Clocks;
 		};
+		04FFE9FF844C108F8424812C /* Clocks */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 813DF40F97C7F9F068C9B0AF /* XCRemoteSwiftPackageReference "swift-clocks" */;
+			productName = Clocks;
+		};
 		199316018BD2E0A3D37D6EE9 /* ConcurrencyExtras */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 4EB44351D9EF65E3BA034EA0 /* XCRemoteSwiftPackageReference "swift-concurrency-extras" */;
@@ -1681,6 +1702,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 092A7B064FEBE2EBE38266E4 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */;
 			productName = SnapshotTesting;
+		};
+		724FE560D01C9F5E609A7150 /* ConcurrencyExtras */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4EB44351D9EF65E3BA034EA0 /* XCRemoteSwiftPackageReference "swift-concurrency-extras" */;
+			productName = ConcurrencyExtras;
 		};
 		79922C6D9689C20674253FC6 /* Clocks */ = {
 			isa = XCSwiftPackageProductDependency;

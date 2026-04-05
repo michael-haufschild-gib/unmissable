@@ -60,6 +60,13 @@ enum EventGrouping {
         return filterAllDay(dateFiltered, include: includeAllDay)
     }
 
+    /// Cached weekday formatter — DateFormatter is expensive to construct.
+    private static let weekdayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE"
+        return formatter
+    }()
+
     /// Groups events by date into labeled sections (Started, Today, Tomorrow, weekday name).
     static func groupByDate(
         _ events: [Event],
@@ -75,7 +82,10 @@ enum EventGrouping {
             groups.append(EventGroup(title: "Started", events: startedFiltered))
         }
 
-        let todayEvents = events.filter { calendar.isDate($0.startDate, inSameDayAs: now) }
+        let todayEvents = filterAllDay(
+            events.filter { calendar.isDate($0.startDate, inSameDayAs: now) },
+            include: includeAllDay,
+        )
 
         guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: now) else {
             if !todayEvents.isEmpty {
@@ -84,15 +94,19 @@ enum EventGrouping {
             return groups
         }
 
-        let tomorrowEvents = events.filter { calendar.isDate($0.startDate, inSameDayAs: tomorrow) }
+        let tomorrowEvents = filterAllDay(
+            events.filter { calendar.isDate($0.startDate, inSameDayAs: tomorrow) },
+            include: includeAllDay,
+        )
 
         var nextWorkdayEvents: [Event] = []
         var nextWorkdayTitle = ""
         if let nextWorkday = nextWeekday(after: tomorrow, calendar: calendar) {
-            nextWorkdayEvents = events.filter { calendar.isDate($0.startDate, inSameDayAs: nextWorkday) }
-            let formatter = DateFormatter()
-            formatter.dateFormat = "EEEE"
-            nextWorkdayTitle = formatter.string(from: nextWorkday)
+            nextWorkdayEvents = filterAllDay(
+                events.filter { calendar.isDate($0.startDate, inSameDayAs: nextWorkday) },
+                include: includeAllDay,
+            )
+            nextWorkdayTitle = weekdayFormatter.string(from: nextWorkday)
         }
 
         if !todayEvents.isEmpty {
