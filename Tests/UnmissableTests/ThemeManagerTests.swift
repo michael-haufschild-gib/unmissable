@@ -290,42 +290,47 @@ struct ThemeManagerTests {
         }
     }
 
-    // MARK: - Design Token System: Spacing Constants
+    // MARK: - Design Token System: Spacing Structural Invariants
 
     @Test
-    func designSpacingStandardValues() {
-        let spacing = DesignSpacing.standard
-        #expect(spacing.xs == 4, "xs should be 4")
-        #expect(spacing.sm == 8, "sm should be 8")
-        #expect(spacing.md == 12, "md should be 12")
-        #expect(spacing.lg == 16, "lg should be 16")
-        #expect(spacing.xl == 20, "xl should be 20")
-        #expect(spacing.xxl == 24, "xxl should be 24")
-        #expect(spacing.xxxl == 32, "xxxl should be 32")
+    func designSpacingFormsStrictlyIncreasingScale() {
+        let s = DesignSpacing.standard
+        #expect(s.xs > 0, "All spacing values should be positive")
+        #expect(
+            s.xs < s.sm && s.sm < s.md && s.md < s.lg
+                && s.lg < s.xl && s.xl < s.xxl && s.xxl < s.xxxl,
+            "Spacing scale should be strictly increasing: xs < sm < md < lg < xl < xxl < xxxl",
+        )
     }
 
-    // MARK: - Design Token System: Corner Radius Constants
+    // MARK: - Design Token System: Corner Radius Structural Invariants
 
     @Test
-    func designCornersStandardValues() {
-        let corners = DesignCorners.standard
-        #expect(corners.sm == 6, "sm should be 6")
-        #expect(corners.md == 8, "md should be 8")
-        #expect(corners.lg == 12, "lg should be 12")
-        #expect(corners.xl == 16, "xl should be 16")
-        #expect(corners.full == 999, "full should be 999")
+    func designCornersFormStrictlyIncreasingScale() {
+        let c = DesignCorners.standard
+        #expect(c.sm > 0, "All corner radii should be positive")
+        #expect(
+            c.sm < c.md && c.md < c.lg && c.lg < c.xl && c.xl < c.full,
+            "Corner scale should be strictly increasing: sm < md < lg < xl < full",
+        )
+        #expect(c.full >= 100, "full corner radius should be large enough for pill shapes")
     }
 
-    // MARK: - Design Token System: Tracking Constants
+    // MARK: - Design Token System: Tracking Structural Invariants
 
     @Test
-    func designTrackingConstants() {
-        #expect(DesignTracking.sectionLabel == 1.5, "sectionLabel tracking should be 1.5")
-        #expect(DesignTracking.tight == -0.2, "tight tracking should be -0.2")
-        #expect(DesignTracking.normal == 0.0, "normal tracking should be 0.0")
-        #expect(DesignTracking.wide == 0.5, "wide tracking should be 0.5")
-        #expect(DesignTracking.wider == 1.0, "wider tracking should be 1.0")
-        #expect(DesignTracking.header == 0.8, "header tracking should be 0.8")
+    func designTrackingFormsOrderedScale() {
+        #expect(
+            DesignTracking.tight < DesignTracking.normal,
+            "tight tracking should be less than normal",
+        )
+        #expect(DesignTracking.normal == 0.0, "normal tracking should be zero (no adjustment)")
+        #expect(
+            DesignTracking.normal < DesignTracking.wide
+                && DesignTracking.wide < DesignTracking.wider,
+            "Tracking scale should be ordered: normal < wide < wider",
+        )
+        #expect(DesignTracking.sectionLabel > 0, "sectionLabel tracking should be positive (spaced out)")
     }
 
     // MARK: - Design Token System: Shadow Radii

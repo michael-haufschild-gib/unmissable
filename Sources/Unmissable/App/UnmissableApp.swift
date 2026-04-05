@@ -14,7 +14,7 @@ struct UnmissableApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self)
     var appDelegate
     @State
-    private var appState = AppState()
+    private var appState = AppState(isTestEnvironment: AppRuntime.isRunningTests)
     @State
     private var isMenuPresented = false
 

@@ -100,6 +100,11 @@ public final class TestSafeOverlayManager: OverlayManaging {
         activeEvent?.startDate.timeIntervalSinceNow ?? 0
     }
 
+    /// Max age (seconds) before auto-dismissing a non-snoozed overlay (mirrors production).
+    private static let normalMaxAgeSeconds: TimeInterval = 300
+    /// Max age (seconds) before auto-dismissing a snoozed overlay (mirrors production).
+    private static let snoozeMaxAgeSeconds: TimeInterval = 1800
+
     private weak var eventScheduler: EventScheduler?
     private let isTestEnvironment: Bool
     private let foregroundAppDetector: (any ForegroundAppDetecting)?
@@ -148,9 +153,9 @@ public final class TestSafeOverlayManager: OverlayManaging {
         // not simulated time. Events created relative to Date() should not be dismissed
         // just because a TestClock advanced virtual time past their start.
         let timeSinceStart = Date().timeIntervalSince(event.startDate)
-        let snoozeMaxAgeSeconds: TimeInterval = 1800
-        let normalMaxAgeSeconds: TimeInterval = 300
-        let maxAge: TimeInterval = fromSnooze ? snoozeMaxAgeSeconds : normalMaxAgeSeconds
+        let maxAge: TimeInterval = fromSnooze
+            ? Self.snoozeMaxAgeSeconds
+            : Self.normalMaxAgeSeconds
         if timeSinceStart > maxAge {
             logger
                 .debug(
@@ -334,10 +339,14 @@ public final class TestMenuBarEnvironment {
         UserDefaults.standard.removePersistentDomain(forName: userDefaultsSuiteName)
     }
 
-    private static let defaultPopoverWidth: CGFloat = 340
-    private static let defaultPopoverHeight: CGFloat = 600
-    private static let defaultLabelWidth: CGFloat = 200
-    private static let defaultLabelHeight: CGFloat = 22
+    /// Default width for the menu bar popover in test host views.
+    public static let defaultPopoverWidth: CGFloat = 340
+    /// Default height for the menu bar popover in test host views.
+    public static let defaultPopoverHeight: CGFloat = 600
+    /// Default width for the menu bar label in test host views.
+    public static let defaultLabelWidth: CGFloat = 200
+    /// Default height for the menu bar label in test host views.
+    public static let defaultLabelHeight: CGFloat = 22
 
     /// Hosts `MenuBarView` in an `NSHostingController` with the correct environment.
     public func hostMenuBarView(

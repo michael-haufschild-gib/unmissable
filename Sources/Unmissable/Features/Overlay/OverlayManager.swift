@@ -37,6 +37,7 @@ final class OverlayManager: OverlayManaging {
     private static let normalMaxAgeMinutes = 5
     private static let snoozeMaxAgeMinutes = 30
     private static let secondsPerMinute = 60
+
     private static let normalMaxAgeSeconds = TimeInterval(normalMaxAgeMinutes * secondsPerMinute)
     private static let snoozeMaxAgeSeconds = TimeInterval(snoozeMaxAgeMinutes * secondsPerMinute)
     private static let millisecondsPerSecond = 1000

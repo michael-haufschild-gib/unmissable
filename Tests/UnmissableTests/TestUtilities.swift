@@ -1,6 +1,5 @@
 import Foundation
 @testable import Unmissable
-import XCTest
 
 // MARK: - Test Utilities for Comprehensive Testing
 
@@ -16,14 +15,11 @@ enum TestUtilities {
     private static let secondsInMinute = 60
     private static let secondsPerDay = TimeInterval(hoursInDay * minutesInHour * secondsInMinute)
     private static let pollingInterval: UInt64 = 100_000_000
-    private static let gcIterations = 3
-    private static let gcArraySize = 1000
     private static let defaultAlertMinutes = 1
     private static let defaultMediumAlertMinutes = 2
     private static let defaultLongAlertMinutes = 5
     private static let defaultOverlayMinutesBefore = 2
     static let secondsPerMinute: TimeInterval = 60
-    private static let runLoopPollInterval: TimeInterval = 0.1
 
     // MARK: - Test Data Creation
 
@@ -294,60 +290,16 @@ extension TestUtilities {
             try await Task.sleep(nanoseconds: pollingInterval)
         }
 
-        throw XCTestError(.timeoutWhileWaiting)
+        struct TestTimeoutError: Error, CustomStringConvertible {
+            let description = "Timed out waiting for async condition"
+        }
+        throw TestTimeoutError()
     }
 
     // waitForPublished removed - use waitForAsync with a condition closure instead
     // The Published.Publisher async sequence has Sendable issues in Swift 6
 
-    // MARK: - Memory Testing
-
-    /// Test for memory leaks
-    static func testForMemoryLeaks(
-        instance: @autoclosure () -> (some AnyObject)?,
-        after: () throws -> Void,
-        timeout: TimeInterval = 5.0,
-    ) throws {
-        weak var weakInstance: AnyObject?
-        weakInstance = instance()
-
-        try after()
-
-        // Force garbage collection
-        for _ in 0 ..< gcIterations {
-            autoreleasepool {
-                _ = Array(repeating: 0, count: gcArraySize)
-            }
-        }
-
-        let startTime = Date()
-        while weakInstance != nil, Date().timeIntervalSince(startTime) < timeout {
-            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(runLoopPollInterval))
-        }
-
-        XCTAssertNil(weakInstance, "Memory leak detected: instance was not deallocated")
-    }
-
-    // MARK: - UI Testing Utilities
-
-    /// Create test environment for SwiftUI views
-    @MainActor
-    static func createTestEnvironment() -> DesignTokens {
-        // Return a consistent design for testing
-        DesignTokens.tokens(for: .light, accent: .blue)
-    }
-
     // MARK: - Performance Testing
-
-    /// Measure execution time of operations
-    static func measureTime<T>(
-        operation: () throws -> T,
-    ) rethrows -> (result: T, time: TimeInterval) {
-        let startTime = CFAbsoluteTimeGetCurrent()
-        let result = try operation()
-        let timeElapsed = CFAbsoluteTimeGetCurrent() - startTime
-        return (result, timeElapsed)
-    }
 
     /// Measure async execution time
     static func measureTimeAsync<T: Sendable>(
@@ -357,37 +309,5 @@ extension TestUtilities {
         let result = try await operation()
         let timeElapsed = CFAbsoluteTimeGetCurrent() - startTime
         return (result, timeElapsed)
-    }
-}
-
-// MARK: - Helper Extensions
-
-extension XCTestCase {
-    /// Wait for expectation with async block
-    func waitForAsync(
-        timeout: TimeInterval = 5.0,
-        _ block: @escaping @Sendable () async -> Void,
-    ) {
-        let expectation = expectation(description: "Async operation")
-
-        Task {
-            await block()
-            expectation.fulfill()
-        }
-
-        wait(for: [expectation], timeout: timeout)
-    }
-
-    /// Assert that an async operation throws an error
-    func assertThrowsErrorAsync(
-        _ operation: () async throws -> some Any,
-        _ errorHandler: (Error) -> Void = { _ in },
-    ) async {
-        do {
-            _ = try await operation()
-            XCTFail("Expected operation to throw an error")
-        } catch {
-            errorHandler(error)
-        }
     }
 }

@@ -92,6 +92,12 @@ final class PreferencesWindowManager: NSObject {
     }
 
     private func activateWindow(_ window: NSWindow) {
+        guard !AppRuntime.isRunningTests else {
+            window.orderFrontRegardless()
+            logger.info("Test environment — skipping full window activation")
+            return
+        }
+
         // Correct activation sequence for LSUIElement / menu-bar apps (mirrors
         // OnboardingWindowManager): set .regular policy first, bring the window
         // to the front, then activate the app so the system honours the request.

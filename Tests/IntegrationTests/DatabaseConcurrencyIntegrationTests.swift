@@ -1,13 +1,13 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 @MainActor
-final class DatabaseConcurrencyIntegrationTests: XCTestCase {
-    private var db: DatabaseManager!
-    private var tempDir: URL!
+struct DatabaseConcurrencyIntegrationTests {
+    private let db: DatabaseManager
+    private let tempDir: URL
 
-    override func setUp() async throws {
-        try await super.setUp()
+    init() throws {
         tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent(
                 "unmissable-dbtest-\(UUID().uuidString)",
@@ -20,20 +20,12 @@ final class DatabaseConcurrencyIntegrationTests: XCTestCase {
         db = DatabaseManager(databaseURL: dbURL)
     }
 
-    override func tearDown() async throws {
-        db = nil
-        if let dir = tempDir {
-            try? FileManager.default.removeItem(at: dir)
-        }
-        tempDir = nil
-        try await super.tearDown()
-    }
-
     // MARK: - Concurrent Write Stress
 
-    func testConcurrentWritesDoNotCorruptData() async throws {
+    @Test
+    func concurrentWritesDoNotCorruptData() async throws {
         // Capture db reference for Sendable closure
-        let database = try XCTUnwrap(db)
+        let database = db
 
         // Launch 10 concurrent write tasks, each writing 5 events
         await withTaskGroup(of: Void.self) { group in
@@ -68,12 +60,13 @@ final class DatabaseConcurrencyIntegrationTests: XCTestCase {
             (0 ..< 5).map { "concurrent-\(batch)-\($0)" }
         })
         let actualIds = Set(allEvents.map(\.id))
-        XCTAssertEqual(actualIds, expectedIds, "All 50 concurrent events should be saved with unique IDs")
+        #expect(actualIds == expectedIds, "All 50 concurrent events should be saved with unique IDs")
     }
 
-    func testConcurrentReadsDuringWrite() async throws {
+    @Test
+    func concurrentReadsDuringWrite() async throws {
         // Capture db reference for Sendable closures
-        let database = try XCTUnwrap(db)
+        let database = db
 
         // Pre-seed 10 events
         let now = Date()
@@ -100,9 +93,8 @@ final class DatabaseConcurrencyIntegrationTests: XCTestCase {
                     let fetched = try? await database.fetchUpcomingEvents(limit: 50)
                     // Verify the read returned a non-nil, non-empty result
                     let count = fetched?.count ?? 0
-                    XCTAssertGreaterThanOrEqual(
-                        count,
-                        1,
+                    #expect(
+                        count >= 1,
                         "Read should succeed and return seeded events during concurrent writes",
                     )
                 }
@@ -129,16 +121,16 @@ final class DatabaseConcurrencyIntegrationTests: XCTestCase {
         let finalEvents = try await db.fetchEvents(
             from: Date(), to: Date().addingTimeInterval(100_000),
         )
-        XCTAssertGreaterThanOrEqual(
-            finalEvents.count,
-            11,
+        #expect(
+            finalEvents.count >= 11,
             "Original events should persist and at least one concurrent write should succeed",
         )
     }
 
     // MARK: - Fetch Calendars by Provider
 
-    func testFetchCalendarsForProviderFiltersCorrectly()
+    @Test
+    func fetchCalendarsForProviderFiltersCorrectly()
         async throws
     {
         let google = CalendarInfo(
@@ -160,9 +152,9 @@ final class DatabaseConcurrencyIntegrationTests: XCTestCase {
         let googleCals = try await db.fetchCalendars(
             for: .google,
         )
-        XCTAssertEqual(googleCals.map(\.id), ["google-cal"], "Should return exactly one Google calendar")
+        #expect(googleCals.map(\.id) == ["google-cal"], "Should return exactly one Google calendar")
 
         let appleCals = try await db.fetchCalendars(for: .apple)
-        XCTAssertEqual(appleCals.map(\.id), ["apple-cal"], "Should return exactly one Apple calendar")
+        #expect(appleCals.map(\.id) == ["apple-cal"], "Should return exactly one Apple calendar")
     }
 }

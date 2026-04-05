@@ -74,6 +74,10 @@ final class EventScheduler {
         setupPreferencesObserver()
     }
 
+    deinit {
+        monitoringTask?.cancel()
+    }
+
     private func setupPreferencesObserver() {
         observeAlertPreferences()
     }

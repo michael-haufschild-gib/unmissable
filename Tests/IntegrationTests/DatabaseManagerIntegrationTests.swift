@@ -1,13 +1,13 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 @MainActor
-final class DatabaseManagerIntegrationTests: XCTestCase {
-    private var db: DatabaseManager!
-    private var tempDir: URL!
+struct DatabaseManagerIntegrationTests {
+    private let db: DatabaseManager
+    private let tempDir: URL
 
-    override func setUp() async throws {
-        try await super.setUp()
+    init() throws {
         tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent(
                 "unmissable-dbtest-\(UUID().uuidString)",
@@ -20,25 +20,18 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
         db = DatabaseManager(databaseURL: dbURL)
     }
 
-    override func tearDown() async throws {
-        db = nil
-        if let dir = tempDir {
-            try? FileManager.default.removeItem(at: dir)
-        }
-        tempDir = nil
-        try await super.tearDown()
-    }
-
     // MARK: - Migration
 
-    func testMigrationChainRunsWithoutError() async {
+    @Test
+    func migrationChainRunsWithoutError() async {
         let error = await db.initializationError
-        XCTAssertNil(error, "Fresh DB should initialize without error")
+        #expect(error == nil, "Fresh DB should initialize without error")
     }
 
     // MARK: - Event Roundtrip
 
-    func testRoundtripSaveFetchEvents() async throws {
+    @Test
+    func roundtripSaveFetchEvents() async throws {
         let start = Date().addingTimeInterval(600)
         let end = start.addingTimeInterval(3600)
         let event = Event(
@@ -59,20 +52,21 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
         try await db.saveEvents([event])
 
         let fetched = try await db.fetchUpcomingEvents(limit: 50)
-        let match = try XCTUnwrap(
+        let match = try #require(
             fetched.first { $0.id == "roundtrip-1" },
         )
-        XCTAssertEqual(match.title, "Roundtrip Meeting")
-        XCTAssertEqual(match.organizer, "org@test.com")
-        XCTAssertEqual(match.calendarId, "cal-1")
-        XCTAssertEqual(match.timezone, "America/New_York")
-        XCTAssertEqual(match.provider, .zoom)
-        XCTAssertFalse(match.isAllDay)
+        #expect(match.title == "Roundtrip Meeting")
+        #expect(match.organizer == "org@test.com")
+        #expect(match.calendarId == "cal-1")
+        #expect(match.timezone == "America/New_York")
+        #expect(match.provider == .zoom)
+        #expect(!match.isAllDay)
     }
 
     // MARK: - Replace Events
 
-    func testReplaceEventsAtomicallyReplacesCalendarEvents()
+    @Test
+    func replaceEventsAtomicallyReplacesCalendarEvents()
         async throws
     {
         let start = Date().addingTimeInterval(600)
@@ -108,17 +102,18 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
 
         let fetched = try await db.fetchUpcomingEvents(limit: 50)
         let ids = fetched.map(\.id)
-        XCTAssertFalse(ids.contains("old-1"))
+        #expect(!ids.contains("old-1"))
 
-        let match = try XCTUnwrap(
+        let match = try #require(
             fetched.first { $0.id == "new-1" },
         )
-        XCTAssertEqual(match.title, "New Meeting")
+        #expect(match.title == "New Meeting")
     }
 
     // MARK: - Delete Events for Calendar
 
-    func testDeleteEventsForCalendarRemovesOnlyTargetCalendar()
+    @Test
+    func deleteEventsForCalendarRemovesOnlyTargetCalendar()
         async throws
     {
         let start = Date().addingTimeInterval(600)
@@ -150,12 +145,13 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
 
         let fetched = try await db.fetchUpcomingEvents(limit: 50)
         let ids = fetched.map(\.id)
-        XCTAssertEqual(ids, ["keep-1"])
+        #expect(ids == ["keep-1"])
     }
 
     // MARK: - Fetch Upcoming Events
 
-    func testFetchUpcomingEventsReturnsOrderedAndLimited()
+    @Test
+    func fetchUpcomingEventsReturnsOrderedAndLimited()
         async throws
     {
         let now = Date()
@@ -179,12 +175,13 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
         try await db.saveEvents(events)
 
         let fetched = try await db.fetchUpcomingEvents(limit: 3)
-        XCTAssertEqual(fetched.map(\.id), ["upcoming-1", "upcoming-2", "upcoming-3"])
+        #expect(fetched.map(\.id) == ["upcoming-1", "upcoming-2", "upcoming-3"])
     }
 
     // MARK: - Fetch Started Meetings
 
-    func testFetchStartedMeetingsReturnsInProgressEvents()
+    @Test
+    func fetchStartedMeetingsReturnsInProgressEvents()
         async throws
     {
         let now = Date()
@@ -221,14 +218,15 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
         try await db.saveEvents([inProgress, future, past])
 
         let started = try await db.fetchStartedMeetings(limit: 10)
-        XCTAssertEqual(started.map(\.id), ["in-progress-1"], "Only in-progress events should be returned")
-        let startedEvent = try XCTUnwrap(started.first)
-        XCTAssertEqual(startedEvent.title, "Happening Now")
+        #expect(started.map(\.id) == ["in-progress-1"], "Only in-progress events should be returned")
+        let startedEvent = try #require(started.first)
+        #expect(startedEvent.title == "Happening Now")
     }
 
     // MARK: - Search Events (FTS)
 
-    func testSearchEventsReturnsFTSMatches() async throws {
+    @Test
+    func searchEventsReturnsFTSMatches() async throws {
         let start = Date().addingTimeInterval(600)
         let end = start.addingTimeInterval(3600)
 
@@ -256,13 +254,14 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
         try await db.saveEvents([matchEvent, noMatchEvent])
 
         let results = try await db.searchEvents(query: "Budget")
-        let match = try XCTUnwrap(results.first)
-        XCTAssertEqual(match.id, "search-match")
+        let match = try #require(results.first)
+        #expect(match.id == "search-match")
     }
 
     // MARK: - Perform Maintenance
 
-    func testPerformMaintenanceCleansUpOldEvents() async throws {
+    @Test
+    func performMaintenanceCleansUpOldEvents() async throws {
         let now = Date()
         let oldEnd = now.addingTimeInterval(-40 * 86_400)
         let oldEvent = Event(
@@ -294,17 +293,18 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
             to: Date.distantFuture,
         )
         let ids = remaining.map(\.id)
-        XCTAssertFalse(ids.contains("old-event"))
+        #expect(!ids.contains("old-event"))
 
-        let recent = try XCTUnwrap(
+        let recent = try #require(
             remaining.first { $0.id == "recent-event" },
         )
-        XCTAssertEqual(recent.title, "Recent Meeting")
+        #expect(recent.title == "Recent Meeting")
     }
 
     // MARK: - Upsert and Edge Cases
 
-    func testSavingExistingEventUpdatesInPlace() async throws {
+    @Test
+    func savingExistingEventUpdatesInPlace() async throws {
         let start = Date().addingTimeInterval(600)
         let end = start.addingTimeInterval(3600)
 
@@ -334,14 +334,15 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
         try await db.saveEvents([updated])
 
         let fetched = try await db.fetchUpcomingEvents(limit: 50)
-        let upsertMatch = try XCTUnwrap(
+        let upsertMatch = try #require(
             fetched.first { $0.id == "upsert-1" },
             "Should not create duplicate entries",
         )
-        XCTAssertEqual(upsertMatch.title, "Updated Title", "Title should be updated")
+        #expect(upsertMatch.title == "Updated Title", "Title should be updated")
     }
 
-    func testSearchEventsWithSpecialCharacters() async throws {
+    @Test
+    func searchEventsWithSpecialCharacters() async throws {
         let event = Event(
             id: "special-search",
             title: "O'Brien's & Co. Meeting (Q1/Q2)",
@@ -355,11 +356,12 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
         try await db.saveEvents([event])
 
         let results = try await db.searchEvents(query: "O'Brien")
-        let searchMatch = try XCTUnwrap(results.first, "FTS should handle apostrophes")
-        XCTAssertEqual(searchMatch.id, "special-search")
+        let searchMatch = try #require(results.first, "FTS should handle apostrophes")
+        #expect(searchMatch.id == "special-search")
     }
 
-    func testSearchEventsWithEmptyQuery() async throws {
+    @Test
+    func searchEventsWithEmptyQuery() async throws {
         let event = Event(
             id: "empty-query",
             title: "Findable Meeting",
@@ -374,10 +376,11 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
 
         let results = try await db.searchEvents(query: "")
         // Empty query returns empty — sanitizeFTSQuery returns "" for blank input
-        XCTAssertTrue(results.isEmpty, "Empty query should return no results")
+        #expect(results.isEmpty, "Empty query should return no results")
     }
 
-    func testFetchUpcomingEventsWithZeroLimit() async throws {
+    @Test
+    func fetchUpcomingEventsWithZeroLimit() async throws {
         let event = Event(
             id: "zero-limit",
             title: "Test",
@@ -391,12 +394,13 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
         try await db.saveEvents([event])
 
         let fetched = try await db.fetchUpcomingEvents(limit: 0)
-        XCTAssertTrue(fetched.isEmpty, "Zero limit should return empty array")
+        #expect(fetched.isEmpty, "Zero limit should return empty array")
     }
 
     // MARK: - Calendar Roundtrip
 
-    func testSaveAndFetchCalendarsRoundtrip() async throws {
+    @Test
+    func saveAndFetchCalendarsRoundtrip() async throws {
         let cal1 = CalendarInfo(
             id: "cal-rt-1",
             name: "Work",
@@ -414,25 +418,26 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
         try await db.saveCalendars([cal1, cal2])
 
         let fetched = try await db.fetchCalendars()
-        XCTAssertEqual(Set(fetched.map(\.id)), Set(["cal-rt-1", "cal-rt-2"]))
+        #expect(Set(fetched.map(\.id)) == Set(["cal-rt-1", "cal-rt-2"]))
 
-        let primary = try XCTUnwrap(
+        let primary = try #require(
             fetched.first { $0.id == "cal-rt-1" },
         )
-        XCTAssertEqual(primary.name, "Work")
-        XCTAssertTrue(primary.isPrimary)
-        XCTAssertTrue(primary.isSelected)
+        #expect(primary.name == "Work")
+        #expect(primary.isPrimary)
+        #expect(primary.isSelected)
 
-        let personal = try XCTUnwrap(
+        let personal = try #require(
             fetched.first { $0.id == "cal-rt-2" },
         )
-        XCTAssertEqual(personal.name, "Personal")
-        XCTAssertFalse(personal.isPrimary)
+        #expect(personal.name == "Personal")
+        #expect(!personal.isPrimary)
     }
 
     // MARK: - Provider-Scoped Deletion
 
-    func testDeleteCalendarsForProvider_removesOnlyTargetProvider()
+    @Test
+    func deleteCalendarsForProviderRemovesOnlyTargetProvider()
         async throws
     {
         let googleCal = CalendarInfo(
@@ -452,10 +457,11 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
         try await db.deleteCalendarsForProvider(.google)
 
         let remaining = try await db.fetchCalendars()
-        XCTAssertEqual(remaining.map(\.id), ["prov-del-apple"], "Only the Apple calendar should remain")
+        #expect(remaining.map(\.id) == ["prov-del-apple"], "Only the Apple calendar should remain")
     }
 
-    func testDeleteEventsForProvider_removesOnlyTargetProviderEvents()
+    @Test
+    func deleteEventsForProviderRemovesOnlyTargetProviderEvents()
         async throws
     {
         let googleCal = CalendarInfo(
@@ -497,10 +503,11 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
         try await db.deleteEventsForProvider(.google)
 
         let remaining = try await db.fetchUpcomingEvents(limit: 50)
-        XCTAssertEqual(remaining.map(\.id), ["evt-del-apple"], "Only the Apple event should remain")
+        #expect(remaining.map(\.id) == ["evt-del-apple"], "Only the Apple event should remain")
     }
 
-    func testDeleteAllDataForProvider_removesCalendarsAndEvents()
+    @Test
+    func deleteAllDataForProviderRemovesCalendarsAndEvents()
         async throws
     {
         let cal = CalendarInfo(
@@ -526,9 +533,9 @@ final class DatabaseManagerIntegrationTests: XCTestCase {
 
         let calendars = try await db.fetchCalendars(for: .google)
         let events = try await db.fetchUpcomingEvents(limit: 50)
-        XCTAssertTrue(calendars.isEmpty, "All Google calendars should be deleted")
-        XCTAssertFalse(
-            events.contains { $0.calendarId == "all-del-cal" },
+        #expect(calendars.isEmpty, "All Google calendars should be deleted")
+        #expect(
+            !events.contains { $0.calendarId == "all-del-cal" },
             "All events for Google calendars should be deleted",
         )
     }
