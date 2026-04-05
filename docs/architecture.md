@@ -1,7 +1,7 @@
 # Architecture Guide
 
 **Purpose**: Where to put code and what patterns to follow in Unmissable.
-**Tech Stack**: Swift 6.3 with strict concurrency | macOS 14.0+ | SwiftUI + AppKit | GRDB.swift | SPM
+**Tech Stack**: Swift 6.3 with strict concurrency | macOS 14.0+ | SwiftUI + AppKit | GRDB.swift | Xcode project (xcodegen)
 
 ---
 

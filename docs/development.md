@@ -1,7 +1,7 @@
 # Development Guide
 
 **Purpose**: Setup, building, running, and deploying Unmissable.
-**Platform**: macOS 14.0+ (Sonoma) | Swift 6.3 with strict concurrency | SPM
+**Platform**: macOS 14.0+ (Sonoma) | Swift 6.3 with strict concurrency | Xcode project (xcodegen)
 
 ---
 
@@ -12,6 +12,7 @@
 | macOS | 14.0 (Sonoma) | - |
 | Xcode | 26+ | App Store |
 | Swift | 6.3+ | Included with Xcode 26+ |
+| xcodegen | Latest | `brew install xcodegen` |
 | SwiftFormat | Latest | `brew install swiftformat` |
 | SwiftLint | Latest | `brew install swiftlint` |
 
@@ -24,16 +25,19 @@
 cd /path/to/unmissable
 
 # 2. Install dev tools
-brew install swiftformat swiftlint
+brew install xcodegen swiftformat swiftlint
 
 # 3. Configure OAuth (required for Google Calendar)
 cp Config.plist.example Config.plist
 # Edit Config.plist and add your Google OAuth credentials
 
-# 4. Build
-swift build
+# 4. Generate Xcode project (if project.yml changed)
+xcodegen generate
 
-# 5. Run
+# 5. Build
+xcodebuild build -project Unmissable.xcodeproj -scheme Unmissable -quiet
+
+# 6. Run
 ./Scripts/run-dev.sh
 ```
 
@@ -43,11 +47,13 @@ swift build
 
 | Task | Command |
 |------|---------|
-| Build | `swift build` |
+| Build | `xcodebuild build -project Unmissable.xcodeproj -scheme Unmissable -quiet` |
 | Run | `./Scripts/run-dev.sh` |
-| Test (XCTest) | `xcodebuild -scheme Unmissable -destination 'platform=macOS' test` |
+| Test (all) | `./Scripts/test.sh` |
+| Test (UI / XCUITest) | `./Scripts/test-ui.sh` |
 | Test (comprehensive) | `./Scripts/run-comprehensive-tests.sh` |
 | Format code | `./Scripts/format.sh` |
+| Regenerate xcodeproj | `xcodegen generate` |
 | Build + lint + test | `./Scripts/build.sh` |
 | Build release | `./Scripts/build-release.sh` |
 | Clean build | `swift package clean` |
