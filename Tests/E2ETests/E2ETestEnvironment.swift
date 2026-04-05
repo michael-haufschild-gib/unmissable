@@ -198,11 +198,14 @@ private enum TestConstants {
 
 enum E2EError: LocalizedError {
     case databaseInitFailed(String)
+    case waitTimeout(String)
 
     var errorDescription: String? {
         switch self {
         case let .databaseInitFailed(message):
             "E2E database initialization failed: \(message)"
+        case let .waitTimeout(description):
+            "E2E wait timed out: \(description)"
         }
     }
 }
@@ -357,6 +360,10 @@ enum E2EEventBuilder {
 // MARK: - E2E Assertion Helpers
 
 /// Waits for an async condition with a descriptive failure message.
+///
+/// Throws `E2EError.waitTimeout` on timeout so the calling test stops
+/// immediately rather than continuing with stale state that produces
+/// confusing cascading assertion failures.
 @MainActor
 func e2eWait(
     timeout: TimeInterval = 5.0,
@@ -366,8 +373,7 @@ func e2eWait(
     let deadline = Date().addingTimeInterval(timeout)
     while !condition() {
         guard Date() < deadline else {
-            Issue.record("E2E wait timed out: \(description)")
-            return
+            throw E2EError.waitTimeout(description)
         }
         // E2E polling utility (equivalent to TestUtilities.waitForAsync)
         // swiftlint:disable:next no_raw_task_sleep_in_tests

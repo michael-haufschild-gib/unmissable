@@ -10,7 +10,8 @@ APP_NAME="Unmissable"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 XCODEPROJ="$PROJECT_DIR/Unmissable.xcodeproj"
 SCHEME="Unmissable"
-DESTINATION="platform=macOS"
+HOST_ARCH="$(uname -m)"
+DESTINATION="${DESTINATION:-platform=macOS,arch=${HOST_ARCH}}"
 cd "$PROJECT_DIR"
 
 # Kill any running instance
@@ -24,7 +25,7 @@ xcodebuild build \
     -quiet
 
 # Find the built .app in DerivedData
-DERIVED_DATA_DIR=$(xcodebuild -project "$XCODEPROJ" -scheme "$SCHEME" -showBuildSettings 2>/dev/null | grep -m 1 "BUILT_PRODUCTS_DIR" | awk '{print $3}')
+DERIVED_DATA_DIR=$(xcodebuild -project "$XCODEPROJ" -scheme "$SCHEME" -destination "$DESTINATION" -showBuildSettings 2>/dev/null | awk '/BUILT_PRODUCTS_DIR/ { print $3; exit }')
 APP_BUNDLE="${DERIVED_DATA_DIR}/${APP_NAME}.app"
 
 if [ ! -d "$APP_BUNDLE" ]; then

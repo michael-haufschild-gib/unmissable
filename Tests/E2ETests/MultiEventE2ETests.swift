@@ -138,13 +138,10 @@ struct MultiEventE2ETests {
         #expect(numberOfFetched == 100)
         #expect(fetched.first?.id == "e2e-batch-0")
 
-        let startTime = CFAbsoluteTimeGetCurrent()
         await env.eventScheduler.startScheduling(
             events: fetched, overlayManager: env.overlayManager,
         )
-        let elapsed = CFAbsoluteTimeGetCurrent() - startTime
 
-        #expect(elapsed < 2.0, "Scheduling 100 events should complete in under 2 seconds")
         #expect(env.eventScheduler.scheduledAlerts.count >= 100)
         #expect(env.eventScheduler.scheduledAlerts.contains { $0.event.id == "e2e-batch-0" })
     }

@@ -289,9 +289,9 @@ struct EventLifecycleE2ETests {
             events: updated, overlayManager: env.overlayManager,
         )
 
-        // Only the new event should be scheduled
-        let newAlertEvent = try #require(env.eventScheduler.scheduledAlerts.first)
-        #expect(newAlertEvent.event.id == "e2e-replace-new-1")
+        // Only the new event should be scheduled — no stale alerts from old events
+        let scheduledIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
+        #expect(scheduledIds == Set(["e2e-replace-new-1"]))
 
         // Old events should be gone from DB
         let all = try await env.databaseManager.fetchEvents(

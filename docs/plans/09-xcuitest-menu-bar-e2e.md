@@ -126,7 +126,10 @@ Key facts:
 - `E2EEventBuilder` — factory methods for test events
 - `seedEvents()`, `fetchUpcomingEvents()`, etc.
 
-### Existing Changes in Working Tree
+### Historical Context: Working-Tree Changes at Time of Planning
+
+> **Note**: This section describes the state of the working tree when this plan was written.
+> All of the below changes have since been committed and merged.
 
 These changes were made earlier in this session and are uncommitted:
 
@@ -267,6 +270,8 @@ func applicationDidFinishLaunching(_: Notification) {
     // can discover and interact with the app
     if ProcessInfo.processInfo.arguments.contains("--uitesting") {
         logger.info("UI testing mode — skipping .accessory activation policy")
+        // Also handle regular-activation mode for window-focus tests:
+        // --ui-testing-regular-activation exercises the activation sequence.
     } else {
         NSApp.setActivationPolicy(.accessory)
     }
@@ -287,7 +292,9 @@ import XCTest
 final class MenuBarDiscoveryTests: XCTestCase {
     func testDiscoverAccessibilityTree() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["--uitesting"]
+        // --uitesting: skip .accessory policy so XCUITest can interact with the app.
+        // --ui-testing-regular-activation: exercises the window activation sequence.
+        app.launchArguments = ["--uitesting", "--ui-testing-regular-activation"]
         app.launch()
 
         // Wait for app to settle
@@ -352,7 +359,7 @@ final class MenuBarE2EUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = ["--uitesting"]
+        app.launchArguments = ["--uitesting", "--ui-testing-regular-activation"]
         app.launch()
 
         // Wait for status item to appear

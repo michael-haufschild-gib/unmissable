@@ -35,7 +35,8 @@ packages:
 
 settings:
   base:
-    # Enables Swift 6 language mode (strict concurrency). Toolchain version follows Xcode (16.3 = Swift 6.1).
+    # Enables Swift 6 language mode (strict concurrency).
+    # SWIFT_VERSION uses major versions only (6.0 = Swift 6 language mode).
     SWIFT_VERSION: "6.0"
     MACOSX_DEPLOYMENT_TARGET: "15.0"
 

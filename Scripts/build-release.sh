@@ -23,14 +23,14 @@ rm -rf "${BUILD_DIR}"
 rm -rf "${APP_BUNDLE}"
 mkdir -p "${BUILD_DIR}"
 
-# Archive
-echo "Archiving with xcodebuild..."
+# Archive — output logged so failures are diagnosable on CI/local
+echo "Archiving with xcodebuild (log: ${BUILD_DIR}/archive.log)..."
 xcodebuild archive \
     -project "$XCODEPROJ" \
     -scheme "$SCHEME" \
     -destination "generic/platform=macOS" \
     -archivePath "$ARCHIVE_PATH" \
-    -quiet
+    2>&1 | tee "${BUILD_DIR}/archive.log"
 
 # Extract .app from archive
 echo "Extracting app bundle from archive..."

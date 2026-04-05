@@ -28,21 +28,25 @@ final class AppState {
     @ObservationIgnored
     private var rescheduleTask: Task<Void, Never>?
 
+    /// True when running under XCTest / Swift Testing — gates all side-effecting
+    /// launch work (window creation, NSApp API calls, AX prompts, login items).
+    @ObservationIgnored
+    private let isTestEnvironment: Bool
+
     init(
         services: ServiceContainer = ServiceContainer(databaseManager: DatabaseManager()),
         isTestEnvironment: Bool = false,
     ) {
         self.services = services
+        self.isTestEnvironment = isTestEnvironment
 
-        guard !isTestEnvironment else {
-            // Skip all bindings in the test harness:
-            // - setupBindings() creates Combine publishers tied to live services
-            //   (notification center, calendar) that cause cross-test pollution.
-            // - observeAppLaunch() fires checkInitialState() which opens windows
-            //   and calls NSApp APIs that crash or corrupt state in XCTest hosts.
-            return
-        }
+        // Always install in-process observers so menuBarPreviewManager and
+        // scheduling stay in sync even in tests. Side-effectful launch work
+        // (window creation, NSApp activation, AX prompts) is gated in
+        // observeAppLaunch() and checkInitialState() via isTestEnvironment.
         setupBindings()
+
+        guard !isTestEnvironment else { return }
         observeAppLaunch()
     }
 
@@ -140,6 +144,12 @@ final class AppState {
     func checkInitialState() {
         let flow = AppDiagnostics.startFlow("initialState", component: "AppState")
         logger.debug("Checking initial state")
+
+        guard !isTestEnvironment else {
+            logger.info("Test environment — skipping side-effectful launch work")
+            AppDiagnostics.endFlow(flow, component: "AppState") { [:] }
+            return
+        }
 
         // Register notification categories now that the app bundle proxy exists.
         // Cannot be done in ServiceContainer.init because UNUserNotificationCenter

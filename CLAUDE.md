@@ -4,7 +4,7 @@
 macOS menu bar app that ensures users never miss meetings via full-screen blocking overlays, calendar integration (Google + Apple), smart meeting link detection, and one-click join.
 
 ## Tech Stack
-Swift 6.3 (strict concurrency) | macOS 15.0+ (Sequoia) | SwiftUI + AppKit | GRDB.swift | Xcode project (xcodegen)
+Swift 6 language mode / toolchain 6.3 (strict concurrency) | macOS 15.0+ (Sequoia) | SwiftUI + AppKit | GRDB.swift | Xcode project (xcodegen)
 
 ## Constraints
 

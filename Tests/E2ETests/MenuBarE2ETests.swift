@@ -294,13 +294,14 @@ struct MenuBarE2ETests {
         // Switch to icon mode
         env.preferencesManager.setMenuBarDisplayMode(.icon)
 
-        // Poll until the observation fires and menuBarText clears, instead of
-        // sleeping for a fixed wall-clock duration.
-        let deadline = Date().addingTimeInterval(2.0)
-        while env.menuBarPreviewManager.menuBarText != nil, Date() < deadline {
-            // swiftlint:disable:next no_raw_task_sleep_in_tests
-            try? await Task.sleep(for: .milliseconds(10))
-        }
+        // Wait for the @Observable update to propagate rather than sleeping.
+        try await e2eWait(
+            description: "Menu bar switches from timer to icon mode",
+            condition: { @MainActor @Sendable in
+                env.menuBarPreviewManager.shouldShowIcon
+                    && env.menuBarPreviewManager.menuBarText == nil
+            },
+        )
 
         #expect(env.menuBarPreviewManager.shouldShowIcon)
         #expect(env.menuBarPreviewManager.menuBarText == nil)

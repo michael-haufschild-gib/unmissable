@@ -173,21 +173,23 @@ trap cleanup EXIT
 
 TEST_EXIT=0
 
-# Build the xcodebuild test command
-XCODEBUILD_CMD="xcodebuild test-without-building \
-    -project $XCODEPROJ \
-    -scheme $SCHEME \
-    -destination $DESTINATION \
-    -parallel-testing-worker-count $MAX_WORKERS"
+# Build the xcodebuild test command as an array to avoid shell injection via FILTER.
+XCODEBUILD_CMD=(
+    xcodebuild test-without-building
+    -project "$XCODEPROJ"
+    -scheme "$SCHEME"
+    -destination "$DESTINATION"
+    -parallel-testing-worker-count "$MAX_WORKERS"
+)
 
 if [ -n "$FILTER_ARG" ]; then
-    XCODEBUILD_CMD="$XCODEBUILD_CMD $FILTER_ARG"
+    XCODEBUILD_CMD+=("$FILTER_ARG")
 fi
 
 # Run in background with watchdog
 (
     set -o pipefail
-    eval "$XCODEBUILD_CMD" 2>&1 | tee "$LOG_FILE"
+    "${XCODEBUILD_CMD[@]}" 2>&1 | tee "$LOG_FILE"
 ) &
 TEST_PID=$!
 
@@ -227,8 +229,10 @@ if [ "$TEST_EXIT" -eq 124 ] 2>/dev/null || grep -q "^TIMEOUT:" "$LOG_FILE" 2>/de
 fi
 
 # Parse xcodebuild test results
-TOTAL_TESTS=$(grep -cE "Test Case.*passed|Test Case.*failed" "$LOG_FILE" 2>/dev/null) || TOTAL_TESTS=0
-TOTAL_FAILURES=$(grep -cE "Test Case.*failed" "$LOG_FILE" 2>/dev/null) || TOTAL_FAILURES=0
+TOTAL_TESTS=$(grep -cE 'Test Case.*(passed|failed)' "$LOG_FILE" 2>/dev/null || true)
+TOTAL_FAILURES=$(grep -cE 'Test Case.*failed' "$LOG_FILE" 2>/dev/null || true)
+TOTAL_TESTS=${TOTAL_TESTS:-0}
+TOTAL_FAILURES=${TOTAL_FAILURES:-0}
 
 # --- Step 6: Report ---
 
