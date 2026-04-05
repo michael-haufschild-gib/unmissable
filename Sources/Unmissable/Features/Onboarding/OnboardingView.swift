@@ -93,6 +93,7 @@ private extension OnboardingView {
                 currentScreen = .connectCalendar
             }
             .buttonStyle(UMButtonStyle(.primary, size: .lg))
+            .accessibilityIdentifier("onboarding-continue-button")
             .padding(.bottom, design.spacing.xxl)
         }
         .padding(design.spacing.xxl)
@@ -155,6 +156,7 @@ private extension OnboardingView {
                 currentScreen = .allSet
             }
             .buttonStyle(UMButtonStyle(.ghost))
+            .accessibilityIdentifier("onboarding-skip-button")
             .disabled(connectingProvider != nil)
             .padding(.bottom, design.spacing.xxl)
         }
@@ -254,11 +256,13 @@ private extension OnboardingView {
                     appState.showDemoOverlay()
                 }
                 .buttonStyle(UMButtonStyle(.secondary, size: .lg))
+                .accessibilityIdentifier("onboarding-demo-button")
 
                 Button("Done") {
                     appState.completeOnboarding()
                 }
                 .buttonStyle(UMButtonStyle(.primary, size: .lg))
+                .accessibilityIdentifier("onboarding-done-button")
             }
             .padding(.bottom, design.spacing.xxl)
         }

@@ -12,7 +12,7 @@ final class ServiceContainer {
     let soundManager: SoundManager
     let focusModeManager: FocusModeManager
     let calendarService: CalendarService
-    let overlayManager: OverlayManager
+    let overlayManager: any OverlayManaging
     let eventScheduler: EventScheduler
     let shortcutsManager: ShortcutsManager
     let healthMonitor: HealthMonitor
@@ -24,12 +24,14 @@ final class ServiceContainer {
         databaseManager: any DatabaseManaging,
         linkParser: LinkParser = LinkParser(),
         themeManager: ThemeManager = ThemeManager(),
+        overlayManagerOverride: (any OverlayManaging)? = nil,
+        preferencesManagerOverride: PreferencesManager? = nil,
     ) {
         self.databaseManager = databaseManager
         self.linkParser = linkParser
         self.themeManager = themeManager
 
-        preferencesManager = PreferencesManager(themeManager: themeManager)
+        preferencesManager = preferencesManagerOverride ?? PreferencesManager(themeManager: themeManager)
         soundManager = SoundManager(preferencesManager: preferencesManager)
         focusModeManager = FocusModeManager(preferencesManager: preferencesManager)
         calendarService = CalendarService(
@@ -42,14 +44,18 @@ final class ServiceContainer {
             preferencesManager: preferencesManager, linkParser: linkParser,
         )
         eventScheduler.setNotificationManager(notificationManager)
-        overlayManager = OverlayManager(
-            preferencesManager: preferencesManager,
-            eventScheduler: eventScheduler,
-            soundManager: soundManager,
-            focusModeManager: focusModeManager,
-            linkParser: linkParser,
-            themeManager: themeManager,
-        )
+        if let overlayManagerOverride {
+            overlayManager = overlayManagerOverride
+        } else {
+            overlayManager = OverlayManager(
+                preferencesManager: preferencesManager,
+                eventScheduler: eventScheduler,
+                soundManager: soundManager,
+                focusModeManager: focusModeManager,
+                linkParser: linkParser,
+                themeManager: themeManager,
+            )
+        }
         menuBarPreviewManager = MenuBarPreviewManager(preferencesManager: preferencesManager)
         shortcutsManager = ShortcutsManager(
             overlayManager: overlayManager, linkParser: linkParser,

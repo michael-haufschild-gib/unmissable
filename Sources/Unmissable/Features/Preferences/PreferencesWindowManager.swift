@@ -6,9 +6,23 @@ import SwiftUI
 /// Manages the preferences window with proper activation and foreground behavior
 @Observable
 final class PreferencesWindowManager: NSObject {
+    private enum Activation {
+        static let settleDelay: TimeInterval = 0.2
+    }
+
     private let logger = Logger(category: "PreferencesWindowManager")
     private var preferencesWindow: NSWindow?
     private let appState: AppState
+
+    /// Whether the preferences window is currently visible. Observable by tests.
+    var isWindowVisible: Bool {
+        preferencesWindow?.isVisible ?? false
+    }
+
+    /// The preferences window's title, or nil if no window exists.
+    var windowTitle: String? {
+        preferencesWindow?.title
+    }
 
     private static let windowWidth: CGFloat = 650
     private static let windowHeight: CGFloat = 450
@@ -56,6 +70,8 @@ final class PreferencesWindowManager: NSObject {
         window.title = "Unmissable Preferences"
         window.contentViewController = hostingController
         window.center()
+        window.collectionBehavior = [.moveToActiveSpace]
+        window.hidesOnDeactivate = false
         window.setFrameAutosaveName("PreferencesWindow")
 
         // Ensure window can close properly without affecting app termination
@@ -68,15 +84,31 @@ final class PreferencesWindowManager: NSObject {
         activateWindow(window)
     }
 
-    private func activateWindow(_ window: NSWindow) {
-        // Activate the application first, then bring window to front.
-        // orderFrontRegardless removed — NSApp.activate + makeKeyAndOrderFront is
-        // the standard pattern. orderFrontRegardless bypasses the responder chain
-        // and is unnecessary once the app is already activated.
-        NSApp.activate()
-        window.makeKeyAndOrderFront(nil)
+    /// Programmatically closes the preferences window.
+    func close() {
+        logger.info("Closing preferences window")
+        preferencesWindow?.close()
+        preferencesWindow = nil
+    }
 
-        logger.info("Preferences window activated and brought to foreground")
+    private func activateWindow(_ window: NSWindow) {
+        // Match the stronger onboarding activation path so the preferences
+        // window is frontmost and interactive even when launched from the menu
+        // bar app or while another app currently has focus.
+        NSApp.setActivationPolicy(.regular)
+        _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
+        NSApp.activate(ignoringOtherApps: true)
+        window.orderFrontRegardless()
+        window.makeMain()
+        window.makeKeyAndOrderFront(nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + Activation.settleDelay) {
+            _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
+            NSApp.activate(ignoringOtherApps: true)
+            window.makeMain()
+            window.makeKeyAndOrderFront(nil)
+        }
+
+        logger.info("Preferences window activated and ordered front")
     }
 }
 
@@ -91,5 +123,13 @@ extension PreferencesWindowManager: NSWindowDelegate {
     func windowWillClose(_: Notification) {
         logger.info("Preferences window will close")
         preferencesWindow = nil
+
+        guard !AppRuntime.requiresRegularActivation else {
+            logger.info("UI testing mode — keeping .regular activation policy")
+            return
+        }
+
+        NSApp.setActivationPolicy(.accessory)
+        logger.info("Restored .accessory activation policy")
     }
 }

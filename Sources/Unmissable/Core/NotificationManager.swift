@@ -105,6 +105,16 @@ final class NotificationManager: NSObject, NotificationManaging {
     }
 
     func registerCategories() {
+        // UNUserNotificationCenter.current() crashes (NSInternalInconsistencyException)
+        // when there is no bundle proxy — e.g., in SPM test runners or CLI tools.
+        // Bundle.main.bundleIdentifier alone is insufficient: the xctest runner has an
+        // identifier but no valid proxy. Check the URL scheme instead — real .app bundles
+        // have a file URL ending in .app.
+        guard Bundle.main.bundleURL.pathExtension == "app" else {
+            logger.debug("Skipping notification registration — not running in an app bundle")
+            return
+        }
+
         let joinAction = UNNotificationAction(
             identifier: NotificationConstants.joinActionIdentifier,
             title: "Join",

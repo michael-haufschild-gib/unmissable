@@ -13,9 +13,9 @@ final class AppState {
     @ObservationIgnored
     private let services: ServiceContainer
     @ObservationIgnored
-    private lazy var preferencesWindowManager = PreferencesWindowManager(appState: self)
+    private(set) lazy var preferencesWindowManager = PreferencesWindowManager(appState: self)
     @ObservationIgnored
-    private lazy var onboardingWindowManager = OnboardingWindowManager(appState: self)
+    private(set) lazy var onboardingWindowManager = OnboardingWindowManager(appState: self)
 
     var databaseError: String?
 
@@ -28,11 +28,15 @@ final class AppState {
     @ObservationIgnored
     private var rescheduleTask: Task<Void, Never>?
 
-    init(services: ServiceContainer = ServiceContainer(databaseManager: DatabaseManager())) {
+    init(
+        services: ServiceContainer = ServiceContainer(databaseManager: DatabaseManager()),
+        isTestEnvironment: Bool = false,
+    ) {
         self.services = services
 
+        guard !isTestEnvironment else { return }
         setupBindings()
-        checkInitialState()
+        observeAppLaunch()
     }
 
     private func setupBindings() {
@@ -51,6 +55,26 @@ final class AppState {
         services.calendarService.eventsUpdated
             .sink { [weak self] in
                 self?.rescheduleEventsAfterSync()
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Defers initial state checks until after NSApplication finishes launching.
+    ///
+    /// `AppState.init()` runs during `@State` initialization — before
+    /// `applicationDidFinishLaunching` sets `.accessory` activation policy (or
+    /// decides to skip that in UI testing mode) and
+    /// before the `MenuBarExtra` scene is established. Creating windows or
+    /// calling `NSApp.activate()` at that point leaves them in a non-key state
+    /// once the policy switches. Subscribing to `didFinishLaunchingNotification`
+    /// guarantees `checkInitialState()` fires after the delegate returns and the
+    /// run loop is ready.
+    private func observeAppLaunch() {
+        NotificationCenter.default.publisher(for: NSApplication.didFinishLaunchingNotification)
+            .first()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.checkInitialState()
             }
             .store(in: &cancellables)
     }
@@ -106,7 +130,7 @@ final class AppState {
         }
     }
 
-    private func checkInitialState() {
+    func checkInitialState() {
         let flow = AppDiagnostics.startFlow("initialState", component: "AppState")
         logger.debug("Checking initial state")
 
@@ -300,6 +324,11 @@ final class AppState {
     /// Requests accessibility permission from the system.
     /// Prompts the user only if permission has not already been granted.
     private func requestAccessibilityPermission() {
+        guard !AppRuntime.isUITesting else {
+            logger.info("Skipping accessibility permission prompt in UI testing mode")
+            return
+        }
+
         let options: NSDictionary = ["AXTrustedCheckOptionPrompt": true]
         let accessibilityEnabled = AXIsProcessTrustedWithOptions(options)
 
