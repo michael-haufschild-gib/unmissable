@@ -79,21 +79,8 @@ struct DatabaseConcurrencyIntegrationTests {
         }
         try await db.saveEvents(events)
 
-        // Simultaneously read and write
-        await withTaskGroup(of: Void.self) { group in
-            // Readers
-            for _ in 0 ..< 5 {
-                group.addTask { @Sendable in
-                    let fetched = try? await database.fetchUpcomingEvents(limit: 50)
-                    // Verify the read returned a non-nil, non-empty result
-                    let count = fetched?.count ?? 0
-                    #expect(
-                        count >= 1,
-                        "Read should succeed and return seeded events during concurrent writes",
-                    )
-                }
-            }
-            // Writers
+        // Launch concurrent writers in a fire-and-forget group
+        async let writesDone: Void = withTaskGroup(of: Void.self) { group in
             for i in 0 ..< 5 {
                 group.addTask { @Sendable in
                     let newEvent = Event(
@@ -109,6 +96,31 @@ struct DatabaseConcurrencyIntegrationTests {
                     try? await database.saveEvents([newEvent])
                 }
             }
+        }
+
+        // Launch concurrent readers, collecting counts to assert outside the group
+        let readCounts = await withTaskGroup(of: Int.self, returning: [Int].self) { group in
+            for _ in 0 ..< 5 {
+                group.addTask { @Sendable in
+                    let fetched = try? await database.fetchUpcomingEvents(limit: 50)
+                    return fetched?.count ?? 0
+                }
+            }
+            var counts: [Int] = []
+            for await count in group {
+                counts.append(count)
+            }
+            return counts
+        }
+
+        await writesDone
+
+        // Assert read results outside the task group
+        for count in readCounts {
+            #expect(
+                count >= 1,
+                "Read should succeed and return seeded events during concurrent writes",
+            )
         }
 
         // Final state should include all original + new events

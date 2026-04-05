@@ -10,6 +10,10 @@ import SwiftUI
 
 /// Owns a temporary directory and removes it (along with its contents) on deallocation.
 /// Use in Swift Testing struct suites to replace XCTest `tearDown` cleanup.
+///
+/// **Note**: If a database file inside the directory still has open handles when `deinit` runs,
+/// `removeItem` may silently fail. This is acceptable — the OS cleans `/tmp` periodically,
+/// and GRDB closes connections via ARC once all references are released.
 public final class TemporaryDirectory: @unchecked Sendable {
     /// The URL of the temporary directory.
     public let url: URL
