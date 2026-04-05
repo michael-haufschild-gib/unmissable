@@ -1,7 +1,7 @@
 # Testing Guide
 
 **Purpose**: Writing and running tests in Unmissable.
-**Test Stack**: XCTest | SnapshotTesting (swift-snapshot-testing) | xcodebuild
+**Test Stack**: Swift Testing (`import Testing`) | XCUITest (UI tests only) | xcodebuild
 
 ---
 
@@ -12,14 +12,14 @@
 | Unit tests | `Tests/UnmissableTests/` | `[ClassName]Tests.swift` |
 | Integration tests | `Tests/IntegrationTests/` | `[Feature]IntegrationTests.swift` |
 | E2E tests | `Tests/E2ETests/` | `[Flow]E2ETests.swift` |
-| Snapshot tests | `Tests/SnapshotTests/` | `[View]SnapshotTests.swift` |
+| UI tests (XCUITest) | `Tests/UITests/` | `[Feature]UITests.swift` |
 | Test support | `Tests/TestSupport/` | Shared test doubles |
 
 ---
 
 ## Running Tests
 
-All test commands go through `Scripts/test.sh`, which uses `xcodebuild` with a **4-worker parallel limit**, separates lint/build/test phases, and writes machine-readable results. Do **not** run bare `xcodebuild test` without worker limits.
+All test commands go through `Scripts/test.sh`, which uses `xcodebuild` with a **4-worker parallel limit**, separates lint/build/test phases, and writes machine-readable results. Do **not** run bare `xcodebuild test` without worker limits. There is no `Package.swift` — `swift test` does not work here.
 
 ```bash
 # Run all tests (recommended)
@@ -50,27 +50,26 @@ The script outputs a clear status line (`PASS`, `FAIL`, `BUILD_FAIL`, `LINT_FAIL
 
 ## How to Write a Unit Test
 
+Unit, integration, and E2E tests all use **Swift Testing** (`import Testing`). XCTest is only used in `Tests/UITests/` (XCUITest requires it).
+
 **Location**: `Tests/UnmissableTests/[ClassName]Tests.swift`
 
 ```swift
-import XCTest
+import Foundation
+import Testing
 @testable import Unmissable
 
-final class [ClassName]Tests: XCTestCase {
+@MainActor
+struct [ClassName]Tests {
 
-    var sut: [ClassUnderTest]!
+    private let sut: [ClassUnderTest]
 
-    override func setUp() {
-        super.setUp()
-        sut = [ClassUnderTest]()
+    init() {
+        sut = [ClassUnderTest](isTestEnvironment: true)
     }
 
-    override func tearDown() {
-        sut = nil
-        super.tearDown()
-    }
-
-    func test[MethodName]_[Scenario]_[ExpectedResult]() {
+    @Test
+    func [methodName]_[scenario]_[expectedResult]() {
         // Given
         let input = [testInput]
 
@@ -78,7 +77,26 @@ final class [ClassName]Tests: XCTestCase {
         let result = sut.[methodUnderTest](input)
 
         // Then
-        XCTAssertEqual(result, [expectedValue])
+        #expect(result == [expectedValue])
+    }
+}
+```
+
+For async setup:
+
+```swift
+@MainActor
+struct [ClassName]Tests {
+    private let sut: [ClassUnderTest]
+
+    init() async throws {
+        sut = try await [ClassUnderTest]()
+    }
+
+    @Test
+    func someAsyncOperation() async throws {
+        await sut.performAsyncOperation()
+        #expect(sut.operationCompleted)
     }
 }
 ```
@@ -87,36 +105,41 @@ final class [ClassName]Tests: XCTestCase {
 
 ## Test Naming Convention
 
-**Pattern**: `test[MethodName]_[Scenario]_[ExpectedResult]`
+**Pattern**: `[methodName]_[scenario]_[expectedResult]` (camelCase, not underscored — Swift Testing functions are plain methods)
 
 ```swift
-func testExtractLinks_withValidMeetURL_returnsOneLink()
-func testExtractLinks_withNoLinks_returnsEmptyArray()
-func testShowOverlay_whenFocusModeActive_doesNotShow()
+@Test func extractLinks_withValidMeetURL_returnsOneLink() { ... }
+@Test func extractLinks_withNoLinks_returnsEmptyArray() { ... }
+@Test func showOverlay_whenFocusModeActive_doesNotShow() { ... }
 ```
 
 ---
 
 ## Testing @MainActor / Async Code
 
+Apply `@MainActor` at the struct/class level when all tests in the type test `@MainActor` code:
+
 ```swift
 @MainActor
-func testAsyncOperation() async {
-    // Given
-    let sut = SomeManager(isTestEnvironment: true)
+struct SomeManagerTests {
+    private let sut: SomeManager
 
-    // When
-    await sut.performAsyncOperation()
+    init() {
+        sut = SomeManager(isTestEnvironment: true)
+    }
 
-    // Then
-    XCTAssertTrue(sut.operationCompleted)
+    @Test
+    func asyncOperation() async {
+        await sut.performAsyncOperation()
+        #expect(sut.operationCompleted)
+    }
 }
 ```
 
 Key rules:
-- Use `@MainActor` on test methods that test `@MainActor` classes
+- Apply `@MainActor` to the struct/class, not individual test methods (unless mixing isolation)
 - Use `async` test methods for async code
-- Use `isTestEnvironment: true` when creating managers
+- Use `isTestEnvironment: true` when creating managers that otherwise touch system APIs
 
 ---
 
@@ -138,29 +161,36 @@ extension Event {
 
 ---
 
-## Snapshot Testing
 
-For UI components (requires SnapshotTesting dependency):
+---
+
+## UI Tests (XCUITest)
+
+UI tests in `Tests/UITests/` use XCUITest, which requires XCTest as its base. This is the **only** place `import XCTest` and `XCTestCase` appear in the project.
 
 ```swift
-import SnapshotTesting
-import SwiftUI
 import XCTest
-@testable import Unmissable
 
-final class [View]SnapshotTests: XCTestCase {
+final class [Feature]UITests: XCTestCase {
+    var app: XCUIApplication!
 
-    func testViewAppearance() {
-        let view = [SomeView]()
-        assertSnapshot(
-            of: view,
-            as: .image(layout: .fixed(width: 400, height: 300))
-        )
+    override func setUp() {
+        super.setUp()
+        continueAfterFailure = false
+        app = XCUIApplication()
+        app.launch()
+    }
+
+    override func tearDown() {
+        app = nil
+        super.tearDown()
+    }
+
+    func test[Feature]_[scenario]() {
+        // XCUITest assertions
     }
 }
 ```
-
-First run creates reference snapshot in `__Snapshots__/`. Subsequent runs compare against it.
 
 ---
 
@@ -168,14 +198,15 @@ First run creates reference snapshot in `__Snapshots__/`. Subsequent runs compar
 
 | Assertion | Use Case |
 |-----------|----------|
-| `XCTAssertEqual(a, b)` | Values should be equal |
-| `XCTAssertNotEqual(a, b)` | Values should differ |
-| `XCTAssertTrue(x)` | Boolean should be true |
-| `XCTAssertFalse(x)` | Boolean should be false |
-| `XCTAssertNil(x)` | Optional should be nil |
-| `XCTAssertNotNil(x)` | Optional should have value |
-| `XCTAssertThrowsError(try x)` | Should throw error |
-| `XCTAssertNoThrow(try x)` | Should not throw |
+| `#expect(a == b)` | Values should be equal |
+| `#expect(a != b)` | Values should differ |
+| `#expect(condition)` | Boolean should be true |
+| `#expect(!condition)` | Boolean should be false |
+| `#expect(optional == nil)` | Optional should be nil |
+| `#expect(optional != nil)` | Optional should have value |
+| `let value = try #require(optional)` | Unwrap optional or fail test |
+| `#expect(throws: ErrorType.self) { try x }` | Should throw specific error |
+| `#expect(throws: Never.self) { try x }` | Should not throw |
 
 ---
 
@@ -185,34 +216,38 @@ These patterns produce **errors** in test files:
 
 | Banned Pattern | Why | Use Instead |
 |---------------|-----|-------------|
-| `XCTAssertNotNil(x)` alone | Shallow — proves existence, not correctness | `XCTUnwrap` + assert the value |
-| `XCTAssertTrue(.contains(...))` | Poor failure messages | `XCTAssertEqual` or specific matcher |
-| `XCTAssert(x is Type)` | Type-only check is shallow | Assert behavior or values |
+| `#expect(x != nil)` alone | Shallow — proves existence, not correctness | `let v = try #require(x)` + assert the value |
+| `#expect(array.contains(x))` without message | Poor failure messages | Add message: `#expect(array.contains(x), "Expected ...")` |
 | `Task.sleep(...)` | Causes flaky tests | `TestUtilities.waitForAsync` |
 | `OverlayManager()` | Creates real fullscreen UI | `TestSafeOverlayManager` |
 | `AppState()` | Creates real OverlayManager | Inject dependencies |
 | `NSApplication.shared` | Interacts with window server | Mock the window layer |
-| `print("debug...")` | Noise in test output | `XCTAssert` to verify values |
+| `print("debug...")` | Noise in test output | Use `#expect` to verify values |
 
 ---
 
 ## Common Mistakes
 
 **Setup**:
+- Don't use `XCTestCase` for unit/integration/E2E tests. Do use `struct`/`class` with Swift Testing.
+- Don't use `override func setUp()` / `tearDown()`. Do use `init()` / `deinit`.
 - Don't create real UI managers in tests. Do use `isTestEnvironment: true`.
-- Don't forget `sut = nil` in `tearDown()`. Do clean up state between tests.
 
 **Async**:
 - Don't use `sleep()` or `Task.sleep()`. Do use `async/await` or `TestUtilities.waitForAsync`.
 - Don't forget `@MainActor` when testing `@MainActor` classes.
 
 **Assertions**:
-- Don't use bare `XCTAssert(condition)` for equality. Do use `XCTAssertEqual(actual, expected)`.
+- Don't use bare `#expect(condition)` for equality. Do use `#expect(actual == expected)`.
 - Don't skip edge cases (nil, empty, boundary). Do test happy path AND error paths.
 
 **Isolation**:
 - Don't rely on test execution order. Do make each test independent.
-- Don't share mutable state between tests. Do reset state in `setUp()`/`tearDown()`.
+- Don't share mutable state between tests. Do reset state in `init()`.
+
+**Framework choice**:
+- Don't use `import XCTest` in unit/integration/E2E tests.
+- Do use `import XCTest` only in `Tests/UITests/` (XCUITest requirement).
 
 ## On-Demand References
 

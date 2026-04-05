@@ -9,6 +9,7 @@ private let htmlTextViewLogger = Logger(category: "HTMLTextView")
 struct HTMLTextView: NSViewRepresentable {
     let htmlContent: String?
     let resolvedTheme: ResolvedTheme
+    let accentColor: AccentColor
     let onLinkTap: ((URL) -> Void)?
 
     private static let defaultFontSize: CGFloat = 13
@@ -19,10 +20,12 @@ struct HTMLTextView: NSViewRepresentable {
     init(
         htmlContent: String?,
         resolvedTheme: ResolvedTheme? = nil,
+        accentColor: AccentColor = .blue,
         onLinkTap: ((URL) -> Void)? = nil,
     ) {
         self.htmlContent = htmlContent
         self.resolvedTheme = resolvedTheme ?? .darkBlue
+        self.accentColor = accentColor
         self.onLinkTap = onLinkTap
     }
 
@@ -74,13 +77,17 @@ struct HTMLTextView: NSViewRepresentable {
         let coordinator = context.coordinator
 
         // Skip re-parsing if inputs haven't changed
-        if coordinator.lastHtmlContent == htmlContent, coordinator.lastTheme == resolvedTheme {
+        if coordinator.lastHtmlContent == htmlContent,
+           coordinator.lastTheme == resolvedTheme,
+           coordinator.lastAccentColor == accentColor
+        {
             return
         }
 
         let newAttributedText = createAttributedString(from: htmlContent)
         coordinator.lastHtmlContent = htmlContent
         coordinator.lastTheme = resolvedTheme
+        coordinator.lastAccentColor = accentColor
 
         htmlTextViewLogger.debug("HTMLTextView: Updating content (\(htmlContent?.count ?? 0) chars)")
         textView.textStorage?.setAttributedString(newAttributedText)
@@ -170,7 +177,7 @@ struct HTMLTextView: NSViewRepresentable {
         let isDark = resolvedTheme.isDark
         let bodyColor = isDark ? "#CCCCCC" : "#333333"
         let headingColor = isDark ? "#FFFFFF" : "#000000"
-        let linkColor = isDark ? "#4A90E2" : "#007AFF"
+        let linkColor = accentColor.cssHex
 
         return """
         <!DOCTYPE html>
@@ -221,6 +228,7 @@ struct HTMLTextView: NSViewRepresentable {
         let logger: Logger
         var lastHtmlContent: String?
         var lastTheme: ResolvedTheme?
+        var lastAccentColor: AccentColor?
 
         init(onLinkTap: ((URL) -> Void)?, logger: Logger) {
             self.onLinkTap = onLinkTap

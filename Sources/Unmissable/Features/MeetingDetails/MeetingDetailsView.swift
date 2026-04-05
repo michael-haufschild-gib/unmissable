@@ -242,6 +242,7 @@ struct MeetingDetailsView: View {
                 HTMLTextView(
                     htmlContent: description,
                     resolvedTheme: themeManager.resolvedTheme,
+                    accentColor: themeManager.accentColor,
                     onLinkTap: { url in
                         NSWorkspace.shared.open(url)
                     },

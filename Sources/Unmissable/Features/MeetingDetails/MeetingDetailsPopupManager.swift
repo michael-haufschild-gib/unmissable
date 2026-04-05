@@ -16,12 +16,14 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
     private let logger = Logger(category: "MeetingDetailsPopupManager")
 
     private(set) var isPopupVisible = false
+    private(set) var lastShownEvent: Event?
     private var popupWindow: NSWindow?
     private var currentEventId: String?
     private weak var parentWindow: NSWindow?
     // Intentionally strong: sole owner of the delegate (NSWindow.delegate is weak)
     // swiftlint:disable:next weak_delegate
     private var windowDelegate: PopupWindowDelegate?
+    private var alertOverrideTask: Task<Void, Never>?
     private let themeManager: ThemeManager
     private let databaseManager: any DatabaseManaging
 
@@ -37,7 +39,7 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
     // MARK: - Popup Management
 
     func showPopup(for event: Event, relativeTo parentWindow: NSWindow? = nil) {
-        logger.info("POPUP: Showing details for event \(event.id)")
+        logger.info("POPUP: Showing details for event \(PrivacyUtils.redactedEventId(event.id))")
 
         // If already showing the same event, just bring to front
         if isPopupVisible, currentEventId == event.id, let currentWindow = popupWindow {
@@ -60,16 +62,22 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
         )
         popupWindow = popup
         currentEventId = event.id
+        lastShownEvent = event
         isPopupVisible = true
 
         popup.makeKeyAndOrderFront(nil)
 
         // Fetch alert override and update popup content asynchronously
-        Task {
+        alertOverrideTask?.cancel()
+        alertOverrideTask = Task {
             let override = try? await databaseManager.fetchAlertOverride(
                 for: event.id, calendarId: event.calendarId,
             )
-            guard override != nil, isPopupVisible, currentEventId == event.id else { return }
+            guard !Task.isCancelled,
+                  override != nil,
+                  isPopupVisible,
+                  currentEventId == event.id
+            else { return }
             let updatedView = MeetingDetailsView(
                 event: event,
                 onClose: { [weak self] in self?.hidePopup() },
@@ -79,7 +87,7 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
             popup.contentView = NSHostingView(rootView: updatedView)
         }
 
-        logger.info("POPUP: Displayed popup for event \(event.id)")
+        logger.info("POPUP: Displayed popup for event \(PrivacyUtils.redactedEventId(event.id))")
     }
 
     func hidePopup() {
@@ -87,12 +95,16 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
 
         logger.info("POPUP: Hiding popup")
 
+        alertOverrideTask?.cancel()
+        alertOverrideTask = nil
+
         // CRITICAL: Use orderOut instead of close to prevent deadlocks
         popup.orderOut(nil)
 
         // Clean up state
         popupWindow = nil
         currentEventId = nil
+        lastShownEvent = nil
         windowDelegate = nil
         isPopupVisible = false
         parentWindow = nil

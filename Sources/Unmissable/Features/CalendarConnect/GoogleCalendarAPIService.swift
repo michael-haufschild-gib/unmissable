@@ -446,14 +446,14 @@ final class GoogleCalendarAPIService: CalendarAPIProviding {
             links.append(url)
         }
 
-        // conferenceData entryPoints can include tel:/sip: URIs for dial-in numbers.
-        // Only keep http(s) URIs — non-web schemes are not actionable meeting links.
+        // conferenceData entryPoints can include tel:/sip: URIs for dial-in numbers
+        // and arbitrary https URLs. Filter through LinkParser's trusted-domain model
+        // to prevent phishing links from being rendered as join buttons.
         if let entryPoints = entry.conferenceData?.entryPoints {
             for ep in entryPoints {
                 if let uri = ep.uri,
                    let url = URL(string: uri),
-                   let scheme = url.scheme?.lowercased(),
-                   scheme == "http" || scheme == "https"
+                   linkParser.isMeetingURL(url)
                 {
                     links.append(url)
                 }

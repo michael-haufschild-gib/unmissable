@@ -43,12 +43,15 @@ if [ "$DISCOVERY_ONLY" = true ]; then
     echo "Running discovery spike only..."
 fi
 
+MAX_WORKERS=4
+
 EXIT_CODE=0
 xcodebuild test \
     -project "$XCODEPROJ" \
     -scheme "$SCHEME" \
     -destination "platform=macOS" \
     -resultBundlePath "$RESULT_BUNDLE" \
+    -parallel-testing-worker-count "$MAX_WORKERS" \
     $TEST_FILTER \
     2>&1 || EXIT_CODE=$?
 

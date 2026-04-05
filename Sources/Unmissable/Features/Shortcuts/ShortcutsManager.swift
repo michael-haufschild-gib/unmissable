@@ -3,6 +3,7 @@ import Foundation
 import Magnet
 import Observation
 import OSLog
+import Sauce
 
 @Observable
 final class ShortcutsManager {
@@ -15,8 +16,8 @@ final class ShortcutsManager {
     static let dismissShortcutDisplay = "⌘⎋"
     static let joinShortcutDisplay = "⌘⏎"
 
-    var dismissShortcut: HotKey?
-    var joinShortcut: HotKey?
+    private(set) var dismissShortcut: HotKey?
+    private(set) var joinShortcut: HotKey?
 
     private weak var overlayManager: (any OverlayManaging)?
     private let linkParser: LinkParser
@@ -35,64 +36,57 @@ final class ShortcutsManager {
     }
 
     private func setupDefaultShortcuts() {
-        // Dismiss overlay: Cmd+Escape
-        setupDismissShortcut()
+        dismissShortcut = registerHotKey(
+            identifier: "dismiss_overlay",
+            key: .escape,
+            modifiers: .command,
+            label: "Cmd+Escape",
+        ) { [weak self] in self?.dismissOverlay() }
 
-        // Join meeting: Cmd+Return
-        setupJoinShortcut()
+        joinShortcut = registerHotKey(
+            identifier: "join_meeting",
+            key: .return,
+            modifiers: .command,
+            label: "Cmd+Return",
+        ) { [weak self] in self?.joinMeeting() }
     }
 
-    private func setupDismissShortcut() {
-        guard let keyCombo = KeyCombo(key: .escape, cocoaModifiers: .command) else {
-            logger.error("Failed to create dismiss shortcut key combination")
-            return
+    private func registerHotKey(
+        identifier: String,
+        key: Key,
+        modifiers: NSEvent.ModifierFlags,
+        label: String,
+        action: @escaping @MainActor () -> Void,
+    ) -> HotKey? {
+        guard let keyCombo = KeyCombo(key: key, cocoaModifiers: modifiers) else {
+            logger.error("Failed to create key combination for \(identifier)")
+            return nil
         }
 
-        let hotKey = HotKey(identifier: "dismiss_overlay", keyCombo: keyCombo) { [weak self] _ in
-            Task { @MainActor in
-                self?.dismissOverlay()
-            }
+        let hotKey = HotKey(identifier: identifier, keyCombo: keyCombo) { _ in
+            Task { @MainActor in action() }
         }
 
-        if hotKey.register() {
-            dismissShortcut = hotKey
-            logger.info("Registered dismiss shortcut: Cmd+Escape")
-        } else {
-            logger.error("Failed to register dismiss shortcut — key combo may already be in use")
+        guard hotKey.register() else {
+            logger.error("Failed to register \(identifier) — key combo may already be in use")
+            return nil
         }
+
+        logger.info("Registered shortcut \(identifier): \(label)")
+        return hotKey
     }
 
-    private func setupJoinShortcut() {
-        guard let keyCombo = KeyCombo(key: .return, cocoaModifiers: .command) else {
-            logger.error("Failed to create join shortcut key combination")
-            return
-        }
-
-        let hotKey = HotKey(identifier: "join_meeting", keyCombo: keyCombo) { [weak self] _ in
-            Task { @MainActor in
-                self?.joinMeeting()
-            }
-        }
-
-        if hotKey.register() {
-            joinShortcut = hotKey
-            logger.info("Registered join shortcut: Cmd+Return")
-        } else {
-            logger.error("Failed to register join shortcut — key combo may already be in use")
-        }
-    }
-
-    private func dismissOverlay() {
-        guard overlayManager?.isOverlayVisible == true else {
+    func dismissOverlay() {
+        guard let overlayManager, overlayManager.isOverlayVisible else {
             logger.info("Dismiss shortcut pressed but no overlay is visible")
             return
         }
 
         logger.info("Dismissing overlay via global shortcut")
-        overlayManager?.hideOverlay()
+        overlayManager.hideOverlay()
     }
 
-    private func joinMeeting() {
+    func joinMeeting() {
         guard let overlayManager,
               overlayManager.isOverlayVisible,
               let event = overlayManager.activeEvent,
@@ -102,7 +96,7 @@ final class ShortcutsManager {
             return
         }
 
-        logger.info("Joining meeting via global shortcut: \(event.title)")
+        logger.info("Joining meeting via global shortcut: \(PrivacyUtils.redactedTitle(event.title))")
         NSWorkspace.shared.open(url)
         overlayManager.hideOverlay()
     }

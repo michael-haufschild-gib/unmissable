@@ -18,7 +18,8 @@ final class ServiceContainer {
     let healthMonitor: HealthMonitor
     let notificationManager: NotificationManager
     let menuBarPreviewManager: MenuBarPreviewManager
-    let meetingDetailsPopupManager: MeetingDetailsPopupManager
+    let meetingDetailsPopupManager: any MeetingDetailsPopupManaging
+    let activationPolicyManager: ActivationPolicyManager
 
     init(
         databaseManager: any DatabaseManaging,
@@ -26,6 +27,7 @@ final class ServiceContainer {
         themeManager: ThemeManager = ThemeManager(),
         overlayManagerOverride: (any OverlayManaging)? = nil,
         preferencesManagerOverride: PreferencesManager? = nil,
+        meetingDetailsPopupManagerOverride: (any MeetingDetailsPopupManaging)? = nil,
     ) {
         self.databaseManager = databaseManager
         self.linkParser = linkParser
@@ -64,10 +66,16 @@ final class ServiceContainer {
             calendarService: calendarService,
             overlayManager: overlayManager,
         )
-        meetingDetailsPopupManager = MeetingDetailsPopupManager(
-            themeManager: themeManager,
-            databaseManager: databaseManager,
-        )
+        if let meetingDetailsPopupManagerOverride {
+            meetingDetailsPopupManager = meetingDetailsPopupManagerOverride
+        } else {
+            meetingDetailsPopupManager = MeetingDetailsPopupManager(
+                themeManager: themeManager,
+                databaseManager: databaseManager,
+            )
+        }
+
+        activationPolicyManager = ActivationPolicyManager()
 
         logger.info("Service graph wired successfully")
         AppDiagnostics.record(component: "ServiceContainer", phase: "wired") {

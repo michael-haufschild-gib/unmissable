@@ -29,7 +29,6 @@ final class FocusModeManager {
     // MARK: - Constants
 
     private nonisolated static let maxAssertionsFileSize = 1_000_000
-    private nonisolated static let maxPrefsFileSize = 5_000_000
 
     var isDoNotDisturbEnabled: Bool = false
     private(set) var dndDetectionAvailable: Bool = true
@@ -110,10 +109,9 @@ final class FocusModeManager {
         }
     }
 
-    /// Detects Focus/DND status using the most reliable method available.
+    /// Detects Focus/DND status via ~/Library/DoNotDisturb/DB/Assertions.json (macOS 12+).
     /// - Sandboxed: detection unavailable, defaults to "DND off" (overlays always shown)
-    /// - Non-sandboxed macOS 12+: reads ~/Library/DoNotDisturb/DB/Assertions.json
-    /// - Non-sandboxed legacy: reads ncprefs.plist via plutil
+    /// - Non-sandboxed: reads the assertions JSON database
     @concurrent
     private nonisolated static func runDNDCheck() async -> DNDCheckResult {
         // In sandboxed environments, filesystem-based DND detection is unavailable.
@@ -125,8 +123,6 @@ final class FocusModeManager {
 
         let homeDirectory = FileManager.default.homeDirectoryForCurrentUser
 
-        // macOS 12+ stores Focus/DND assertions in a JSON database.
-        // This is more reliable than the legacy ncprefs.plist approach.
         let assertionsPath = homeDirectory
             .appendingPathComponent("Library")
             .appendingPathComponent("DoNotDisturb")
@@ -134,24 +130,11 @@ final class FocusModeManager {
             .appendingPathComponent("Assertions.json")
             .path
 
-        if FileManager.default.fileExists(atPath: assertionsPath) {
-            return readAssertionsFile(at: assertionsPath)
-        }
-
-        // Fallback: legacy ncprefs.plist (macOS 11 and earlier)
-        let prefsPath = homeDirectory
-            .appendingPathComponent("Library")
-            .appendingPathComponent("Preferences")
-            .appendingPathComponent("com.apple.ncprefs.plist")
-            .path
-
-        guard prefsPath.hasPrefix(homeDirectory.path),
-              FileManager.default.fileExists(atPath: prefsPath)
-        else {
+        guard FileManager.default.fileExists(atPath: assertionsPath) else {
             return .notFound
         }
 
-        return readLegacyDNDPrefs(at: prefsPath)
+        return readAssertionsFile(at: assertionsPath)
     }
 
     /// Reads the modern Assertions.json to determine if any Focus mode is active.
@@ -174,44 +157,6 @@ final class FocusModeManager {
                     {
                         return .success(true)
                     }
-                }
-            }
-            return .success(false)
-        } catch {
-            return .failure(error)
-        }
-    }
-
-    /// Legacy DND detection via native plist parsing of ncprefs.plist (macOS 11 and earlier).
-    /// Reads the binary plist directly with PropertyListSerialization instead of shelling out to plutil.
-    ///
-    /// Fragility note: The `dnd_prefs` key structure is an undocumented Apple implementation detail.
-    /// It may change or disappear in future macOS versions. This path is only reached on macOS 11
-    /// and earlier (macOS 12+ uses Assertions.json above), so the risk is bounded.
-    private nonisolated static func readLegacyDNDPrefs(at prefsPath: String) -> DNDCheckResult {
-        do {
-            let data = try Data(contentsOf: URL(fileURLWithPath: prefsPath))
-            guard data.count < maxPrefsFileSize else {
-                // Safety: don't parse unreasonably large files
-                return DNDCheckResult.success(false)
-            }
-            guard let plist = try PropertyListSerialization.propertyList(
-                from: data, options: [], format: nil,
-            ) as? [String: Any] else {
-                return .success(false)
-            }
-
-            // The dnd_prefs value is itself a nested plist (binary data blob)
-            if let dndPrefsData = plist["dnd_prefs"] as? Data {
-                guard let dndPrefs = try PropertyListSerialization.propertyList(
-                    from: dndPrefsData, options: [], format: nil,
-                ) as? [String: Any] else {
-                    return .success(false)
-                }
-                if let manuallyEnabled = dndPrefs["userPref"] as? [String: Any],
-                   let enabled = manuallyEnabled["enabled"] as? Bool
-                {
-                    return .success(enabled)
                 }
             }
             return .success(false)

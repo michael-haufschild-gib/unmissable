@@ -92,7 +92,9 @@ struct OverlayFlowE2ETests {
         try await env.seedAndSchedule([event])
 
         for duration in [1, 5, 10, 15] {
-            env.eventScheduler.scheduledAlerts.removeAll()
+            // Stop and re-seed to clear alerts between iterations
+            env.eventScheduler.stopScheduling()
+            try await env.seedAndSchedule([event])
 
             env.overlayManager.showOverlayImmediately(for: event)
             #expect(env.overlayManager.isOverlayVisible)

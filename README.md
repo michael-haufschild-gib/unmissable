@@ -53,7 +53,6 @@ GitHub Actions runs on push/PR to `main`:
 - Unit tests (`swift test --filter UnmissableTests`)
 - Integration tests (`swift test --filter IntegrationTests`)
 - E2E tests (`swift test --filter E2ETests`)
-- Snapshot tests (non-blocking — `continue-on-error`)
 
 ## Dependencies
 
@@ -62,7 +61,6 @@ GitHub Actions runs on push/PR to `main`:
 - [KeychainAccess](https://github.com/kishikawakatsumi/KeychainAccess) — Keychain
 - [Magnet](https://github.com/Clipy/Magnet) — Global shortcuts
 - [Sparkle](https://github.com/sparkle-project/Sparkle) — Auto-updates
-- [SnapshotTesting](https://github.com/pointfreeco/swift-snapshot-testing) — UI tests
 
 ## Privacy
 

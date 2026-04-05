@@ -146,10 +146,7 @@ struct PreferenceGatedFlowsE2ETests {
         // Give @Observable observation time to propagate.
         // A single yield is insufficient — the observation pipeline dispatches
         // a Task that needs multiple scheduling cycles to complete.
-        for _ in 0 ..< 10 {
-            // swiftlint:disable:next no_raw_task_sleep_in_tests
-            try await Task.sleep(for: .milliseconds(10))
-        }
+        try await yieldToObservation(iterations: 10)
 
         let newCount = env.eventScheduler.scheduledAlerts.count
         #expect(newCount == 2, "Should have both overlay and sound alerts after toggling on")

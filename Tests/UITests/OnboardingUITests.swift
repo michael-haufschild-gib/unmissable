@@ -27,13 +27,15 @@ import XCTest
 final class OnboardingUITests: XCTestCase {
     private var app: XCUIApplication!
 
-    override func setUpWithError() {
+    override func setUp() {
+        super.setUp()
         continueAfterFailure = false
     }
 
-    override func tearDownWithError() {
+    override func tearDown() {
         app?.terminate()
         app = nil
+        super.tearDown()
     }
 
     /// Launches the app configured for UI testing.
@@ -66,9 +68,7 @@ final class OnboardingUITests: XCTestCase {
 
         UnmissableUITestSupport.clickStatusItem(in: app)
 
-        // The MenuBarExtra popover window gets its accessibility identifier
-        // via introspectMenuBarExtraWindow. Allow extra time for the window
-        // to appear and the identifier to propagate.
+        // Allow extra time for the popover window to appear.
         let popover = app.windows[UnmissableUITestSupport.popoverIdentifier]
         XCTAssertTrue(
             popover.waitForExistence(timeout: 10),

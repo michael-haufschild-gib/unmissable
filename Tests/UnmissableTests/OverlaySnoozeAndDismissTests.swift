@@ -66,7 +66,7 @@ struct OverlaySnoozeAndDismissTests {
         let testDurations = [1, 5, 10, 15]
 
         for duration in testDurations {
-            eventScheduler.reset()
+            eventScheduler.stopScheduling()
 
             let event = TestUtilities.createTestEvent(title: "Test Meeting \(duration)")
             overlayManager.showOverlayImmediately(for: event)
@@ -179,7 +179,7 @@ struct OverlaySnoozeAndDismissTests {
         let event = TestUtilities.createTestEvent()
 
         for i in 0 ..< 5 {
-            eventScheduler.reset()
+            eventScheduler.stopScheduling()
             overlayManager.showOverlayImmediately(for: event)
             #expect(overlayManager.isOverlayVisible, "Overlay should show for iteration \(i)")
 
@@ -216,7 +216,7 @@ struct OverlaySnoozeAndDismissTests {
         overlayManager.snoozeOverlay(for: 0)
         #expect(!overlayManager.isOverlayVisible, "Overlay should be hidden even with 0-minute snooze")
 
-        eventScheduler.reset()
+        eventScheduler.stopScheduling()
         overlayManager.showOverlayImmediately(for: event)
         overlayManager.snoozeOverlay(for: 1440) // 24 hours
 

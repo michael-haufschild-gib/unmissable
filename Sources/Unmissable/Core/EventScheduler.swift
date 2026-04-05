@@ -7,7 +7,7 @@ import OSLog
 final class EventScheduler {
     private let logger = Logger(category: "EventScheduler")
 
-    var scheduledAlerts: [ScheduledAlert] = []
+    private(set) var scheduledAlerts: [ScheduledAlert] = []
 
     @ObservationIgnored
     private var monitoringTask: Task<Void, Never>?
@@ -58,6 +58,8 @@ final class EventScheduler {
     private static let triggerThresholdSeconds: TimeInterval = 0.1
     /// Sleep duration after an unexpected monitoring error (seconds) to avoid tight loops.
     private static let errorRecoverySleepSeconds: TimeInterval = 5
+    /// Minimum snooze duration (minutes). Prevents accidental immediate re-fire.
+    private static let minimumSnoozeMinutes = 1
 
     init(
         preferencesManager: PreferencesManager,
@@ -124,7 +126,7 @@ final class EventScheduler {
         logger.info("Scheduling alerts for \(events.count) events")
 
         for (index, event) in events.prefix(Self.debugLogEventCount).enumerated() {
-            logger.debug("  Event \(index + 1): id=\(event.id) at \(event.startDate)")
+            logger.debug("  Event \(index + 1): id=\(PrivacyUtils.redactedEventId(event.id)) at \(event.startDate)")
         }
 
         currentEvents = events
@@ -133,7 +135,7 @@ final class EventScheduler {
         stopTimers(preserveSnoozes: true)
         let missedEvents = scheduleAlerts(for: events)
         for event in missedEvents {
-            logger.info("Missed alert time for event \(event.id), triggering immediately")
+            logger.info("Missed alert time for event \(PrivacyUtils.redactedEventId(event.id)), triggering immediately")
             deliverAlert(for: event, overlayManager: overlayManager, fromSnooze: false)
         }
     }
@@ -157,8 +159,12 @@ final class EventScheduler {
     }
 
     private func rescheduleCurrentAlerts() {
-        guard !currentEvents.isEmpty, let overlayManager = currentOverlayManager else {
+        guard !currentEvents.isEmpty else {
             logger.debug("No current events to reschedule")
+            return
+        }
+        guard let overlayManager = currentOverlayManager else {
+            logger.debug("Overlay manager deallocated, skipping reschedule")
             return
         }
 
@@ -172,7 +178,7 @@ final class EventScheduler {
         monitoringTask = nil
         let missedEvents = scheduleAlerts(for: currentEvents)
         for event in missedEvents {
-            logger.info("Missed alert time for event \(event.id), triggering immediately")
+            logger.info("Missed alert time for event \(PrivacyUtils.redactedEventId(event.id)), triggering immediately")
             deliverAlert(for: event, overlayManager: overlayManager, fromSnooze: false)
         }
         if monitoringEnabled {
@@ -358,7 +364,7 @@ final class EventScheduler {
                     if timeUntilTrigger > Self.triggerThresholdSeconds {
                         logger
                             .debug(
-                                "MONITORING: Sleeping for \(String(format: "%.2f", timeUntilTrigger))s until next alert for event \(nextAlert.event.id)",
+                                "MONITORING: Sleeping for \(String(format: "%.2f", timeUntilTrigger))s until next alert for event \(PrivacyUtils.redactedEventId(nextAlert.event.id))",
                             )
                         let sleepStart = now()
                         // Sleep exactly until the next alert (plus a tiny buffer)
@@ -420,7 +426,7 @@ final class EventScheduler {
                     "meetingStart"
                 }
                 logger.debug(
-                    "  - \(alertTypeName) for event \(alert.event.id) (trigger: \(alert.triggerDate))",
+                    "  - \(alertTypeName) for event \(PrivacyUtils.redactedEventId(alert.event.id)) (trigger: \(alert.triggerDate))",
                 )
             }
         }
@@ -461,14 +467,14 @@ final class EventScheduler {
         case .meetingStart:
             alertTypeName = "meetingStart"
             if preferencesManager.autoJoinEnabled, let url = linkParser.primaryLink(for: alert.event) {
-                logger.info("AUTO-JOIN: Opening meeting for event \(alert.event.id)")
+                logger.info("AUTO-JOIN: Opening meeting for event \(PrivacyUtils.redactedEventId(alert.event.id))")
                 NSWorkspace.shared.open(url)
             }
 
         case let .snooze(until):
             alertTypeName = "snooze(until:\(until))"
             // Snooze always uses overlay — user explicitly asked to be reminded.
-            logger.info("SNOOZE: Re-showing overlay for event \(alert.event.id)")
+            logger.info("SNOOZE: Re-showing overlay for event \(PrivacyUtils.redactedEventId(alert.event.id))")
             overlayManager.showOverlay(for: alert.event, fromSnooze: true)
         }
 
@@ -490,14 +496,14 @@ final class EventScheduler {
         let mode = resolveAlertMode(for: event)
         switch mode {
         case .overlay:
-            logger.info("REMINDER: Showing overlay for event \(event.id)")
+            logger.info("REMINDER: Showing overlay for event \(PrivacyUtils.redactedEventId(event.id))")
             overlayManager.showOverlay(for: event, fromSnooze: fromSnooze)
 
         case .notification:
-            logger.info("REMINDER: Sending notification for event \(event.id)")
+            logger.info("REMINDER: Sending notification for event \(PrivacyUtils.redactedEventId(event.id))")
             let primaryLink = linkParser.primaryLink(for: event)
             guard let notificationManager else {
-                logger.error("NotificationManager unavailable — cannot deliver alert for event \(event.id)")
+                logger.error("NotificationManager unavailable — cannot deliver alert for event \(PrivacyUtils.redactedEventId(event.id))")
                 AppDiagnostics.record(
                     component: "EventScheduler",
                     phase: "deliverAlert",
@@ -515,7 +521,7 @@ final class EventScheduler {
             }
 
         case .none:
-            logger.info("REMINDER: Suppressed for event \(event.id) (alert mode = none)")
+            logger.info("REMINDER: Suppressed for event \(PrivacyUtils.redactedEventId(event.id)) (alert mode = none)")
         }
 
         AppDiagnostics.record(component: "EventScheduler", phase: "deliverAlert") {
@@ -528,8 +534,12 @@ final class EventScheduler {
     }
 
     func scheduleSnooze(for event: Event, minutes: Int) {
+        let clampedMinutes = max(minutes, Self.minimumSnoozeMinutes)
+        if clampedMinutes != minutes {
+            logger.warning("Snooze minutes \(minutes) clamped to \(clampedMinutes)")
+        }
         let snoozeDate = now().addingTimeInterval(
-            TimeInterval(minutes) * Self.secondsPerMinute,
+            TimeInterval(clampedMinutes) * Self.secondsPerMinute,
         )
         // Allow snoozing past meeting start — user might want to join late.
         let snoozeAlert = ScheduledAlert(
@@ -543,7 +553,7 @@ final class EventScheduler {
 
         let status = event.startDate < now() ? "already started" : "starts later"
         logger.info(
-            "Scheduled snooze for \(minutes)min for event \(event.id) (\(status)). Trigger: \(snoozeDate)",
+            "Scheduled snooze for \(clampedMinutes)min for event \(PrivacyUtils.redactedEventId(event.id)) (\(status)). Trigger: \(snoozeDate)",
         )
 
         // Restart monitoring to pick up this snooze if it's next.

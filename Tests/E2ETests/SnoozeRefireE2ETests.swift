@@ -267,18 +267,13 @@ struct SnoozeRefireE2ETests {
         env.preferencesManager.setOverlayShowMinutesBefore(8)
 
         // Give @Observable observation time to propagate
-        // swiftlint:disable:next no_raw_task_sleep_in_tests - observation yield
-        try await Task.sleep(for: .milliseconds(10))
+        try await yieldToObservation()
 
         // Snooze alert should survive the rescheduling
         let postRescheduleSnoozes = env.eventScheduler.scheduledAlerts.filter { alert in
             if case .snooze = alert.alertType, alert.event.id == event.id { return true }
             return false
         }
-        let survivedSnooze = try #require(
-            postRescheduleSnoozes.first,
-            "Snooze alert should survive rescheduling",
-        )
         #expect(
             postRescheduleSnoozes.map(\.event.id) == [event.id],
             "Exactly one snooze alert should survive rescheduling",
@@ -288,7 +283,6 @@ struct SnoozeRefireE2ETests {
             if case .reminder = alert.alertType { return true }
             return false
         }
-        _ = survivedSnooze
         #expect(!reminderAlerts.isEmpty, "Rescheduling should produce at least one reminder alert")
     }
 

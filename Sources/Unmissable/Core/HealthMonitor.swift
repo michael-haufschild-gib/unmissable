@@ -305,6 +305,13 @@ struct HealthIssue: Identifiable, Equatable {
         case warning
         case error
     }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.severity == rhs.severity
+            && lhs.component == rhs.component
+            && lhs.message == rhs.message
+            && lhs.suggestion == rhs.suggestion
+    }
 }
 
 struct HealthMetrics {

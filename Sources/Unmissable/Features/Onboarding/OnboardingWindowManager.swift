@@ -16,7 +16,7 @@ final class OnboardingWindowManager: NSObject {
 
     private let logger = Logger(category: "OnboardingWindowManager")
     private var window: NSWindow?
-    private let appState: AppState
+    private unowned let appState: AppState
 
     /// Whether the onboarding window is currently visible. Observable by tests.
     var isWindowVisible: Bool {
@@ -82,6 +82,7 @@ final class OnboardingWindowManager: NSObject {
         newWindow.delegate = self
 
         window = newWindow
+        appState.activationPolicyManager.acquireRegularPolicy()
         activateWindow(newWindow)
     }
 
@@ -103,12 +104,11 @@ final class OnboardingWindowManager: NSObject {
         }
 
         // Correct activation sequence for LSUIElement / menu-bar apps:
-        // 1. Switch to .regular so macOS grants full window focus.
-        // 2. Bring the window to the front and make it key.
-        // 3. Activate the app AFTER makeKeyAndOrderFront — calling activate
-        //    before the window is front can leave it behind other apps on
-        //    macOS 15 when another app currently has focus.
-        NSApp.setActivationPolicy(.regular)
+        // .regular policy is acquired when the window is first created
+        // (showOnboarding). Here we bring the window to the front and make it
+        // key, then activate the app AFTER makeKeyAndOrderFront — calling
+        // activate before the window is front can leave it behind other apps
+        // on macOS 15 when another app currently has focus.
         window.orderFrontRegardless()
         window.makeMain()
         window.makeKeyAndOrderFront(nil)
@@ -118,7 +118,8 @@ final class OnboardingWindowManager: NSObject {
         // frontmost even when another app had focus at call-time.
         // [weak window] avoids retaining a window that was closed before the
         // delay fires (e.g. if the user dismisses the window immediately).
-        DispatchQueue.main.asyncAfter(deadline: .now() + Activation.settleDelay) { [weak window] in
+        Task { @MainActor [weak window] in
+            try? await Task.sleep(for: .seconds(Activation.settleDelay))
             guard let window else { return }
             _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
             NSApp.activate(ignoringOtherApps: true)
@@ -140,14 +141,6 @@ extension OnboardingWindowManager: NSWindowDelegate {
     func windowWillClose(_: Notification) {
         logger.info("Onboarding window will close")
         window = nil
-
-        guard !AppRuntime.requiresRegularActivation else {
-            logger.info("UI testing mode — keeping .regular activation policy")
-            return
-        }
-
-        // Restore menu-bar-only mode now that the onboarding window is gone.
-        NSApp.setActivationPolicy(.accessory)
-        logger.info("Restored .accessory activation policy")
+        appState.activationPolicyManager.releaseRegularPolicy()
     }
 }

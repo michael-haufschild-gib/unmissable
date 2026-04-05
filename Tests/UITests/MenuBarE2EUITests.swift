@@ -120,7 +120,8 @@ extension XCUIElement {
 final class MenuBarE2EUITests: XCTestCase {
     private var app: XCUIApplication!
 
-    override func setUpWithError() {
+    override func setUp() {
+        super.setUp()
         continueAfterFailure = false
         app = XCUIApplication()
         app.launchArguments = UnmissableUITestSupport.launchArguments(onboardingCompleted: true)
@@ -133,9 +134,10 @@ final class MenuBarE2EUITests: XCTestCase {
         )
     }
 
-    override func tearDownWithError() {
+    override func tearDown() {
         app.terminate()
         app = nil
+        super.tearDown()
     }
 
     // MARK: - Status Item Presence
@@ -211,7 +213,7 @@ final class MenuBarE2EUITests: XCTestCase {
 
     // MARK: - Sync Controls (when connected)
 
-    func testPopover_connected_showsSyncButton() {
+    @MainActor func testPopover_connected_showsSyncButton() {
         UnmissableUITestSupport.clickStatusItem(in: app)
         let popover = app.windows[UnmissableUITestSupport.popoverIdentifier]
         XCTAssertTrue(popover.waitForExistence(timeout: 3))

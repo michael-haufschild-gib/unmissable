@@ -468,15 +468,40 @@ struct EventSchedulerComprehensiveTests {
     }
 
     @Test
-    func negativeSnoozeMinutesHandled() {
+    func negativeSnoozeMinutesClampedToMinimum() {
         let event = TestUtilities.createTestEvent()
-        // Scheduling a negative snooze should not crash
         eventScheduler.scheduleSnooze(for: event, minutes: -5)
 
-        // The snooze should still be created (the scheduler doesn't validate duration)
         let alerts = eventScheduler.scheduledAlerts
-        #expect(alerts.count >= 1, "Negative snooze should still create an alert")
-        #expect(alerts.first?.event.id == event.id)
+        let snoozeAlert = alerts.first
+        #expect(snoozeAlert?.event.id == event.id)
+
+        // Negative minutes should be clamped to 1 minute minimum
+        if case let .snooze(until) = snoozeAlert?.alertType {
+            let expectedMinimum = Date().addingTimeInterval(60) // 1 minute from now
+            let timeDifference = abs(until.timeIntervalSince(expectedMinimum))
+            #expect(timeDifference < 2.0, "Negative snooze should be clamped to 1 minute, not \(until)")
+        } else {
+            Issue.record("Expected snooze alert type")
+        }
+    }
+
+    @Test
+    func zeroSnoozeMinutesClampedToMinimum() {
+        let event = TestUtilities.createTestEvent()
+        eventScheduler.scheduleSnooze(for: event, minutes: 0)
+
+        let alerts = eventScheduler.scheduledAlerts
+        let snoozeAlert = alerts.first
+        #expect(snoozeAlert?.event.id == event.id)
+
+        if case let .snooze(until) = snoozeAlert?.alertType {
+            let expectedMinimum = Date().addingTimeInterval(60)
+            let timeDifference = abs(until.timeIntervalSince(expectedMinimum))
+            #expect(timeDifference < 2.0, "Zero snooze should be clamped to 1 minute")
+        } else {
+            Issue.record("Expected snooze alert type")
+        }
     }
 
     // MARK: - Performance Tests

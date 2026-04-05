@@ -18,8 +18,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
     private static let authFlowTimeoutSeconds = 300
     private static let tokenRefreshTimeoutSeconds = 30
     private static let httpOK = 200
-    private static let oauthWindowX: CGFloat = 100
-    private static let oauthWindowY: CGFloat = 100
+    private static let oauthWindowOrigin: CGFloat = 100
     private static let oauthWindowWidth: CGFloat = 400
     private static let oauthWindowHeight: CGFloat = 300
     private static let errorCodeGeneric = -1
@@ -197,8 +196,8 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
         }
         let window = NSWindow(
             contentRect: NSRect(
-                x: Self.oauthWindowX,
-                y: Self.oauthWindowY,
+                x: Self.oauthWindowOrigin,
+                y: Self.oauthWindowOrigin,
                 width: Self.oauthWindowWidth,
                 height: Self.oauthWindowHeight,
             ),
@@ -519,40 +518,10 @@ private struct GoogleUserInfo: Codable {
     fileprivate let email: String
 }
 
-enum OAuth2Error: LocalizedError {
-    case configurationError(String)
-    case authorizationFailed(Error)
-    case tokenRefreshFailed(Error)
-    case notAuthenticated
-    case userInfoFetchFailed
-    case timeout
-    case invalidTokenRequest
-
-    var errorDescription: String? {
-        switch self {
-        case let .configurationError(message):
-            "Configuration Error: \(message)"
-        case let .authorizationFailed(error):
-            "Authorization Failed: \(error.localizedDescription)"
-        case let .tokenRefreshFailed(error):
-            "Token Refresh Failed: \(error.localizedDescription)"
-        case .notAuthenticated:
-            "User not authenticated"
-        case .userInfoFetchFailed:
-            "Failed to fetch user information"
-        case .timeout:
-            "Authorization timed out. Please try again."
-        case .invalidTokenRequest:
-            "Invalid token exchange request"
-        }
-    }
-}
-
 // MARK: - OIDAuthStateChangeDelegate
 
 extension OAuth2Service: OIDAuthStateChangeDelegate {
     nonisolated func didChange(_: OIDAuthState) {
-        // OIDAuthState changed (e.g., tokens refreshed) - save to keychain
         Task { @MainActor in
             self.logger.info("OIDAuthState changed - saving updated state to keychain")
             self.saveAuthStateToKeychain()

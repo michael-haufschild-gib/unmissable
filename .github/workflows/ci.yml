@@ -73,8 +73,3 @@ jobs:
           set -euo pipefail
           swift test --filter E2ETests
 
-      - name: Run Snapshot Tests
-        continue-on-error: true
-        run: |
-          set -euo pipefail
-          swift test --filter SnapshotTests

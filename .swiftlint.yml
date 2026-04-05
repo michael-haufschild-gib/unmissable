@@ -335,15 +335,22 @@ custom_rules:
   no_hardcoded_animation_duration:
     name: "Use DesignAnimations Tokens"
     included: "Sources/(?!.*/DesignTokens\\.swift).*\\.swift"
-    regex: "\\.animation\\(\\.ease(In|Out|InOut)\\(duration:\\s*[0-9]"
-    message: "Use DesignAnimations.* tokens instead of hardcoded animation durations."
+    regex: "(?:withAnimation|\\.animation)\\(\\.ease(?:In|Out|InOut)\\(duration:"
+    message: "Use DesignAnimations.* tokens instead of ad-hoc .easeInOut/easeIn/easeOut(duration:). Define new tokens in DesignAnimations if needed."
     severity: error
 
-  no_hardcoded_corner_radius:
-    name: "Use Design Tokens for Corner Radius"
-    included: "Sources/(?!.*/Containers\\.swift).*\\.swift"
-    regex: "\\.cornerRadius\\(\\d"
-    message: "Use .clipShape(RoundedRectangle(cornerRadius: design.corners.*)) instead of deprecated .cornerRadius()."
+  no_corner_radius_modifier:
+    name: "No .cornerRadius() Modifier"
+    included: "Sources/(?!.*/Containers\\.swift|.*/Styles\\.swift).*\\.swift"
+    regex: "\\.cornerRadius\\("
+    message: "Use .clipShape(RoundedRectangle(cornerRadius: design.corners.*)) instead of the deprecated .cornerRadius() modifier."
+    severity: error
+
+  no_raw_color_names:
+    name: "No Raw Named Colors"
+    included: "Sources/(?!.*/DesignTokens\\.swift|.*/ThemeManager\\.swift|.*/Styles\\.swift|.*/Containers\\.swift).*\\.swift"
+    regex: "\\bColor\\.(black|white)\\b"
+    message: "Use design.colors.* tokens instead of Color.black/Color.white. Define new tokens in DesignColors if needed."
     severity: error
 
   no_plain_button_style:

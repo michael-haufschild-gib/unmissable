@@ -326,7 +326,10 @@ struct HTMLSanitizerTests {
         let input = "<img/src=\"x\"/onerror=\"alert(1)\">"
         let result = HTMLSanitizer.sanitize(input)
         #expect(!result.contains("onerror"), "onerror should be stripped")
-        #expect(result.contains("src=\"x\""), "Safe src attribute should be preserved")
+        #expect(
+            result.contains("src=\"about:blank\""),
+            "src should be neutralized to prevent external resource loading",
+        )
     }
 
     @Test

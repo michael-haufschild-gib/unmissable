@@ -263,9 +263,9 @@ public final class TestSafeMeetingDetailsPopupManager: MeetingDetailsPopupManagi
     public func showPopup(for event: Event, relativeTo _: NSWindow? = nil) {
         logger.debug("TEST-SAFE SHOW: Popup for \(event.title)")
 
-        // Mirror real behavior: if already visible, just log
-        if isPopupVisible {
-            logger.debug("TEST-SAFE: Popup already visible")
+        // Mirror production: same event → bring to front (no-op), different event → replace
+        if isPopupVisible, lastShownEvent?.id == event.id {
+            logger.debug("TEST-SAFE: Same event already visible, no-op")
             return
         }
 
@@ -425,3 +425,47 @@ public func findAccessibilityElement(identifier: String, in view: NSView) -> NSV
     }
     return nil
 }
+
+// MARK: - Shared Test URLs
+
+/// Canonical meeting URLs for each provider, shared across all test targets.
+/// Both `TestUtilities.createMeetingEvent` (unit tests) and `E2EEventBuilder.onlineMeeting`
+/// (E2E tests) use these to avoid duplicating the provider URL mapping.
+public enum TestMeetingURLs {
+    // swiftlint:disable force_unwrapping
+    // Compile-time constant URLs — safe to force-unwrap.
+    /// Returns the canonical test URL for the given meeting provider.
+    public static func url(for provider: Provider) -> URL {
+        switch provider {
+        case .meet:
+            URL(string: "https://meet.google.com/abc-defg-hij")!
+        case .zoom:
+            URL(string: "https://zoom.us/j/123456789")!
+        case .teams:
+            URL(string: "https://teams.microsoft.com/l/meetup-join/abc123")!
+        case .webex:
+            URL(string: "https://example.webex.com/meet/123")!
+        case .discord:
+            URL(string: "https://discord.gg/abc123")!
+        case .generic:
+            URL(string: "https://example.com/meeting")!
+        }
+    }
+    // swiftlint:enable force_unwrapping
+}
+
+// MARK: - Observation Yield (shared across all test targets)
+
+/// Millisecond duration for a single observation yield cycle.
+private let observationYieldMilliseconds = 10
+
+// swiftlint:disable no_raw_task_sleep_in_tests
+/// Yields control so `@Observable` / Combine pipelines can propagate.
+/// Use instead of raw `Task.sleep` when waiting for observation-driven state updates.
+/// `iterations` > 1 is needed when the pipeline dispatches multiple async hops.
+func yieldToObservation(iterations: Int = 1) async throws {
+    for _ in 0 ..< iterations {
+        try await Task.sleep(for: .milliseconds(observationYieldMilliseconds))
+    }
+}
+// swiftlint:enable no_raw_task_sleep_in_tests

@@ -76,22 +76,6 @@ final class OnboardingE2ETests {
         #expect(manager.windowTitle == "Welcome to Unmissable")
     }
 
-    // MARK: - Activation Policy
-
-    @Test
-    func showOnboarding_createsWindowWithCorrectTitle() {
-        // Activation policy (.regular) and key-window focus require a real
-        // window server and are verified by the XCUITests in OnboardingUITests.
-        // In-process E2E tests verify the window is created with correct config.
-        defer { manager.close() }
-        manager.showOnboarding()
-
-        #expect(
-            manager.windowTitle == "Welcome to Unmissable",
-            "Onboarding window should have the expected title",
-        )
-    }
-
     // MARK: - Window Close
 
     @Test

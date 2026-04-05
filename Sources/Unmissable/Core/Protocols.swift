@@ -27,6 +27,7 @@ extension OverlayManaging {
 /// Protocol for meeting details popup functionality
 protocol MeetingDetailsPopupManaging: AnyObject {
     var isPopupVisible: Bool { get }
+    var lastShownEvent: Event? { get }
 
     func showPopup(for event: Event, relativeTo parentWindow: NSWindow?)
     func hidePopup()

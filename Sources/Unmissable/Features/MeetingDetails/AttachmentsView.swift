@@ -2,8 +2,6 @@ import AppKit
 import OSLog
 import SwiftUI
 
-private let attachmentsLogger = Logger(category: "AttachmentsView")
-
 /// A SwiftUI view that displays event attachments with links to open them
 struct AttachmentsView: View {
     let attachments: [EventAttachment]
@@ -35,6 +33,7 @@ struct AttachmentsView: View {
 /// Individual attachment row component
 struct AttachmentRow: View {
     let attachment: EventAttachment
+    private let logger = Logger(category: "AttachmentRow")
     @Environment(\.design)
     private var design
     @State
@@ -45,7 +44,6 @@ struct AttachmentRow: View {
     private static let hoverVisibleOpacity: Double = 1.0
     private static let hoverHiddenOpacity: Double = 0.6
     private static let borderLineWidth: CGFloat = 1
-    private static let hoverAnimationDuration: Double = 0.2
     private static let accentBackgroundOpacity: Double = 0.1
 
     var body: some View {
@@ -89,7 +87,7 @@ struct AttachmentRow: View {
             .padding(.horizontal, design.spacing.sm)
             .padding(.vertical, design.spacing.sm)
             .background(backgroundColor)
-            .cornerRadius(design.corners.md)
+            .clipShape(RoundedRectangle(cornerRadius: design.corners.md))
             .overlay(
                 RoundedRectangle(cornerRadius: design.corners.md)
                     .stroke(borderColor, lineWidth: Self.borderLineWidth),
@@ -97,7 +95,7 @@ struct AttachmentRow: View {
         }
         .buttonStyle(UMButtonStyle(.ghost, size: .sm))
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: Self.hoverAnimationDuration)) {
+            withAnimation(DesignAnimations.content) {
                 isHovered = hovering
             }
         }
@@ -135,18 +133,18 @@ struct AttachmentRow: View {
 
     private func openAttachment() {
         guard let url = URL(string: attachment.fileUrl) else {
-            attachmentsLogger.error("AttachmentRow: Invalid URL for attachment")
+            logger.error("AttachmentRow: Invalid URL for attachment")
             return
         }
 
         guard let scheme = url.scheme?.lowercased(),
               Self.allowedSchemes.contains(scheme)
         else {
-            attachmentsLogger.warning("AttachmentRow: Blocked attachment with disallowed scheme")
+            logger.warning("AttachmentRow: Blocked attachment with disallowed scheme")
             return
         }
 
-        attachmentsLogger.info("AttachmentRow: Opening attachment (id: \(attachment.fileId ?? "unknown"))")
+        logger.info("AttachmentRow: Opening attachment (id: \(attachment.fileId ?? "unknown"))")
 
         NSWorkspace.shared.open(url)
     }
@@ -154,47 +152,43 @@ struct AttachmentRow: View {
 
 // MARK: - Preview
 
-#if DEBUG
-    private enum AttachmentsPreviewConstants {
-        static let pdfFileSize: Int64 = 2_548_736
-        static let spreadsheetFileSize: Int64 = 1_024_000
-        static let previewWidth: CGFloat = 400
-    }
+private enum AttachmentsPreviewConstants {
+    static let pdfFileSize: Int64 = 2_548_736
+    static let spreadsheetFileSize: Int64 = 1_024_000
+    static let previewWidth: CGFloat = 400
+}
 
-    struct AttachmentsView_Previews: PreviewProvider {
-        static var previews: some View {
-            let sampleAttachments = [
-                EventAttachment(
-                    fileUrl: "https://drive.google.com/file/d/abc123/view",
-                    title: "Project Requirements.pdf",
-                    mimeType: "application/pdf",
-                    iconLink: "https://drive-thirdparty.googleusercontent.com/16/type/application/pdf",
-                    fileId: "abc123",
-                    fileSize: AttachmentsPreviewConstants.pdfFileSize,
-                ),
-                EventAttachment(
-                    fileUrl: "https://docs.google.com/document/d/def456/edit",
-                    title: "Meeting Notes",
-                    mimeType: "application/vnd.google-apps.document",
-                    iconLink:
-                    "https://drive-thirdparty.googleusercontent.com/16/type/application/vnd.google-apps.document",
-                    fileId: "def456",
-                ),
-                EventAttachment(
-                    fileUrl: "https://sheets.google.com/spreadsheets/d/ghi789/edit",
-                    title: "Budget Spreadsheet - Q3 2024 Financial Planning.xlsx",
-                    mimeType: "application/vnd.google-apps.spreadsheet",
-                    iconLink:
-                    "https://drive-thirdparty.googleusercontent.com/16/type/application/vnd.google-apps.spreadsheet",
-                    fileId: "ghi789",
-                    fileSize: AttachmentsPreviewConstants.spreadsheetFileSize,
-                ),
-            ]
+#Preview("Attachments") {
+    let sampleAttachments = [
+        EventAttachment(
+            fileUrl: "https://drive.google.com/file/d/abc123/view",
+            title: "Project Requirements.pdf",
+            mimeType: "application/pdf",
+            iconLink: "https://drive-thirdparty.googleusercontent.com/16/type/application/pdf",
+            fileId: "abc123",
+            fileSize: AttachmentsPreviewConstants.pdfFileSize,
+        ),
+        EventAttachment(
+            fileUrl: "https://docs.google.com/document/d/def456/edit",
+            title: "Meeting Notes",
+            mimeType: "application/vnd.google-apps.document",
+            iconLink:
+            "https://drive-thirdparty.googleusercontent.com/16/type/application/vnd.google-apps.document",
+            fileId: "def456",
+        ),
+        EventAttachment(
+            fileUrl: "https://sheets.google.com/spreadsheets/d/ghi789/edit",
+            title: "Budget Spreadsheet - Q3 2024 Financial Planning.xlsx",
+            mimeType: "application/vnd.google-apps.spreadsheet",
+            iconLink:
+            "https://drive-thirdparty.googleusercontent.com/16/type/application/vnd.google-apps.spreadsheet",
+            fileId: "ghi789",
+            fileSize: AttachmentsPreviewConstants.spreadsheetFileSize,
+        ),
+    ]
 
-            AttachmentsView(attachments: sampleAttachments)
-                .padding()
-                .frame(width: AttachmentsPreviewConstants.previewWidth)
-                .themed(themeManager: ThemeManager())
-        }
-    }
-#endif
+    AttachmentsView(attachments: sampleAttachments)
+        .padding()
+        .frame(width: AttachmentsPreviewConstants.previewWidth)
+        .themed(themeManager: ThemeManager())
+}

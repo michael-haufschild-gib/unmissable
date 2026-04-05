@@ -22,8 +22,8 @@ startup, auth, sync, database, scheduler, notification, and overlay subsystems.
 
 | Build | Deep Diagnostics Default | Override |
 |-------|-------------------------|----------|
-| DEBUG (`swift build`) | **Enabled** | Always on |
-| Release (`swift build -c release`) | **Disabled** | Set env `UNMISSABLE_DIAGNOSTICS=1` or UserDefaults key `com.unmissable.diagnostics.enabled` |
+| DEBUG (Xcode Debug configuration) | **Enabled** | Always on |
+| Release (Xcode Release configuration) | **Disabled** | Set env `UNMISSABLE_DIAGNOSTICS=1` or UserDefaults key `com.unmissable.diagnostics.enabled` |
 | Tests | **Enabled** | Always on |
 
 ---

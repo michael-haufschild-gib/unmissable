@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1630"
+   LastUpgradeVersion = "2640"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -32,20 +32,6 @@
                BlueprintIdentifier = "3CD6C3E2DF37D931F9291A1C"
                BuildableName = "IntegrationTests.xctest"
                BlueprintName = "IntegrationTests"
-               ReferencedContainer = "container:Unmissable.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "NO"
-            buildForProfiling = "NO"
-            buildForArchiving = "NO"
-            buildForAnalyzing = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "F50D0CF3E6556DB5886AA627"
-               BuildableName = "SnapshotTests.xctest"
-               BlueprintName = "SnapshotTests"
                ReferencedContainer = "container:Unmissable.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>

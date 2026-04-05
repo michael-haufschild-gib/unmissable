@@ -34,10 +34,21 @@ final class AppState {
     private let isTestEnvironment: Bool
 
     init(
-        services: ServiceContainer = ServiceContainer(databaseManager: DatabaseManager()),
+        services: ServiceContainer? = nil,
         isTestEnvironment: Bool = false,
     ) {
-        self.services = services
+        if let services {
+            self.services = services
+        } else if isTestEnvironment {
+            // Safety net for the @main entry point during test runs.
+            // Use a temp database so we never touch the production DB.
+            // This AppState is unused — each test creates its own.
+            let tempDB = FileManager.default.temporaryDirectory
+                .appendingPathComponent("unmissable-test-host-\(UUID().uuidString).db")
+            self.services = ServiceContainer(databaseManager: DatabaseManager(databaseURL: tempDB))
+        } else {
+            self.services = ServiceContainer(databaseManager: DatabaseManager())
+        }
         self.isTestEnvironment = isTestEnvironment
 
         // Always install in-process observers so menuBarPreviewManager and
@@ -275,6 +286,10 @@ final class AppState {
 
     var menuBarPreview: MenuBarPreviewManager {
         services.menuBarPreviewManager
+    }
+
+    var activationPolicyManager: ActivationPolicyManager {
+        services.activationPolicyManager
     }
 
     var calendar: CalendarService {

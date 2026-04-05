@@ -312,29 +312,12 @@ enum E2EEventBuilder {
         provider: Provider = .meet,
         calendarId: String = "e2e-calendar",
     ) -> Event {
-        // swiftlint:disable force_unwrapping
-        let link = switch provider {
-        case .meet:
-            URL(string: "https://meet.google.com/e2e-test-room")!
-        case .zoom:
-            URL(string: "https://zoom.us/j/999888777")!
-        case .teams:
-            URL(string: "https://teams.microsoft.com/l/meetup-join/e2e-test")!
-        case .webex:
-            URL(string: "https://example.webex.com/meet/e2e-test")!
-        case .discord:
-            URL(string: "https://discord.gg/e2e-test")!
-        case .generic:
-            URL(string: "https://example.com/meeting/e2e-test")!
-        }
-        // swiftlint:enable force_unwrapping
-
-        return futureEvent(
+        futureEvent(
             id: id,
             title: title,
             minutesFromNow: minutesFromNow,
             calendarId: calendarId,
-            links: [link],
+            links: [TestMeetingURLs.url(for: provider)],
             provider: provider,
         )
     }

@@ -114,18 +114,7 @@ else
     exit 1
 fi
 
-# Step 6: Run UI/Snapshot Tests
-log_info "Step 6: Running UI and snapshot tests..."
-if xcodebuild -project "$PROJECT_DIR/Unmissable.xcodeproj" -scheme "$SCHEME" -destination "$DESTINATION" test \
-    -only-testing:"SnapshotTests" \
-    -resultBundlePath "$REPORTS_DIR/ui-tests.xcresult" \
-    | tee "$REPORTS_DIR/ui-tests.log"; then
-    log_success "UI tests passed"
-else
-    log_warning "UI tests failed (may be acceptable for snapshot tests)"
-fi
-
-# Step 7: Generate Code Coverage Report
+# Step 6: Generate Code Coverage Report
 log_info "Step 7: Generating code coverage report..."
 PROFDATA_PATH="$BUILD_DIR/debug/codecov/default.profdata"
 BINARY_PATH="$BUILD_DIR/debug/UnmissablePackageTests.xctest/Contents/MacOS/UnmissablePackageTests"

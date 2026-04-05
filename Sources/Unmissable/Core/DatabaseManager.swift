@@ -99,7 +99,7 @@ actor DatabaseManager: DatabaseManaging {
             try Self.migrator.migrate(queue)
             isInitialized = true
             initializationError = nil
-            logger.info("Database initialized at: \(dbURL.path)")
+            logger.info("Database initialized at: \(PrivacyUtils.redactedPath(dbURL.path))")
         } catch {
             logger.error("Failed to setup database: \(error.localizedDescription)")
             isInitialized = false
@@ -115,7 +115,7 @@ actor DatabaseManager: DatabaseManaging {
             try Self.migrator.migrate(queue)
             isInitialized = true
             initializationError = nil
-            logger.info("Database initialized at: \(databaseURL.path)")
+            logger.info("Database initialized at: \(PrivacyUtils.redactedPath(databaseURL.path))")
         } catch {
             logger.error("Failed to setup database: \(error.localizedDescription)")
             isInitialized = false
