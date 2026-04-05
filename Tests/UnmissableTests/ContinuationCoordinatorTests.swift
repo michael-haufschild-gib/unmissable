@@ -1,11 +1,13 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 @MainActor
-final class ContinuationCoordinatorTests: XCTestCase {
+struct ContinuationCoordinatorTests {
     // MARK: - Resume Returning
 
-    func testResumeReturning_deliversValue() async throws {
+    @Test
+    func resumeReturning_deliversValue() async throws {
         let coordinator = ContinuationCoordinator<String>()
 
         let result = try await withCheckedThrowingContinuation { continuation in
@@ -13,13 +15,14 @@ final class ContinuationCoordinatorTests: XCTestCase {
             coordinator.resume(returning: "hello")
         }
 
-        XCTAssertEqual(result, "hello")
-        XCTAssertTrue(coordinator.isCompleted)
+        #expect(result == "hello")
+        #expect(coordinator.isCompleted)
     }
 
     // MARK: - Resume Throwing
 
-    func testResumeThrowing_deliversError() async {
+    @Test
+    func resumeThrowing_deliversError() async {
         let coordinator = ContinuationCoordinator<String>()
 
         do {
@@ -27,17 +30,18 @@ final class ContinuationCoordinatorTests: XCTestCase {
                 coordinator.setContinuation(continuation)
                 coordinator.resume(throwing: TestError.intentional)
             }
-            XCTFail("Expected error to be thrown")
+            Issue.record("Expected error to be thrown")
         } catch {
-            XCTAssertEqual(error as? TestError, .intentional)
+            #expect(error as? TestError == .intentional)
         }
 
-        XCTAssertTrue(coordinator.isCompleted)
+        #expect(coordinator.isCompleted)
     }
 
     // MARK: - Exactly-Once Guarantee
 
-    func testDoubleResume_onlyFirstHasEffect() async throws {
+    @Test
+    func doubleResume_onlyFirstHasEffect() async throws {
         let coordinator = ContinuationCoordinator<String>()
 
         let result = try await withCheckedThrowingContinuation { continuation in
@@ -47,10 +51,11 @@ final class ContinuationCoordinatorTests: XCTestCase {
             coordinator.resume(returning: "second")
         }
 
-        XCTAssertEqual(result, "first", "Only the first resume should take effect")
+        #expect(result == "first", "Only the first resume should take effect")
     }
 
-    func testResumeAfterError_isIgnored() async {
+    @Test
+    func resumeAfterError_isIgnored() async {
         let coordinator = ContinuationCoordinator<String>()
 
         do {
@@ -60,15 +65,16 @@ final class ContinuationCoordinatorTests: XCTestCase {
                 // This should be silently ignored
                 coordinator.resume(returning: "late value")
             }
-            XCTFail("Expected error")
+            Issue.record("Expected error")
         } catch {
-            XCTAssertEqual(error as? TestError, .intentional)
+            #expect(error as? TestError == .intentional)
         }
     }
 
     // MARK: - Timeout
 
-    func testTimeout_resumesWithError() async {
+    @Test
+    func timeout_resumesWithError() async {
         let coordinator = ContinuationCoordinator<String>()
 
         do {
@@ -79,15 +85,16 @@ final class ContinuationCoordinatorTests: XCTestCase {
                 }
                 // Don't call resume — let timeout fire
             }
-            XCTFail("Expected timeout error")
+            Issue.record("Expected timeout error")
         } catch {
-            XCTAssertEqual(error as? TestError, .timedOut)
+            #expect(error as? TestError == .timedOut)
         }
 
-        XCTAssertTrue(coordinator.isCompleted)
+        #expect(coordinator.isCompleted)
     }
 
-    func testResumeBeforeTimeout_cancelsTimeout() async throws {
+    @Test
+    func resumeBeforeTimeout_cancelsTimeout() async throws {
         let coordinator = ContinuationCoordinator<String>()
 
         let result = try await withCheckedThrowingContinuation { continuation in
@@ -99,13 +106,14 @@ final class ContinuationCoordinatorTests: XCTestCase {
             coordinator.resume(returning: "fast")
         }
 
-        XCTAssertEqual(result, "fast")
-        XCTAssertTrue(coordinator.isCompleted)
+        #expect(result == "fast")
+        #expect(coordinator.isCompleted)
     }
 
     // MARK: - Stress: Concurrent Resume Calls
 
-    func testConcurrentResumeCalls_onlyFirstDelivers() async throws {
+    @Test
+    func concurrentResumeCalls_onlyFirstDelivers() async throws {
         let coordinator = ContinuationCoordinator<String>()
 
         let result = try await withCheckedThrowingContinuation { continuation in
@@ -120,11 +128,12 @@ final class ContinuationCoordinatorTests: XCTestCase {
         }
 
         // Only one value should have been delivered
-        XCTAssertTrue(result.hasPrefix("attempt-"), "Should receive one of the attempt values")
-        XCTAssertTrue(coordinator.isCompleted)
+        #expect(result.hasPrefix("attempt-"), "Should receive one of the attempt values")
+        #expect(coordinator.isCompleted)
     }
 
-    func testConcurrentResumeAndThrow_onlyFirstDelivers() async {
+    @Test
+    func concurrentResumeAndThrow_onlyFirstDelivers() async {
         let coordinator = ContinuationCoordinator<String>()
 
         do {
@@ -143,20 +152,21 @@ final class ContinuationCoordinatorTests: XCTestCase {
                 }
             }
             // If we got here, a value was delivered
-            XCTAssertTrue(result.hasPrefix("value-"))
+            #expect(result.hasPrefix("value-"))
         } catch {
             // If we got here, an error was delivered
-            XCTAssertEqual(error as? TestError, .intentional)
+            #expect(error as? TestError == .intentional)
         }
 
-        XCTAssertTrue(coordinator.isCompleted)
+        #expect(coordinator.isCompleted)
     }
 
     // MARK: - Fresh Coordinator State
 
-    func testNewCoordinatorIsNotCompleted() {
+    @Test
+    func newCoordinatorIsNotCompleted() {
         let coordinator = ContinuationCoordinator<String>()
-        XCTAssertFalse(coordinator.isCompleted)
+        #expect(!coordinator.isCompleted)
     }
 
     // MARK: - Test Helpers

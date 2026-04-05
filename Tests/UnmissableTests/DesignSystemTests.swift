@@ -1,16 +1,19 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 @MainActor
-final class DesignSystemTests: XCTestCase {
+struct DesignSystemTests {
     // MARK: - UMButtonStyle.Variant
 
-    func testButtonStyleVariantHasFourCases() {
+    @Test
+    func buttonStyleVariantHasFourCases() {
         let cases: [UMButtonStyle.Variant] = [.primary, .secondary, .ghost, .danger]
-        XCTAssertEqual(cases, [.primary, .secondary, .ghost, .danger])
+        #expect(cases == [.primary, .secondary, .ghost, .danger])
     }
 
-    func testButtonStyleVariantCasesAreDistinct() {
+    @Test
+    func buttonStyleVariantCasesAreDistinct() {
         let primary = UMButtonStyle.Variant.primary
         let secondary = UMButtonStyle.Variant.secondary
         let ghost = UMButtonStyle.Variant.ghost
@@ -20,18 +23,20 @@ final class DesignSystemTests: XCTestCase {
             "\(primary)", "\(secondary)", "\(ghost)", "\(danger)",
         ]
         let uniqueCount = Set(mirror).count
-        XCTAssertEqual(uniqueCount, 4, "All button variants must be distinct")
-        XCTAssertEqual(mirror.first, "primary")
+        #expect(uniqueCount == 4, "All button variants must be distinct")
+        #expect(mirror.first == "primary")
     }
 
     // MARK: - UMButtonStyle.Size
 
-    func testButtonStyleSizeHasFourCases() {
+    @Test
+    func buttonStyleSizeHasFourCases() {
         let cases: [UMButtonStyle.Size] = [.sm, .md, .lg, .icon]
-        XCTAssertEqual(cases, [.sm, .md, .lg, .icon])
+        #expect(cases == [.sm, .md, .lg, .icon])
     }
 
-    func testButtonStyleSizeCasesAreDistinct() {
+    @Test
+    func buttonStyleSizeCasesAreDistinct() {
         let sm = UMButtonStyle.Size.sm
         let md = UMButtonStyle.Size.md
         let lg = UMButtonStyle.Size.lg
@@ -39,140 +44,155 @@ final class DesignSystemTests: XCTestCase {
 
         let mirror = ["\(sm)", "\(md)", "\(lg)", "\(icon)"]
         let uniqueCount = Set(mirror).count
-        XCTAssertEqual(uniqueCount, 4, "All button sizes must be distinct")
-        XCTAssertEqual(mirror.first, "sm")
+        #expect(uniqueCount == 4, "All button sizes must be distinct")
+        #expect(mirror.first == "sm")
     }
 
     // MARK: - UMBadge.Variant
 
-    func testBadgeVariantHasFiveCases() {
+    @Test
+    func badgeVariantHasFiveCases() {
         let cases: [UMBadge.Variant] = [.accent, .success, .warning, .error, .neutral]
-        XCTAssertEqual(cases, [.accent, .success, .warning, .error, .neutral])
+        #expect(cases == [.accent, .success, .warning, .error, .neutral])
     }
 
-    func testBadgeVariantCasesAreDistinct() {
+    @Test
+    func badgeVariantCasesAreDistinct() {
         let all: [UMBadge.Variant] = [.accent, .success, .warning, .error, .neutral]
         let names = all.map { "\($0)" }
         let uniqueCount = Set(names).count
-        XCTAssertEqual(uniqueCount, 5, "All badge variants must be distinct")
-        XCTAssertEqual(names.first, "accent")
+        #expect(uniqueCount == 5, "All badge variants must be distinct")
+        #expect(names.first == "accent")
     }
 
     // MARK: - UMStatusIndicator.Status
 
-    func testStatusIndicatorHasFourCases() {
+    @Test
+    func statusIndicatorHasFourCases() {
         let cases: [UMStatusIndicator.Status] = [.connected, .connecting, .disconnected, .error]
-        XCTAssertEqual(cases, [.connected, .connecting, .disconnected, .error])
+        #expect(cases == [.connected, .connecting, .disconnected, .error])
     }
 
-    func testStatusIndicatorCasesAreDistinct() {
+    @Test
+    func statusIndicatorCasesAreDistinct() {
         let all: [UMStatusIndicator.Status] = [.connected, .connecting, .disconnected, .error]
         let names = all.map { "\($0)" }
         let uniqueCount = Set(names).count
-        XCTAssertEqual(uniqueCount, 4, "All status indicator cases must be distinct")
-        XCTAssertEqual(names.first, "connected")
+        #expect(uniqueCount == 4, "All status indicator cases must be distinct")
+        #expect(names.first == "connected")
     }
 
     // MARK: - UMCardModifier.Style
 
-    func testCardModifierStyleHasThreeCases() {
+    @Test
+    func cardModifierStyleHasThreeCases() {
         let cases: [UMCardModifier.Style] = [.glass, .elevated, .flat]
-        XCTAssertEqual(cases, [.glass, .elevated, .flat])
+        #expect(cases == [.glass, .elevated, .flat])
     }
 
-    func testCardModifierStyleCasesAreDistinct() {
+    @Test
+    func cardModifierStyleCasesAreDistinct() {
         let all: [UMCardModifier.Style] = [.glass, .elevated, .flat]
         let names = all.map { "\($0)" }
         let uniqueCount = Set(names).count
-        XCTAssertEqual(uniqueCount, 3, "All card modifier styles must be distinct")
-        XCTAssertEqual(names.first, "glass")
+        #expect(uniqueCount == 3, "All card modifier styles must be distinct")
+        #expect(names.first == "glass")
     }
 
     // MARK: - UMBadge Init
 
-    func testBadgeInitWithEachVariantDoesNotCrash() {
+    @Test
+    func badgeInitWithEachVariantDoesNotCrash() {
         let variants: [UMBadge.Variant] = [.accent, .success, .warning, .error, .neutral]
         for variant in variants {
             let badge = UMBadge("Test", variant: variant)
-            XCTAssertEqual(badge.text, "Test")
-            XCTAssertEqual(badge.variant, variant)
+            #expect(badge.text == "Test")
+            #expect(badge.variant == variant)
         }
     }
 
-    func testBadgeDefaultVariantIsAccent() {
+    @Test
+    func badgeDefaultVariantIsAccent() {
         let badge = UMBadge("Default")
-        XCTAssertEqual(badge.variant, .accent)
+        #expect(badge.variant == .accent)
     }
 
     // MARK: - UMStatusIndicator Init
 
-    func testStatusIndicatorInitWithEachStatusDoesNotCrash() {
+    @Test
+    func statusIndicatorInitWithEachStatusDoesNotCrash() {
         let statuses: [UMStatusIndicator.Status] = [
             .connected, .connecting, .disconnected, .error,
         ]
         for status in statuses {
             let indicator = UMStatusIndicator(status)
-            XCTAssertEqual(indicator.status, status)
-            XCTAssertEqual(indicator.size, 10, "Default size should be 10")
+            #expect(indicator.status == status)
+            #expect(indicator.size == 10, "Default size should be 10")
         }
     }
 
-    func testStatusIndicatorCustomSize() {
+    @Test
+    func statusIndicatorCustomSize() {
         let indicator = UMStatusIndicator(.connected, size: 20)
-        XCTAssertEqual(indicator.size, 20)
+        #expect(indicator.size == 20)
     }
 
     // MARK: - AccentColor Enum Completeness
 
-    func testAccentColorHasSevenCases() {
+    @Test
+    func accentColorHasSevenCases() {
         let allCases = AccentColor.allCases
-        XCTAssertEqual(allCases, [.blue, .cyan, .green, .magenta, .orange, .violet, .red])
+        #expect(allCases == [.blue, .cyan, .green, .magenta, .orange, .violet, .red])
     }
 
-    func testAccentColorAllCasesHaveNonEmptyDisplayName() {
+    @Test
+    func accentColorAllCasesHaveNonEmptyDisplayName() {
         for accent in AccentColor.allCases {
-            XCTAssertEqual(
-                accent.displayName,
-                accent.rawValue.capitalized,
+            #expect(
+                accent.displayName == accent.rawValue.capitalized,
                 "\(accent) should have displayName matching capitalized rawValue",
             )
         }
     }
 
-    func testAccentColorExpectedCases() {
+    @Test
+    func accentColorExpectedCases() {
         let expected: [AccentColor] = [.blue, .cyan, .green, .magenta, .orange, .violet, .red]
-        XCTAssertEqual(Set(AccentColor.allCases), Set(expected))
+        #expect(Set(AccentColor.allCases) == Set(expected))
     }
 
     // MARK: - ThemeMode Enum Completeness
 
-    func testThemeModeHasSixCases() {
+    @Test
+    func themeModeHasSixCases() {
         let allCases = ThemeMode.allCases
-        XCTAssertEqual(
-            allCases,
-            [.system, .light, .darkBlue, .darkPurple, .darkBrown, .darkBlack],
+        #expect(
+            allCases == [.system, .light, .darkBlue, .darkPurple, .darkBrown, .darkBlack],
         )
     }
 
-    func testThemeModeAllCasesHaveNonEmptyDisplayName() {
+    @Test
+    func themeModeAllCasesHaveNonEmptyDisplayName() {
         for mode in ThemeMode.allCases {
-            XCTAssertFalse(
-                mode.displayName.isEmpty,
+            #expect(
+                !mode.displayName.isEmpty,
                 "\(mode) should have a non-empty displayName",
             )
         }
-        XCTAssertEqual(ThemeMode.system.displayName, "System")
-        XCTAssertEqual(ThemeMode.light.displayName, "Light")
+        #expect(ThemeMode.system.displayName == "System")
+        #expect(ThemeMode.light.displayName == "Light")
     }
 
-    func testThemeModeExpectedCases() {
+    @Test
+    func themeModeExpectedCases() {
         let expected: [ThemeMode] = [.system, .light, .darkBlue, .darkPurple, .darkBrown, .darkBlack]
-        XCTAssertEqual(Set(ThemeMode.allCases), Set(expected))
+        #expect(Set(ThemeMode.allCases) == Set(expected))
     }
 
     // MARK: - DesignTokens Factory
 
-    func testDesignTokensFactoryProducesCompleteObject() {
+    @Test
+    func designTokensFactoryProducesCompleteObject() {
         let tokens = DesignTokens.tokens(for: .darkBlue, accent: .blue)
 
         // Colors — surface hierarchy
@@ -214,15 +234,15 @@ final class DesignSystemTests: XCTestCase {
         _ = tokens.colors.errorSubtle
     }
 
-    func testDesignTokensFactoryForEveryThemeAndAccent() {
+    @Test
+    func designTokensFactoryForEveryThemeAndAccent() {
         let themes: [ResolvedTheme] = [.light, .darkBlue, .darkPurple, .darkBrown, .darkBlack]
         for theme in themes {
             for accent in AccentColor.allCases {
                 let tokens = DesignTokens.tokens(for: theme, accent: accent)
                 // Verify accent color matches the input accent
-                XCTAssertEqual(
-                    tokens.colors.accent,
-                    accent.color,
+                #expect(
+                    tokens.colors.accent == accent.color,
                     "Accent color mismatch for theme=\(theme), accent=\(accent)",
                 )
             }
@@ -231,7 +251,8 @@ final class DesignSystemTests: XCTestCase {
 
     // MARK: - DesignFonts
 
-    func testDesignFontsStandardSingleton() {
+    @Test
+    func designFontsStandardSingleton() {
         let fonts = DesignFonts.standard
         // Access all font fields to verify structural integrity
         _ = fonts.title1
@@ -249,27 +270,28 @@ final class DesignSystemTests: XCTestCase {
 
     // MARK: - DesignSpacing
 
-    func testDesignSpacingStandardSingleton() {
+    @Test
+    func designSpacingStandardSingleton() {
         let spacing = DesignSpacing.standard
-        XCTAssertEqual(spacing.xs, 4)
-        XCTAssertEqual(spacing.sm, 8)
-        XCTAssertEqual(spacing.md, 12)
-        XCTAssertEqual(spacing.lg, 16)
-        XCTAssertEqual(spacing.xl, 20)
-        XCTAssertEqual(spacing.xxl, 24)
-        XCTAssertEqual(spacing.xxxl, 32)
+        #expect(spacing.xs == 4)
+        #expect(spacing.sm == 8)
+        #expect(spacing.md == 12)
+        #expect(spacing.lg == 16)
+        #expect(spacing.xl == 20)
+        #expect(spacing.xxl == 24)
+        #expect(spacing.xxxl == 32)
     }
 
-    func testDesignSpacingValuesAreStrictlyIncreasing() {
+    @Test
+    func designSpacingValuesAreStrictlyIncreasing() {
         let spacing = DesignSpacing.standard
         let values = [
             spacing.xs, spacing.sm, spacing.md,
             spacing.lg, spacing.xl, spacing.xxl, spacing.xxxl,
         ]
         for i in 1 ..< values.count {
-            XCTAssertGreaterThan(
-                values[i],
-                values[i - 1],
+            #expect(
+                values[i] > values[i - 1],
                 "Spacing scale must be strictly increasing at index \(i)",
             )
         }
@@ -277,61 +299,62 @@ final class DesignSystemTests: XCTestCase {
 
     // MARK: - DesignCorners
 
-    func testDesignCornersStandardValues() {
+    @Test
+    func designCornersStandardValues() {
         let corners = DesignCorners.standard
-        XCTAssertEqual(corners.sm, 6)
-        XCTAssertEqual(corners.md, 8)
-        XCTAssertEqual(corners.lg, 12)
-        XCTAssertEqual(corners.xl, 16)
-        XCTAssertEqual(corners.full, 999)
+        #expect(corners.sm == 6)
+        #expect(corners.md == 8)
+        #expect(corners.lg == 12)
+        #expect(corners.xl == 16)
+        #expect(corners.full == 999)
     }
 
-    func testDesignCornersScaleIsIncreasingExceptFull() {
+    @Test
+    func designCornersScaleIsIncreasingExceptFull() {
         let corners = DesignCorners.standard
         let scale = [corners.sm, corners.md, corners.lg, corners.xl]
         for i in 1 ..< scale.count {
-            XCTAssertGreaterThan(
-                scale[i],
-                scale[i - 1],
+            #expect(
+                scale[i] > scale[i - 1],
                 "Corner radius scale must be strictly increasing at index \(i)",
             )
         }
-        XCTAssertGreaterThan(corners.full, corners.xl, "full must exceed xl")
+        #expect(corners.full > corners.xl, "full must exceed xl")
     }
 
     // MARK: - DesignShadows ShadowSpec
 
-    func testShadowSpecDefaultXYAreZero() {
+    @Test
+    func shadowSpecDefaultXYAreZero() {
         let spec = DesignShadows.ShadowSpec(color: .black, radius: 10)
-        XCTAssertEqual(spec.x, 0, "Default x should be 0")
-        XCTAssertEqual(spec.y, 0, "Default y should be 0")
+        #expect(spec.x == 0, "Default x should be 0")
+        #expect(spec.y == 0, "Default y should be 0")
     }
 
-    func testShadowSpecExplicitXY() {
+    @Test
+    func shadowSpecExplicitXY() {
         let spec = DesignShadows.ShadowSpec(color: .black, radius: 10, x: 3, y: 5)
-        XCTAssertEqual(spec.x, 3)
-        XCTAssertEqual(spec.y, 5)
-        XCTAssertEqual(spec.radius, 10)
+        #expect(spec.x == 3)
+        #expect(spec.y == 5)
+        #expect(spec.radius == 10)
     }
 
-    func testDesignShadowsForEachTheme() {
+    @Test
+    func designShadowsForEachTheme() {
         let themes: [ResolvedTheme] = [.light, .darkBlue, .darkPurple, .darkBrown, .darkBlack]
         for theme in themes {
             let shadows = DesignShadows.shadows(for: theme)
             // Verify all three shadow specs have specific expected minimum radii
-            XCTAssertGreaterThanOrEqual(
-                shadows.soft.radius,
-                4,
+            #expect(
+                shadows.soft.radius >= 4,
                 "Soft shadow radius should be at least 4 for \(theme)",
             )
-            XCTAssertGreaterThanOrEqual(
-                shadows.hard.radius,
-                1,
+            #expect(
+                shadows.hard.radius >= 1,
                 "Hard shadow radius should be at least 1 for \(theme)",
             )
-            XCTAssertGreaterThanOrEqual(
-                shadows.glow.radius,
-                6,
+            #expect(
+                shadows.glow.radius >= 6,
                 "Glow shadow radius should be at least 6 for \(theme)",
             )
         }
@@ -339,7 +362,8 @@ final class DesignSystemTests: XCTestCase {
 
     // MARK: - DesignAnimations
 
-    func testDesignAnimationsStaticAccessors() {
+    @Test
+    func designAnimationsStaticAccessors() {
         _ = DesignAnimations.press
         _ = DesignAnimations.hover
         _ = DesignAnimations.content
@@ -349,26 +373,29 @@ final class DesignSystemTests: XCTestCase {
 
     // MARK: - DesignTracking
 
-    func testDesignTrackingValues() {
-        XCTAssertEqual(DesignTracking.sectionLabel, 1.5)
-        XCTAssertEqual(DesignTracking.tight, -0.2, accuracy: 0.001)
-        XCTAssertEqual(DesignTracking.normal, 0.0)
-        XCTAssertEqual(DesignTracking.wide, 0.5)
-        XCTAssertEqual(DesignTracking.wider, 1.0)
-        XCTAssertEqual(DesignTracking.header, 0.8, accuracy: 0.001)
+    @Test
+    func designTrackingValues() {
+        #expect(DesignTracking.sectionLabel == 1.5)
+        #expect(abs(DesignTracking.tight - -0.2) <= 0.001)
+        #expect(DesignTracking.normal == 0.0)
+        #expect(DesignTracking.wide == 0.5)
+        #expect(DesignTracking.wider == 1.0)
+        #expect(abs(DesignTracking.header - 0.8) <= 0.001)
     }
 
     // MARK: - UMButtonStyle Init
 
-    func testButtonStyleDefaultInit() {
+    @Test
+    func buttonStyleDefaultInit() {
         let style = UMButtonStyle()
-        XCTAssertEqual(style.variant, .primary, "Default variant should be primary")
-        XCTAssertEqual(style.size, .md, "Default size should be md")
+        #expect(style.variant == .primary, "Default variant should be primary")
+        #expect(style.size == .md, "Default size should be md")
     }
 
-    func testButtonStyleCustomInit() {
+    @Test
+    func buttonStyleCustomInit() {
         let style = UMButtonStyle(.danger, size: .lg)
-        XCTAssertEqual(style.variant, .danger)
-        XCTAssertEqual(style.size, .lg)
+        #expect(style.variant == .danger)
+        #expect(style.size == .lg)
     }
 }

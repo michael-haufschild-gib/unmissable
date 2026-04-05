@@ -1,7 +1,8 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
-final class GoogleCalendarModelsTests: XCTestCase {
+struct GoogleCalendarModelsTests {
     private let decoder = JSONDecoder()
 
     private static let fullEventEntryJSON = Data("""
@@ -63,50 +64,50 @@ final class GoogleCalendarModelsTests: XCTestCase {
 
     // MARK: - GCalEventEntry Decoding
 
-    func testGCalEventEntry_fullAPIResponse_decodesAllFields() throws {
+    @Test
+    func gCalEventEntry_fullAPIResponse_decodesAllFields() throws {
         let entry = try decoder.decode(GCalEventEntry.self, from: Self.fullEventEntryJSON)
 
-        XCTAssertEqual(entry.id, "abc123xyz")
-        XCTAssertEqual(entry.summary, "Weekly Design Sync")
-        XCTAssertEqual(entry.status, "confirmed")
-        XCTAssertEqual(entry.start?.dateTime, "2026-03-20T14:00:00-07:00")
-        XCTAssertEqual(entry.start?.timeZone, "America/Los_Angeles")
-        XCTAssertEqual(entry.end?.dateTime, "2026-03-20T15:00:00-07:00")
-        XCTAssertEqual(entry.organizer?.email, "design-lead@example.com")
-        XCTAssertEqual(entry.description, "Review latest mockups")
-        XCTAssertEqual(entry.location, "https://meet.google.com/abc-defg-hij")
-        XCTAssertEqual(entry.hangoutLink, "https://meet.google.com/abc-defg-hij")
+        #expect(entry.id == "abc123xyz")
+        #expect(entry.summary == "Weekly Design Sync")
+        #expect(entry.status == "confirmed")
+        #expect(entry.start?.dateTime == "2026-03-20T14:00:00-07:00")
+        #expect(entry.start?.timeZone == "America/Los_Angeles")
+        #expect(entry.end?.dateTime == "2026-03-20T15:00:00-07:00")
+        #expect(entry.organizer?.email == "design-lead@example.com")
+        #expect(entry.description == "Review latest mockups")
+        #expect(entry.location == "https://meet.google.com/abc-defg-hij")
+        #expect(entry.hangoutLink == "https://meet.google.com/abc-defg-hij")
 
         // Attendees
-        XCTAssertEqual(entry.attendees?.map(\.email), ["designer@example.com", "pm@example.com"])
-        XCTAssertEqual(entry.attendees?.last?.email, "pm@example.com")
-        let selfAttendee = try XCTUnwrap(entry.attendees?.first)
-        XCTAssertEqual(selfAttendee.email, "designer@example.com")
-        XCTAssertEqual(selfAttendee.displayName, "Designer")
-        XCTAssertEqual(selfAttendee.responseStatus, "accepted")
-        XCTAssertTrue(try XCTUnwrap(selfAttendee.isSelf))
-        XCTAssertFalse(try XCTUnwrap(selfAttendee.isOptional))
+        #expect(entry.attendees?.map(\.email) == ["designer@example.com", "pm@example.com"])
+        #expect(entry.attendees?.last?.email == "pm@example.com")
+        let selfAttendee = try #require(entry.attendees?.first)
+        #expect(selfAttendee.email == "designer@example.com")
+        #expect(selfAttendee.displayName == "Designer")
+        #expect(selfAttendee.responseStatus == "accepted")
+        #expect(try #require(selfAttendee.isSelf))
+        #expect(try !#require(selfAttendee.isOptional))
 
         // Conference data
-        XCTAssertEqual(
-            entry.conferenceData?.entryPoints?.map(\.entryPointType),
-            ["video", "phone"],
+        #expect(
+            entry.conferenceData?.entryPoints?.map(\.entryPointType) == ["video", "phone"],
         )
-        XCTAssertEqual(entry.conferenceData?.entryPoints?.last?.entryPointType, "phone")
-        XCTAssertEqual(
-            entry.conferenceData?.entryPoints?.first?.uri,
-            "https://meet.google.com/abc-defg-hij",
+        #expect(entry.conferenceData?.entryPoints?.last?.entryPointType == "phone")
+        #expect(
+            entry.conferenceData?.entryPoints?.first?.uri == "https://meet.google.com/abc-defg-hij",
         )
-        XCTAssertEqual(entry.conferenceData?.entryPoints?.first?.entryPointType, "video")
+        #expect(entry.conferenceData?.entryPoints?.first?.entryPointType == "video")
 
         // Attachments
-        XCTAssertEqual(entry.attachments?.map(\.fileId), ["xyz"])
-        XCTAssertEqual(entry.attachments?.first?.mimeType, "application/octet-stream")
-        XCTAssertEqual(entry.attachments?.first?.title, "Mockups.fig")
-        XCTAssertEqual(entry.attachments?.first?.fileId, "xyz")
+        #expect(entry.attachments?.map(\.fileId) == ["xyz"])
+        #expect(entry.attachments?.first?.mimeType == "application/octet-stream")
+        #expect(entry.attachments?.first?.title == "Mockups.fig")
+        #expect(entry.attachments?.first?.fileId == "xyz")
     }
 
-    func testGCalEventEntry_minimalEvent_decodesWithNils() throws {
+    @Test
+    func gCalEventEntry_minimalEvent_decodesWithNils() throws {
         let json = Data("""
         {
             "id": "minimal-1",
@@ -116,21 +117,22 @@ final class GoogleCalendarModelsTests: XCTestCase {
 
         let entry = try decoder.decode(GCalEventEntry.self, from: json)
 
-        XCTAssertEqual(entry.id, "minimal-1")
-        XCTAssertEqual(entry.summary, "Quick Chat")
-        XCTAssertNil(entry.status)
-        XCTAssertNil(entry.start)
-        XCTAssertNil(entry.end)
-        XCTAssertNil(entry.organizer)
-        XCTAssertNil(entry.description)
-        XCTAssertNil(entry.location)
-        XCTAssertNil(entry.attendees)
-        XCTAssertNil(entry.conferenceData)
-        XCTAssertNil(entry.hangoutLink)
-        XCTAssertNil(entry.attachments)
+        #expect(entry.id == "minimal-1")
+        #expect(entry.summary == "Quick Chat")
+        #expect(entry.status == nil)
+        #expect(entry.start == nil)
+        #expect(entry.end == nil)
+        #expect(entry.organizer == nil)
+        #expect(entry.description == nil)
+        #expect(entry.location == nil)
+        #expect(entry.attendees == nil)
+        #expect(entry.conferenceData == nil)
+        #expect(entry.hangoutLink == nil)
+        #expect(entry.attachments == nil)
     }
 
-    func testGCalEventEntry_allDayEvent_usesDateNotDateTime() throws {
+    @Test
+    func gCalEventEntry_allDayEvent_usesDateNotDateTime() throws {
         let json = Data("""
         {
             "id": "allday-1",
@@ -143,15 +145,16 @@ final class GoogleCalendarModelsTests: XCTestCase {
 
         let entry = try decoder.decode(GCalEventEntry.self, from: json)
 
-        XCTAssertNil(entry.start?.dateTime)
-        XCTAssertEqual(entry.start?.date, "2026-12-25")
-        XCTAssertNil(entry.end?.dateTime)
-        XCTAssertEqual(entry.end?.date, "2026-12-26")
+        #expect(entry.start?.dateTime == nil)
+        #expect(entry.start?.date == "2026-12-25")
+        #expect(entry.end?.dateTime == nil)
+        #expect(entry.end?.date == "2026-12-26")
     }
 
     // MARK: - GCalAttendee CodingKeys
 
-    func testGCalAttendee_codingKeys_mapPythonStyleFields() throws {
+    @Test
+    func gCalAttendee_codingKeys_mapPythonStyleFields() throws {
         // The API uses "optional", "organizer", "self" as field names.
         // CodingKeys map these to isOptional, isOrganizer, isSelf.
         let json = Data("""
@@ -167,14 +170,15 @@ final class GoogleCalendarModelsTests: XCTestCase {
 
         let attendee = try decoder.decode(GCalAttendee.self, from: json)
 
-        XCTAssertTrue(try XCTUnwrap(attendee.isOptional))
-        XCTAssertTrue(try XCTUnwrap(attendee.isOrganizer))
-        XCTAssertFalse(try XCTUnwrap(attendee.isSelf))
+        #expect(try #require(attendee.isOptional))
+        #expect(try #require(attendee.isOrganizer))
+        #expect(try !#require(attendee.isSelf))
     }
 
     // MARK: - Forward Compatibility (Unknown Fields)
 
-    func testGCalEventEntry_unknownFieldsAreIgnored() throws {
+    @Test
+    func gCalEventEntry_unknownFieldsAreIgnored() throws {
         let json = Data("""
         {
             "id": "compat-1",
@@ -188,11 +192,12 @@ final class GoogleCalendarModelsTests: XCTestCase {
         """.utf8)
 
         let entry = try decoder.decode(GCalEventEntry.self, from: json)
-        XCTAssertEqual(entry.id, "compat-1")
-        XCTAssertEqual(entry.summary, "Forward Compat Event")
+        #expect(entry.id == "compat-1")
+        #expect(entry.summary == "Forward Compat Event")
     }
 
-    func testGCalAttendee_unknownFieldsIgnored() throws {
+    @Test
+    func gCalAttendee_unknownFieldsIgnored() throws {
         let json = Data("""
         {
             "email": "forward@example.com",
@@ -202,12 +207,13 @@ final class GoogleCalendarModelsTests: XCTestCase {
         """.utf8)
 
         let attendee = try decoder.decode(GCalAttendee.self, from: json)
-        XCTAssertEqual(attendee.email, "forward@example.com")
+        #expect(attendee.email == "forward@example.com")
     }
 
     // MARK: - Null vs Missing Fields
 
-    func testGCalEventEntry_nullSummaryDecodesAsNil() throws {
+    @Test
+    func gCalEventEntry_nullSummaryDecodesAsNil() throws {
         let json = Data("""
         {
             "id": "null-summary",
@@ -216,10 +222,11 @@ final class GoogleCalendarModelsTests: XCTestCase {
         """.utf8)
 
         let entry = try decoder.decode(GCalEventEntry.self, from: json)
-        XCTAssertNil(entry.summary)
+        #expect(entry.summary == nil)
     }
 
-    func testGCalEventEntry_emptyAttendeesDecodesAsEmptyArray() throws {
+    @Test
+    func gCalEventEntry_emptyAttendeesDecodesAsEmptyArray() throws {
         let json = Data("""
         {
             "id": "empty-attendees",
@@ -229,12 +236,13 @@ final class GoogleCalendarModelsTests: XCTestCase {
         """.utf8)
 
         let entry = try decoder.decode(GCalEventEntry.self, from: json)
-        XCTAssertEqual(entry.attendees, [])
+        #expect(entry.attendees.isEmpty)
     }
 
     // MARK: - GCalCalendarListResponse
 
-    func testGCalCalendarListResponse_decodesCalendarList() throws {
+    @Test
+    func gCalCalendarListResponse_decodesCalendarList() throws {
         let json = Data("""
         {
             "items": [
@@ -256,20 +264,21 @@ final class GoogleCalendarModelsTests: XCTestCase {
 
         let response = try decoder.decode(GCalCalendarListResponse.self, from: json)
 
-        XCTAssertEqual(response.items?.map(\.id), ["primary", "team@group.calendar.google.com"])
-        XCTAssertEqual(response.items?.first?.summary, "My Calendar")
-        XCTAssertTrue(try XCTUnwrap(response.items?.first?.primary))
-        XCTAssertEqual(response.items?.first?.colorId, "1")
+        #expect(response.items?.map(\.id) == ["primary", "team@group.calendar.google.com"])
+        #expect(response.items?.first?.summary == "My Calendar")
+        #expect(try #require(response.items?.first?.primary))
+        #expect(response.items?.first?.colorId == "1")
 
         let teamCal = response.items?[1]
-        XCTAssertEqual(teamCal?.id, "team@group.calendar.google.com")
-        XCTAssertFalse(try XCTUnwrap(teamCal?.primary))
-        XCTAssertNil(teamCal?.description)
+        #expect(teamCal?.id == "team@group.calendar.google.com")
+        #expect(try !#require(teamCal?.primary))
+        #expect(teamCal?.description == nil)
     }
 
     // MARK: - GCalEventListResponse
 
-    func testGCalEventListResponse_withPagination_decodesNextPageToken() throws {
+    @Test
+    func gCalEventListResponse_withPagination_decodesNextPageToken() throws {
         let json = Data("""
         {
             "items": [
@@ -284,11 +293,12 @@ final class GoogleCalendarModelsTests: XCTestCase {
 
         let response = try decoder.decode(GCalEventListResponse.self, from: json)
 
-        XCTAssertEqual(response.items?.map(\.id), ["event-1"])
-        XCTAssertEqual(response.nextPageToken, "CiAKGjBpNDd2Nmp2Zml2cXRwYjBpOXA")
+        #expect(response.items?.map(\.id) == ["event-1"])
+        #expect(response.nextPageToken == "CiAKGjBpNDd2Nmp2Zml2cXRwYjBpOXA")
     }
 
-    func testGCalEventListResponse_emptyItems_decodesAsEmptyArray() throws {
+    @Test
+    func gCalEventListResponse_emptyItems_decodesAsEmptyArray() throws {
         let json = Data("""
         {
             "items": []
@@ -297,7 +307,7 @@ final class GoogleCalendarModelsTests: XCTestCase {
 
         let response = try decoder.decode(GCalEventListResponse.self, from: json)
 
-        XCTAssertEqual(response.items, [])
-        XCTAssertNil(response.nextPageToken)
+        #expect(response.items.isEmpty)
+        #expect(response.nextPageToken == nil)
     }
 }

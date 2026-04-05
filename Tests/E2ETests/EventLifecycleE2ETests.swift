@@ -1,27 +1,21 @@
 import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 /// E2E tests for the complete event lifecycle: DB → fetch → schedule → overlay.
 /// These tests exercise the full production code path with a real (test-scoped) database.
 @MainActor
-final class EventLifecycleE2ETests: XCTestCase {
-    private var env: E2ETestEnvironment!
+struct EventLifecycleE2ETests {
+    private let env: E2ETestEnvironment
 
-    override func setUp() async throws {
-        try await super.setUp()
+    init() async throws {
         env = try await E2ETestEnvironment()
-    }
-
-    override func tearDown() async throws {
-        env.tearDown()
-        env = nil
-        try await super.tearDown()
     }
 
     // MARK: - Full Lifecycle: Save → Fetch → Schedule → Verify
 
-    func testEventSavedToDatabaseIsScheduledForOverlay() async throws {
+    @Test
+    func eventSavedToDatabaseIsScheduledForOverlay() async throws {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-lifecycle-1",
             title: "Lifecycle Test Meeting",
@@ -33,9 +27,9 @@ final class EventLifecycleE2ETests: XCTestCase {
 
         // Fetch from database — verify round-trip
         let fetched = try await env.fetchUpcomingEvents()
-        let fetchedEvent = try XCTUnwrap(fetched.first)
-        XCTAssertEqual(fetchedEvent.id, event.id)
-        XCTAssertEqual(fetchedEvent.title, event.title)
+        let fetchedEvent = try #require(fetched.first)
+        #expect(fetchedEvent.id == event.id)
+        #expect(fetchedEvent.title == event.title)
 
         // Schedule alerts from DB events
         await env.eventScheduler.startScheduling(
@@ -43,14 +37,15 @@ final class EventLifecycleE2ETests: XCTestCase {
         )
 
         // Verify alert was created
-        let alert = try XCTUnwrap(
+        let alert = try #require(
             env.eventScheduler.scheduledAlerts.first,
             "Should have at least one scheduled alert",
         )
-        XCTAssertEqual(alert.event.id, event.id)
+        #expect(alert.event.id == event.id)
     }
 
-    func testMultipleEventsSavedAndScheduledInOrder() async throws {
+    @Test
+    func multipleEventsSavedAndScheduledInOrder() async throws {
         let events = E2EEventBuilder.eventBatch(
             count: 5,
             startingMinutesFromNow: 10,
@@ -61,23 +56,24 @@ final class EventLifecycleE2ETests: XCTestCase {
 
         // All 5 events should be fetched and scheduled
         let fetched = try await env.fetchUpcomingEvents()
-        XCTAssertEqual(fetched.map(\.id), (0 ..< 5).map { "e2e-batch-\($0)" })
+        #expect(fetched.map(\.id) == (0 ..< 5).map { "e2e-batch-\($0)" })
 
         // Alerts should be sorted by trigger time (earliest first)
         let triggerTimes = env.eventScheduler.scheduledAlerts.map(\.triggerDate)
         let sorted = triggerTimes.sorted()
-        XCTAssertEqual(triggerTimes, sorted)
+        #expect(triggerTimes == sorted)
 
         // Verify each event has a matching alert
         for event in events {
             let hasAlert = env.eventScheduler.scheduledAlerts.contains { $0.event.id == event.id }
-            XCTAssertTrue(hasAlert, "Event \(event.id) should have a scheduled alert")
+            #expect(hasAlert, "Event \(event.id) should have a scheduled alert")
         }
     }
 
     // MARK: - Past Events Should Not Schedule
 
-    func testPastEventSavedButNotScheduled() async throws {
+    @Test
+    func pastEventSavedButNotScheduled() async throws {
         let pastEvent = E2EEventBuilder.pastEvent(id: "e2e-past-no-schedule")
         let futureEvent = E2EEventBuilder.futureEvent(
             id: "e2e-future-yes-schedule",
@@ -91,25 +87,26 @@ final class EventLifecycleE2ETests: XCTestCase {
             from: Date().addingTimeInterval(-86_400),
             to: Date().addingTimeInterval(86_400),
         )
-        XCTAssertEqual(Set(allEvents.map(\.id)), Set([pastEvent.id, futureEvent.id]))
+        #expect(Set(allEvents.map(\.id)) == Set([pastEvent.id, futureEvent.id]))
 
         // But only the future event should appear in upcoming fetch
         let upcoming = try await env.fetchUpcomingEvents()
-        let upcomingEvent = try XCTUnwrap(upcoming.first)
-        XCTAssertEqual(upcomingEvent.id, futureEvent.id)
+        let upcomingEvent = try #require(upcoming.first)
+        #expect(upcomingEvent.id == futureEvent.id)
 
         // Schedule from upcoming — only future event gets alerts
         await env.eventScheduler.startScheduling(
             events: upcoming, overlayManager: env.overlayManager,
         )
         let alertEventIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
-        XCTAssert(alertEventIds.isSuperset(of: [futureEvent.id]))
-        XCTAssert(alertEventIds.isDisjoint(with: [pastEvent.id]))
+        #expect(alertEventIds.isSuperset(of: [futureEvent.id]))
+        #expect(alertEventIds.isDisjoint(with: [pastEvent.id]))
     }
 
     // MARK: - Started Meetings
 
-    func testStartedMeetingsFetchedCorrectly() async throws {
+    @Test
+    func startedMeetingsFetchedCorrectly() async throws {
         let startedEvent = E2EEventBuilder.startedEvent(
             id: "e2e-started-1",
             title: "In Progress Meeting",
@@ -125,17 +122,18 @@ final class EventLifecycleE2ETests: XCTestCase {
         try await env.seedEvents([startedEvent, futureEvent, pastEvent])
 
         let started = try await env.fetchStartedMeetings()
-        let startedMatch = try XCTUnwrap(started.first)
-        XCTAssertEqual(startedMatch.id, startedEvent.id)
+        let startedMatch = try #require(started.first)
+        #expect(startedMatch.id == startedEvent.id)
 
         let upcoming = try await env.fetchUpcomingEvents()
-        let upcomingMatch = try XCTUnwrap(upcoming.first)
-        XCTAssertEqual(upcomingMatch.id, futureEvent.id)
+        let upcomingMatch = try #require(upcoming.first)
+        #expect(upcomingMatch.id == futureEvent.id)
     }
 
     // MARK: - All-Day Events
 
-    func testAllDayEventsExcludedFromScheduling() async throws {
+    @Test
+    func allDayEventsExcludedFromScheduling() async throws {
         let allDayEvent = E2EEventBuilder.allDayEvent(id: "e2e-allday-1")
         let regularEvent = E2EEventBuilder.futureEvent(
             id: "e2e-regular-1",
@@ -149,7 +147,7 @@ final class EventLifecycleE2ETests: XCTestCase {
             from: Date().addingTimeInterval(-86_400),
             to: Date().addingTimeInterval(86_400),
         )
-        XCTAssertGreaterThanOrEqual(allEvents.count, 1)
+        #expect(allEvents.count >= 1)
 
         // Schedule should process the regular event
         let upcoming = try await env.fetchUpcomingEvents()
@@ -160,12 +158,13 @@ final class EventLifecycleE2ETests: XCTestCase {
         // The all-day event may or may not appear in upcoming depending on
         // its start time relative to now, but the regular event should be scheduled
         let hasRegularAlert = env.eventScheduler.scheduledAlerts.contains { $0.event.id == regularEvent.id }
-        XCTAssertTrue(hasRegularAlert)
+        #expect(hasRegularAlert)
     }
 
     // MARK: - Database Round-Trip Fidelity
 
-    func testEventDataPreservedThroughDatabaseRoundTrip() async throws {
+    @Test
+    func eventDataPreservedThroughDatabaseRoundTrip() async throws {
         let originalEvent = Event(
             id: "e2e-roundtrip",
             title: "Round Trip Test Meeting",
@@ -186,23 +185,20 @@ final class EventLifecycleE2ETests: XCTestCase {
         try await env.seedEvents([originalEvent])
         let fetched = try await env.fetchUpcomingEvents()
 
-        let roundTripped = try XCTUnwrap(fetched.first { $0.id == originalEvent.id })
-        XCTAssertEqual(roundTripped.title, originalEvent.title)
-        XCTAssertEqual(roundTripped.organizer, originalEvent.organizer)
-        XCTAssertEqual(roundTripped.calendarId, originalEvent.calendarId)
-        XCTAssertEqual(roundTripped.isAllDay, originalEvent.isAllDay)
+        let roundTripped = try #require(fetched.first { $0.id == originalEvent.id })
+        #expect(roundTripped.title == originalEvent.title)
+        #expect(roundTripped.organizer == originalEvent.organizer)
+        #expect(roundTripped.calendarId == originalEvent.calendarId)
+        #expect(roundTripped.isAllDay == originalEvent.isAllDay)
         // Date comparison with tolerance for DB serialization
-        XCTAssertLessThan(
-            abs(roundTripped.startDate.timeIntervalSince(originalEvent.startDate)), 1.0,
-        )
-        XCTAssertLessThan(
-            abs(roundTripped.endDate.timeIntervalSince(originalEvent.endDate)), 1.0,
-        )
+        #expect(abs(roundTripped.startDate.timeIntervalSince(originalEvent.startDate)) < 1.0)
+        #expect(abs(roundTripped.endDate.timeIntervalSince(originalEvent.endDate)) < 1.0)
     }
 
     // MARK: - Online Meeting Links Preserved
 
-    func testOnlineMeetingLinksPreservedThroughDatabase() async throws {
+    @Test
+    func onlineMeetingLinksPreservedThroughDatabase() async throws {
         let meetEvent = E2EEventBuilder.onlineMeeting(
             id: "e2e-online-roundtrip",
             title: "Google Meet E2E",
@@ -213,17 +209,18 @@ final class EventLifecycleE2ETests: XCTestCase {
         try await env.seedEvents([meetEvent])
         let fetched = try await env.fetchUpcomingEvents()
 
-        let roundTripped = try XCTUnwrap(fetched.first)
-        XCTAssertEqual(roundTripped.id, meetEvent.id)
-        XCTAssertTrue(LinkParser().isOnlineMeeting(roundTripped))
-        let link = try XCTUnwrap(LinkParser().primaryLink(for: roundTripped))
-        XCTAssertEqual(link.host, "meet.google.com")
-        XCTAssertEqual(roundTripped.provider, .meet)
+        let roundTripped = try #require(fetched.first)
+        #expect(roundTripped.id == meetEvent.id)
+        #expect(LinkParser().isOnlineMeeting(roundTripped))
+        let link = try #require(LinkParser().primaryLink(for: roundTripped))
+        #expect(link.host == "meet.google.com")
+        #expect(roundTripped.provider == .meet)
     }
 
     // MARK: - Calendar Isolation
 
-    func testEventsIsolatedByCalendar() async throws {
+    @Test
+    func eventsIsolatedByCalendar() async throws {
         let cal1Events = (0 ..< 3).map { i in
             E2EEventBuilder.futureEvent(
                 id: "e2e-cal1-\(i)",
@@ -247,13 +244,14 @@ final class EventLifecycleE2ETests: XCTestCase {
         try await env.databaseManager.deleteEventsForCalendar("calendar-1")
 
         let remaining = try await env.fetchUpcomingEvents()
-        XCTAssertEqual(Set(remaining.map(\.id)), Set(["e2e-cal2-0", "e2e-cal2-1"]))
-        XCTAssertEqual(Set(remaining.map(\.calendarId)), Set(["calendar-2"]))
+        #expect(Set(remaining.map(\.id)) == Set(["e2e-cal2-0", "e2e-cal2-1"]))
+        #expect(Set(remaining.map(\.calendarId)) == Set(["calendar-2"]))
     }
 
     // MARK: - Replace Events for Calendar
 
-    func testReplaceEventsAtomicallyUpdatesDatabaseAndScheduler() async throws {
+    @Test
+    func replaceEventsAtomicallyUpdatesDatabaseAndScheduler() async throws {
         let originalEvents = [
             E2EEventBuilder.futureEvent(
                 id: "e2e-replace-old-1",
@@ -272,7 +270,7 @@ final class EventLifecycleE2ETests: XCTestCase {
         // Seed original events and schedule
         try await env.seedAndSchedule(originalEvents)
         let originalAlertIds = Set(env.eventScheduler.scheduledAlerts.map(\.event.id))
-        XCTAssertEqual(originalAlertIds, Set(["e2e-replace-old-1", "e2e-replace-old-2"]))
+        #expect(originalAlertIds == Set(["e2e-replace-old-1", "e2e-replace-old-2"]))
 
         // Replace with new events (simulating a sync update)
         let newEvents = [
@@ -293,15 +291,15 @@ final class EventLifecycleE2ETests: XCTestCase {
         )
 
         // Only the new event should be scheduled
-        let newAlertEvent = try XCTUnwrap(env.eventScheduler.scheduledAlerts.first)
-        XCTAssertEqual(newAlertEvent.event.id, "e2e-replace-new-1")
+        let newAlertEvent = try #require(env.eventScheduler.scheduledAlerts.first)
+        #expect(newAlertEvent.event.id == "e2e-replace-new-1")
 
         // Old events should be gone from DB
         let all = try await env.databaseManager.fetchEvents(
             from: Date(), to: Date().addingTimeInterval(86_400),
         )
         let oldIds = all.map(\.id)
-        XCTAssertFalse(oldIds.contains("e2e-replace-old-1"))
-        XCTAssertFalse(oldIds.contains("e2e-replace-old-2"))
+        #expect(!oldIds.contains("e2e-replace-old-1"))
+        #expect(!oldIds.contains("e2e-replace-old-2"))
     }
 }

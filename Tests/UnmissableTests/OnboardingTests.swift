@@ -1,12 +1,13 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 @MainActor
-final class OnboardingTests: XCTestCase {
-    private var preferencesManager: PreferencesManager!
-    private var testSuiteName: String!
+struct OnboardingTests {
+    private var preferencesManager: PreferencesManager
+    private let testSuiteName: String
 
-    override func setUp() async throws {
+    init() {
         testSuiteName = "com.unmissable.onboarding-test.\(UUID().uuidString)"
         // swiftlint:disable:next force_unwrapping
         let testDefaults = UserDefaults(suiteName: testSuiteName)!
@@ -15,52 +16,46 @@ final class OnboardingTests: XCTestCase {
             themeManager: ThemeManager(),
             loginItemManager: TestSafeLoginItemManager(),
         )
-        try await super.setUp()
-    }
-
-    override func tearDown() async throws {
-        preferencesManager = nil
-        if let suite = testSuiteName {
-            UserDefaults.standard.removePersistentDomain(forName: suite)
-        }
-        testSuiteName = nil
-        try await super.tearDown()
     }
 
     // MARK: - hasCompletedOnboarding Default
 
-    func testHasCompletedOnboarding_defaultsToFalse() {
-        XCTAssertFalse(
-            preferencesManager.hasCompletedOnboarding,
+    @Test
+    func hasCompletedOnboarding_defaultsToFalse() {
+        #expect(
+            !preferencesManager.hasCompletedOnboarding,
             "New installs should require onboarding",
         )
     }
 
     // MARK: - hasCompletedOnboarding Setter
 
-    func testSetHasCompletedOnboarding_true_persistsValue() {
+    @Test
+    func setHasCompletedOnboarding_true_persistsValue() {
         preferencesManager.setHasCompletedOnboarding(true)
 
-        XCTAssertTrue(
+        #expect(
             preferencesManager.hasCompletedOnboarding,
             "Value should update in-memory immediately",
         )
     }
 
-    func testSetHasCompletedOnboarding_false_persistsValue() {
+    @Test
+    func setHasCompletedOnboarding_false_persistsValue() {
         preferencesManager.setHasCompletedOnboarding(true)
         preferencesManager.setHasCompletedOnboarding(false)
 
-        XCTAssertFalse(
-            preferencesManager.hasCompletedOnboarding,
+        #expect(
+            !preferencesManager.hasCompletedOnboarding,
             "Value should revert to false when explicitly set",
         )
     }
 
     // MARK: - hasCompletedOnboarding Persistence
 
-    func testHasCompletedOnboarding_survivesReinitialization() throws {
-        let testDefaults = try XCTUnwrap(UserDefaults(suiteName: testSuiteName))
+    @Test
+    func hasCompletedOnboarding_survivesReinitialization() throws {
+        let testDefaults = try #require(UserDefaults(suiteName: testSuiteName))
         preferencesManager.setHasCompletedOnboarding(true)
 
         // Create a fresh PreferencesManager reading from the same UserDefaults suite
@@ -70,7 +65,7 @@ final class OnboardingTests: XCTestCase {
             loginItemManager: TestSafeLoginItemManager(),
         )
 
-        XCTAssertTrue(
+        #expect(
             freshManager.hasCompletedOnboarding,
             "Value should persist across PreferencesManager instances via UserDefaults",
         )
@@ -78,12 +73,13 @@ final class OnboardingTests: XCTestCase {
 
     // MARK: - Demo Event Validity
 
-    func testDemoEvent_hasValidProperties() throws {
-        let demoURL = try XCTUnwrap(
+    @Test
+    func demoEvent_hasValidProperties() throws {
+        let demoURL = try #require(
             URL(string: "https://meet.google.com/abc-defg-hij"),
             "Demo URL must be a valid URL",
         )
-        XCTAssertEqual(demoURL.host, "meet.google.com")
+        #expect(demoURL.host == "meet.google.com")
 
         let event = Event(
             id: "onboarding-demo",
@@ -95,31 +91,26 @@ final class OnboardingTests: XCTestCase {
             links: [demoURL],
         )
 
-        XCTAssertEqual(event.id, "onboarding-demo")
-        XCTAssertEqual(event.title, "Team Standup")
-        XCTAssertEqual(event.calendarId, "demo")
+        #expect(event.id == "onboarding-demo")
+        #expect(event.title == "Team Standup")
+        #expect(event.calendarId == "demo")
 
-        let firstLink = try XCTUnwrap(event.links.first, "Demo event must contain at least one link")
-        XCTAssertEqual(
-            firstLink.host,
-            "meet.google.com",
+        let firstLink = try #require(event.links.first, "Demo event must contain at least one link")
+        #expect(
+            firstLink.host == "meet.google.com",
             "Demo event should contain a Google Meet link for realistic preview",
         )
 
-        XCTAssertGreaterThan(
-            event.startDate,
-            Date(),
+        #expect(
+            event.startDate > Date(),
             "Demo event should start in the future",
         )
-        XCTAssertGreaterThan(
-            event.endDate,
-            event.startDate,
+        #expect(
+            event.endDate > event.startDate,
             "Demo event end date should be after start date",
         )
-        XCTAssertEqual(
-            event.duration,
-            1800,
-            accuracy: 1,
+        #expect(
+            abs(event.duration - 1800) <= 1,
             "Demo event should be a 30-minute meeting",
         )
     }

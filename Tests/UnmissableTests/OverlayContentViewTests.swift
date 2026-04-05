@@ -1,110 +1,97 @@
+import Foundation
 import SwiftUI
-import TestSupport
+import Testing
 @testable import Unmissable
-import XCTest
 
-final class OverlayContentViewTests: XCTestCase {
-    @MainActor
-    func testSnoozeCallbacksDoNotCauseDeadlock() {
-        let expectation = XCTestExpectation(description: "Snooze callback completes without deadlock")
-        expectation.expectedFulfillmentCount = 1
-
+@MainActor
+struct OverlayContentViewTests {
+    @Test
+    func snoozeCallbacksDoNotCauseDeadlock() async {
         let event = TestUtilities.createTestEvent()
         nonisolated(unsafe) var snoozeMinutes: Int?
 
-        let view = OverlayContentView(
-            event: event,
-            linkParser: LinkParser(),
-            onDismiss: {
-                XCTFail("Dismiss should not be called during snooze test")
-            },
-            onJoin: {
-                XCTFail("Join should not be called during snooze test")
-            },
-            onSnooze: { minutes in
-                snoozeMinutes = minutes
-                expectation.fulfill()
-            },
-        )
+        await confirmation("Snooze callback completes without deadlock") { confirm in
+            let view = OverlayContentView(
+                event: event,
+                linkParser: LinkParser(),
+                onDismiss: {
+                    Issue.record("Dismiss should not be called during snooze test")
+                },
+                onJoin: {
+                    Issue.record("Join should not be called during snooze test")
+                },
+                onSnooze: { minutes in
+                    snoozeMinutes = minutes
+                    confirm()
+                },
+            )
 
-        // Simulate snooze action - this should not freeze the app
-        Task { @MainActor in
-            // In a real test we'd need to access the view's state
-            // For now, just test that the callback can be called safely
+            // Simulate snooze action - this should not freeze the app
             view.onSnooze(5)
         }
 
-        wait(for: [expectation], timeout: 1.0)
-        XCTAssertEqual(snoozeMinutes, 5)
+        #expect(snoozeMinutes == 5)
     }
 
-    @MainActor
-    func testDismissCallbackDoesNotCauseDeadlock() {
-        let expectation = XCTestExpectation(description: "Dismiss callback completes without deadlock")
-
+    @Test
+    func dismissCallbackDoesNotCauseDeadlock() async {
         let event = TestUtilities.createTestEvent()
         nonisolated(unsafe) var dismissCalled = false
 
-        let view = OverlayContentView(
-            event: event,
-            linkParser: LinkParser(),
-            onDismiss: {
-                dismissCalled = true
-                expectation.fulfill()
-            },
-            onJoin: {
-                XCTFail("Join should not be called during dismiss test")
-            },
-            onSnooze: { _ in
-                XCTFail("Snooze should not be called during dismiss test")
-            },
-        )
+        await confirmation("Dismiss callback completes without deadlock") { confirm in
+            let view = OverlayContentView(
+                event: event,
+                linkParser: LinkParser(),
+                onDismiss: {
+                    dismissCalled = true
+                    confirm()
+                },
+                onJoin: {
+                    Issue.record("Join should not be called during dismiss test")
+                },
+                onSnooze: { _ in
+                    Issue.record("Snooze should not be called during dismiss test")
+                },
+            )
 
-        // Simulate dismiss action - this should not freeze the app
-        Task { @MainActor in
+            // Simulate dismiss action - this should not freeze the app
             view.onDismiss()
         }
 
-        wait(for: [expectation], timeout: 1.0)
-        XCTAssertTrue(dismissCalled)
+        #expect(dismissCalled)
     }
 
-    @MainActor
-    func testJoinMeetingCallbackDoesNotCauseDeadlock() throws {
-        let expectation = XCTestExpectation(
-            description: "Join meeting callback completes without deadlock",
-        )
-
-        let testURL = try XCTUnwrap(URL(string: "https://meet.google.com/test"))
+    @Test
+    func joinMeetingCallbackDoesNotCauseDeadlock() async throws {
+        let testURL = try #require(URL(string: "https://meet.google.com/test"))
         let event = TestUtilities.createTestEvent(links: [testURL], provider: .meet)
         nonisolated(unsafe) var joinedURL: URL?
 
-        let view = OverlayContentView(
-            event: event,
-            linkParser: LinkParser(),
-            onDismiss: {
-                XCTFail("Dismiss should not be called during join test")
-            },
-            onJoin: {
-                joinedURL = testURL
-                expectation.fulfill()
-            },
-            onSnooze: { _ in
-                XCTFail("Snooze should not be called during join test")
-            },
-        )
+        await confirmation("Join meeting callback completes without deadlock") { confirm in
+            let view = OverlayContentView(
+                event: event,
+                linkParser: LinkParser(),
+                onDismiss: {
+                    Issue.record("Dismiss should not be called during join test")
+                },
+                onJoin: {
+                    joinedURL = testURL
+                    confirm()
+                },
+                onSnooze: { _ in
+                    Issue.record("Snooze should not be called during join test")
+                },
+            )
 
-        // Simulate join action - this should not freeze the app
-        Task { @MainActor in
+            // Simulate join action - this should not freeze the app
             view.onJoin()
         }
 
-        wait(for: [expectation], timeout: 1.0)
-        XCTAssertEqual(joinedURL, testURL)
+        #expect(joinedURL == testURL)
     }
 
-    @MainActor
-    func testSnoozeCallbackReceivesDifferentDurations() {
+    @Test
+    func snoozeCallbackReceivesDifferentDurations() {
         let durations = [1, 5, 10, 15, 30]
 
         for expectedMinutes in durations {
@@ -122,20 +109,22 @@ final class OverlayContentViewTests: XCTestCase {
             )
 
             view.onSnooze(expectedMinutes)
-            XCTAssertEqual(
-                receivedMinutes,
-                expectedMinutes,
+            #expect(
+                receivedMinutes == expectedMinutes,
                 "Snooze callback should forward \(expectedMinutes) minutes",
             )
         }
     }
 
-    @MainActor
-    func testCallbacksRouteCorrectlyAcrossEventVariants() throws {
-        let variants = try [
+    @Test
+    func callbacksRouteCorrectlyAcrossEventVariants() throws {
+        let meetURL = try #require(URL(string: "https://meet.google.com/test"))
+        let zoomURL = try #require(URL(string: "https://zoom.us/j/123456789"))
+
+        let variants = [
             TestUtilities.createTestEvent(),
             TestUtilities.createTestEvent(
-                links: [XCTUnwrap(URL(string: "https://meet.google.com/test"))],
+                links: [meetURL],
                 provider: .meet,
             ),
             Event(
@@ -154,7 +143,7 @@ final class OverlayContentViewTests: XCTestCase {
                 endDate: Date().addingTimeInterval(1800),
                 organizer: "manager@example.com",
                 calendarId: "test-calendar",
-                links: [XCTUnwrap(URL(string: "https://zoom.us/j/123456789"))],
+                links: [zoomURL],
             ),
         ]
 
@@ -183,10 +172,10 @@ final class OverlayContentViewTests: XCTestCase {
             view.onJoin()
             view.onSnooze(10)
 
-            XCTAssertEqual(dismissCalls, 1, "Dismiss callback should route for event: \(event.id)")
-            XCTAssertEqual(joinCalls, 1, "Join callback should route for event: \(event.id)")
-            XCTAssertEqual(snoozeCalls, 1, "Snooze callback should route for event: \(event.id)")
-            XCTAssertEqual(snoozeMinutes, 10, "Snooze minutes should be forwarded for event: \(event.id)")
+            #expect(dismissCalls == 1, "Dismiss callback should route for event: \(event.id)")
+            #expect(joinCalls == 1, "Join callback should route for event: \(event.id)")
+            #expect(snoozeCalls == 1, "Snooze callback should route for event: \(event.id)")
+            #expect(snoozeMinutes == 10, "Snooze minutes should be forwarded for event: \(event.id)")
         }
     }
 }

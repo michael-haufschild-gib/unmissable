@@ -1,29 +1,22 @@
 import Foundation
-import TestSupport
+import Testing
 @testable import Unmissable
-import XCTest
 
 /// Tests the OverlayManaging protocol contract via TestSafeOverlayManager.
 /// These tests verify the overlay state machine:
 /// hidden → show → visible → hide → hidden, and snooze behavior.
 @MainActor
-final class OverlayRuntimeContractTests: XCTestCase {
-    private var overlayManager: TestSafeOverlayManager!
+struct OverlayRuntimeContractTests {
+    private var overlayManager: TestSafeOverlayManager
 
-    override func setUp() async throws {
+    init() {
         overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
-        try await super.setUp()
-    }
-
-    override func tearDown() async throws {
-        overlayManager.hideOverlay()
-        overlayManager = nil
-        try await super.tearDown()
     }
 
     // MARK: - State Machine: Show/Hide
 
-    func testShowOverlaySetsVisibleAndActiveEvent() {
+    @Test
+    func showOverlaySetsVisibleAndActiveEvent() {
         let event = TestUtilities.createTestEvent(
             id: "contract-show",
         )
@@ -33,11 +26,12 @@ final class OverlayRuntimeContractTests: XCTestCase {
             fromSnooze: false,
         )
 
-        XCTAssertTrue(overlayManager.isOverlayVisible)
-        XCTAssertEqual(overlayManager.activeEvent?.id, event.id)
+        #expect(overlayManager.isOverlayVisible)
+        #expect(overlayManager.activeEvent?.id == event.id)
     }
 
-    func testHideOverlayClearsState() {
+    @Test
+    func hideOverlayClearsState() {
         let event = TestUtilities.createTestEvent(
             id: "contract-hide",
         )
@@ -48,11 +42,12 @@ final class OverlayRuntimeContractTests: XCTestCase {
         )
         overlayManager.hideOverlay()
 
-        XCTAssertFalse(overlayManager.isOverlayVisible)
-        XCTAssertNil(overlayManager.activeEvent)
+        #expect(!overlayManager.isOverlayVisible)
+        #expect(overlayManager.activeEvent == nil)
     }
 
-    func testShowReplacesActiveEvent() {
+    @Test
+    func showReplacesActiveEvent() {
         let event1 = TestUtilities.createTestEvent(id: "contract-replace-1")
         let event2 = TestUtilities.createTestEvent(id: "contract-replace-2")
 
@@ -65,25 +60,26 @@ final class OverlayRuntimeContractTests: XCTestCase {
             fromSnooze: false,
         )
 
-        XCTAssertTrue(overlayManager.isOverlayVisible)
-        XCTAssertEqual(
-            overlayManager.activeEvent?.id,
-            event2.id,
+        #expect(overlayManager.isOverlayVisible)
+        #expect(
+            overlayManager.activeEvent?.id == event2.id,
             "Second show should replace the first event",
         )
     }
 
-    func testHideOnAlreadyHiddenIsNoOp() {
+    @Test
+    func hideOnAlreadyHiddenIsNoOp() {
         overlayManager.hideOverlay()
         overlayManager.hideOverlay()
 
-        XCTAssertFalse(overlayManager.isOverlayVisible)
-        XCTAssertNil(overlayManager.activeEvent)
+        #expect(!overlayManager.isOverlayVisible)
+        #expect(overlayManager.activeEvent == nil)
     }
 
     // MARK: - Snooze
 
-    func testSnoozeHidesOverlayAndClearsActiveEvent() {
+    @Test
+    func snoozeHidesOverlayAndClearsActiveEvent() {
         let event = TestUtilities.createTestEvent(
             id: "contract-snooze",
         )
@@ -94,20 +90,22 @@ final class OverlayRuntimeContractTests: XCTestCase {
         )
         overlayManager.snoozeOverlay(for: 5)
 
-        XCTAssertFalse(overlayManager.isOverlayVisible)
-        XCTAssertNil(overlayManager.activeEvent)
+        #expect(!overlayManager.isOverlayVisible)
+        #expect(overlayManager.activeEvent == nil)
     }
 
-    func testSnoozeWithNoActiveEventIsNoOp() {
+    @Test
+    func snoozeWithNoActiveEventIsNoOp() {
         overlayManager.snoozeOverlay(for: 5)
 
-        XCTAssertFalse(overlayManager.isOverlayVisible)
-        XCTAssertNil(overlayManager.activeEvent)
+        #expect(!overlayManager.isOverlayVisible)
+        #expect(overlayManager.activeEvent == nil)
     }
 
     // MARK: - Stress Tests
 
-    func testRapidShowHideCycleRemainsResponsive() {
+    @Test
+    func rapidShowHideCycleRemainsResponsive() {
         let event = TestUtilities.createTestEvent(
             id: "contract-rapid-cycle",
         )
@@ -124,15 +122,15 @@ final class OverlayRuntimeContractTests: XCTestCase {
 
         let elapsed = Date().timeIntervalSince(startTime)
 
-        XCTAssertFalse(overlayManager.isOverlayVisible)
-        XCTAssertLessThan(
-            elapsed,
-            3.0,
+        #expect(!overlayManager.isOverlayVisible)
+        #expect(
+            elapsed < 3.0,
             "Rapid show/hide cycles should complete quickly",
         )
     }
 
-    func testConcurrentShowHideOperationsRemainConsistent() async {
+    @Test
+    func concurrentShowHideOperationsRemainConsistent() async {
         await withTaskGroup(of: Void.self) { group in
             for index in 0 ..< 20 {
                 group.addTask { @MainActor in
@@ -154,13 +152,14 @@ final class OverlayRuntimeContractTests: XCTestCase {
 
         overlayManager.hideOverlay()
 
-        XCTAssertFalse(overlayManager.isOverlayVisible)
-        XCTAssertNil(overlayManager.activeEvent)
+        #expect(!overlayManager.isOverlayVisible)
+        #expect(overlayManager.activeEvent == nil)
     }
 
     // MARK: - Edge Cases
 
-    func testMalformedEventCanStillBeShownAndSnoozed() {
+    @Test
+    func malformedEventCanStillBeShownAndSnoozed() {
         let malformedEvent = Event(
             id: "",
             title: "",
@@ -175,24 +174,24 @@ final class OverlayRuntimeContractTests: XCTestCase {
             fromSnooze: false,
         )
 
-        XCTAssertTrue(overlayManager.isOverlayVisible)
-        XCTAssertEqual(overlayManager.activeEvent?.id, malformedEvent.id)
+        #expect(overlayManager.isOverlayVisible)
+        #expect(overlayManager.activeEvent?.id == malformedEvent.id)
 
         overlayManager.snoozeOverlay(for: 1)
 
-        XCTAssertFalse(overlayManager.isOverlayVisible)
-        XCTAssertNil(overlayManager.activeEvent)
+        #expect(!overlayManager.isOverlayVisible)
+        #expect(overlayManager.activeEvent == nil)
     }
 
-    func testTimeUntilMeetingReflectsActiveEvent() {
+    @Test
+    func timeUntilMeetingReflectsActiveEvent() {
         let futureEvent = TestUtilities.createTestEvent(
             id: "contract-time-until",
             startDate: Date().addingTimeInterval(600),
         )
 
-        XCTAssertEqual(
-            overlayManager.timeUntilMeeting,
-            0,
+        #expect(
+            overlayManager.timeUntilMeeting == 0,
             "No active event → timeUntilMeeting should be 0",
         )
 
@@ -201,9 +200,8 @@ final class OverlayRuntimeContractTests: XCTestCase {
             fromSnooze: false,
         )
 
-        XCTAssertGreaterThan(
-            overlayManager.timeUntilMeeting,
-            500,
+        #expect(
+            overlayManager.timeUntilMeeting > 500,
             "Active future event → timeUntilMeeting should be positive",
         )
     }

@@ -1,9 +1,11 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 @MainActor
-final class EventFilteringTests: XCTestCase {
-    func testCancelledEventFiltering() {
+struct EventFilteringTests {
+    @Test
+    func cancelledEventFiltering() {
         let oauth2Service = OAuth2Service()
         let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
 
@@ -23,10 +25,11 @@ final class EventFilteringTests: XCTestCase {
         )
 
         let result = apiService.convertToEvent(from: entry, calendarId: "test-calendar")
-        XCTAssertNil(result, "Cancelled events should be filtered out and return nil")
+        #expect(result == nil, "Cancelled events should be filtered out and return nil")
     }
 
-    func testDeclinedEventFiltering() {
+    @Test
+    func declinedEventFiltering() {
         let oauth2Service = OAuth2Service()
         let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
 
@@ -63,10 +66,11 @@ final class EventFilteringTests: XCTestCase {
         )
 
         let result = apiService.convertToEvent(from: entry, calendarId: "test-calendar")
-        XCTAssertNil(result, "Events where user declined should be filtered out and return nil")
+        #expect(result == nil, "Events where user declined should be filtered out and return nil")
     }
 
-    func testAcceptedEventNotFiltered() throws {
+    @Test
+    func acceptedEventNotFiltered() throws {
         let oauth2Service = OAuth2Service()
         let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
 
@@ -94,16 +98,17 @@ final class EventFilteringTests: XCTestCase {
             hangoutLink: nil,
         )
 
-        let result = try XCTUnwrap(
+        let result = try #require(
             apiService.convertToEvent(from: entry, calendarId: "test-calendar"),
             "Events where user accepted should NOT be filtered",
         )
 
-        XCTAssertEqual(result.title, "User Accepted Meeting")
-        XCTAssertEqual(result.id, "accepted-event-123")
+        #expect(result.title == "User Accepted Meeting")
+        #expect(result.id == "accepted-event-123")
     }
 
-    func testTentativeEventNotFiltered() throws {
+    @Test
+    func tentativeEventNotFiltered() throws {
         let oauth2Service = OAuth2Service()
         let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
 
@@ -131,15 +136,16 @@ final class EventFilteringTests: XCTestCase {
             hangoutLink: nil,
         )
 
-        let result = try XCTUnwrap(
+        let result = try #require(
             apiService.convertToEvent(from: entry, calendarId: "test-calendar"),
             "Events where user responded tentative should NOT be filtered",
         )
 
-        XCTAssertEqual(result.title, "User Tentative Meeting")
+        #expect(result.title == "User Tentative Meeting")
     }
 
-    func testEventWithoutCurrentUserNotFiltered() throws {
+    @Test
+    func eventWithoutCurrentUserNotFiltered() throws {
         let oauth2Service = OAuth2Service()
         let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
 
@@ -175,15 +181,16 @@ final class EventFilteringTests: XCTestCase {
             hangoutLink: nil,
         )
 
-        let result = try XCTUnwrap(
+        let result = try #require(
             apiService.convertToEvent(from: entry, calendarId: "test-calendar"),
             "Events without current user as attendee should NOT be filtered",
         )
 
-        XCTAssertEqual(result.title, "Other People Meeting")
+        #expect(result.title == "Other People Meeting")
     }
 
-    func testEventWithMissingStatusDefaultsToConfirmed() throws {
+    @Test
+    func eventWithMissingStatusDefaultsToConfirmed() throws {
         let oauth2Service = OAuth2Service()
         let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
 
@@ -202,14 +209,15 @@ final class EventFilteringTests: XCTestCase {
             hangoutLink: nil,
         )
 
-        let result = try XCTUnwrap(
+        let result = try #require(
             apiService.convertToEvent(from: entry, calendarId: "test-calendar"),
             "Events without status field should default to confirmed and not be filtered",
         )
-        XCTAssertEqual(result.title, "Meeting Without Status")
+        #expect(result.title == "Meeting Without Status")
     }
 
-    func testAttendeeSelfFieldParsing() throws {
+    @Test
+    func attendeeSelfFieldParsing() throws {
         let oauth2Service = OAuth2Service()
         let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
 
@@ -253,22 +261,22 @@ final class EventFilteringTests: XCTestCase {
             hangoutLink: nil,
         )
 
-        let event = try XCTUnwrap(
+        let event = try #require(
             apiService.convertToEvent(from: entry, calendarId: "test-calendar"),
             "Event with attendees should parse successfully",
         )
 
-        XCTAssertEqual(event.attendees.map(\.email).sorted(), [
+        #expect(event.attendees.map(\.email).sorted() == [
             "current-user@example.com", "no-self-field@example.com", "other-user@example.com",
         ])
 
-        let currentUser = try XCTUnwrap(event.attendees.first { $0.email == "current-user@example.com" })
-        XCTAssertTrue(currentUser.isSelf)
+        let currentUser = try #require(event.attendees.first { $0.email == "current-user@example.com" })
+        #expect(currentUser.isSelf)
 
-        let otherUser = try XCTUnwrap(event.attendees.first { $0.email == "other-user@example.com" })
-        XCTAssertFalse(otherUser.isSelf)
+        let otherUser = try #require(event.attendees.first { $0.email == "other-user@example.com" })
+        #expect(!otherUser.isSelf)
 
-        let noSelfField = try XCTUnwrap(event.attendees.first { $0.email == "no-self-field@example.com" })
-        XCTAssertFalse(noSelfField.isSelf)
+        let noSelfField = try #require(event.attendees.first { $0.email == "no-self-field@example.com" })
+        #expect(!noSelfField.isSelf)
     }
 }

@@ -1,7 +1,6 @@
 import Foundation
-import TestSupport
+import Testing
 @testable import Unmissable
-import XCTest
 
 /// E2E tests for keyboard shortcut interaction paths through the full stack.
 /// ShortcutsManager.dismissOverlay() and joinMeeting() are private, so these tests
@@ -9,28 +8,21 @@ import XCTest
 /// This verifies the E2E flow that shortcuts execute without requiring Magnet HotKey
 /// registration (which needs an app host).
 @MainActor
-final class ShortcutFlowE2ETests: XCTestCase {
-    private var env: E2ETestEnvironment!
-    private var linkParser: LinkParser!
+struct ShortcutFlowE2ETests {
+    private let env: E2ETestEnvironment
+    private let linkParser: LinkParser
 
-    override func setUp() async throws {
-        try await super.setUp()
+    init() async throws {
         env = try await E2ETestEnvironment()
         linkParser = LinkParser()
-    }
-
-    override func tearDown() async throws {
-        env.tearDown()
-        linkParser = nil
-        env = nil
-        try await super.tearDown()
     }
 
     // MARK: - Dismiss Shortcut Path
 
     /// Replicates ShortcutsManager.dismissOverlay():
     /// guard isOverlayVisible → hideOverlay()
-    func testDismissShortcutPath_hidesVisibleOverlay() async throws {
+    @Test
+    func dismissShortcutPath_hidesVisibleOverlay() async throws {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-shortcut-dismiss",
             title: "Shortcut Dismiss Meeting",
@@ -39,29 +31,30 @@ final class ShortcutFlowE2ETests: XCTestCase {
         try await env.seedAndSchedule([event])
 
         env.overlayManager.showOverlayImmediately(for: event)
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
-        XCTAssertEqual(env.overlayManager.activeEvent?.id, event.id)
+        #expect(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent?.id == event.id)
 
         // Execute dismiss shortcut logic
         if env.overlayManager.isOverlayVisible {
             env.overlayManager.hideOverlay()
         }
 
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
-        XCTAssertNil(env.overlayManager.activeEvent)
+        #expect(!env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent == nil)
     }
 
-    func testDismissShortcutPath_noOpWhenNoOverlay() {
+    @Test
+    func dismissShortcutPath_noOpWhenNoOverlay() {
         // No overlay shown — shortcut should be a no-op
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
+        #expect(!env.overlayManager.isOverlayVisible)
 
         let shouldDismiss = env.overlayManager.isOverlayVisible
         if shouldDismiss {
             env.overlayManager.hideOverlay()
         }
 
-        XCTAssertFalse(shouldDismiss, "Dismiss guard should reject when no overlay visible")
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
+        #expect(!shouldDismiss, "Dismiss guard should reject when no overlay visible")
+        #expect(!env.overlayManager.isOverlayVisible)
     }
 
     // MARK: - Join Shortcut Path
@@ -69,7 +62,8 @@ final class ShortcutFlowE2ETests: XCTestCase {
     /// Replicates ShortcutsManager.joinMeeting():
     /// guard isOverlayVisible, let event = activeEvent,
     ///       let url = linkParser.primaryLink(for: event) → open(url) + hideOverlay()
-    func testJoinShortcutPath_extractsLinkAndHidesOverlay() async throws {
+    @Test
+    func joinShortcutPath_extractsLinkAndHidesOverlay() async throws {
         let meetEvent = E2EEventBuilder.onlineMeeting(
             id: "e2e-shortcut-join",
             title: "Shortcut Join Meeting",
@@ -80,10 +74,10 @@ final class ShortcutFlowE2ETests: XCTestCase {
 
         // Fetch from DB to get round-tripped event
         let fetched = try await env.fetchUpcomingEvents()
-        let dbEvent = try XCTUnwrap(fetched.first)
+        let dbEvent = try #require(fetched.first)
 
         env.overlayManager.showOverlayImmediately(for: dbEvent)
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.isOverlayVisible)
 
         // Execute join shortcut logic (minus NSWorkspace.open which can't run in SPM)
         var joinURL: URL?
@@ -96,15 +90,16 @@ final class ShortcutFlowE2ETests: XCTestCase {
         }
 
         // Verify join link was correctly extracted
-        let url = try XCTUnwrap(joinURL, "Join shortcut should extract a meeting URL")
-        XCTAssertEqual(url.host, "meet.google.com")
+        let url = try #require(joinURL, "Join shortcut should extract a meeting URL")
+        #expect(url.host == "meet.google.com")
 
         // Verify overlay was hidden (as real joinMeeting does after opening URL)
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
-        XCTAssertNil(env.overlayManager.activeEvent)
+        #expect(!env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent == nil)
     }
 
-    func testJoinShortcutPath_noOpForInPersonMeeting() async throws {
+    @Test
+    func joinShortcutPath_noOpForInPersonMeeting() async throws {
         // In-person event has no meeting link — join shortcut should not act
         let inPersonEvent = E2EEventBuilder.futureEvent(
             id: "e2e-shortcut-nojoin",
@@ -114,7 +109,7 @@ final class ShortcutFlowE2ETests: XCTestCase {
         try await env.seedAndSchedule([inPersonEvent])
 
         env.overlayManager.showOverlayImmediately(for: inPersonEvent)
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.isOverlayVisible)
 
         // Execute join shortcut logic
         var joinAttempted = false
@@ -126,15 +121,16 @@ final class ShortcutFlowE2ETests: XCTestCase {
             env.overlayManager.hideOverlay()
         }
 
-        XCTAssertFalse(joinAttempted, "Join should not trigger for in-person meeting")
-        XCTAssertTrue(
+        #expect(!joinAttempted, "Join should not trigger for in-person meeting")
+        #expect(
             env.overlayManager.isOverlayVisible,
             "Overlay should remain visible when join is not possible",
         )
     }
 
-    func testJoinShortcutPath_noOpWhenNoOverlay() {
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
+    @Test
+    func joinShortcutPath_noOpWhenNoOverlay() {
+        #expect(!env.overlayManager.isOverlayVisible)
 
         var joinAttempted = false
         if env.overlayManager.isOverlayVisible,
@@ -144,12 +140,13 @@ final class ShortcutFlowE2ETests: XCTestCase {
             joinAttempted = true
         }
 
-        XCTAssertFalse(joinAttempted, "Join should not trigger when no overlay is visible")
+        #expect(!joinAttempted, "Join should not trigger when no overlay is visible")
     }
 
     // MARK: - Shortcut After Snooze Re-Fire
 
-    func testJoinShortcutPath_worksAfterSnoozeRefire() async throws {
+    @Test
+    func joinShortcutPath_worksAfterSnoozeRefire() async throws {
         env.preferencesManager.setOverlayShowMinutesBefore(0)
 
         let meetEvent = E2EEventBuilder.onlineMeeting(
@@ -162,14 +159,14 @@ final class ShortcutFlowE2ETests: XCTestCase {
 
         // Fetch from DB for round-tripped event
         let fetched = try await env.fetchUpcomingEvents()
-        let dbEvent = try XCTUnwrap(fetched.first)
+        let dbEvent = try #require(fetched.first)
 
         // Show overlay, snooze, then simulate re-fire
         env.overlayManager.showOverlayImmediately(for: dbEvent)
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.isOverlayVisible)
 
         env.overlayManager.snoozeOverlay(for: 1)
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
+        #expect(!env.overlayManager.isOverlayVisible)
 
         // Simulate snooze re-fire
         env.overlayManager.showOverlayImmediately(for: dbEvent, fromSnooze: true)
@@ -184,8 +181,8 @@ final class ShortcutFlowE2ETests: XCTestCase {
             env.overlayManager.hideOverlay()
         }
 
-        let url = try XCTUnwrap(joinURL, "Join should work after snooze re-fire")
-        XCTAssertEqual(url.host, "zoom.us")
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
+        let url = try #require(joinURL, "Join should work after snooze re-fire")
+        #expect(url.host == "zoom.us")
+        #expect(!env.overlayManager.isOverlayVisible)
     }
 }

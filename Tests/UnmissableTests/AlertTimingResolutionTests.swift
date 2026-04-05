@@ -1,27 +1,22 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 @MainActor
-final class AlertTimingResolutionTests: XCTestCase {
-    private var preferencesManager: PreferencesManager!
+struct AlertTimingResolutionTests {
+    private var preferencesManager: PreferencesManager
 
-    override func setUp() async throws {
-        try await super.setUp()
-        let testDefaults = try XCTUnwrap(
-            UserDefaults(suiteName: "test-\(UUID().uuidString)"),
-        )
+    init() {
+        // swiftlint:disable:next force_unwrapping
+        let testDefaults = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
         preferencesManager = PreferencesManager(
             userDefaults: testDefaults,
             themeManager: ThemeManager(),
         )
     }
 
-    override func tearDown() async throws {
-        preferencesManager = nil
-        try await super.tearDown()
-    }
-
-    func testAlertMinutes_withOverride_returnsOverride() {
+    @Test
+    func alertMinutes_withOverride_returnsOverride() {
         let event = Event(
             id: "test-1",
             title: "Meeting",
@@ -31,10 +26,11 @@ final class AlertTimingResolutionTests: XCTestCase {
         )
 
         let result = preferencesManager.alertMinutes(for: event, override: 10)
-        XCTAssertEqual(result, 10, "Should return the override value")
+        #expect(result == 10, "Should return the override value")
     }
 
-    func testAlertMinutes_withZeroOverride_returnsZero() {
+    @Test
+    func alertMinutes_withZeroOverride_returnsZero() {
         let event = Event(
             id: "test-1",
             title: "Meeting",
@@ -44,10 +40,11 @@ final class AlertTimingResolutionTests: XCTestCase {
         )
 
         let result = preferencesManager.alertMinutes(for: event, override: 0)
-        XCTAssertEqual(result, 0, "Zero override means 'no alert'")
+        #expect(result == 0, "Zero override means 'no alert'")
     }
 
-    func testAlertMinutes_withNilOverride_fallsBackToDefault() {
+    @Test
+    func alertMinutes_withNilOverride_fallsBackToDefault() {
         let event = Event(
             id: "test-1",
             title: "Meeting",
@@ -58,14 +55,14 @@ final class AlertTimingResolutionTests: XCTestCase {
 
         let defaultMinutes = preferencesManager.defaultAlertMinutes
         let result = preferencesManager.alertMinutes(for: event, override: nil)
-        XCTAssertEqual(
-            result,
-            defaultMinutes,
+        #expect(
+            result == defaultMinutes,
             "Nil override should fall back to default alert minutes",
         )
     }
 
-    func testAlertMinutes_withNilOverride_usesLengthBasedTiming() {
+    @Test
+    func alertMinutes_withNilOverride_usesLengthBasedTiming() {
         preferencesManager.setUseLengthBasedTiming(true)
         preferencesManager.setShortMeetingAlertMinutes(1)
         preferencesManager.setMediumMeetingAlertMinutes(3)
@@ -81,17 +78,15 @@ final class AlertTimingResolutionTests: XCTestCase {
         )
 
         let shortResult = preferencesManager.alertMinutes(for: shortEvent, override: nil)
-        XCTAssertEqual(
-            shortResult,
-            1,
+        #expect(
+            shortResult == 1,
             "Short meeting should use short meeting alert minutes",
         )
 
         // Override takes precedence even when length-based is enabled
         let overrideResult = preferencesManager.alertMinutes(for: shortEvent, override: 15)
-        XCTAssertEqual(
-            overrideResult,
-            15,
+        #expect(
+            overrideResult == 15,
             "Override should take precedence over length-based timing",
         )
     }

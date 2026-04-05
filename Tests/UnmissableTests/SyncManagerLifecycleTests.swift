@@ -1,15 +1,14 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 @MainActor
-final class SyncManagerLifecycleTests: XCTestCase {
-    private var manager: SyncManager!
-    private var databaseManager: DatabaseManager!
-    private var tempDatabaseURL: URL!
+struct SyncManagerLifecycleTests {
+    private let manager: SyncManager
+    private let databaseManager: DatabaseManager
+    private let tempDatabaseURL: URL
 
-    override func setUp() async throws {
-        try await super.setUp()
-
+    init() {
         let tempDir = FileManager.default.temporaryDirectory
         tempDatabaseURL = tempDir.appendingPathComponent(
             "unmissable-synclifecycle-\(UUID().uuidString).db",
@@ -27,57 +26,60 @@ final class SyncManagerLifecycleTests: XCTestCase {
         )
     }
 
-    override func tearDown() async throws {
-        manager?.stopPeriodicSync()
-        manager = nil
-        databaseManager = nil
-        if let url = tempDatabaseURL {
-            try? FileManager.default.removeItem(at: url)
-        }
-        tempDatabaseURL = nil
-        try await super.tearDown()
-    }
-
-    func testStopPeriodicSync_resetsRetryCount() {
+    @Test
+    func stopPeriodicSync_resetsRetryCount() {
+        defer { manager.stopPeriodicSync() }
         manager.retryCount = 3
 
         manager.stopPeriodicSync()
 
-        XCTAssertEqual(manager.retryCount, 0, "Stopping periodic sync should clear retry state")
+        #expect(manager.retryCount == 0, "Stopping periodic sync should clear retry state")
     }
 
-    func testStopPeriodicSync_resetsRetryCountRegardlessOfValue() {
+    @Test
+    func stopPeriodicSync_resetsRetryCountRegardlessOfValue() {
+        defer { manager.stopPeriodicSync() }
         manager.retryCount = 10
 
         manager.stopPeriodicSync()
 
-        XCTAssertEqual(manager.retryCount, 0, "Stopping should reset even high retry counts")
+        #expect(manager.retryCount == 0, "Stopping should reset even high retry counts")
     }
 
-    func testInitialRetryCountIsZero() {
-        XCTAssertEqual(manager.retryCount, 0, "New SyncManager should have 0 retry count")
+    @Test
+    func initialRetryCountIsZero() {
+        defer { manager.stopPeriodicSync() }
+        #expect(manager.retryCount == 0, "New SyncManager should have 0 retry count")
     }
 
-    func testInitialSyncStatusIsIdle() {
-        XCTAssertEqual(manager.syncStatus, .idle)
+    @Test
+    func initialSyncStatusIsIdle() {
+        defer { manager.stopPeriodicSync() }
+        #expect(manager.syncStatus == .idle)
     }
 
-    func testInitialLastSyncTimeIsNil() {
-        XCTAssertNil(manager.lastSyncTime, "New SyncManager should have nil lastSyncTime")
+    @Test
+    func initialLastSyncTimeIsNil() {
+        defer { manager.stopPeriodicSync() }
+        #expect(manager.lastSyncTime == nil, "New SyncManager should have nil lastSyncTime")
     }
 
-    func testPerformSync_whenNoCalendarsSelected_completesWithoutUpdatingLastSync() async {
+    @Test
+    func performSync_whenNoCalendarsSelected_completesWithoutUpdatingLastSync() async {
+        defer { manager.stopPeriodicSync() }
         await manager.performSync()
 
         // Without calendars selected, sync may return idle or error depending on auth state.
         // The key invariant: lastSyncTime should not be set on a failed or no-op sync.
-        XCTAssertNil(
-            manager.lastSyncTime,
+        #expect(
+            manager.lastSyncTime == nil,
             "No-op or failed sync should not update lastSyncTime",
         )
     }
 
-    func testPerformSync_whenNotAuthenticated_setsErrorStatusWhenCalendarsSelected() async throws {
+    @Test
+    func performSync_whenNotAuthenticated_setsErrorStatusWhenCalendarsSelected() async throws {
+        defer { manager.stopPeriodicSync() }
         let calendar = CalendarInfo(
             id: "sync-lifecycle-test-\(UUID())",
             name: "Sync Lifecycle Test Calendar",
@@ -95,13 +97,14 @@ final class SyncManagerLifecycleTests: XCTestCase {
 
         // With selected calendars but no valid OAuth state, fetchEvents fails
         // → SyncManager catches the error → sets .error status.
-        XCTAssertTrue(
+        #expect(
             manager.syncStatus.isError,
             "Sync with selected calendars but no auth should set error status, got: \(manager.syncStatus)",
         )
     }
 
-    func testPerformSync_whenSyncFails_doesNotUpdateLastSuccessfulSyncTime() async throws {
+    @Test
+    func performSync_whenSyncFails_doesNotUpdateLastSuccessfulSyncTime() async throws {
         let calendar = CalendarInfo(
             id: "sync-lifecycle-failure-\(UUID())",
             name: "Sync Lifecycle Failure Calendar",
@@ -122,23 +125,24 @@ final class SyncManagerLifecycleTests: XCTestCase {
         let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
         let preferences = PreferencesManager(themeManager: ThemeManager())
         manager.stopPeriodicSync()
-        manager = SyncManager(
+        let failingManager = SyncManager(
             providerType: .google,
             apiService: apiService,
             databaseManager: databaseManager,
             preferencesManager: preferences,
         )
+        defer { failingManager.stopPeriodicSync() }
 
-        await manager.performSync()
+        await failingManager.performSync()
 
-        if case .error = manager.syncStatus {
+        if case .error = failingManager.syncStatus {
             // Expected failure path.
         } else {
-            XCTFail("Expected sync to fail and set error status")
+            Issue.record("Expected sync to fail and set error status")
         }
 
-        XCTAssertNil(
-            manager.lastSyncTime,
+        #expect(
+            failingManager.lastSyncTime == nil,
             "Failed sync attempts should not advance last successful sync timestamp",
         )
     }

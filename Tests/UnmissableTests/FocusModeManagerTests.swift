@@ -1,64 +1,70 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 @MainActor
-final class FocusModeManagerTests: XCTestCase {
+struct FocusModeManagerTests {
     // MARK: - shouldShowOverlay
 
-    func testShouldShowOverlay_dndOff_returnsTrue() {
+    @Test
+    func shouldShowOverlay_dndOff_returnsTrue() {
         let preferences = TestUtilities.createTestPreferencesManager()
         let manager = FocusModeManager(preferencesManager: preferences, isTestMode: true)
         manager.isDoNotDisturbEnabled = false
 
-        XCTAssertTrue(manager.shouldShowOverlay())
+        #expect(manager.shouldShowOverlay())
     }
 
-    func testShouldShowOverlay_dndOn_overrideEnabled_returnsTrue() {
+    @Test
+    func shouldShowOverlay_dndOn_overrideEnabled_returnsTrue() {
         let preferences = TestUtilities.createTestPreferencesManager()
         let manager = FocusModeManager(preferencesManager: preferences, isTestMode: true)
         manager.isDoNotDisturbEnabled = true
         preferences.setOverrideFocusMode(true)
 
-        XCTAssertTrue(manager.shouldShowOverlay())
+        #expect(manager.shouldShowOverlay())
     }
 
-    func testShouldShowOverlay_dndOn_overrideDisabled_returnsFalse() {
+    @Test
+    func shouldShowOverlay_dndOn_overrideDisabled_returnsFalse() {
         let preferences = TestUtilities.createTestPreferencesManager()
         let manager = FocusModeManager(preferencesManager: preferences, isTestMode: true)
         manager.isDoNotDisturbEnabled = true
         preferences.setOverrideFocusMode(false)
 
-        XCTAssertFalse(manager.shouldShowOverlay())
+        #expect(!manager.shouldShowOverlay())
     }
 
     // MARK: - shouldPlaySound
 
-    func testShouldPlaySound_dndOff_returnsTrue() {
+    @Test
+    func shouldPlaySound_dndOff_returnsTrue() {
         let preferences = TestUtilities.createTestPreferencesManager()
         let manager = FocusModeManager(preferencesManager: preferences, isTestMode: true)
         manager.isDoNotDisturbEnabled = false
 
-        XCTAssertTrue(manager.shouldPlaySound())
+        #expect(manager.shouldPlaySound())
     }
 
-    func testShouldPlaySound_dndOn_overrideDisabled_returnsFalse() {
+    @Test
+    func shouldPlaySound_dndOn_overrideDisabled_returnsFalse() {
         let preferences = TestUtilities.createTestPreferencesManager()
         let manager = FocusModeManager(preferencesManager: preferences, isTestMode: true)
         manager.isDoNotDisturbEnabled = true
         preferences.setOverrideFocusMode(false)
 
-        XCTAssertFalse(manager.shouldPlaySound())
+        #expect(!manager.shouldPlaySound())
     }
 
-    func testShouldPlaySound_delegatesToShouldShowOverlay() {
+    @Test
+    func shouldPlaySound_delegatesToShouldShowOverlay() {
         let preferences = TestUtilities.createTestPreferencesManager()
         let manager = FocusModeManager(preferencesManager: preferences, isTestMode: true)
         manager.isDoNotDisturbEnabled = true
         preferences.setOverrideFocusMode(true)
 
-        XCTAssertEqual(
-            manager.shouldPlaySound(),
-            manager.shouldShowOverlay(),
+        #expect(
+            manager.shouldPlaySound() == manager.shouldShowOverlay(),
             "shouldPlaySound must delegate to shouldShowOverlay",
         )
     }

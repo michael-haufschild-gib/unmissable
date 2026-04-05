@@ -1,7 +1,6 @@
 import Foundation
-import TestSupport
+import Testing
 @testable import Unmissable
-import XCTest
 
 /// Full-stack test environment that wires up the real composition root with a test-scoped database.
 /// This enables true end-to-end testing: DB → fetch → schedule → overlay.
@@ -127,8 +126,7 @@ final class E2ETestEnvironment {
     /// - Parameter advanceBy: How far to advance simulated time (default 10 min).
     func waitForOverlay(
         advanceBy: TimeInterval = 600,
-        file: StaticString = #filePath,
-        line: UInt = #line,
+        sourceLocation: SourceLocation = #_sourceLocation,
     ) async {
         await testClock.advance(bySeconds: advanceBy)
         if !overlayManager.isOverlayVisible {
@@ -136,10 +134,9 @@ final class E2ETestEnvironment {
                 "advancedBy": "\(advanceBy)s",
                 "clockTime": "\(testClock.currentTime)",
             ])
-            XCTFail(
+            Issue.record(
                 "Overlay not visible after advancing clock by \(advanceBy)s\n\n\(dump)",
-                file: file,
-                line: line,
+                sourceLocation: sourceLocation,
             )
         }
     }
@@ -357,23 +354,21 @@ enum E2EEventBuilder {
 
 // MARK: - E2E Assertion Helpers
 
-extension XCTestCase {
-    /// Waits for an async condition with a descriptive failure message
-    @MainActor
-    func e2eWait(
-        timeout: TimeInterval = 5.0,
-        description: String,
-        condition: @escaping @MainActor @Sendable () -> Bool,
-    ) async throws {
-        let deadline = Date().addingTimeInterval(timeout)
-        while !condition() {
-            guard Date() < deadline else {
-                XCTFail("E2E wait timed out: \(description)")
-                return
-            }
-            // E2E polling utility (equivalent to TestUtilities.waitForAsync)
-            // swiftlint:disable:next no_raw_task_sleep_in_tests
-            try await Task.sleep(nanoseconds: TestConstants.e2ePollIntervalNanoseconds)
+/// Waits for an async condition with a descriptive failure message.
+@MainActor
+func e2eWait(
+    timeout: TimeInterval = 5.0,
+    description: String,
+    condition: @escaping @MainActor @Sendable () -> Bool,
+) async throws {
+    let deadline = Date().addingTimeInterval(timeout)
+    while !condition() {
+        guard Date() < deadline else {
+            Issue.record("E2E wait timed out: \(description)")
+            return
         }
+        // E2E polling utility (equivalent to TestUtilities.waitForAsync)
+        // swiftlint:disable:next no_raw_task_sleep_in_tests
+        try await Task.sleep(nanoseconds: TestConstants.e2ePollIntervalNanoseconds)
     }
 }

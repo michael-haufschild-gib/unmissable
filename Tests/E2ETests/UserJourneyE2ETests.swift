@@ -1,7 +1,6 @@
 import Foundation
-import TestSupport
+import Testing
 @testable import Unmissable
-import XCTest
 
 /// E2E tests for complete multi-step user journeys from start to finish.
 /// Each test chains 3+ sequential user actions through the full stack:
@@ -13,23 +12,17 @@ import XCTest
 /// creates an infinite tight loop on MainActor that starves the e2eWait poller.
 /// The monitoring loop itself is tested separately in SchedulerTimerE2ETests.
 @MainActor
-final class UserJourneyE2ETests: XCTestCase {
-    private var env: E2ETestEnvironment!
+struct UserJourneyE2ETests {
+    private let env: E2ETestEnvironment
 
-    override func setUp() async throws {
-        try await super.setUp()
+    init() async throws {
         env = try await E2ETestEnvironment()
-    }
-
-    override func tearDown() async throws {
-        env.tearDown()
-        env = nil
-        try await super.tearDown()
     }
 
     // MARK: - Full Journey: Event → Overlay → Snooze → Re-Fire → Dismiss
 
-    func testFullJourney_eventToSnoozeToRefireToDismiss() async throws {
+    @Test
+    func fullJourney_eventToSnoozeToRefireToDismiss() async throws {
         // Step 1: Event arrives in DB with meeting link
         let event = E2EEventBuilder.onlineMeeting(
             id: "e2e-journey-1",
@@ -41,44 +34,45 @@ final class UserJourneyE2ETests: XCTestCase {
 
         // Fetch from DB — verify round-trip
         let fetched = try await env.fetchUpcomingEvents()
-        let dbEvent = try XCTUnwrap(fetched.first)
-        XCTAssertEqual(dbEvent.id, event.id)
+        let dbEvent = try #require(fetched.first)
+        #expect(dbEvent.id == event.id)
 
         // Step 2: Overlay shows (simulating scheduler trigger)
         env.overlayManager.showOverlayImmediately(for: dbEvent)
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
-        XCTAssertEqual(env.overlayManager.activeEvent?.id, event.id)
-        XCTAssertTrue(LinkParser().isOnlineMeeting(dbEvent))
+        #expect(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent?.id == event.id)
+        #expect(LinkParser().isOnlineMeeting(dbEvent))
 
         // Step 3: User snoozes
         env.overlayManager.snoozeOverlay(for: 3)
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
-        XCTAssertNil(env.overlayManager.activeEvent)
+        #expect(!env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent == nil)
 
         // Verify snooze alert scheduled
-        let snoozeAlert = try XCTUnwrap(
+        let snoozeAlert = try #require(
             env.eventScheduler.scheduledAlerts.first { alert in
                 if case .snooze = alert.alertType { return true }
                 return false
             },
         )
-        XCTAssertEqual(snoozeAlert.event.id, event.id)
+        #expect(snoozeAlert.event.id == event.id)
 
         // Step 4: Snooze re-fires
         env.overlayManager.showOverlayImmediately(for: snoozeAlert.event, fromSnooze: true)
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
-        XCTAssertEqual(env.overlayManager.activeEvent?.id, event.id)
+        #expect(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent?.id == event.id)
 
         // Step 5: User dismisses
         env.overlayManager.hideOverlay()
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
-        XCTAssertNil(env.overlayManager.activeEvent)
-        XCTAssertEqual(env.overlayManager.timeUntilMeeting, 0)
+        #expect(!env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent == nil)
+        #expect(env.overlayManager.timeUntilMeeting == 0)
     }
 
     // MARK: - Full Journey: Three Events Sequential Flow
 
-    func testFullJourney_threeEventsSequentialDismissSnoozeFlow() async throws {
+    @Test
+    func fullJourney_threeEventsSequentialDismissSnoozeFlow() async throws {
         let events = (0 ..< 3).map { i in
             E2EEventBuilder.futureEvent(
                 id: "e2e-seq-journey-\(i)",
@@ -91,40 +85,41 @@ final class UserJourneyE2ETests: XCTestCase {
 
         // Event 0: overlay → user dismisses
         env.overlayManager.showOverlayImmediately(for: events[0])
-        XCTAssertEqual(env.overlayManager.activeEvent?.title, "Sequential Journey 1")
+        #expect(env.overlayManager.activeEvent?.title == "Sequential Journey 1")
         env.overlayManager.hideOverlay()
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
+        #expect(!env.overlayManager.isOverlayVisible)
 
         // Event 1: overlay → user snoozes
         env.overlayManager.showOverlayImmediately(for: events[1])
-        XCTAssertEqual(env.overlayManager.activeEvent?.title, "Sequential Journey 2")
+        #expect(env.overlayManager.activeEvent?.title == "Sequential Journey 2")
         env.overlayManager.snoozeOverlay(for: 5)
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
+        #expect(!env.overlayManager.isOverlayVisible)
 
         // Event 2: overlay → user dismisses
         env.overlayManager.showOverlayImmediately(for: events[2])
-        XCTAssertEqual(env.overlayManager.activeEvent?.title, "Sequential Journey 3")
+        #expect(env.overlayManager.activeEvent?.title == "Sequential Journey 3")
         env.overlayManager.hideOverlay()
 
         // Event 1 snooze re-fires
-        let snoozeAlert = try XCTUnwrap(
+        let snoozeAlert = try #require(
             env.eventScheduler.scheduledAlerts.first { alert in
                 if case .snooze = alert.alertType, alert.event.id == events[1].id { return true }
                 return false
             },
         )
         env.overlayManager.showOverlayImmediately(for: snoozeAlert.event, fromSnooze: true)
-        XCTAssertEqual(env.overlayManager.activeEvent?.title, "Sequential Journey 2")
+        #expect(env.overlayManager.activeEvent?.title == "Sequential Journey 2")
 
         // User finally dismisses
         env.overlayManager.hideOverlay()
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
-        XCTAssertNil(env.overlayManager.activeEvent)
+        #expect(!env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent == nil)
     }
 
     // MARK: - Full Journey: Sync Update → Reschedule → Correct Overlay
 
-    func testFullJourney_syncUpdateReschedulesOverlayTiming() async throws {
+    @Test
+    func fullJourney_syncUpdateReschedulesOverlayTiming() async throws {
         env.preferencesManager.setOverlayShowMinutesBefore(0)
         env.preferencesManager.setPlayAlertSound(false)
 
@@ -143,9 +138,9 @@ final class UserJourneyE2ETests: XCTestCase {
         )
 
         // Verify alert is far in the future
-        let initialAlert = try XCTUnwrap(env.eventScheduler.scheduledAlerts.first)
+        let initialAlert = try #require(env.eventScheduler.scheduledAlerts.first)
         let initialLeadTime = initialAlert.triggerDate.timeIntervalSince(env.testClock.currentTime)
-        XCTAssertGreaterThan(initialLeadTime, 20 * 60, "Alert should be ~30 minutes away")
+        #expect(initialLeadTime > 20 * 60, "Alert should be ~30 minutes away")
 
         // Step 2: Sync update — event moved to 1 minute from now
         let updatedEvent = E2EEventBuilder.futureEvent(
@@ -163,22 +158,24 @@ final class UserJourneyE2ETests: XCTestCase {
         await env.eventScheduler.startScheduling(
             events: secondFetch, overlayManager: env.overlayManager,
         )
+        defer { env.tearDown() }
 
         // Step 4: Wait for monitoring loop to fire overlay
         await env.waitForOverlay()
 
-        let activeEvent = try XCTUnwrap(env.overlayManager.activeEvent)
-        XCTAssertEqual(activeEvent.id, "e2e-sync-journey")
-        XCTAssertEqual(activeEvent.title, "Updated Title")
+        let activeEvent = try #require(env.overlayManager.activeEvent)
+        #expect(activeEvent.id == "e2e-sync-journey")
+        #expect(activeEvent.title == "Updated Title")
 
         // Step 5: User dismisses
         env.overlayManager.hideOverlay()
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
+        #expect(!env.overlayManager.isOverlayVisible)
     }
 
     // MARK: - Full Journey: Snooze Survives Preference Change
 
-    func testFullJourney_snoozeAcrossPreferenceChange() async throws {
+    @Test
+    func fullJourney_snoozeAcrossPreferenceChange() async throws {
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-pref-change-journey",
             title: "Pref Change Meeting",
@@ -189,11 +186,11 @@ final class UserJourneyE2ETests: XCTestCase {
 
         // Step 1: Overlay shows
         env.overlayManager.showOverlayImmediately(for: event)
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.isOverlayVisible)
 
         // Step 2: User snoozes
         env.overlayManager.snoozeOverlay(for: 3)
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
+        #expect(!env.overlayManager.isOverlayVisible)
 
         // Step 3: User changes preferences mid-snooze
         env.preferencesManager.setOverlayShowMinutesBefore(5)
@@ -202,7 +199,7 @@ final class UserJourneyE2ETests: XCTestCase {
         try await Task.sleep(for: .milliseconds(10)) // Let @Observable observation fire
 
         // Step 4: Snooze alert should survive preference change
-        let snoozeAlert = try XCTUnwrap(
+        let snoozeAlert = try #require(
             env.eventScheduler.scheduledAlerts.first { alert in
                 if case .snooze = alert.alertType, alert.event.id == event.id { return true }
                 return false
@@ -212,17 +209,18 @@ final class UserJourneyE2ETests: XCTestCase {
 
         // Step 5: Re-fire works
         env.overlayManager.showOverlayImmediately(for: snoozeAlert.event, fromSnooze: true)
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
-        XCTAssertEqual(env.overlayManager.activeEvent?.id, event.id)
+        #expect(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent?.id == event.id)
 
         // Step 6: Final dismiss
         env.overlayManager.hideOverlay()
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
+        #expect(!env.overlayManager.isOverlayVisible)
     }
 
     // MARK: - Full Journey: Back-to-Back Meetings
 
-    func testFullJourney_backToBackMeetingTransition() async throws {
+    @Test
+    func fullJourney_backToBackMeetingTransition() async throws {
         env.preferencesManager.setOverlayShowMinutesBefore(0)
 
         let event1 = E2EEventBuilder.futureEvent(
@@ -241,55 +239,57 @@ final class UserJourneyE2ETests: XCTestCase {
 
         // Step 1: First meeting overlay
         env.overlayManager.showOverlayImmediately(for: event1)
-        XCTAssertEqual(env.overlayManager.activeEvent?.title, "Back-to-Back First")
+        #expect(env.overlayManager.activeEvent?.title == "Back-to-Back First")
 
         // Step 2: User dismisses
         env.overlayManager.hideOverlay()
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
+        #expect(!env.overlayManager.isOverlayVisible)
 
         // Step 3: Second meeting overlay
         env.overlayManager.showOverlayImmediately(for: event2)
-        XCTAssertEqual(env.overlayManager.activeEvent?.title, "Back-to-Back Second")
+        #expect(env.overlayManager.activeEvent?.title == "Back-to-Back Second")
 
         // Step 4: User dismisses
         env.overlayManager.hideOverlay()
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
-        XCTAssertNil(env.overlayManager.activeEvent)
+        #expect(!env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent == nil)
     }
 
     // MARK: - Full Journey: Calendar Disconnection Cleans Up
 
-    func testFullJourney_disconnectCleansUpScheduler() async throws {
+    @Test
+    func fullJourney_disconnectCleansUpScheduler() async throws {
         // Step 1: Events are scheduled
         let events = E2EEventBuilder.eventBatch(count: 5, startingMinutesFromNow: 10)
         try await env.seedAndSchedule(events)
 
         let initialAlertCount = env.eventScheduler.scheduledAlerts.count
-        XCTAssertGreaterThanOrEqual(initialAlertCount, 5)
+        #expect(initialAlertCount >= 5)
 
         // Step 2: Show overlay for first event
         let upcomingEvents = try await env.fetchUpcomingEvents()
-        let firstEvent = try XCTUnwrap(upcomingEvents.first)
+        let firstEvent = try #require(upcomingEvents.first)
         env.overlayManager.showOverlayImmediately(for: firstEvent)
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.isOverlayVisible)
 
         // Step 3: Simulate disconnection (what AppState.disconnectFromCalendar does)
         env.eventScheduler.stopScheduling()
         env.overlayManager.hideOverlay()
 
         // Step 4: Verify clean state
-        XCTAssertEqual(env.eventScheduler.scheduledAlerts, [])
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
-        XCTAssertNil(env.overlayManager.activeEvent)
+        #expect(env.eventScheduler.scheduledAlerts.isEmpty)
+        #expect(!env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.activeEvent == nil)
 
         // Step 5: Events still in DB but scheduler is idle
         let dbEvents = try await env.fetchUpcomingEvents()
-        XCTAssertGreaterThanOrEqual(dbEvents.count, 5, "Events remain in DB after disconnect")
+        #expect(dbEvents.count >= 5, "Events remain in DB after disconnect")
     }
 
     // MARK: - Full Journey: Rich Event Data Through Full Pipeline
 
-    func testFullJourney_richEventDataPreservedThroughPipeline() async throws {
+    @Test
+    func fullJourney_richEventDataPreservedThroughPipeline() async throws {
         env.preferencesManager.setOverlayShowMinutesBefore(0)
 
         // Step 1: Create event with all fields populated
@@ -317,7 +317,7 @@ final class UserJourneyE2ETests: XCTestCase {
             ],
             isAllDay: false,
             calendarId: "e2e-rich-cal",
-            links: [XCTUnwrap(URL(string: "https://meet.google.com/rich-test"))],
+            links: [#require(URL(string: "https://meet.google.com/rich-test"))],
             provider: .meet,
             createdAt: Date(),
             updatedAt: Date(),
@@ -325,35 +325,36 @@ final class UserJourneyE2ETests: XCTestCase {
 
         // Step 2: Save to DB and schedule (with monitoring for waitForOverlay)
         try await env.seedAndSchedule([richEvent], startMonitoring: true)
+        defer { env.tearDown() }
 
         // Step 3: Wait for monitoring loop to fire overlay
         await env.waitForOverlay()
 
         // Step 4: Verify all data survived DB → scheduler → overlay pipeline
-        let active = try XCTUnwrap(env.overlayManager.activeEvent)
-        XCTAssertEqual(active.id, richEvent.id)
-        XCTAssertEqual(active.title, "Quarterly Review with Leadership")
-        XCTAssertEqual(active.organizer, "cto@company.com")
-        XCTAssertEqual(active.calendarId, "e2e-rich-cal")
-        XCTAssertEqual(active.provider, .meet)
-        XCTAssertTrue(LinkParser().isOnlineMeeting(active))
+        let active = try #require(env.overlayManager.activeEvent)
+        #expect(active.id == richEvent.id)
+        #expect(active.title == "Quarterly Review with Leadership")
+        #expect(active.organizer == "cto@company.com")
+        #expect(active.calendarId == "e2e-rich-cal")
+        #expect(active.provider == .meet)
+        #expect(LinkParser().isOnlineMeeting(active))
 
-        let link = try XCTUnwrap(LinkParser().primaryLink(for: active))
-        XCTAssertEqual(link.host, "meet.google.com")
+        let link = try #require(LinkParser().primaryLink(for: active))
+        #expect(link.host == "meet.google.com")
 
-        XCTAssertEqual(
-            Set(active.attendees.map(\.email)),
-            Set(["alice@company.com", "bob@company.com"]),
+        #expect(
+            Set(active.attendees.map(\.email)) == Set(["alice@company.com", "bob@company.com"]),
         )
 
         // Step 5: User dismisses
         env.overlayManager.hideOverlay()
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
+        #expect(!env.overlayManager.isOverlayVisible)
     }
 
     // MARK: - Full Journey: Overlay Functional During Sync
 
-    func testFullJourney_overlayFunctionalDuringSyncUpdate() async throws {
+    @Test
+    func fullJourney_overlayFunctionalDuringSyncUpdate() async throws {
         // Step 1: Schedule event and show overlay
         let event = E2EEventBuilder.futureEvent(
             id: "e2e-sync-during",
@@ -363,7 +364,7 @@ final class UserJourneyE2ETests: XCTestCase {
         )
         try await env.seedAndSchedule([event])
         env.overlayManager.showOverlayImmediately(for: event)
-        XCTAssertTrue(env.overlayManager.isOverlayVisible)
+        #expect(env.overlayManager.isOverlayVisible)
 
         // Step 2: Sync happens while overlay is visible
         let newEvents = [
@@ -385,15 +386,15 @@ final class UserJourneyE2ETests: XCTestCase {
         )
 
         // Step 4: Overlay still visible and functional
-        XCTAssertTrue(env.overlayManager.isOverlayVisible, "Overlay survives sync")
-        XCTAssertEqual(env.overlayManager.activeEvent?.id, event.id)
+        #expect(env.overlayManager.isOverlayVisible, "Overlay survives sync")
+        #expect(env.overlayManager.activeEvent?.id == event.id)
 
         // Step 5: User can still snooze
         env.overlayManager.snoozeOverlay(for: 5)
-        XCTAssertFalse(env.overlayManager.isOverlayVisible)
+        #expect(!env.overlayManager.isOverlayVisible)
 
         // Step 6: New event from sync is also scheduled
         let hasNewEvent = env.eventScheduler.scheduledAlerts.contains { $0.event.id == "e2e-sync-new" }
-        XCTAssertTrue(hasNewEvent, "New event from sync should be scheduled")
+        #expect(hasNewEvent, "New event from sync should be scheduled")
     }
 }

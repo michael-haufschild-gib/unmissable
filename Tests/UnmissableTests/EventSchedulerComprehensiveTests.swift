@@ -1,25 +1,18 @@
-import Combine
-import TestSupport
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 @MainActor
-final class EventSchedulerComprehensiveTests: XCTestCase {
-    private var eventScheduler: EventScheduler!
-    private var mockPreferences: PreferencesManager!
-    private var overlayManager: TestSafeOverlayManager!
-    private var cancellables = Set<AnyCancellable>()
-    private var testClock: TestClock?
+struct EventSchedulerComprehensiveTests {
+    private var eventScheduler: EventScheduler
+    private var mockPreferences: PreferencesManager
+    private var overlayManager: TestSafeOverlayManager
 
-    override func setUp() async throws {
-        try await super.setUp()
-
+    init() {
         mockPreferences = TestUtilities.createTestPreferencesManager()
         mockPreferences.testOverlayShowMinutesBefore = 2
         eventScheduler = EventScheduler(preferencesManager: mockPreferences, linkParser: LinkParser())
         overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
-        cancellables.removeAll()
-        testClock = nil
     }
 
     /// Creates an EventScheduler with a controllable TestClock.
@@ -32,29 +25,14 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
             sleepForSeconds: clock.sleepForSeconds,
             now: clock.nowProvider,
         )
-        testClock = clock
         return (scheduler, clock)
-    }
-
-    override func tearDown() async throws {
-        // Stop all scheduling operations and clean up timers
-        eventScheduler.stopScheduling()
-        cancellables.removeAll()
-
-        // Give timers time to clean up
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in true }
-
-        eventScheduler = nil
-        overlayManager = nil
-        mockPreferences = nil
-        testClock = nil
-
-        try await super.tearDown()
     }
 
     // MARK: - Basic Scheduling Tests
 
-    func testBasicEventScheduling() async throws {
+    @Test
+    func basicEventScheduling() async throws {
+        defer { eventScheduler.stopScheduling() }
         let futureEvent = TestUtilities.createTestEvent(
             startDate: Date().addingTimeInterval(300), // 5 minutes from now
         )
@@ -62,19 +40,21 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         await eventScheduler.startScheduling(events: [futureEvent], overlayManager: overlayManager)
 
         // Should have scheduled alerts (may include both overlay and sound alerts)
-        XCTAssertGreaterThanOrEqual(eventScheduler.scheduledAlerts.count, 1)
+        #expect(eventScheduler.scheduledAlerts.count >= 1)
 
-        let alert = try XCTUnwrap(eventScheduler.scheduledAlerts.first)
-        XCTAssertEqual(alert.event.id, futureEvent.id)
+        let alert = try #require(eventScheduler.scheduledAlerts.first)
+        #expect(alert.event.id == futureEvent.id)
 
         if case let .reminder(minutes) = alert.alertType {
-            XCTAssertEqual(minutes, mockPreferences.overlayShowMinutesBefore)
+            #expect(minutes == mockPreferences.overlayShowMinutesBefore)
         } else {
-            XCTFail("Expected reminder alert type")
+            Issue.record("Expected reminder alert type")
         }
     }
 
-    func testStartScheduling_acceptsOverlayManagingExistential() async {
+    @Test
+    func startScheduling_acceptsOverlayManagingExistential() async {
+        defer { eventScheduler.stopScheduling() }
         let testOverlay = TestSafeOverlayManager(isTestEnvironment: true)
         testOverlay.setEventScheduler(eventScheduler)
         let protocolOverlayManager: any OverlayManaging = testOverlay
@@ -90,20 +70,24 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
             overlayManager: protocolOverlayManager,
         )
 
-        XCTAssertTrue(protocolOverlayManager.isOverlayVisible)
-        XCTAssertEqual(protocolOverlayManager.activeEvent?.id, upcomingEvent.id)
+        #expect(protocolOverlayManager.isOverlayVisible)
+        #expect(protocolOverlayManager.activeEvent?.id == upcomingEvent.id)
     }
 
-    func testPastEventNotScheduled() async {
+    @Test
+    func pastEventNotScheduled() async {
+        defer { eventScheduler.stopScheduling() }
         let pastEvent = TestUtilities.createPastEvent()
 
         await eventScheduler.startScheduling(events: [pastEvent], overlayManager: overlayManager)
 
         // Should not schedule alerts for past events
-        XCTAssertEqual(eventScheduler.scheduledAlerts, [], "Past events should produce no alerts")
+        #expect(eventScheduler.scheduledAlerts.isEmpty, "Past events should produce no alerts")
     }
 
-    func testMultipleEventsScheduling() async {
+    @Test
+    func multipleEventsScheduling() async {
+        defer { eventScheduler.stopScheduling() }
         let event1 = TestUtilities.createTestEvent(
             id: "event1",
             startDate: Date().addingTimeInterval(300),
@@ -117,18 +101,19 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
             events: [event1, event2], overlayManager: overlayManager,
         )
 
-        XCTAssertGreaterThanOrEqual(eventScheduler.scheduledAlerts.count, 2)
+        #expect(eventScheduler.scheduledAlerts.count >= 2)
 
         // Alerts should be sorted by trigger time
         let sortedAlerts = eventScheduler.scheduledAlerts.sorted { $0.triggerDate < $1.triggerDate }
-        XCTAssertEqual(
-            eventScheduler.scheduledAlerts.map(\.triggerDate), sortedAlerts.map(\.triggerDate),
+        #expect(
+            eventScheduler.scheduledAlerts.map(\.triggerDate) == sortedAlerts.map(\.triggerDate),
         )
     }
 
     // MARK: - Preferences Integration Tests
 
-    func testPreferenceChangesRescheduleAlerts() async {
+    @Test
+    func preferenceChangesRescheduleAlerts() async throws {
         // This test validates that EventScheduler uses the correct preferences
         // when scheduling alerts, which is critical for avoiding notification spam
 
@@ -141,12 +126,11 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         testPreferences.setLongMeetingAlertMinutes(10)
 
         // Verify the preference returns the correct value
-        XCTAssertEqual(
-            testPreferences.overlayShowMinutesBefore, 10, "Test preferences should return 10",
-        )
+        #expect(testPreferences.overlayShowMinutesBefore == 10, "Test preferences should return 10")
 
         // Create a new EventScheduler with our test preferences
         let testScheduler = EventScheduler(preferencesManager: testPreferences, linkParser: LinkParser())
+        defer { testScheduler.stopScheduling() }
 
         let futureEvent = TestUtilities.createTestEvent(
             startDate: Date().addingTimeInterval(1200), // 20 minutes from now (enough for 10-minute alert)
@@ -156,31 +140,27 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         await testScheduler.startScheduling(events: [futureEvent], overlayManager: overlayManager)
 
         // Verify we got scheduled alerts
-        XCTAssertGreaterThanOrEqual(
-            testScheduler.scheduledAlerts.count, 1, "Should have at least one scheduled alert",
+        #expect(
+            testScheduler.scheduledAlerts.count >= 1, "Should have at least one scheduled alert",
         )
 
         let reminderAlerts = testScheduler.scheduledAlerts.filter {
             if case .reminder = $0.alertType { true } else { false }
         }
-        XCTAssertGreaterThanOrEqual(reminderAlerts.count, 1, "Should have at least one reminder alert")
+        #expect(reminderAlerts.count >= 1, "Should have at least one reminder alert")
 
-        guard let firstAlert = reminderAlerts.first else {
-            XCTFail("Expected reminder alert type")
-            return
-        }
+        let firstAlert = try #require(reminderAlerts.first)
 
         if case let .reminder(minutes) = firstAlert.alertType {
-            XCTAssertEqual(minutes, 10, "EventScheduler should use the specified preference value")
+            #expect(minutes == 10, "EventScheduler should use the specified preference value")
         } else {
-            XCTFail("Expected reminder alert type")
+            Issue.record("Expected reminder alert type")
         }
-
-        // Clean up
-        testScheduler.stopScheduling()
     }
 
-    func testLengthBasedTimingPreferences() async throws {
+    @Test
+    func lengthBasedTimingPreferences() async throws {
+        defer { eventScheduler.stopScheduling() }
         // Create events of different lengths
         let shortEvent = TestUtilities.createTestEvent(
             id: "short",
@@ -204,16 +184,18 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         )
 
         // Verify different timing for different event lengths
-        let shortAlert = try XCTUnwrap(eventScheduler.scheduledAlerts.first { $0.event.id == "short" })
-        let longAlert = try XCTUnwrap(eventScheduler.scheduledAlerts.first { $0.event.id == "long" })
+        let shortAlert = try #require(eventScheduler.scheduledAlerts.first { $0.event.id == "short" })
+        let longAlert = try #require(eventScheduler.scheduledAlerts.first { $0.event.id == "long" })
 
         // Long events should have different timing than short events
-        XCTAssertNotEqual(shortAlert.triggerDate, longAlert.triggerDate)
+        #expect(shortAlert.triggerDate != longAlert.triggerDate)
     }
 
     // MARK: - Sound Alert Tests
 
-    func testSoundAlertsWhenEnabled() async {
+    @Test
+    func soundAlertsWhenEnabled() async {
+        defer { eventScheduler.stopScheduling() }
         mockPreferences.testSoundEnabled = true
         mockPreferences.testDefaultAlertMinutes = 3
         mockPreferences.testOverlayShowMinutesBefore = 5
@@ -231,11 +213,13 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
             return false
         }
         // Both alerts should be reminders for the same event with different timings
-        XCTAssertEqual(Set(alerts.map(\.event.id)), Set([futureEvent.id]))
-        XCTAssertEqual(reminderAlerts.map(\.event.id), [futureEvent.id, futureEvent.id])
+        #expect(Set(alerts.map(\.event.id)) == Set([futureEvent.id]))
+        #expect(reminderAlerts.map(\.event.id) == [futureEvent.id, futureEvent.id])
     }
 
-    func testNoSoundAlertsWhenDisabled() async {
+    @Test
+    func noSoundAlertsWhenDisabled() async {
+        defer { eventScheduler.stopScheduling() }
         mockPreferences.testSoundEnabled = false
 
         let futureEvent = TestUtilities.createTestEvent(
@@ -245,28 +229,31 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         await eventScheduler.startScheduling(events: [futureEvent], overlayManager: overlayManager)
 
         // Should only have overlay alert, no sound alert
-        XCTAssertEqual(eventScheduler.scheduledAlerts.map(\.event.id), [futureEvent.id])
+        #expect(eventScheduler.scheduledAlerts.map(\.event.id) == [futureEvent.id])
     }
 
     // MARK: - Snooze Tests
 
-    func testSnoozeScheduling() throws {
+    @Test
+    func snoozeScheduling() throws {
         let event = TestUtilities.createTestEvent()
 
         eventScheduler.scheduleSnooze(for: event, minutes: 5)
 
-        let snoozeAlert = try XCTUnwrap(eventScheduler.scheduledAlerts.first)
-        XCTAssertEqual(snoozeAlert.event.id, event.id)
+        let snoozeAlert = try #require(eventScheduler.scheduledAlerts.first)
+        #expect(snoozeAlert.event.id == event.id)
         if case let .snooze(until) = snoozeAlert.alertType {
             let expectedTime = Date().addingTimeInterval(5 * 60)
             let timeDifference = abs(until.timeIntervalSince(expectedTime))
-            XCTAssertLessThan(timeDifference, 2.0) // Allow 2 second tolerance
+            #expect(timeDifference < 2.0) // Allow 2 second tolerance
         } else {
-            XCTFail("Expected snooze alert type")
+            Issue.record("Expected snooze alert type")
         }
     }
 
-    func testSnoozePreservedDuringRescheduling() async throws {
+    @Test
+    func snoozePreservedDuringRescheduling() async throws {
+        defer { eventScheduler.stopScheduling() }
         let futureEvent = TestUtilities.createTestEvent(
             startDate: Date().addingTimeInterval(600),
         )
@@ -281,7 +268,7 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         mockPreferences.testOverlayShowMinutesBefore = 8
 
         // Wait for rescheduling
-        let scheduler = try XCTUnwrap(eventScheduler)
+        let scheduler = eventScheduler
         try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
             return scheduler.scheduledAlerts.contains { alert in
                 if case .snooze = alert.alertType { return true }
@@ -295,25 +282,28 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
             return false
         }
 
-        XCTAssertTrue(hasSnoozeAlert, "Snooze alert should be preserved during rescheduling")
+        #expect(hasSnoozeAlert, "Snooze alert should be preserved during rescheduling")
     }
 
     // MARK: - Timer Memory Management Tests
 
-    func testStopSchedulingClearsTimers() async {
+    @Test
+    func stopSchedulingClearsTimers() async {
+        defer { eventScheduler.stopScheduling() }
         let futureEvent = TestUtilities.createTestEvent(
             startDate: Date().addingTimeInterval(300),
         )
 
         await eventScheduler.startScheduling(events: [futureEvent], overlayManager: overlayManager)
-        XCTAssertGreaterThanOrEqual(eventScheduler.scheduledAlerts.count, 1)
+        #expect(eventScheduler.scheduledAlerts.count >= 1)
 
         eventScheduler.stopScheduling()
 
-        XCTAssertEqual(eventScheduler.scheduledAlerts, [], "All alerts should be cleared after stop")
+        #expect(eventScheduler.scheduledAlerts.isEmpty, "All alerts should be cleared after stop")
     }
 
-    func testMemoryCleanupSimple() async throws {
+    @Test
+    func memoryCleanupSimple() async throws {
         // First test if memory leak detection works with a simple object
         class SimpleTestObject {
             var value = 42
@@ -324,7 +314,7 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         weakSimple = simpleObject
         simpleObject = nil
 
-        XCTAssertNil(weakSimple, "Simple object should be deallocated")
+        #expect(weakSimple == nil, "Simple object should be deallocated")
 
         // Now test EventScheduler with minimal setup
         let testPreferences = PreferencesManager(themeManager: ThemeManager())
@@ -341,12 +331,15 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
             weakScheduler == nil
         }
 
-        XCTAssertNil(weakScheduler, "EventScheduler should be deallocated after cleanup")
-    } // MARK: - Alert Triggering Tests
+        #expect(weakScheduler == nil, "EventScheduler should be deallocated after cleanup")
+    }
 
-    func testAlertTriggering() async {
+    // MARK: - Alert Triggering Tests
+
+    @Test
+    func alertTriggering() async {
         let (scheduler, clock) = createClockInjectedScheduler()
-        eventScheduler = scheduler
+        defer { scheduler.stopScheduling() }
 
         let baseTime = clock.currentTime
         let nearFutureEvent = TestUtilities.createTestEvent(
@@ -364,13 +357,14 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
             events: [nearFutureEvent], overlayManager: overlayManager,
         )
 
-        XCTAssertTrue(overlayManager.isOverlayVisible)
-        XCTAssertEqual(overlayManager.activeEvent?.id, nearFutureEvent.id)
+        #expect(overlayManager.isOverlayVisible)
+        #expect(overlayManager.activeEvent?.id == nearFutureEvent.id)
     }
 
-    func testReminderTriggerDoesNotApplyHardcodedFiveMinuteDelay() async {
+    @Test
+    func reminderTriggerDoesNotApplyHardcodedFiveMinuteDelay() async {
         let (scheduler, clock) = createClockInjectedScheduler()
-        eventScheduler = scheduler
+        defer { scheduler.stopScheduling() }
 
         mockPreferences.testOverlayShowMinutesBefore = 6
         mockPreferences.testSoundEnabled = false
@@ -393,13 +387,15 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
             events: [event], overlayManager: overlayManager,
         )
 
-        XCTAssertTrue(overlayManager.isOverlayVisible)
-        XCTAssertEqual(overlayManager.activeEvent?.id, event.id)
+        #expect(overlayManager.isOverlayVisible)
+        #expect(overlayManager.activeEvent?.id == event.id)
     }
 
     // MARK: - Edge Cases
 
-    func testEndedEventsAreSkipped() async {
+    @Test
+    func endedEventsAreSkipped() async {
+        defer { eventScheduler.stopScheduling() }
         let endedEvent = TestUtilities.createTestEvent(
             id: "ended",
             startDate: Date().addingTimeInterval(-7200),
@@ -407,13 +403,15 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         )
 
         await eventScheduler.startScheduling(events: [endedEvent], overlayManager: overlayManager)
-        XCTAssertTrue(
+        #expect(
             eventScheduler.scheduledAlerts.isEmpty,
             "Events that have already ended should not produce alerts",
         )
     }
 
-    func testIdenticalOverlayAndSoundTimingProducesSingleAlert() async {
+    @Test
+    func identicalOverlayAndSoundTimingProducesSingleAlert() async {
+        defer { eventScheduler.stopScheduling() }
         // When overlay and sound alert timing are the same, only 1 alert should be created
         mockPreferences.testSoundEnabled = true
         mockPreferences.testDefaultAlertMinutes = 5
@@ -426,14 +424,15 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         await eventScheduler.startScheduling(events: [event], overlayManager: overlayManager)
 
         // Should have exactly 1 alert, not 2, since timings are identical
-        XCTAssertEqual(
-            eventScheduler.scheduledAlerts.map(\.event.id),
-            [event.id],
+        #expect(
+            eventScheduler.scheduledAlerts.map(\.event.id) == [event.id],
             "Equal overlay and sound timing should produce 1 alert, not 2",
         )
     }
 
-    func testAllDayEventsWithPastStartAreNotScheduled() async {
+    @Test
+    func allDayEventsWithPastStartAreNotScheduled() async {
+        defer { eventScheduler.stopScheduling() }
         let allDay = TestUtilities.createAllDayEvent()
 
         await eventScheduler.startScheduling(events: [allDay], overlayManager: overlayManager)
@@ -444,14 +443,15 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         // The scheduler correctly skips these — they don't qualify as "missed alerts"
         // because the meeting has already started. This prevents surprise overlays
         // for all-day events the user is already aware of.
-        XCTAssertEqual(
-            eventScheduler.scheduledAlerts,
-            [],
+        #expect(
+            eventScheduler.scheduledAlerts.isEmpty,
             "All-day events with past startDate should not produce alerts",
         )
     }
 
-    func testZeroDurationEventScheduled() async {
+    @Test
+    func zeroDurationEventScheduled() async {
+        defer { eventScheduler.stopScheduling() }
         let now = Date()
         let zeroDuration = TestUtilities.createTestEvent(
             id: "zero-dur",
@@ -463,24 +463,27 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
 
         // Zero duration event is valid (e.g. a reminder) — should still get an alert
         let alerts = eventScheduler.scheduledAlerts
-        XCTAssertGreaterThanOrEqual(alerts.count, 1, "Zero duration event should produce at least one alert")
-        XCTAssertEqual(alerts.first?.event.id, "zero-dur")
+        #expect(alerts.count >= 1, "Zero duration event should produce at least one alert")
+        #expect(alerts.first?.event.id == "zero-dur")
     }
 
-    func testNegativeSnoozeMinutesHandled() {
+    @Test
+    func negativeSnoozeMinutesHandled() {
         let event = TestUtilities.createTestEvent()
         // Scheduling a negative snooze should not crash
         eventScheduler.scheduleSnooze(for: event, minutes: -5)
 
         // The snooze should still be created (the scheduler doesn't validate duration)
         let alerts = eventScheduler.scheduledAlerts
-        XCTAssertGreaterThanOrEqual(alerts.count, 1, "Negative snooze should still create an alert")
-        XCTAssertEqual(alerts.first?.event.id, event.id)
+        #expect(alerts.count >= 1, "Negative snooze should still create an alert")
+        #expect(alerts.first?.event.id == event.id)
     }
 
     // MARK: - Performance Tests
 
-    func testLargeNumberOfEvents() async throws {
+    @Test
+    func largeNumberOfEvents() async {
+        defer { eventScheduler.stopScheduling() }
         let numberOfEvents = 100
         let events = (0 ..< numberOfEvents).map { index in
             TestUtilities.createTestEvent(
@@ -490,8 +493,8 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
             )
         }
 
-        let scheduler = try XCTUnwrap(eventScheduler)
-        let overlay = try XCTUnwrap(overlayManager)
+        let scheduler = eventScheduler
+        let overlay = overlayManager
         let (_, schedulingTime) = await TestUtilities.measureTimeAsync { @MainActor @Sendable in
             await scheduler.startScheduling(
                 events: events, overlayManager: overlay,
@@ -499,9 +502,9 @@ final class EventSchedulerComprehensiveTests: XCTestCase {
         }
 
         // Scheduling should complete quickly even with many events
-        XCTAssertLessThan(schedulingTime, 1.0, "Scheduling 100 events should take less than 1 second")
+        #expect(schedulingTime < 1.0, "Scheduling 100 events should take less than 1 second")
 
         // Should have alerts for all future events (may include multiple alert types per event)
-        XCTAssertGreaterThanOrEqual(eventScheduler.scheduledAlerts.count, numberOfEvents)
+        #expect(eventScheduler.scheduledAlerts.count >= numberOfEvents)
     }
 }

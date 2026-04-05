@@ -1,67 +1,74 @@
 import Foundation
-import TestSupport
+import Testing
 @testable import Unmissable
-import XCTest
 
 /// Tests smart alert suppression — overlay is skipped when the user already has
 /// the meeting's video app (or browser for Meet) in the foreground.
 @MainActor
-final class SmartSuppressionTests: XCTestCase {
+struct SmartSuppressionTests {
     // MARK: - Provider Bundle IDs
 
-    func testZoomProvider_hasCorrectBundleIdentifiers() {
-        XCTAssertEqual(Provider.zoom.knownBundleIdentifiers, ["us.zoom.xos"])
+    @Test
+    func zoomProvider_hasCorrectBundleIdentifiers() {
+        #expect(Provider.zoom.knownBundleIdentifiers == ["us.zoom.xos"])
     }
 
-    func testTeamsProvider_hasBothBundleIdentifiers() {
-        XCTAssertEqual(
-            Provider.teams.knownBundleIdentifiers,
-            ["com.microsoft.teams", "com.microsoft.teams2"],
+    @Test
+    func teamsProvider_hasBothBundleIdentifiers() {
+        #expect(
+            Provider.teams.knownBundleIdentifiers == ["com.microsoft.teams", "com.microsoft.teams2"],
         )
     }
 
-    func testWebexProvider_hasBothBundleIdentifiers() {
-        XCTAssertEqual(
-            Provider.webex.knownBundleIdentifiers,
-            ["com.webex.meetingmanager", "com.cisco.webexmeetings"],
+    @Test
+    func webexProvider_hasBothBundleIdentifiers() {
+        #expect(
+            Provider.webex.knownBundleIdentifiers == ["com.webex.meetingmanager", "com.cisco.webexmeetings"],
         )
     }
 
-    func testMeetProvider_returnsEmptyBundleIdentifiers() {
-        XCTAssertEqual(Provider.meet.knownBundleIdentifiers, [])
+    @Test
+    func meetProvider_returnsEmptyBundleIdentifiers() {
+        #expect(Provider.meet.knownBundleIdentifiers.isEmpty)
     }
 
-    func testGenericProvider_returnsEmptyBundleIdentifiers() {
-        XCTAssertEqual(Provider.generic.knownBundleIdentifiers, [])
+    @Test
+    func genericProvider_returnsEmptyBundleIdentifiers() {
+        #expect(Provider.generic.knownBundleIdentifiers.isEmpty)
     }
 
     // MARK: - Foreground App Detector (Stubbed)
 
-    func testStubDetector_meetingAppInForeground_returnsFalseByDefault() {
+    @Test
+    func stubDetector_meetingAppInForeground_returnsFalseByDefault() {
         let detector = TestSafeForegroundAppDetector()
-        XCTAssertFalse(detector.isMeetingAppInForeground(for: .zoom))
+        #expect(!detector.isMeetingAppInForeground(for: .zoom))
     }
 
-    func testStubDetector_meetingAppInForeground_returnsTrueWhenSet() {
+    @Test
+    func stubDetector_meetingAppInForeground_returnsTrueWhenSet() {
         let detector = TestSafeForegroundAppDetector()
         detector.meetingAppInForeground = true
-        XCTAssertTrue(detector.isMeetingAppInForeground(for: .zoom))
+        #expect(detector.isMeetingAppInForeground(for: .zoom))
     }
 
-    func testStubDetector_browserInForeground_returnsFalseByDefault() {
+    @Test
+    func stubDetector_browserInForeground_returnsFalseByDefault() {
         let detector = TestSafeForegroundAppDetector()
-        XCTAssertFalse(detector.isBrowserInForeground())
+        #expect(!detector.isBrowserInForeground())
     }
 
-    func testStubDetector_browserInForeground_returnsTrueWhenSet() {
+    @Test
+    func stubDetector_browserInForeground_returnsTrueWhenSet() {
         let detector = TestSafeForegroundAppDetector()
         detector.browserInForeground = true
-        XCTAssertTrue(detector.isBrowserInForeground())
+        #expect(detector.isBrowserInForeground())
     }
 
     // MARK: - Smart Suppression Integration (via TestSafe)
 
-    func testShowOverlay_suppressedWhenNativeAppInForeground() {
+    @Test
+    func showOverlay_suppressedWhenNativeAppInForeground() {
         let detector = TestSafeForegroundAppDetector()
         detector.meetingAppInForeground = true
         let prefs = TestUtilities.createTestPreferencesManager()
@@ -76,14 +83,15 @@ final class SmartSuppressionTests: XCTestCase {
         let event = TestUtilities.createTestEvent(provider: .zoom)
         overlay.showOverlay(for: event, fromSnooze: false)
 
-        XCTAssertFalse(
-            overlay.isOverlayVisible,
+        #expect(
+            !overlay.isOverlayVisible,
             "Overlay should be suppressed when meeting app is in foreground",
         )
-        XCTAssertNil(overlay.activeEvent)
+        #expect(overlay.activeEvent == nil)
     }
 
-    func testShowOverlay_notSuppressedWhenFromSnooze() {
+    @Test
+    func showOverlay_notSuppressedWhenFromSnooze() {
         let detector = TestSafeForegroundAppDetector()
         detector.meetingAppInForeground = true
         let prefs = TestUtilities.createTestPreferencesManager()
@@ -98,14 +106,15 @@ final class SmartSuppressionTests: XCTestCase {
         let event = TestUtilities.createTestEvent(provider: .zoom)
         overlay.showOverlay(for: event, fromSnooze: true)
 
-        XCTAssertTrue(
+        #expect(
             overlay.isOverlayVisible,
             "fromSnooze alerts must never be suppressed",
         )
-        XCTAssertEqual(overlay.activeEvent?.id, event.id)
+        #expect(overlay.activeEvent?.id == event.id)
     }
 
-    func testShowOverlay_notSuppressedWhenPreferenceDisabled() {
+    @Test
+    func showOverlay_notSuppressedWhenPreferenceDisabled() {
         let detector = TestSafeForegroundAppDetector()
         detector.meetingAppInForeground = true
         let prefs = TestUtilities.createTestPreferencesManager()
@@ -120,14 +129,15 @@ final class SmartSuppressionTests: XCTestCase {
         let event = TestUtilities.createTestEvent(provider: .zoom)
         overlay.showOverlay(for: event, fromSnooze: false)
 
-        XCTAssertTrue(
+        #expect(
             overlay.isOverlayVisible,
             "Overlay should not be suppressed when smart suppression is disabled",
         )
-        XCTAssertEqual(overlay.activeEvent?.id, event.id)
+        #expect(overlay.activeEvent?.id == event.id)
     }
 
-    func testShowOverlay_notSuppressedWhenAppNotInForeground() {
+    @Test
+    func showOverlay_notSuppressedWhenAppNotInForeground() {
         let detector = TestSafeForegroundAppDetector()
         detector.meetingAppInForeground = false
         let prefs = TestUtilities.createTestPreferencesManager()
@@ -142,14 +152,15 @@ final class SmartSuppressionTests: XCTestCase {
         let event = TestUtilities.createTestEvent(provider: .zoom)
         overlay.showOverlay(for: event, fromSnooze: false)
 
-        XCTAssertTrue(
+        #expect(
             overlay.isOverlayVisible,
             "Overlay should show when meeting app is not in foreground",
         )
-        XCTAssertEqual(overlay.activeEvent?.id, event.id)
+        #expect(overlay.activeEvent?.id == event.id)
     }
 
-    func testShowOverlay_meetProviderSuppressedWhenBrowserInForeground() {
+    @Test
+    func showOverlay_meetProviderSuppressedWhenBrowserInForeground() {
         let detector = TestSafeForegroundAppDetector()
         detector.browserInForeground = true
         let prefs = TestUtilities.createTestPreferencesManager()
@@ -164,13 +175,14 @@ final class SmartSuppressionTests: XCTestCase {
         let event = TestUtilities.createTestEvent(provider: .meet)
         overlay.showOverlay(for: event, fromSnooze: false)
 
-        XCTAssertFalse(
-            overlay.isOverlayVisible,
+        #expect(
+            !overlay.isOverlayVisible,
             "Google Meet overlay should be suppressed when browser is in foreground",
         )
     }
 
-    func testShowOverlay_nonMeetProviderNotSuppressedByBrowser() {
+    @Test
+    func showOverlay_nonMeetProviderNotSuppressedByBrowser() {
         let detector = TestSafeForegroundAppDetector()
         detector.browserInForeground = true
         detector.meetingAppInForeground = false
@@ -186,13 +198,14 @@ final class SmartSuppressionTests: XCTestCase {
         let event = TestUtilities.createTestEvent(provider: .zoom)
         overlay.showOverlay(for: event, fromSnooze: false)
 
-        XCTAssertTrue(
+        #expect(
             overlay.isOverlayVisible,
             "Zoom overlay should not be suppressed just because a browser is in foreground",
         )
     }
 
-    func testShowOverlay_noProviderNotSuppressed() {
+    @Test
+    func showOverlay_noProviderNotSuppressed() {
         let detector = TestSafeForegroundAppDetector()
         detector.meetingAppInForeground = true
         detector.browserInForeground = true
@@ -208,7 +221,7 @@ final class SmartSuppressionTests: XCTestCase {
         let event = TestUtilities.createTestEvent(provider: nil)
         overlay.showOverlay(for: event, fromSnooze: false)
 
-        XCTAssertTrue(
+        #expect(
             overlay.isOverlayVisible,
             "Events without a provider should never be suppressed",
         )
@@ -216,29 +229,31 @@ final class SmartSuppressionTests: XCTestCase {
 
     // MARK: - Preference Persistence
 
-    func testSmartSuppressionPreference_defaultsToTrue() {
+    @Test
+    func smartSuppressionPreference_defaultsToTrue() {
         let prefs = TestUtilities.createTestPreferencesManager()
-        XCTAssertTrue(prefs.smartSuppression)
+        #expect(prefs.smartSuppression)
     }
 
-    func testSmartSuppressionPreference_persistsWhenDisabled() throws {
+    @Test
+    func smartSuppressionPreference_persistsWhenDisabled() throws {
         let suiteName = "com.unmissable.test.\(UUID().uuidString)"
-        let testDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        let testDefaults = try #require(UserDefaults(suiteName: suiteName))
         let prefs = PreferencesManager(
             userDefaults: testDefaults,
             themeManager: ThemeManager(),
         )
 
         prefs.setSmartSuppression(false)
-        XCTAssertFalse(prefs.smartSuppression)
+        #expect(!prefs.smartSuppression)
 
         // Reload preferences from the same UserDefaults
         let prefs2 = PreferencesManager(
             userDefaults: testDefaults,
             themeManager: ThemeManager(),
         )
-        XCTAssertFalse(
-            prefs2.smartSuppression,
+        #expect(
+            !prefs2.smartSuppression,
             "Smart suppression should persist across PreferencesManager instances",
         )
     }

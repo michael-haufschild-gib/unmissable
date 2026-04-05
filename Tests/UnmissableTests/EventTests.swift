@@ -1,8 +1,10 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
-final class EventTests: XCTestCase {
-    func testEventInitialization() {
+struct EventTests {
+    @Test
+    func eventInitialization() {
         let startDate = Date()
         let endDate = startDate.addingTimeInterval(3600) // 1 hour later
 
@@ -15,20 +17,21 @@ final class EventTests: XCTestCase {
             calendarId: "primary",
         )
 
-        XCTAssertEqual(event.id, "test-123")
-        XCTAssertEqual(event.title, "Test Meeting")
-        XCTAssertEqual(event.startDate, startDate)
-        XCTAssertEqual(event.endDate, endDate)
-        XCTAssertEqual(event.organizer, "test@example.com")
-        XCTAssertEqual(event.calendarId, "primary")
-        XCTAssertFalse(event.isAllDay)
-        XCTAssertFalse(LinkParser().isOnlineMeeting(event))
-        XCTAssertEqual(event.duration, 3600)
+        #expect(event.id == "test-123")
+        #expect(event.title == "Test Meeting")
+        #expect(event.startDate == startDate)
+        #expect(event.endDate == endDate)
+        #expect(event.organizer == "test@example.com")
+        #expect(event.calendarId == "primary")
+        #expect(!event.isAllDay)
+        #expect(!LinkParser().isOnlineMeeting(event))
+        #expect(event.duration == 3600)
     }
 
-    func testEventWithMeetingLinks() throws {
-        let meetUrl = try XCTUnwrap(URL(string: "https://meet.google.com/abc-defg-hij"))
-        let zoomUrl = try XCTUnwrap(URL(string: "https://zoom.us/j/123456789"))
+    @Test
+    func eventWithMeetingLinks() throws {
+        let meetUrl = try #require(URL(string: "https://meet.google.com/abc-defg-hij"))
+        let zoomUrl = try #require(URL(string: "https://zoom.us/j/123456789"))
 
         let event = Event(
             id: "test-456",
@@ -40,15 +43,16 @@ final class EventTests: XCTestCase {
             provider: .meet,
         )
 
-        XCTAssertTrue(LinkParser().isOnlineMeeting(event))
-        XCTAssertEqual(LinkParser().primaryLink(for: event), meetUrl)
-        XCTAssertEqual(event.provider, .meet)
-        XCTAssertEqual(event.links, [meetUrl, zoomUrl])
+        #expect(LinkParser().isOnlineMeeting(event))
+        #expect(LinkParser().primaryLink(for: event) == meetUrl)
+        #expect(event.provider == .meet)
+        #expect(event.links == [meetUrl, zoomUrl])
     }
 
-    func testEventProviderDefaultsToPrimaryMeetingLinkNotFirstLink() throws {
-        let docsUrl = try XCTUnwrap(URL(string: "https://example.com/spec"))
-        let meetUrl = try XCTUnwrap(URL(string: "https://meet.google.com/abc-defg-hij"))
+    @Test
+    func eventProviderDefaultsToPrimaryMeetingLinkNotFirstLink() throws {
+        let docsUrl = try #require(URL(string: "https://example.com/spec"))
+        let meetUrl = try #require(URL(string: "https://meet.google.com/abc-defg-hij"))
         let linkParser = LinkParser()
 
         // Use withAutoDetectedProvider since Event.init does not auto-detect provider
@@ -62,12 +66,13 @@ final class EventTests: XCTestCase {
             linkParser: linkParser,
         )
 
-        XCTAssertEqual(linkParser.primaryLink(for: event), meetUrl)
-        XCTAssertEqual(event.provider, .meet)
+        #expect(linkParser.primaryLink(for: event) == meetUrl)
+        #expect(event.provider == .meet)
     }
 
-    func testTeamsLiveLinkIsOnlineMeeting() throws {
-        let teamsLiveUrl = try XCTUnwrap(URL(string: "https://teams.live.com/meet/abc-defg-hij"))
+    @Test
+    func teamsLiveLinkIsOnlineMeeting() throws {
+        let teamsLiveUrl = try #require(URL(string: "https://teams.live.com/meet/abc-defg-hij"))
         let linkParser = LinkParser()
 
         // Use withAutoDetectedProvider since Event.init does not auto-detect provider
@@ -81,14 +86,15 @@ final class EventTests: XCTestCase {
             linkParser: linkParser,
         )
 
-        XCTAssertTrue(linkParser.isOnlineMeeting(event))
-        XCTAssertEqual(linkParser.primaryLink(for: event), teamsLiveUrl)
-        XCTAssertEqual(event.provider, .teams)
+        #expect(linkParser.isOnlineMeeting(event))
+        #expect(linkParser.primaryLink(for: event) == teamsLiveUrl)
+        #expect(event.provider == .teams)
     }
 
-    func testEventTimezoneHandling() throws {
+    @Test
+    func eventTimezoneHandling() throws {
         let utcDate = Date()
-        _ = try XCTUnwrap(TimeZone(identifier: "America/Los_Angeles"))
+        _ = try #require(TimeZone(identifier: "America/Los_Angeles"))
 
         let event = Event(
             id: "test-timezone",
@@ -100,13 +106,14 @@ final class EventTests: XCTestCase {
         )
 
         // Event stores absolute instants regardless of timezone metadata
-        XCTAssertEqual(event.startDate, utcDate)
-        XCTAssertEqual(event.timezone, "America/Los_Angeles")
+        #expect(event.startDate == utcDate)
+        #expect(event.timezone == "America/Los_Angeles")
     }
 
     // MARK: - Duration Edge Cases
 
-    func testZeroDurationEvent() {
+    @Test
+    func zeroDurationEvent() {
         let now = Date()
         let event = Event(
             id: "zero-dur",
@@ -115,10 +122,11 @@ final class EventTests: XCTestCase {
             endDate: now,
             calendarId: "primary",
         )
-        XCTAssertEqual(event.duration, 0)
+        #expect(event.duration == 0)
     }
 
-    func testNegativeDurationEvent() {
+    @Test
+    func negativeDurationEvent() {
         let now = Date()
         let event = Event(
             id: "neg-dur",
@@ -127,15 +135,16 @@ final class EventTests: XCTestCase {
             endDate: now.addingTimeInterval(-600), // endDate before startDate
             calendarId: "primary",
         )
-        XCTAssertLessThan(event.duration, 0, "Duration should be negative when endDate is before startDate")
+        #expect(event.duration < 0, "Duration should be negative when endDate is before startDate")
     }
 
     // MARK: - Codable Round-Trip
 
-    func testCodableRoundTrip() throws {
+    @Test
+    func codableRoundTrip() throws {
         let start = Date(timeIntervalSince1970: 1_700_000_000)
         let end = Date(timeIntervalSince1970: 1_700_003_600)
-        let meetURL = try XCTUnwrap(URL(string: "https://meet.google.com/test"))
+        let meetURL = try #require(URL(string: "https://meet.google.com/test"))
 
         let original = Event(
             id: "codable-test",
@@ -162,24 +171,25 @@ final class EventTests: XCTestCase {
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(Event.self, from: data)
 
-        XCTAssertEqual(decoded.id, original.id)
-        XCTAssertEqual(decoded.title, original.title)
-        XCTAssertEqual(decoded.startDate, original.startDate)
-        XCTAssertEqual(decoded.endDate, original.endDate)
-        XCTAssertEqual(decoded.organizer, original.organizer)
-        XCTAssertEqual(decoded.description, original.description)
-        XCTAssertEqual(decoded.location, original.location)
-        XCTAssertEqual(decoded.attendees.map(\.email), ["alice@example.com"])
-        XCTAssertEqual(decoded.isAllDay, original.isAllDay)
-        XCTAssertEqual(decoded.calendarId, original.calendarId)
-        XCTAssertEqual(decoded.timezone, original.timezone)
-        XCTAssertEqual(decoded.links, original.links)
-        XCTAssertEqual(decoded.provider, original.provider)
-        XCTAssertEqual(decoded.snoozeUntil, original.snoozeUntil)
-        XCTAssertEqual(decoded.autoJoinEnabled, original.autoJoinEnabled)
+        #expect(decoded.id == original.id)
+        #expect(decoded.title == original.title)
+        #expect(decoded.startDate == original.startDate)
+        #expect(decoded.endDate == original.endDate)
+        #expect(decoded.organizer == original.organizer)
+        #expect(decoded.description == original.description)
+        #expect(decoded.location == original.location)
+        #expect(decoded.attendees.map(\.email) == ["alice@example.com"])
+        #expect(decoded.isAllDay == original.isAllDay)
+        #expect(decoded.calendarId == original.calendarId)
+        #expect(decoded.timezone == original.timezone)
+        #expect(decoded.links == original.links)
+        #expect(decoded.provider == original.provider)
+        #expect(decoded.snoozeUntil == original.snoozeUntil)
+        #expect(decoded.autoJoinEnabled == original.autoJoinEnabled)
     }
 
-    func testCodableRoundTripWithNilOptionals() throws {
+    @Test
+    func codableRoundTripWithNilOptionals() throws {
         let original = Event(
             id: "codable-nil",
             title: "Minimal Event",
@@ -191,18 +201,19 @@ final class EventTests: XCTestCase {
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(Event.self, from: data)
 
-        XCTAssertNil(decoded.organizer)
-        XCTAssertNil(decoded.description)
-        XCTAssertNil(decoded.location)
-        XCTAssertNil(decoded.provider)
-        XCTAssertNil(decoded.snoozeUntil)
-        XCTAssertEqual(decoded.attendees, [], "Attendees should be empty array for minimal event")
-        XCTAssertEqual(decoded.links, [], "Links should be empty array for minimal event")
+        #expect(decoded.organizer == nil)
+        #expect(decoded.description == nil)
+        #expect(decoded.location == nil)
+        #expect(decoded.provider == nil)
+        #expect(decoded.snoozeUntil == nil)
+        #expect(decoded.attendees.isEmpty, "Attendees should be empty array for minimal event")
+        #expect(decoded.links.isEmpty, "Links should be empty array for minimal event")
     }
 
     // MARK: - withAutoDetectedProvider
 
-    func testWithAutoDetectedProvider_noLinks_nilProvider() {
+    @Test
+    func withAutoDetectedProvider_noLinks_nilProvider() {
         let event = Event.withAutoDetectedProvider(
             id: "no-links",
             title: "No Links",
@@ -212,11 +223,12 @@ final class EventTests: XCTestCase {
             links: [],
             linkParser: LinkParser(),
         )
-        XCTAssertNil(event.provider, "No links should produce nil provider")
+        #expect(event.provider == nil, "No links should produce nil provider")
     }
 
-    func testWithAutoDetectedProvider_nonMeetingLink_genericProvider() throws {
-        let url = try XCTUnwrap(URL(string: "https://example.com/meeting"))
+    @Test
+    func withAutoDetectedProvider_nonMeetingLink_genericProvider() throws {
+        let url = try #require(URL(string: "https://example.com/meeting"))
         let event = Event.withAutoDetectedProvider(
             id: "generic-link",
             title: "Generic Link",
@@ -227,13 +239,14 @@ final class EventTests: XCTestCase {
             linkParser: LinkParser(),
         )
         // Non-meeting URLs don't pass isMeetingURL filter, so detectPrimaryLink returns nil
-        XCTAssertNil(event.provider)
+        #expect(event.provider == nil)
     }
 
     // MARK: - withParsedGoogleMeetLinks
 
     @MainActor
-    func testWithParsedGoogleMeetLinks_linksFromDescription() {
+    @Test
+    func withParsedGoogleMeetLinks_linksFromDescription() {
         let event = Event.withParsedGoogleMeetLinks(
             id: "desc-link",
             title: "Regular Title",
@@ -243,12 +256,13 @@ final class EventTests: XCTestCase {
             calendarId: "primary",
             linkParser: LinkParser(),
         )
-        XCTAssertEqual(event.links.first?.host, "meet.google.com")
-        XCTAssertEqual(event.provider, .meet)
+        #expect(event.links.first?.host == "meet.google.com")
+        #expect(event.provider == .meet)
     }
 
     @MainActor
-    func testWithParsedGoogleMeetLinks_linksFromLocation() {
+    @Test
+    func withParsedGoogleMeetLinks_linksFromLocation() {
         let event = Event.withParsedGoogleMeetLinks(
             id: "loc-link",
             title: "Meeting",
@@ -258,11 +272,12 @@ final class EventTests: XCTestCase {
             calendarId: "primary",
             linkParser: LinkParser(),
         )
-        XCTAssertEqual(event.links.first?.host, "meet.google.com")
+        #expect(event.links.first?.host == "meet.google.com")
     }
 
     @MainActor
-    func testWithParsedGoogleMeetLinks_noMeetLinks_emptyLinks() {
+    @Test
+    func withParsedGoogleMeetLinks_noMeetLinks_emptyLinks() {
         let event = Event.withParsedGoogleMeetLinks(
             id: "no-meet",
             title: "In-Person Meeting",
@@ -272,12 +287,13 @@ final class EventTests: XCTestCase {
             calendarId: "primary",
             linkParser: LinkParser(),
         )
-        XCTAssertEqual(event.links, [], "In-person meeting should have no links")
-        XCTAssertNil(event.provider)
+        #expect(event.links.isEmpty, "In-person meeting should have no links")
+        #expect(event.provider == nil)
     }
 
     @MainActor
-    func testWithParsedGoogleMeetLinks_deduplicatesLinksAcrossFields() {
+    @Test
+    func withParsedGoogleMeetLinks_deduplicatesLinksAcrossFields() {
         let event = Event.withParsedGoogleMeetLinks(
             id: "dedup",
             title: "https://meet.google.com/abc-defg-hij",
@@ -289,16 +305,16 @@ final class EventTests: XCTestCase {
             linkParser: LinkParser(),
         )
         let dedupedLinks = event.links
-        XCTAssertEqual(
-            dedupedLinks.map(\.host),
-            ["meet.google.com"],
+        #expect(
+            dedupedLinks.map(\.host) == ["meet.google.com"],
             "Duplicate links should be deduplicated to exactly one",
         )
     }
 
     // MARK: - Equality
 
-    func testEventEquality() {
+    @Test
+    func eventEquality() {
         let date1 = Date()
         let date2 = date1.addingTimeInterval(3600)
         let createdDate = Date()
@@ -323,7 +339,7 @@ final class EventTests: XCTestCase {
             updatedAt: createdDate,
         )
 
-        XCTAssertEqual(event1, event2)
+        #expect(event1 == event2)
 
         let event3 = Event(
             id: "different-id",
@@ -335,6 +351,6 @@ final class EventTests: XCTestCase {
             updatedAt: createdDate,
         )
 
-        XCTAssertNotEqual(event1, event3)
+        #expect(event1 != event3)
     }
 }

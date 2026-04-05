@@ -1,10 +1,11 @@
-import TestSupport
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 @MainActor
-final class EventSchedulerSnoozePreservationTests: XCTestCase {
-    func testPreferenceReschedule_preservesExistingFutureSnoozeAlerts() async throws {
+struct EventSchedulerSnoozePreservationTests {
+    @Test
+    func preferenceReschedule_preservesExistingFutureSnoozeAlerts() async throws {
         let preferences = PreferencesManager(themeManager: ThemeManager())
         let scheduler = EventScheduler(preferencesManager: preferences, linkParser: LinkParser())
         let overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
@@ -20,7 +21,7 @@ final class EventSchedulerSnoozePreservationTests: XCTestCase {
         await scheduler.startScheduling(events: [event], overlayManager: overlayManager)
         scheduler.scheduleSnooze(for: event, minutes: 30)
 
-        XCTAssertTrue(
+        #expect(
             scheduler.scheduledAlerts.contains { alert in
                 if case .snooze = alert.alertType {
                     return alert.event.id == event.id
@@ -37,7 +38,7 @@ final class EventSchedulerSnoozePreservationTests: XCTestCase {
             }
         }
 
-        XCTAssertTrue(
+        #expect(
             scheduler.scheduledAlerts.contains { alert in
                 if case .snooze = alert.alertType {
                     return alert.event.id == event.id

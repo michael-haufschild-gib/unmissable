@@ -1,23 +1,25 @@
-import TestSupport
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 @MainActor
-final class HealthMonitorTests: XCTestCase {
-    func testInit_performsInitialHealthCheckImmediately() async throws {
+struct HealthMonitorTests {
+    @Test
+    func init_performsInitialHealthCheckImmediately() async throws {
         var monitor: HealthMonitor? = HealthMonitor()
 
         try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
             monitor?.metrics.lastHealthCheck != nil
         }
 
-        let lastCheck = try XCTUnwrap(monitor?.metrics.lastHealthCheck)
-        XCTAssertGreaterThan(lastCheck, Date.distantPast)
+        let lastCheck = try #require(monitor?.metrics.lastHealthCheck)
+        #expect(lastCheck > Date.distantPast)
 
         monitor = nil
     }
 
-    func testSetup_triggersImmediateHealthEvaluationWithDependencies() async throws {
+    @Test
+    func setup_triggersImmediateHealthEvaluationWithDependencies() async throws {
         let preferences = TestUtilities.createTestPreferencesManager()
         let dbURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("health-test-\(UUID().uuidString).db")
@@ -40,7 +42,8 @@ final class HealthMonitorTests: XCTestCase {
         }
     }
 
-    func testSetup_afterInitialCheck_refreshesHealthWithoutWaitingFullInterval() async throws {
+    @Test
+    func setup_afterInitialCheck_refreshesHealthWithoutWaitingFullInterval() async throws {
         let preferences = TestUtilities.createTestPreferencesManager()
         let dbURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("health-test-\(UUID().uuidString).db")

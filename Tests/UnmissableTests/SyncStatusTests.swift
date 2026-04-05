@@ -1,57 +1,68 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
-final class SyncStatusTests: XCTestCase {
+struct SyncStatusTests {
     // MARK: - isSyncing
 
-    func testIsSyncing_trueOnlyForSyncingCase() {
-        XCTAssertTrue(SyncStatus.syncing.isSyncing)
-        XCTAssertFalse(SyncStatus.idle.isSyncing)
-        XCTAssertFalse(SyncStatus.offline.isSyncing)
-        XCTAssertFalse(SyncStatus.error("fail").isSyncing)
+    @Test
+    func isSyncing_trueOnlyForSyncingCase() {
+        #expect(SyncStatus.syncing.isSyncing)
+        #expect(!SyncStatus.idle.isSyncing)
+        #expect(!SyncStatus.offline.isSyncing)
+        #expect(!SyncStatus.error("fail").isSyncing)
     }
 
     // MARK: - isError
 
-    func testIsError_trueOnlyForErrorCase() {
-        XCTAssertTrue(SyncStatus.error("timeout").isError)
-        XCTAssertTrue(SyncStatus.error("").isError)
-        XCTAssertFalse(SyncStatus.idle.isError)
-        XCTAssertFalse(SyncStatus.syncing.isError)
-        XCTAssertFalse(SyncStatus.offline.isError)
+    @Test
+    func isError_trueOnlyForErrorCase() {
+        #expect(SyncStatus.error("timeout").isError)
+        #expect(SyncStatus.error("").isError)
+        #expect(!SyncStatus.idle.isError)
+        #expect(!SyncStatus.syncing.isError)
+        #expect(!SyncStatus.offline.isError)
     }
 
     // MARK: - Equatable
 
-    func testEquatable_sameValueCasesAreEqual() {
-        XCTAssertEqual(SyncStatus.idle, SyncStatus.idle)
-        XCTAssertEqual(SyncStatus.syncing, SyncStatus.syncing)
-        XCTAssertEqual(SyncStatus.offline, SyncStatus.offline)
-        XCTAssertEqual(SyncStatus.error("timeout"), SyncStatus.error("timeout"))
+    @Test
+    func equatable_sameValueCasesAreEqual() {
+        let idle = SyncStatus.idle
+        let syncing = SyncStatus.syncing
+        let offline = SyncStatus.offline
+        #expect(idle == .idle)
+        #expect(syncing == .syncing)
+        #expect(offline == .offline)
+        let errorA = SyncStatus.error("timeout")
+        #expect(errorA == .error("timeout"))
     }
 
-    func testEquatable_differentCasesAreNotEqual() {
-        XCTAssertNotEqual(SyncStatus.idle, SyncStatus.syncing)
-        XCTAssertNotEqual(SyncStatus.idle, SyncStatus.offline)
-        XCTAssertNotEqual(SyncStatus.syncing, SyncStatus.error("x"))
+    @Test
+    func equatable_differentCasesAreNotEqual() {
+        #expect(SyncStatus.idle != SyncStatus.syncing)
+        #expect(SyncStatus.idle != SyncStatus.offline)
+        #expect(SyncStatus.syncing != SyncStatus.error("x"))
     }
 
-    func testEquatable_errorWithDifferentMessagesAreNotEqual() {
-        XCTAssertNotEqual(
-            SyncStatus.error("timeout"),
-            SyncStatus.error("network"),
+    @Test
+    func equatable_errorWithDifferentMessagesAreNotEqual() {
+        #expect(
+            SyncStatus.error("timeout") != SyncStatus.error("network"),
             "Error cases with different messages should not be equal",
         )
     }
 
     // MARK: - Description
 
-    func testDescription_emptyErrorMessageStillFormatsCorrectly() {
-        XCTAssertEqual(SyncStatus.error("").description, "Error: ")
+    @Test
+    func description_emptyErrorMessageStillFormatsCorrectly() {
+        #expect(SyncStatus.error("").description == "Error: ")
     }
 
-    func testDescription_errorMessageWithSpecialCharacters() {
+    @Test
+    func description_errorMessageWithSpecialCharacters() {
         let status = SyncStatus.error("OAuth token expired: 401")
-        XCTAssertEqual(status.description, "Error: OAuth token expired: 401")
+        #expect(status.description == "Error: OAuth token expired: 401")
     }
 }

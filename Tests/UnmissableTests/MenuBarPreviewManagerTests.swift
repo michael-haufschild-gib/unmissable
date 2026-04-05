@@ -1,59 +1,57 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 @MainActor
-final class MenuBarPreviewManagerTests: XCTestCase {
-    private var prefs: PreferencesManager!
-    private var manager: MenuBarPreviewManager!
+struct MenuBarPreviewManagerTests {
+    private var prefs: PreferencesManager
+    private var manager: MenuBarPreviewManager
 
-    override func setUp() async throws {
-        try await super.setUp()
+    init() {
         prefs = TestUtilities.createTestPreferencesManager()
         manager = MenuBarPreviewManager(preferencesManager: prefs)
     }
 
-    override func tearDown() async throws {
-        manager = nil
-        prefs = nil
-        try await super.tearDown()
-    }
-
     // MARK: - Icon Mode
 
-    func testIconMode_showsIconAndNoText() {
+    @Test
+    func iconMode_showsIconAndNoText() {
         prefs.setMenuBarDisplayMode(.icon)
         manager.updateEvents([
             TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(600)),
         ])
 
-        XCTAssertTrue(manager.shouldShowIcon, "Icon mode should show the icon")
-        XCTAssertNil(manager.menuBarText, "Icon mode should have no text")
+        #expect(manager.shouldShowIcon, "Icon mode should show the icon")
+        #expect(manager.menuBarText == nil, "Icon mode should have no text")
     }
 
     // MARK: - Timer Mode
 
-    func testTimerMode_withFutureEvent_showsTimerText() throws {
+    @Test
+    func timerMode_withFutureEvent_showsTimerText() throws {
         prefs.setMenuBarDisplayMode(.timer)
         let futureEvent = TestUtilities.createTestEvent(
             startDate: Date().addingTimeInterval(1800), // 30 minutes
         )
         manager.updateEvents([futureEvent])
 
-        XCTAssertFalse(manager.shouldShowIcon, "Timer mode with events should hide icon")
-        let text = try XCTUnwrap(manager.menuBarText, "Timer mode with events should show text")
+        #expect(!manager.shouldShowIcon, "Timer mode with events should hide icon")
+        let text = try #require(manager.menuBarText, "Timer mode with events should show text")
         let hasTimeUnit = text.contains("min") || text.contains("h") || text.contains("Starting")
-        XCTAssert(hasTimeUnit, "Timer text should contain a time unit, got: \(text)")
+        #expect(hasTimeUnit, "Timer text should contain a time unit, got: \(text)")
     }
 
-    func testTimerMode_withNoEvents_fallsBackToIcon() {
+    @Test
+    func timerMode_withNoEvents_fallsBackToIcon() {
         prefs.setMenuBarDisplayMode(.timer)
         manager.updateEvents([])
 
-        XCTAssertTrue(manager.shouldShowIcon, "Timer mode without events should show icon")
-        XCTAssertNil(manager.menuBarText, "Timer mode without events should have no text")
+        #expect(manager.shouldShowIcon, "Timer mode without events should show icon")
+        #expect(manager.menuBarText == nil, "Timer mode without events should have no text")
     }
 
-    func testTimerMode_withPastEventOnly_fallsBackToIcon() {
+    @Test
+    func timerMode_withPastEventOnly_fallsBackToIcon() {
         prefs.setMenuBarDisplayMode(.timer)
         let pastEvent = TestUtilities.createTestEvent(
             startDate: Date().addingTimeInterval(-7200),
@@ -61,11 +59,12 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         )
         manager.updateEvents([pastEvent])
 
-        XCTAssertTrue(manager.shouldShowIcon, "Timer mode with only past events should show icon")
-        XCTAssertNil(manager.menuBarText)
+        #expect(manager.shouldShowIcon, "Timer mode with only past events should show icon")
+        #expect(manager.menuBarText == nil)
     }
 
-    func testTimerMode_withInProgressEvent_showsStarting() {
+    @Test
+    func timerMode_withInProgressEvent_showsStarting() {
         prefs.setMenuBarDisplayMode(.timer)
         let inProgress = TestUtilities.createTestEvent(
             startDate: Date().addingTimeInterval(-60), // started 1 min ago
@@ -73,13 +72,14 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         )
         manager.updateEvents([inProgress])
 
-        XCTAssertFalse(manager.shouldShowIcon)
-        XCTAssertEqual(manager.menuBarText, "Starting", "In-progress event should show 'Starting'")
+        #expect(!manager.shouldShowIcon)
+        #expect(manager.menuBarText == "Starting", "In-progress event should show 'Starting'")
     }
 
     // MARK: - Name+Timer Mode
 
-    func testNameTimerMode_showsNameAndTime() throws {
+    @Test
+    func nameTimerMode_showsNameAndTime() throws {
         prefs.setMenuBarDisplayMode(.nameTimer)
         let event = TestUtilities.createTestEvent(
             title: "Team Sync",
@@ -87,14 +87,15 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         )
         manager.updateEvents([event])
 
-        XCTAssertFalse(manager.shouldShowIcon)
-        let text = try XCTUnwrap(manager.menuBarText, "Name+Timer should produce text")
-        XCTAssert(text.hasPrefix("Team Sync"), "Name+Timer should start with meeting name, got: \(text)")
+        #expect(!manager.shouldShowIcon)
+        let text = try #require(manager.menuBarText, "Name+Timer should produce text")
+        #expect(text.hasPrefix("Team Sync"), "Name+Timer should start with meeting name, got: \(text)")
         let hasTime = text.contains("min") || text.contains("h")
-        XCTAssert(hasTime, "Name+Timer should contain time, got: \(text)")
+        #expect(hasTime, "Name+Timer should contain time, got: \(text)")
     }
 
-    func testNameTimerMode_truncatesLongNames() throws {
+    @Test
+    func nameTimerMode_truncatesLongNames() throws {
         prefs.setMenuBarDisplayMode(.nameTimer)
         let event = TestUtilities.createTestEvent(
             title: "Very Important Strategic Planning Meeting",
@@ -102,12 +103,13 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         )
         manager.updateEvents([event])
 
-        let text = try XCTUnwrap(manager.menuBarText, "Should produce text for truncation test")
+        let text = try #require(manager.menuBarText, "Should produce text for truncation test")
         // Name should be truncated to 9 chars + "..."
-        XCTAssert(text.hasPrefix("Very Impo..."), "Long name should be truncated, got: \(text)")
+        #expect(text.hasPrefix("Very Impo..."), "Long name should be truncated, got: \(text)")
     }
 
-    func testNameTimerMode_shortNameNotTruncated() throws {
+    @Test
+    func nameTimerMode_shortNameNotTruncated() throws {
         prefs.setMenuBarDisplayMode(.nameTimer)
         let event = TestUtilities.createTestEvent(
             title: "Short Name",
@@ -115,13 +117,14 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         )
         manager.updateEvents([event])
 
-        let text = try XCTUnwrap(manager.menuBarText, "Should produce text for short name test")
-        XCTAssert(text.hasPrefix("Short Name"), "Short names (<= 12 chars) should not be truncated, got: \(text)")
+        let text = try #require(manager.menuBarText, "Should produce text for short name test")
+        #expect(text.hasPrefix("Short Name"), "Short names (<= 12 chars) should not be truncated, got: \(text)")
     }
 
     // MARK: - Event Priority
 
-    func testInProgressEventTakesPriorityOverFutureEvent() throws {
+    @Test
+    func inProgressEventTakesPriorityOverFutureEvent() throws {
         prefs.setMenuBarDisplayMode(.nameTimer)
         let inProgress = TestUtilities.createTestEvent(
             title: "Current Meeting",
@@ -134,11 +137,12 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         )
         manager.updateEvents([future, inProgress])
 
-        let text = try XCTUnwrap(manager.menuBarText, "Should produce text for priority test")
-        XCTAssert(text.hasPrefix("Current"), "In-progress meeting should take priority, got: \(text)")
+        let text = try #require(manager.menuBarText, "Should produce text for priority test")
+        #expect(text.hasPrefix("Current"), "In-progress meeting should take priority, got: \(text)")
     }
 
-    func testNearestFutureEventIsSelected() throws {
+    @Test
+    func nearestFutureEventIsSelected() throws {
         prefs.setMenuBarDisplayMode(.nameTimer)
         let far = TestUtilities.createTestEvent(
             title: "Far Meeting",
@@ -150,64 +154,66 @@ final class MenuBarPreviewManagerTests: XCTestCase {
         )
         manager.updateEvents([far, near])
 
-        let text = try XCTUnwrap(manager.menuBarText, "Should produce text for nearest future test")
-        XCTAssert(text.hasPrefix("Near Meetin"), "Nearest future meeting should be selected, got: \(text)")
+        let text = try #require(manager.menuBarText, "Should produce text for nearest future test")
+        #expect(text.hasPrefix("Near Meetin"), "Nearest future meeting should be selected, got: \(text)")
     }
 
     // MARK: - Format Time Left Boundaries
 
-    func testTimerMode_lessThanOneMinute() {
+    @Test
+    func timerMode_lessThanOneMinute() {
         prefs.setMenuBarDisplayMode(.timer)
         let event = TestUtilities.createTestEvent(
             startDate: Date().addingTimeInterval(30),
         )
         manager.updateEvents([event])
 
-        XCTAssertEqual(manager.menuBarText, "< 1 min")
+        #expect(manager.menuBarText == "< 1 min")
     }
 
-    func testTimerMode_overOneHour() throws {
+    @Test
+    func timerMode_overOneHour() throws {
         prefs.setMenuBarDisplayMode(.timer)
         let event = TestUtilities.createTestEvent(
             startDate: Date().addingTimeInterval(3660), // 61 minutes to avoid rounding below 60
         )
         manager.updateEvents([event])
 
-        let text = try XCTUnwrap(manager.menuBarText, "Should produce text for hour format test")
-        XCTAssert(text.contains("h"), "Over 1 hour should use hour format, got: \(text)")
+        let text = try #require(manager.menuBarText, "Should produce text for hour format test")
+        #expect(text.contains("h"), "Over 1 hour should use hour format, got: \(text)")
     }
 
-    func testTimerMode_overOneDay() throws {
+    @Test
+    func timerMode_overOneDay() throws {
         prefs.setMenuBarDisplayMode(.timer)
         let event = TestUtilities.createTestEvent(
             startDate: Date().addingTimeInterval(100_000),
         )
         manager.updateEvents([event])
 
-        let text = try XCTUnwrap(manager.menuBarText, "Should produce text for day format test")
-        XCTAssert(text.contains("d"), "Over 1 day should use day format, got: \(text)")
+        let text = try #require(manager.menuBarText, "Should produce text for day format test")
+        #expect(text.contains("d"), "Over 1 day should use day format, got: \(text)")
     }
 
     // MARK: - Mode Switching
 
-    func testSwitchingFromTimerToIconClearsText() throws {
+    @Test
+    func switchingFromTimerToIconClearsText() async throws {
         prefs.setMenuBarDisplayMode(.timer)
         manager.updateEvents([
             TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(1800)),
         ])
-        let preSwitch = try XCTUnwrap(manager.menuBarText, "Timer mode should produce text before mode switch")
-        XCTAssertFalse(preSwitch.isEmpty, "Timer text should be non-empty")
+        let preSwitch = try #require(manager.menuBarText, "Timer mode should produce text before mode switch")
+        #expect(!preSwitch.isEmpty, "Timer text should be non-empty")
 
         prefs.setMenuBarDisplayMode(.icon)
 
-        // Give Combine sink time to fire
-        let expectation = XCTestExpectation(description: "Mode switch propagated")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            expectation.fulfill()
+        // Wait for the Combine sink to fire and state to update
+        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+            manager.shouldShowIcon
         }
-        wait(for: [expectation], timeout: 1.0)
 
-        XCTAssertTrue(manager.shouldShowIcon)
-        XCTAssertNil(manager.menuBarText, "Switching to icon mode should clear text")
+        #expect(manager.shouldShowIcon)
+        #expect(manager.menuBarText == nil, "Switching to icon mode should clear text")
     }
 }

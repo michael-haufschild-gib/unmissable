@@ -1,16 +1,16 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
 @MainActor
-final class EventOverrideTests: XCTestCase {
-    private var db: DatabaseManager!
-    private var tempDir: URL!
+struct EventOverrideTests {
+    private var db: DatabaseManager
+    private var tempDir: URL
 
     /// Default calendar ID used by most tests.
     private let calId = "cal-1"
 
-    override func setUp() async throws {
-        try await super.setUp()
+    init() throws {
         tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent(
                 "unmissable-override-test-\(UUID().uuidString)",
@@ -23,53 +23,56 @@ final class EventOverrideTests: XCTestCase {
         db = DatabaseManager(databaseURL: dbURL)
     }
 
-    override func tearDown() async throws {
-        db = nil
-        if let dir = tempDir {
-            try FileManager.default.removeItem(at: dir)
-        }
-        tempDir = nil
-        try await super.tearDown()
-    }
-
     // MARK: - CRUD
 
-    func testSaveAndFetchAlertOverride_roundtrips() async throws {
+    @Test
+    func saveAndFetchAlertOverride_roundtrips() async throws {
+        defer { try? FileManager.default.removeItem(at: tempDir) }
         try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 10)
 
         let result = try await db.fetchAlertOverride(for: "event-1", calendarId: calId)
-        XCTAssertEqual(result, 10)
+        #expect(result == 10)
     }
 
-    func testFetchAlertOverride_noOverride_returnsNil() async throws {
+    @Test
+    func fetchAlertOverride_noOverride_returnsNil() async throws {
+        defer { try? FileManager.default.removeItem(at: tempDir) }
         let result = try await db.fetchAlertOverride(for: "nonexistent", calendarId: calId)
-        XCTAssertNil(result, "Should return nil when no override exists")
+        #expect(result == nil, "Should return nil when no override exists")
     }
 
-    func testSaveAlertOverride_nilMinutes_deletesOverride() async throws {
+    @Test
+    func saveAlertOverride_nilMinutes_deletesOverride() async throws {
+        defer { try? FileManager.default.removeItem(at: tempDir) }
         try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 5)
         try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: nil)
 
         let result = try await db.fetchAlertOverride(for: "event-1", calendarId: calId)
-        XCTAssertNil(result, "Override should be deleted when nil is saved")
+        #expect(result == nil, "Override should be deleted when nil is saved")
     }
 
-    func testSaveAlertOverride_updatesExistingOverride() async throws {
+    @Test
+    func saveAlertOverride_updatesExistingOverride() async throws {
+        defer { try? FileManager.default.removeItem(at: tempDir) }
         try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 5)
         try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 15)
 
         let result = try await db.fetchAlertOverride(for: "event-1", calendarId: calId)
-        XCTAssertEqual(result, 15, "Override should be updated to new value")
+        #expect(result == 15, "Override should be updated to new value")
     }
 
-    func testSaveAlertOverride_zeroMinutes_persistsAsNoAlert() async throws {
+    @Test
+    func saveAlertOverride_zeroMinutes_persistsAsNoAlert() async throws {
+        defer { try? FileManager.default.removeItem(at: tempDir) }
         try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 0)
 
         let result = try await db.fetchAlertOverride(for: "event-1", calendarId: calId)
-        XCTAssertEqual(result, 0, "Zero should persist as 'no alert'")
+        #expect(result == 0, "Zero should persist as 'no alert'")
     }
 
-    func testFetchAllAlertOverrides_returnsAllOverrides() async throws {
+    @Test
+    func fetchAllAlertOverrides_returnsAllOverrides() async throws {
+        defer { try? FileManager.default.removeItem(at: tempDir) }
         try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 5)
         try await db.saveAlertOverride(eventId: "event-2", calendarId: calId, minutes: 10)
         try await db.saveAlertOverride(eventId: "event-3", calendarId: calId, minutes: 0)
@@ -78,35 +81,43 @@ final class EventOverrideTests: XCTestCase {
         let key1 = EventOverride.compoundKey(eventId: "event-1", calendarId: calId)
         let key2 = EventOverride.compoundKey(eventId: "event-2", calendarId: calId)
         let key3 = EventOverride.compoundKey(eventId: "event-3", calendarId: calId)
-        XCTAssertEqual(overrides[key1], 5)
-        XCTAssertEqual(overrides[key2], 10)
-        XCTAssertEqual(overrides[key3], 0)
+        #expect(overrides[key1] == 5)
+        #expect(overrides[key2] == 10)
+        #expect(overrides[key3] == 0)
     }
 
-    func testFetchAllAlertOverrides_emptyDatabase_returnsEmptyDict() async throws {
+    @Test
+    func fetchAllAlertOverrides_emptyDatabase_returnsEmptyDict() async throws {
+        defer { try? FileManager.default.removeItem(at: tempDir) }
         let overrides = try await db.fetchAllAlertOverrides()
-        XCTAssertTrue(overrides.isEmpty, "Empty database should return empty dictionary")
+        #expect(overrides.isEmpty, "Empty database should return empty dictionary")
     }
 
     // MARK: - Validation
 
-    func testSaveAlertOverride_negativeMinutes_clampedToZero() async throws {
+    @Test
+    func saveAlertOverride_negativeMinutes_clampedToZero() async throws {
+        defer { try? FileManager.default.removeItem(at: tempDir) }
         try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: -5)
 
         let result = try await db.fetchAlertOverride(for: "event-1", calendarId: calId)
-        XCTAssertEqual(result, 0, "Negative minutes should be clamped to 0")
+        #expect(result == 0, "Negative minutes should be clamped to 0")
     }
 
-    func testSaveAlertOverride_excessiveMinutes_clampedToMax() async throws {
+    @Test
+    func saveAlertOverride_excessiveMinutes_clampedToMax() async throws {
+        defer { try? FileManager.default.removeItem(at: tempDir) }
         try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 120)
 
         let result = try await db.fetchAlertOverride(for: "event-1", calendarId: calId)
-        XCTAssertEqual(result, 60, "Minutes exceeding 60 should be clamped to 60")
+        #expect(result == 60, "Minutes exceeding 60 should be clamped to 60")
     }
 
     // MARK: - Override Survives Sync
 
-    func testOverrideSurvivesReplaceEvents() async throws {
+    @Test
+    func overrideSurvivesReplaceEvents() async throws {
+        defer { try? FileManager.default.removeItem(at: tempDir) }
         let start = Date().addingTimeInterval(600)
         let end = start.addingTimeInterval(3600)
         let calendarId = "cal-sync"
@@ -135,14 +146,15 @@ final class EventOverrideTests: XCTestCase {
 
         // Override should survive because it's in a separate table
         let override = try await db.fetchAlertOverride(for: "sync-event-1", calendarId: calendarId)
-        XCTAssertEqual(
-            override,
-            10,
+        #expect(
+            override == 10,
             "Override must survive replaceEvents since it's in a separate table",
         )
     }
 
-    func testOverrideSurvivesReplaceEvents_eventRemovedFromSync() async throws {
+    @Test
+    func overrideSurvivesReplaceEvents_eventRemovedFromSync() async throws {
+        defer { try? FileManager.default.removeItem(at: tempDir) }
         let start = Date().addingTimeInterval(600)
         let end = start.addingTimeInterval(3600)
         let calendarId = "cal-sync"
@@ -163,16 +175,17 @@ final class EventOverrideTests: XCTestCase {
 
         // Override still exists (orphaned) — cleaned up by maintenance
         let override = try await db.fetchAlertOverride(for: "removed-event", calendarId: calendarId)
-        XCTAssertEqual(
-            override,
-            5,
+        #expect(
+            override == 5,
             "Orphaned override persists until maintenance cleanup",
         )
     }
 
     // MARK: - Maintenance Cleanup
 
-    func testPerformMaintenance_cleansOrphanedOverrides() async throws {
+    @Test
+    func performMaintenance_cleansOrphanedOverrides() async throws {
+        defer { try? FileManager.default.removeItem(at: tempDir) }
         let start = Date().addingTimeInterval(600)
         let end = start.addingTimeInterval(3600)
 
@@ -193,15 +206,14 @@ final class EventOverrideTests: XCTestCase {
         try await db.performMaintenance()
 
         let livingOverride = try await db.fetchAlertOverride(for: "living-event", calendarId: "cal-1")
-        XCTAssertEqual(
-            livingOverride,
-            10,
+        #expect(
+            livingOverride == 10,
             "Override for existing event should survive maintenance",
         )
 
         let deadOverride = try await db.fetchAlertOverride(for: "dead-event", calendarId: "cal-1")
-        XCTAssertNil(
-            deadOverride,
+        #expect(
+            deadOverride == nil,
             "Orphaned override should be cleaned up by maintenance",
         )
     }

@@ -1,38 +1,40 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
-final class GoogleCalendarConfigTests: XCTestCase {
+struct GoogleCalendarConfigTests {
     // MARK: - Static URL Constants
 
-    func testAuthorizationEndpointIsGoogleOAuth() {
-        XCTAssertEqual(
-            GoogleCalendarConfig.authorizationEndpoint.host,
-            "accounts.google.com",
+    @Test
+    func authorizationEndpointIsGoogleOAuth() {
+        #expect(
+            GoogleCalendarConfig.authorizationEndpoint.host == "accounts.google.com",
         )
-        XCTAssert(
+        #expect(
             GoogleCalendarConfig.authorizationEndpoint.path.contains("auth"),
             "Authorization endpoint should contain 'auth' in path",
         )
     }
 
-    func testTokenEndpointIsGoogleOAuth() {
-        XCTAssertEqual(
-            GoogleCalendarConfig.tokenEndpoint.host,
-            "oauth2.googleapis.com",
+    @Test
+    func tokenEndpointIsGoogleOAuth() {
+        #expect(
+            GoogleCalendarConfig.tokenEndpoint.host == "oauth2.googleapis.com",
         )
     }
 
-    func testIssuerIsGoogleAccounts() {
-        XCTAssertEqual(
-            GoogleCalendarConfig.issuer.absoluteString,
-            "https://accounts.google.com",
+    @Test
+    func issuerIsGoogleAccounts() {
+        #expect(
+            GoogleCalendarConfig.issuer.absoluteString == "https://accounts.google.com",
         )
     }
 
     // MARK: - Scopes
 
-    func testScopesIncludeCalendarReadOnly() {
-        XCTAssert(
+    @Test
+    func scopesIncludeCalendarReadOnly() {
+        #expect(
             GoogleCalendarConfig.scopes.contains(
                 "https://www.googleapis.com/auth/calendar.readonly",
             ),
@@ -40,8 +42,9 @@ final class GoogleCalendarConfigTests: XCTestCase {
         )
     }
 
-    func testScopesIncludeCalendarListReadOnly() {
-        XCTAssert(
+    @Test
+    func scopesIncludeCalendarListReadOnly() {
+        #expect(
             GoogleCalendarConfig.scopes.contains(
                 "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
             ),
@@ -49,8 +52,9 @@ final class GoogleCalendarConfigTests: XCTestCase {
         )
     }
 
-    func testScopesIncludeUserInfoEmail() {
-        XCTAssert(
+    @Test
+    func scopesIncludeUserInfoEmail() {
+        #expect(
             GoogleCalendarConfig.scopes.contains(
                 "https://www.googleapis.com/auth/userinfo.email",
             ),
@@ -58,9 +62,10 @@ final class GoogleCalendarConfigTests: XCTestCase {
         )
     }
 
-    func testScopesAreReadOnly() {
+    @Test
+    func scopesAreReadOnly() {
         for scope in GoogleCalendarConfig.scopes {
-            XCTAssert(
+            #expect(
                 scope.contains("readonly") || scope.contains("userinfo"),
                 "All scopes should be read-only or user info, found: \(scope)",
             )
@@ -69,17 +74,18 @@ final class GoogleCalendarConfigTests: XCTestCase {
 
     // MARK: - API Base URL
 
-    func testCalendarAPIBaseURL() {
-        XCTAssertEqual(
-            GoogleCalendarConfig.calendarAPIBaseURL,
-            "https://www.googleapis.com/calendar/v3",
+    @Test
+    func calendarAPIBaseURL() {
+        #expect(
+            GoogleCalendarConfig.calendarAPIBaseURL == "https://www.googleapis.com/calendar/v3",
         )
     }
 
     // MARK: - Redirect URI
 
-    func testRedirectURIEndsWithColon() {
-        XCTAssert(
+    @Test
+    func redirectURIEndsWithColon() {
+        #expect(
             GoogleCalendarConfig.redirectURI.contains(":/"),
             "Redirect URI should have scheme format (scheme:/)",
         )
@@ -87,16 +93,17 @@ final class GoogleCalendarConfigTests: XCTestCase {
 
     // MARK: - Configuration Detection
 
-    func testIsConfiguredReflectsClientIdState() {
+    @Test
+    func isConfiguredReflectsClientIdState() {
         // In test environment, clientId is typically empty (no Config.plist or env var)
         // We test that isConfigured is consistent with clientId emptiness
         if GoogleCalendarConfig.clientId.isEmpty {
-            XCTAssertFalse(
-                GoogleCalendarConfig.isConfigured,
+            #expect(
+                !GoogleCalendarConfig.isConfigured,
                 "isConfigured should be false when clientId is empty",
             )
         } else {
-            XCTAssertTrue(
+            #expect(
                 GoogleCalendarConfig.isConfigured,
                 "isConfigured should be true when clientId is non-empty",
             )

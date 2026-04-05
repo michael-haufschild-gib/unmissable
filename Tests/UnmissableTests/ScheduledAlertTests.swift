@@ -1,56 +1,64 @@
+import Foundation
+import Testing
 @testable import Unmissable
-import XCTest
 
-final class ScheduledAlertTests: XCTestCase {
+struct ScheduledAlertTests {
     // MARK: - isActive
 
-    func testIsActive_trueWhenReferenceTimeIsAfterTrigger() {
+    @Test
+    func isActive_trueWhenReferenceTimeIsAfterTrigger() {
         let alert = makeAlert(triggerDate: Date(timeIntervalSince1970: 1000))
         let now = Date(timeIntervalSince1970: 2000)
 
-        XCTAssertTrue(alert.isActive(at: now))
+        #expect(alert.isActive(at: now))
     }
 
-    func testIsActive_trueWhenReferenceTimeEqualsTrigger() {
+    @Test
+    func isActive_trueWhenReferenceTimeEqualsTrigger() {
         let triggerDate = Date(timeIntervalSince1970: 1000)
         let alert = makeAlert(triggerDate: triggerDate)
 
-        XCTAssertTrue(alert.isActive(at: triggerDate))
+        #expect(alert.isActive(at: triggerDate))
     }
 
-    func testIsActive_falseWhenReferenceTimeIsBeforeTrigger() {
+    @Test
+    func isActive_falseWhenReferenceTimeIsBeforeTrigger() {
         let alert = makeAlert(triggerDate: Date(timeIntervalSince1970: 2000))
         let now = Date(timeIntervalSince1970: 1000)
 
-        XCTAssertFalse(alert.isActive(at: now))
+        #expect(!alert.isActive(at: now))
     }
 
     // MARK: - timeUntilTrigger
 
-    func testTimeUntilTrigger_positiveWhenInFuture() {
+    @Test
+    func timeUntilTrigger_positiveWhenInFuture() {
         let now = Date(timeIntervalSince1970: 1000)
         let alert = makeAlert(triggerDate: Date(timeIntervalSince1970: 1060))
 
-        XCTAssertEqual(alert.timeUntilTrigger(from: now), 60.0, accuracy: 0.001)
+        #expect(abs(alert.timeUntilTrigger(from: now) - 60.0) <= 0.001)
     }
 
-    func testTimeUntilTrigger_negativeWhenInPast() {
+    @Test
+    func timeUntilTrigger_negativeWhenInPast() {
         let now = Date(timeIntervalSince1970: 2000)
         let alert = makeAlert(triggerDate: Date(timeIntervalSince1970: 1000))
 
-        XCTAssertEqual(alert.timeUntilTrigger(from: now), -1000.0, accuracy: 0.001)
+        #expect(abs(alert.timeUntilTrigger(from: now) - -1000.0) <= 0.001)
     }
 
-    func testTimeUntilTrigger_zeroWhenExact() {
+    @Test
+    func timeUntilTrigger_zeroWhenExact() {
         let exact = Date(timeIntervalSince1970: 1000)
         let alert = makeAlert(triggerDate: exact)
 
-        XCTAssertEqual(alert.timeUntilTrigger(from: exact), 0.0, accuracy: 0.001)
+        #expect(abs(alert.timeUntilTrigger(from: exact)) <= 0.001)
     }
 
     // MARK: - AlertType
 
-    func testAlertType_reminderCarriesMinutesBefore() {
+    @Test
+    func alertType_reminderCarriesMinutesBefore() {
         let event = TestUtilities.createTestEvent()
         let alert = ScheduledAlert(
             event: event,
@@ -59,13 +67,14 @@ final class ScheduledAlertTests: XCTestCase {
         )
 
         if case let .reminder(minutes) = alert.alertType {
-            XCTAssertEqual(minutes, 5)
+            #expect(minutes == 5)
         } else {
-            XCTFail("Expected .reminder alert type")
+            Issue.record("Expected .reminder alert type")
         }
     }
 
-    func testAlertType_snoozeCarriesUntilDate() {
+    @Test
+    func alertType_snoozeCarriesUntilDate() {
         let event = TestUtilities.createTestEvent()
         let snoozeTarget = Date(timeIntervalSince1970: 2000)
         let alert = ScheduledAlert(
@@ -75,13 +84,14 @@ final class ScheduledAlertTests: XCTestCase {
         )
 
         if case let .snooze(until) = alert.alertType {
-            XCTAssertEqual(until, snoozeTarget)
+            #expect(until == snoozeTarget)
         } else {
-            XCTFail("Expected .snooze alert type")
+            Issue.record("Expected .snooze alert type")
         }
     }
 
-    func testAlertType_meetingStartHasNoAssociatedValue() {
+    @Test
+    func alertType_meetingStartHasNoAssociatedValue() {
         let event = TestUtilities.createTestEvent()
         let triggerDate = Date(timeIntervalSince1970: 3000)
         let alert = ScheduledAlert(
@@ -91,15 +101,16 @@ final class ScheduledAlertTests: XCTestCase {
         )
 
         if case .meetingStart = alert.alertType {
-            XCTAssertEqual(alert.triggerDate, triggerDate)
+            #expect(alert.triggerDate == triggerDate)
         } else {
-            XCTFail("Expected .meetingStart alert type")
+            Issue.record("Expected .meetingStart alert type")
         }
     }
 
     // MARK: - Identity
 
-    func testEachAlertHasUniqueId() {
+    @Test
+    func eachAlertHasUniqueId() {
         let event = TestUtilities.createTestEvent()
         let triggerDate = Date(timeIntervalSince1970: 1000)
 
@@ -114,14 +125,14 @@ final class ScheduledAlertTests: XCTestCase {
             alertType: .reminder(minutesBefore: 5),
         )
 
-        XCTAssertNotEqual(
-            alert1.id,
-            alert2.id,
+        #expect(
+            alert1.id != alert2.id,
             "Even identical alert data should produce unique IDs",
         )
     }
 
-    func testDifferentAlertTypesForSameEvent() {
+    @Test
+    func differentAlertTypesForSameEvent() {
         let event = TestUtilities.createTestEvent()
         let now = Date()
 
@@ -142,20 +153,21 @@ final class ScheduledAlertTests: XCTestCase {
         )
 
         // All should have the same event but different types
-        XCTAssertEqual(reminder.event.id, snooze.event.id)
-        XCTAssertEqual(snooze.event.id, meetingStart.event.id)
-        XCTAssertNotEqual(reminder.id, snooze.id)
-        XCTAssertNotEqual(snooze.id, meetingStart.id)
+        #expect(reminder.event.id == snooze.event.id)
+        #expect(snooze.event.id == meetingStart.event.id)
+        #expect(reminder.id != snooze.id)
+        #expect(snooze.id != meetingStart.id)
     }
 
     // MARK: - isActive Boundary
 
-    func testIsActive_justBeforeTrigger_notActive() {
+    @Test
+    func isActive_justBeforeTrigger_notActive() {
         let trigger = Date(timeIntervalSince1970: 1000)
         let alert = makeAlert(triggerDate: trigger)
         let justBefore = Date(timeIntervalSince1970: 999.999)
 
-        XCTAssertFalse(alert.isActive(at: justBefore))
+        #expect(!alert.isActive(at: justBefore))
     }
 
     // MARK: - Helpers
