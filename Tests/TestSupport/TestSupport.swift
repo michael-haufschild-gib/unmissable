@@ -6,6 +6,26 @@ import OSLog
 import SwiftUI
 @testable import Unmissable
 
+// MARK: - Temporary Directory
+
+/// Owns a temporary directory and removes it (along with its contents) on deallocation.
+/// Use in Swift Testing struct suites to replace XCTest `tearDown` cleanup.
+public final class TemporaryDirectory: @unchecked Sendable {
+    /// The URL of the temporary directory.
+    public let url: URL
+
+    /// Creates a uniquely-named directory under the system temp folder.
+    public init(prefix: String) throws {
+        url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(prefix)-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+    }
+
+    deinit {
+        try? FileManager.default.removeItem(at: url)
+    }
+}
+
 // MARK: - Controllable Test Clock
 
 /// Bridges PointFree's `TestClock<Duration>` to EventScheduler's closure-based

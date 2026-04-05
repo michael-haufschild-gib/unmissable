@@ -111,11 +111,16 @@ targets:
       - TestTarget
     sources:
       - path: Tests/IntegrationTests
+      - path: Tests/TestSupport
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.unmissable.IntegrationTests
     dependencies:
       - target: Unmissable
+      - package: swift-clocks
+        product: Clocks
+      - package: swift-concurrency-extras
+        product: ConcurrencyExtras
 
   E2ETests:
     type: bundle.unit-test

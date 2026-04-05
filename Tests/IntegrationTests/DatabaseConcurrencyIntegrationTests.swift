@@ -5,18 +5,12 @@ import Testing
 @MainActor
 struct DatabaseConcurrencyIntegrationTests {
     private let db: DatabaseManager
-    private let tempDir: URL
+    /// Retains the temp directory until the struct is deallocated, then removes it.
+    private let tempDir: TemporaryDirectory
 
     init() throws {
-        tempDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent(
-                "unmissable-dbtest-\(UUID().uuidString)",
-            )
-        try FileManager.default.createDirectory(
-            at: tempDir,
-            withIntermediateDirectories: true,
-        )
-        let dbURL = tempDir.appendingPathComponent("test.db")
+        tempDir = try TemporaryDirectory(prefix: "unmissable-dbtest")
+        let dbURL = tempDir.url.appendingPathComponent("test.db")
         db = DatabaseManager(databaseURL: dbURL)
     }
 

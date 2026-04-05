@@ -68,12 +68,12 @@ struct MultiProviderIntegrationTests {
     private let calendarService: CalendarService
     private let preferencesManager: PreferencesManager
     private let databaseManager: DatabaseManager
+    /// Retains the temp directory until the struct is deallocated, then removes it.
+    private let tempDir: TemporaryDirectory
 
-    init() {
-        let tempDir = FileManager.default.temporaryDirectory
-        let tempDatabaseURL = tempDir.appendingPathComponent(
-            "unmissable-multiprovider-\(UUID().uuidString).db",
-        )
+    init() throws {
+        tempDir = try TemporaryDirectory(prefix: "unmissable-multiprovider")
+        let tempDatabaseURL = tempDir.url.appendingPathComponent("test.db")
         databaseManager = DatabaseManager(databaseURL: tempDatabaseURL)
         preferencesManager = PreferencesManager(themeManager: ThemeManager())
         calendarService = CalendarService(

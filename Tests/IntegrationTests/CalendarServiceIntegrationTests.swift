@@ -7,13 +7,12 @@ struct CalendarServiceIntegrationTests {
     private let calendarService: CalendarService
     private let preferencesManager: PreferencesManager
     private let databaseManager: DatabaseManager
+    /// Retains the temp directory until the struct is deallocated, then removes it.
+    private let tempDir: TemporaryDirectory
 
-    init() {
-        // Use isolated temp database to avoid polluting production data
-        let tempDir = FileManager.default.temporaryDirectory
-        let tempDatabaseURL = tempDir.appendingPathComponent(
-            "unmissable-integration-\(UUID().uuidString).db",
-        )
+    init() throws {
+        tempDir = try TemporaryDirectory(prefix: "unmissable-integration")
+        let tempDatabaseURL = tempDir.url.appendingPathComponent("test.db")
         databaseManager = DatabaseManager(databaseURL: tempDatabaseURL)
 
         preferencesManager = PreferencesManager(themeManager: ThemeManager())
