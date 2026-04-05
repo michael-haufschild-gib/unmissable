@@ -71,7 +71,7 @@ log_success "Linting completed"
 
 # Step 2: Build the project
 log_info "Step 2: Building project..."
-if xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" build | tee "$REPORTS_DIR/build.log"; then
+if xcodebuild -project "$PROJECT_DIR/Unmissable.xcodeproj" -scheme "$SCHEME" -destination "$DESTINATION" build | tee "$REPORTS_DIR/build.log"; then
     log_success "Build completed successfully"
 else
     log_error "Build failed"
@@ -80,7 +80,7 @@ fi
 
 # Step 3: Run Unit Tests
 log_info "Step 3: Running unit tests..."
-if xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
+if xcodebuild -project "$PROJECT_DIR/Unmissable.xcodeproj" -scheme "$SCHEME" -destination "$DESTINATION" test \
     -only-testing:"UnmissableTests" \
     -resultBundlePath "$REPORTS_DIR/unit-tests.xcresult" \
     | tee "$REPORTS_DIR/unit-tests.log"; then
@@ -92,7 +92,7 @@ fi
 
 # Step 4: Run Integration Tests
 log_info "Step 4: Running integration tests..."
-if xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
+if xcodebuild -project "$PROJECT_DIR/Unmissable.xcodeproj" -scheme "$SCHEME" -destination "$DESTINATION" test \
     -only-testing:"IntegrationTests" \
     -resultBundlePath "$REPORTS_DIR/integration-tests.xcresult" \
     | tee "$REPORTS_DIR/integration-tests.log"; then
@@ -104,7 +104,7 @@ fi
 
 # Step 5: Run End-to-End Tests
 log_info "Step 5: Running end-to-end tests..."
-if xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
+if xcodebuild -project "$PROJECT_DIR/Unmissable.xcodeproj" -scheme "$SCHEME" -destination "$DESTINATION" test \
     -only-testing:"E2ETests" \
     -resultBundlePath "$REPORTS_DIR/e2e-tests.xcresult" \
     | tee "$REPORTS_DIR/e2e-tests.log"; then
@@ -116,7 +116,7 @@ fi
 
 # Step 6: Run UI/Snapshot Tests
 log_info "Step 6: Running UI and snapshot tests..."
-if xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
+if xcodebuild -project "$PROJECT_DIR/Unmissable.xcodeproj" -scheme "$SCHEME" -destination "$DESTINATION" test \
     -only-testing:"SnapshotTests" \
     -resultBundlePath "$REPORTS_DIR/ui-tests.xcresult" \
     | tee "$REPORTS_DIR/ui-tests.log"; then
@@ -141,7 +141,7 @@ fi
 
 # Step 8: Performance Testing
 log_info "Step 8: Running performance tests..."
-if xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
+if xcodebuild -project "$PROJECT_DIR/Unmissable.xcodeproj" -scheme "$SCHEME" -destination "$DESTINATION" test \
     -only-testing:"UnmissableTests/EventSchedulerComprehensiveTests/testLargeNumberOfEvents" \
     -only-testing:"UnmissableTests/SystemIntegrationTests/testEndToEndPerformance" \
     -only-testing:"UnmissableTests/MeetingDetailsPopupTests/testPopupPerformanceUnderLoad" \
@@ -154,7 +154,7 @@ fi
 
 # Step 9: Resource Lifecycle / Cleanup Tests
 log_info "Step 9: Running resource lifecycle and cleanup tests..."
-if xcodebuild -scheme "$SCHEME" -destination "$DESTINATION" test \
+if xcodebuild -project "$PROJECT_DIR/Unmissable.xcodeproj" -scheme "$SCHEME" -destination "$DESTINATION" test \
     -only-testing:"UnmissableTests/SyncManagerLifecycleTests" \
     -only-testing:"UnmissableTests/HealthMonitorTests" \
     -only-testing:"UnmissableTests/EventSchedulerComprehensiveTests/testMemoryCleanupSimple" \

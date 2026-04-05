@@ -1,53 +1,45 @@
 #!/bin/bash
 
 # Development launch script for Unmissable
-# Builds debug, assembles a .app bundle, and opens it.
-# Unlike `swift run`, this creates a proper bundle so UNUserNotificationCenter
-# and other bundle-only APIs work correctly.
+# Builds debug and launches via xcodebuild, creating a proper .app bundle
+# so UNUserNotificationCenter and other bundle-only APIs work correctly.
 
 set -euo pipefail
 
 APP_NAME="Unmissable"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_BUNDLE="${PROJECT_DIR}/.build/debug/${APP_NAME}.app"
-CONTENTS_DIR="${APP_BUNDLE}/Contents"
-MACOS_DIR="${CONTENTS_DIR}/MacOS"
-RESOURCES_DIR="${CONTENTS_DIR}/Resources"
+XCODEPROJ="$PROJECT_DIR/Unmissable.xcodeproj"
+SCHEME="Unmissable"
+DESTINATION="platform=macOS,arch=arm64"
 cd "$PROJECT_DIR"
 
 # Kill any running instance
-pkill -f "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}" 2>/dev/null || true
+pkill -x "${APP_NAME}" 2>/dev/null || true
 
 echo "Building ${APP_NAME} (debug)..."
-swift build
+xcodebuild build \
+    -project "$XCODEPROJ" \
+    -scheme "$SCHEME" \
+    -destination "$DESTINATION" \
+    -quiet
 
-BUILD_DIR="$(swift build --show-bin-path)"
+# Find the built .app in DerivedData
+DERIVED_DATA_DIR=$(xcodebuild -project "$XCODEPROJ" -scheme "$SCHEME" -showBuildSettings 2>/dev/null | grep -m 1 "BUILT_PRODUCTS_DIR" | awk '{print $3}')
+APP_BUNDLE="${DERIVED_DATA_DIR}/${APP_NAME}.app"
 
-echo "Assembling .app bundle..."
-rm -rf "${APP_BUNDLE}"
-mkdir -p "${MACOS_DIR}" "${RESOURCES_DIR}"
-
-# Executable
-cp "${BUILD_DIR}/${APP_NAME}" "${MACOS_DIR}/"
-chmod +x "${MACOS_DIR}/${APP_NAME}"
-
-# Info.plist
-cp "${PROJECT_DIR}/Info.plist" "${CONTENTS_DIR}/"
-
-# Resources
-if [ -d "${PROJECT_DIR}/Sources/${APP_NAME}/Resources" ] && [ "$(ls -A "${PROJECT_DIR}/Sources/${APP_NAME}/Resources" 2>/dev/null)" ]; then
-    cp -R "${PROJECT_DIR}/Sources/${APP_NAME}/Resources/"* "${RESOURCES_DIR}/"
+if [ ! -d "$APP_BUNDLE" ]; then
+    echo "ERROR: Built app not found at $APP_BUNDLE"
+    exit 1
 fi
 
-# Config.plist (OAuth)
+# Copy Config.plist if it exists (OAuth configuration)
+RESOURCES_DIR="${APP_BUNDLE}/Contents/Resources"
 if [ -f "${PROJECT_DIR}/Config.plist" ]; then
+    mkdir -p "$RESOURCES_DIR"
     cp "${PROJECT_DIR}/Config.plist" "${RESOURCES_DIR}/"
 fi
-
-# Ad-hoc sign
-codesign --force --deep --sign - "${APP_BUNDLE}" 2>/dev/null
 
 echo "Launching ${APP_NAME}..."
 echo "Deep diagnostics: enabled (debug build)"
 echo "Console.app filter: subsystem=com.unmissable.app category=Diagnostics"
-open "${APP_BUNDLE}"
+open "$APP_BUNDLE"

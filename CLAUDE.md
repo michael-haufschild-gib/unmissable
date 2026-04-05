@@ -4,7 +4,7 @@
 macOS menu bar app that ensures users never miss meetings via full-screen blocking overlays, calendar integration (Google + Apple), smart meeting link detection, and one-click join.
 
 ## Tech Stack
-Swift 6.3 (strict concurrency) | macOS 14.0+ | SwiftUI + AppKit | GRDB.swift | SPM
+Swift 6.3 (strict concurrency) | macOS 15.0+ (Sequoia) | SwiftUI + AppKit | GRDB.swift | Xcode project (xcodegen)
 
 ## Constraints
 
@@ -25,7 +25,7 @@ AppAuth-iOS (OAuth 2.0) | GRDB.swift (SQLite) | KeychainAccess | Magnet (shortcu
 
 | Task | Command |
 |------|---------|
-| Build | `swift build` |
+| Build | `xcodebuild build -project Unmissable.xcodeproj -scheme Unmissable -quiet` |
 | Build + lint + test | `./Scripts/build.sh` |
 | Lint only | `./Scripts/enforce-lint.sh` |
 | Run | `./Scripts/run-dev.sh` |
@@ -33,12 +33,16 @@ AppAuth-iOS (OAuth 2.0) | GRDB.swift (SQLite) | KeychainAccess | Magnet (shortcu
 | Format | `./Scripts/format.sh` |
 | Test (all) | `./Scripts/test.sh` |
 | Test (specific target) | `./Scripts/test.sh UnmissableTests` |
-| Test (specific class) | Not supported in Swift 6.3 — use target-level filters |
+| Test (UI / XCUITest) | `./Scripts/test-ui.sh` |
 | Test (skip lint) | `./Scripts/test.sh --skip-lint` |
 | Test (clean build) | `./Scripts/test.sh --clean` |
 | Test (comprehensive) | `./Scripts/run-comprehensive-tests.sh` |
+| Regenerate xcodeproj | `xcodegen generate` |
 
-Do **not** run bare `swift test` — it has no worker limit. `test.sh` outputs `PASS`/`FAIL`/`BUILD_FAIL`/`LINT_FAIL`/`TIMEOUT` and writes `.build/test-result.json`.
+Do **not** run bare `swift test` or `xcodebuild test` without worker limits. `test.sh` outputs `PASS`/`FAIL`/`BUILD_FAIL`/`LINT_FAIL`/`TIMEOUT` and writes `.build/test-result.json`.
+
+## Project Structure
+`project.yml` is the source of truth for the Xcode project. Run `xcodegen generate` after editing it. The generated `Unmissable.xcodeproj` is committed to git.
 
 ## Configuration
 Google Calendar OAuth: copy `Config.plist.example` to `Config.plist` (gitignored) and add credentials. CI uses `GOOGLE_OAUTH_CLIENT_ID` env var.

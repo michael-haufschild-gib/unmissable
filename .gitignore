@@ -1,20 +1,15 @@
 # Xcode
-.build/
-.swiftpm/
-*.xcworkspace/
 DerivedData/
 *.hmap
 *.ipa
 *.dSYM.zip
 *.dSYM
 .DS_Store
-
-# Swift Package Manager
-/.build
-/Packages
-Package.pins
-# Package.resolved is tracked intentionally — reproducible builds for this application
 xcuserdata/
+
+# SPM build artifacts (legacy — project now uses Xcode)
+.build/
+.swiftpm/
 
 # Configuration files with secrets
 Config.plist
@@ -75,7 +70,6 @@ Thumbs.db
 .env.local
 
 # Build artifacts
-*.app
 *.ipa
 resource_bundle_accessor*
 
