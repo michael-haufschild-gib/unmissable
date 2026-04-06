@@ -74,8 +74,6 @@ final class PreferencesWindowManager: NSObject {
         window.collectionBehavior = [.moveToActiveSpace]
         window.hidesOnDeactivate = false
         window.setFrameAutosaveName("PreferencesWindow")
-        window.titlebarAppearsTransparent = true
-        window.styleMask.insert(.fullSizeContentView)
 
         // Ensure window can close properly without affecting app termination
         window.isReleasedWhenClosed = false

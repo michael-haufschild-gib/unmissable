@@ -4,6 +4,7 @@ struct MenuBarView: View {
     // MARK: - Layout Constants
 
     private static let menuBarWidth: CGFloat = 340
+    private static let backgroundOpacity: Double = 0.85
     private static let statusIndicatorSize: CGFloat = 8
     private static let separatorHeight: CGFloat = 0.5
     private static let syncProgressScale: CGFloat = 0.7
@@ -43,12 +44,8 @@ struct MenuBarView: View {
             contentSection
             footerSection
         }
-        .background {
-            ZStack {
-                VisualEffectBackground(material: .popover)
-                design.colors.glass.opacity(UMGlassModifier.glassOverlayOpacity)
-            }
-        }
+        .background(.ultraThinMaterial)
+        .background(design.colors.background.opacity(Self.backgroundOpacity))
         .frame(width: Self.menuBarWidth)
         .accessibilityIdentifier("menu-bar-view")
     }

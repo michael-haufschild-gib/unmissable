@@ -61,7 +61,7 @@ struct PreferencesView: View {
                 }
             }
             .padding(design.spacing.sm)
-            .background(.ultraThinMaterial)
+            .background(design.colors.surface)
 
             Rectangle()
                 .fill(design.colors.borderSubtle)
@@ -82,7 +82,7 @@ struct PreferencesView: View {
             }
             .environment(appState.preferences)
         }
-        .umWindowGlass()
+        .background(design.colors.background)
         .frame(width: Self.windowWidth, height: Self.windowHeight)
     }
 }
@@ -135,6 +135,7 @@ struct GeneralPreferencesView: View {
             }
             .padding(design.spacing.xl)
         }
+        .background(design.colors.background)
     }
 
     // MARK: - Alert Timing
@@ -402,6 +403,7 @@ struct ShortcutsPreferencesView: View {
             }
             .padding(design.spacing.xl)
         }
+        .background(design.colors.background)
     }
 
     private func shortcutRow(

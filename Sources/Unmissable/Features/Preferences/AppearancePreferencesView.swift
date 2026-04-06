@@ -105,6 +105,7 @@ struct AppearancePreferencesView: View {
             }
             .padding(design.spacing.xl)
         }
+        .background(design.colors.background)
     }
 
     // MARK: - Accent Color Swatch

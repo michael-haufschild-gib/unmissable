@@ -80,8 +80,6 @@ final class OnboardingWindowManager: NSObject {
         newWindow.collectionBehavior = [.moveToActiveSpace]
         newWindow.hidesOnDeactivate = false
         newWindow.isReleasedWhenClosed = false
-        newWindow.titlebarAppearsTransparent = true
-        newWindow.styleMask.insert(.fullSizeContentView)
         newWindow.delegate = self
 
         window = newWindow

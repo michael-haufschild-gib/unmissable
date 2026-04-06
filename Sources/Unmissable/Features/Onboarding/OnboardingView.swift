@@ -31,6 +31,9 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
+            design.colors.background
+                .ignoresSafeArea()
+
             Group {
                 switch currentScreen {
                 case .welcome:
@@ -45,7 +48,6 @@ struct OnboardingView: View {
             }
             .animation(DesignAnimations.content, value: currentScreen)
         }
-        .umWindowGlass()
     }
 }
 
