@@ -226,8 +226,8 @@ Generated: $(date)
 - Log: e2e-tests.log
 
 ### UI Tests
-- Status: $(if grep -q "Test Suite.*failed" "$REPORTS_DIR/ui-tests.log"; then echo "⚠️ ISSUES"; else echo "✅ PASSED"; fi)
-- Log: ui-tests.log
+- Status: ⏭️ NOT RUN (use Scripts/test-ui.sh separately)
+- Log: n/a
 
 ### Performance Tests
 - Status: $(if grep -q "Performance test failed" "$REPORTS_DIR/performance-tests.log"; then echo "⚠️ SLOW"; else echo "✅ PASSED"; fi)
@@ -272,7 +272,7 @@ if [ $CRITICAL_ISSUES -eq 0 ]; then
     echo "  ✅ E2E tests: PASSED"
     echo "  ✅ Memory tests: PASSED"
     echo "  📊 Performance tests: $(if grep -q "Performance test failed" "$REPORTS_DIR/performance-tests.log"; then echo "SLOW"; else echo "PASSED"; fi)"
-    echo "  📱 UI tests: $(if grep -q "Test Suite.*failed" "$REPORTS_DIR/ui-tests.log"; then echo "ISSUES"; else echo "PASSED"; fi)"
+    echo "  📱 UI tests: NOT RUN (use Scripts/test-ui.sh)"
     echo ""
     echo "📋 Reports generated in: $REPORTS_DIR"
     echo "📊 Coverage report: $COVERAGE_DIR"

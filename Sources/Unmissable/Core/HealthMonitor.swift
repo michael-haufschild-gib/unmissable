@@ -311,6 +311,8 @@ struct HealthIssue: Identifiable, Equatable {
         case error
     }
 
+    /// Value equality ignores `id` (UUID) so identical issues deduplicate
+    /// regardless of when they were created. `id` is only for Identifiable.
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.severity == rhs.severity
             && lhs.component == rhs.component

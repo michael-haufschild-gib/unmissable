@@ -349,8 +349,8 @@ custom_rules:
   no_raw_color_names:
     name: "No Raw Named Colors"
     included: "Sources/(?!.*/DesignTokens\\.swift|.*/ThemeManager\\.swift|.*/Styles\\.swift|.*/Containers\\.swift).*\\.swift"
-    regex: "\\bColor\\.(black|white)\\b"
-    message: "Use design.colors.* tokens instead of Color.black/Color.white. Define new tokens in DesignColors if needed."
+    regex: "\\bColor\\.(black|white|red|green|blue|orange|yellow|pink|purple|gray|brown|cyan|mint|indigo|teal)\\b"
+    message: "Use design.colors.* tokens instead of raw Color names. Define new tokens in DesignColors if needed."
     severity: error
 
   no_plain_button_style:

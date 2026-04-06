@@ -494,7 +494,7 @@ private let observationYieldMilliseconds = 10
 /// Yields control so `@Observable` / Combine pipelines can propagate.
 /// Use instead of raw `Task.sleep` when waiting for observation-driven state updates.
 /// `iterations` > 1 is needed when the pipeline dispatches multiple async hops.
-func yieldToObservation(iterations: Int = 1) async throws {
+public func yieldToObservation(iterations: Int = 1) async throws {
     for _ in 0 ..< iterations {
         try await Task.sleep(for: .milliseconds(observationYieldMilliseconds))
     }

@@ -33,13 +33,24 @@ for arg in "$@"; do
             echo "  test_name  Run only the test matching this name"
             exit 0
             ;;
+        --*)
+            echo "ERROR: Unknown option: $arg" >&2
+            exit 2
+            ;;
         *) FILTER="$arg" ;;
     esac
 done
 
 # ---------- helpers ----------
 
+DERIVED_DATA_DIR="$PROJECT_DIR/.build/uitest-xcode"
+
 resolve_app() {
+    APP_PATH="$DERIVED_DATA_DIR/Build/Products/Debug/Unmissable.app"
+    if [ -d "$APP_PATH" ]; then
+        return 0
+    fi
+    # Fallback: check default DerivedData for Xcode GUI builds
     local dd_dir="$HOME/Library/Developer/Xcode/DerivedData"
     for dir in "$dd_dir"/Unmissable-*/Build/Products/Debug/Unmissable.app; do
         if [ -d "$dir" ]; then
@@ -47,7 +58,7 @@ resolve_app() {
             return 0
         fi
     done
-    echo "ERROR: Built app not found in DerivedData. Run with --build or build in Xcode first."
+    echo "ERROR: Built app not found. Run with --build or build in Xcode first."
     exit 1
 }
 
@@ -56,6 +67,7 @@ build_app() {
     xcodebuild build \
         -project "$PROJECT_DIR/Unmissable.xcodeproj" \
         -scheme Unmissable \
+        -derivedDataPath "$DERIVED_DATA_DIR" \
         -quiet 2>&1 || {
         echo "BUILD FAILED"
         exit 1
@@ -783,6 +795,13 @@ run_test "test_overlay_dismiss_flow" test_overlay_dismiss_flow
 # --- Preferences flows ---
 run_test "test_menubar_to_preferences_flow" test_menubar_to_preferences_flow
 run_test "test_preferences_window_lifecycle" test_preferences_window_lifecycle
+
+# Check for unmatched filter
+TOTAL=$((PASSED + FAILED))
+if [ -n "$FILTER" ] && [ "$TOTAL" -eq 0 ]; then
+    echo "ERROR: No test matched filter: $FILTER" >&2
+    exit 2
+fi
 
 echo ""
 echo "=== Results: $PASSED passed, $FAILED failed, $SKIPPED skipped ==="
