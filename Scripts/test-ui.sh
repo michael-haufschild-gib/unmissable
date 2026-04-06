@@ -24,6 +24,14 @@ FAILURES=""
 BUILD_FIRST=false
 FILTER=""
 
+cleanup() {
+    if [ -n "$APP_PID" ]; then
+        kill "$APP_PID" 2>/dev/null || true
+    fi
+    pkill -f "Unmissable.app/Contents/MacOS/Unmissable" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
 for arg in "$@"; do
     case "$arg" in
         --build) BUILD_FIRST=true ;;
@@ -55,6 +63,7 @@ resolve_app() {
     for dir in "$dd_dir"/Unmissable-*/Build/Products/Debug/Unmissable.app; do
         if [ -d "$dir" ]; then
             APP_PATH="$dir"
+            echo "WARN: Using app from system DerivedData (may be stale): $APP_PATH" >&2
             return 0
         fi
     done
@@ -314,20 +323,22 @@ test_onboarding_continue_navigates() {
     # They have no accessible name in System Events, so we target by position.
 
     # Screen 1: Welcome — single button in content group = Continue
+    # Button mapping: 1=Continue
     local button_count
     button_count=$(get_group_button_count "Welcome to Unmissable")
     [ "$button_count" = "1" ] || return 1
     click_group_button 1 "Welcome to Unmissable" || return 1
     sleep 1
 
-    # Screen 2: Connect Calendar — 3 buttons (Apple, Google, Skip). Last button = Skip.
+    # Screen 2: Connect Calendar — 3 buttons in group
+    # Button mapping: 1=Connect Apple, 2=Connect Google, 3=Skip
     button_count=$(get_group_button_count "Welcome to Unmissable")
     [ "$button_count" = "3" ] || return 1
-    # Skip is the last (3rd) button.
     click_group_button 3 "Welcome to Unmissable" || return 1
     sleep 1
 
-    # Screen 3: All Set — 2 buttons (Show Demo, Done). Last button = Done.
+    # Screen 3: All Set — 2 buttons in group
+    # Button mapping: 1=Show Demo, 2=Done (last)
     click_last_group_button "Welcome to Unmissable" || return 1
 
     # Window should close after completing onboarding.
