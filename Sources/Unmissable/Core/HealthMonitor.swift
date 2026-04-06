@@ -222,7 +222,7 @@ final class HealthMonitor {
         let previousStatus = healthStatus
 
         if !criticalIssues.isEmpty {
-            healthStatus = .critical(issues: issues)
+            healthStatus = .critical(issues: criticalIssues)
         } else if !warnings.isEmpty {
             healthStatus = .degraded(issues: warnings)
         } else {

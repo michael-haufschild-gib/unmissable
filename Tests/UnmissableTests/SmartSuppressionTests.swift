@@ -259,6 +259,14 @@ struct SmartSuppressionTests {
             overlay.suppressionFallbackNotifications.first?.id == event.id,
             "Fallback notification should be for the correct event",
         )
+        #expect(
+            notifManager.sentNotifications.count == 1,
+            "NotificationManager should have delivered the fallback notification",
+        )
+        #expect(
+            notifManager.sentNotifications.first?.event.id == event.id,
+            "NotificationManager should have delivered notification for the correct event",
+        )
     }
 
     @Test
@@ -287,6 +295,10 @@ struct SmartSuppressionTests {
             overlay.suppressionFallbackNotifications.count == 1,
             "Fallback notification should be sent for browser-suppressed Meet event",
         )
+        #expect(
+            notifManager.sentNotifications.count == 1,
+            "NotificationManager should have delivered the browser fallback notification",
+        )
     }
 
     @Test
@@ -314,6 +326,10 @@ struct SmartSuppressionTests {
         #expect(
             overlay.suppressionFallbackNotifications.isEmpty,
             "No fallback notification when overlay is shown normally",
+        )
+        #expect(
+            notifManager.sentNotifications.isEmpty,
+            "NotificationManager should not deliver notifications when overlay is shown normally",
         )
     }
 

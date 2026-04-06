@@ -144,7 +144,8 @@ struct AttachmentRow: View {
             return
         }
 
-        logger.info("AttachmentRow: Opening attachment (id: \(attachment.fileId ?? "unknown"))")
+        let redactedId = attachment.fileId.map(PrivacyUtils.redactedEventId) ?? "<none>"
+        logger.info("AttachmentRow: Opening attachment (id: \(redactedId))")
 
         NSWorkspace.shared.open(url)
     }

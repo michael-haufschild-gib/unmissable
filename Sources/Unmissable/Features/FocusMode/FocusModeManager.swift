@@ -101,7 +101,7 @@ final class FocusModeManager {
 
             case .notFound:
                 self.logger.warning(
-                    "DND detection unavailable: preferences files not found at expected paths",
+                    "DND detection unavailable: Assertions.json not found at expected path",
                 )
                 self.dndDetectionAvailable = false
                 self.isDoNotDisturbEnabled = false

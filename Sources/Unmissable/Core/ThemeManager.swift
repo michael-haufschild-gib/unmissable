@@ -192,9 +192,9 @@ enum AccentColor: String, CaseIterable {
         default: (r1, g1, b1) = (c, 0, x)
         }
         return (
-            Int((r1 + m) * 255),
-            Int((g1 + m) * 255),
-            Int((b1 + m) * 255),
+            Int(((r1 + m) * 255).rounded()),
+            Int(((g1 + m) * 255).rounded()),
+            Int(((b1 + m) * 255).rounded()),
         )
     }
 }

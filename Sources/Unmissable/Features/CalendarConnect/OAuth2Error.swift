@@ -14,10 +14,10 @@ enum OAuth2Error: LocalizedError {
         switch self {
         case let .configurationError(message):
             "Configuration Error: \(message)"
-        case let .authorizationFailed(error):
-            "Authorization Failed: \(error.localizedDescription)"
-        case let .tokenRefreshFailed(error):
-            "Token Refresh Failed: \(error.localizedDescription)"
+        case .authorizationFailed:
+            "Authorization failed"
+        case .tokenRefreshFailed:
+            "Token refresh failed"
         case .notAuthenticated:
             "User not authenticated"
         case .userInfoFetchFailed:

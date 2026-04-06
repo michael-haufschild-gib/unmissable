@@ -43,7 +43,9 @@ extension DatabaseManager {
                             $0.alertMinutes,
                         )
                     },
-                    uniquingKeysWith: { _, latest in latest },
+                    // Duplicates should not exist (UPSERT on save), but if they
+                    // do, keep the last-read row rather than crashing.
+                    uniquingKeysWith: { _, lastRead in lastRead },
                 )
             }
         }

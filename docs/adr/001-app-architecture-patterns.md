@@ -8,7 +8,7 @@
 
 Three interconnected architectural choices govern how Unmissable is structured:
 
-1. **`defaultIsolation(MainActor.self)`** for all targets
+1. **`defaultIsolation(MainActor.self)`** for the `Unmissable` source target (tests use ApproachableConcurrency only)
 2. **NSWindow (via NSHostingController)** for all app windows except the menu bar popover
 3. **Hybrid SwiftUI App lifecycle** with `@NSApplicationDelegateAdaptor`
 
@@ -26,7 +26,7 @@ Unmissable is a macOS menu bar utility (LSUIElement) that displays full-screen b
 
 ### Chosen
 
-All targets use `-default-isolation MainActor` with the companion Approachable Concurrency flags (`NonisolatedNonsendingByDefault`, `InferIsolatedConformances`). Value types and background utilities are explicitly marked `nonisolated`.
+The `Unmissable` source target uses `-default-isolation MainActor` with the companion Approachable Concurrency flags (`NonisolatedNonsendingByDefault`, `InferIsolatedConformances`). Test targets use Approachable Concurrency but do **not** set `defaultIsolation` — test types apply `@MainActor` explicitly where needed. Value types and background utilities are explicitly marked `nonisolated`.
 
 ### Why
 
@@ -82,7 +82,7 @@ All app windows (overlays, preferences, onboarding, meeting details popup) are c
 ### Known limitations
 
 - Apple is actively improving SwiftUI Scene APIs. Future macOS versions may fix the menu bar app limitations. The NSWindow approach means maintaining manual window management code that could eventually become unnecessary. With macOS 15.0 as the deployment target, this is a multi-year concern.
-- Activation policy switching (`.accessory` <-> `.regular`) is duplicated across `PreferencesWindowManager` and `OnboardingWindowManager`. A reference-counted activation policy coordinator would deduplicate this and prevent bugs if both windows are open simultaneously.
+- Activation policy switching (`.accessory` <-> `.regular`) is now coordinated through `ActivationPolicyManager`, a reference-counted coordinator. All policy changes must route through `acquireRegularPolicy()` / `releaseRegularPolicy()` — direct `NSApp.setActivationPolicy()` calls are prohibited.
 
 ### References
 
@@ -114,4 +114,4 @@ The app entry point is `@main struct UnmissableApp: App` with `@NSApplicationDel
 - New windows (e.g., a future "About" panel) should follow the `NSWindow` + `NSHostingController` pattern, not introduce new SwiftUI Scenes.
 - New model types must be marked `nonisolated`. New manager classes get `@MainActor` for free via `defaultIsolation`.
 - Background work must use `actor`, `@concurrent nonisolated`, or `nonisolated class: Sendable` — never implicitly-MainActor classes doing async work.
-- The activation policy coordination gap should be addressed if the app gains more window types.
+- New window types must use `ActivationPolicyManager` for activation policy changes — never call `NSApp.setActivationPolicy()` directly.

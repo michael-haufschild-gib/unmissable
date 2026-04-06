@@ -210,8 +210,14 @@ public final class TestSafeOverlayManager: OverlayManaging {
         suppressionFallbackNotifications.append(event)
         guard let notificationManager else { return }
         let primaryLink = linkParser?.primaryLink(for: event)
-        Task {
-            await notificationManager.sendMeetingNotification(for: event, primaryLink: primaryLink)
+        // Call synchronously to avoid test race conditions from unstructured Tasks.
+        // TestSafeNotificationManager.sendMeetingNotification doesn't actually suspend.
+        if let testNotifManager = notificationManager as? TestSafeNotificationManager {
+            testNotifManager.recordNotification(for: event, primaryLink: primaryLink)
+        } else {
+            Task {
+                await notificationManager.sendMeetingNotification(for: event, primaryLink: primaryLink)
+            }
         }
     }
 
@@ -262,6 +268,11 @@ public final class TestSafeNotificationManager: NotificationManaging {
         logger.debug("TEST-SAFE: Notification for \(event.title)")
         sentNotifications.append((event: event, primaryLink: primaryLink))
     } // swiftlint:enable async_without_await
+
+    /// Synchronous recording for test doubles that need to avoid Task-based races.
+    public func recordNotification(for event: Event, primaryLink: URL?) {
+        sentNotifications.append((event: event, primaryLink: primaryLink))
+    }
 
     /// Registers notification categories (no-op in tests).
     public func registerCategories() {

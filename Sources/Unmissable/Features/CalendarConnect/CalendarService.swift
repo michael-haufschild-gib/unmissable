@@ -197,6 +197,7 @@ final class CalendarService {
     // MARK: - Connection Status
 
     func checkConnectionStatus() async {
+        guard !usingSyntheticData else { return }
         logger.debug("Checking connection status for all providers")
 
         // On app launch, providers dict is empty. Restore backends for

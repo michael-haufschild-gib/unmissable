@@ -89,7 +89,7 @@ final class NotificationManager: NSObject, NotificationManaging {
             }
         } catch {
             logger.error(
-                "Failed to deliver notification for event \(PrivacyUtils.redactedEventId(event.id)): \(error.localizedDescription)",
+                "Failed to deliver notification for event \(PrivacyUtils.redactedEventId(event.id)): \(PrivacyUtils.redactedError(error))",
             )
             AppDiagnostics.record(
                 component: "NotificationManager",

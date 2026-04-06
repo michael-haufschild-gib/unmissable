@@ -44,7 +44,7 @@ This mirrors the real user interaction path — System Events sends the same eve
 
 **Positive**:
 - Tests exercise the real click → popover → button → side-effect chain
-- No accessibility permission issues — `osascript` uses the user's existing System Events access
+- No separate XCUITest-runner permission issue — `osascript` reuses the terminal's existing System Events authorization
 - No Swift 6 concurrency conflicts — no XCTestCase subclassing needed
 - Simple to debug — run the script manually and watch the app respond
 - Fast — no xcodebuild test harness overhead

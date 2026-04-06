@@ -115,7 +115,7 @@ else
 fi
 
 # Step 6: Generate Code Coverage Report
-log_info "Step 7: Generating code coverage report..."
+log_info "Step 6: Generating code coverage report..."
 PROFDATA_PATH="$BUILD_DIR/debug/codecov/default.profdata"
 BINARY_PATH="$BUILD_DIR/debug/UnmissablePackageTests.xctest/Contents/MacOS/UnmissablePackageTests"
 if [ -f "$PROFDATA_PATH" ] && [ -f "$BINARY_PATH" ]; then

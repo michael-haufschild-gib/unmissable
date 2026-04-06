@@ -22,7 +22,7 @@ final class OverlayManager: OverlayManaging {
     private let soundManager: SoundManager
     private let focusModeManager: FocusModeManager
     private let foregroundAppDetector: any ForegroundAppDetecting
-    private let notificationManager: (any NotificationManaging)?
+    private let notificationManager: any NotificationManaging
     private let linkParser: LinkParser
     private let themeManager: ThemeManager
 
@@ -49,7 +49,7 @@ final class OverlayManager: OverlayManaging {
         soundManager: SoundManager,
         focusModeManager: FocusModeManager? = nil,
         foregroundAppDetector: any ForegroundAppDetecting = ForegroundAppDetector(),
-        notificationManager: (any NotificationManaging)? = nil,
+        notificationManager: any NotificationManaging,
         linkParser: LinkParser = LinkParser(),
         themeManager: ThemeManager,
         isTestMode: Bool = false,
@@ -185,7 +185,6 @@ final class OverlayManager: OverlayManaging {
     /// Sends a lightweight notification when the overlay is suppressed by smart suppression.
     /// Ensures the user still gets a reminder even when their meeting app is already in the foreground.
     private func sendSuppressionFallback(for event: Event) {
-        guard let notificationManager else { return }
         let primaryLink = linkParser.primaryLink(for: event)
         Task {
             await notificationManager.sendMeetingNotification(for: event, primaryLink: primaryLink)

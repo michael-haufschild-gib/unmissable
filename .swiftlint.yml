@@ -237,7 +237,7 @@ missing_docs:
   excludes_trivial_init: true
 
 deployment_target:
-  macOS_deployment_target: '14.0'
+  macOS_deployment_target: '15.0'
 
 no_magic_numbers:
   test_parent_classes:

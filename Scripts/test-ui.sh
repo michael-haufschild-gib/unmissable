@@ -372,10 +372,9 @@ test_onboarding_full_flow_with_demo_overlay() {
     while [ "$SECONDS" -lt "$deadline" ]; do
         if ! app_is_running; then
             # App crashed — overlay is gone but we can't continue.
-            # This is a known issue with demo overlay during onboarding.
-            log_step "WARN: App crashed after overlay dismiss (known issue)"
+            log_step "FAIL: App crashed after overlay dismiss (known issue)"
             APP_PID=""
-            return 0
+            return 1
         fi
         local exists
         exists=$(window_exists "Meeting Overlay" 2>/dev/null || echo "false")

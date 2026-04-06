@@ -20,7 +20,8 @@ extension CalendarService {
     /// Bypasses real calendar backends entirely.
     func injectSyntheticEventsForUITesting() {
         let now = Date()
-        let cal = Calendar.current
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
         guard let e1s = cal.date(byAdding: .minute, value: TestEventTiming.event1StartMin, to: now),
               let e1e = cal.date(byAdding: .minute, value: TestEventTiming.event1EndMin, to: now),
               let e2s = cal.date(byAdding: .minute, value: TestEventTiming.event2StartMin, to: now),
