@@ -41,6 +41,7 @@ struct OverlayContentView: View {
     private static let recentStartThresholdSeconds: TimeInterval = -300
     private static let timerFastIntervalSeconds: TimeInterval = 60
     private static let timerMediumIntervalSeconds: TimeInterval = 300
+    private static let timerSlowIntervalSeconds: TimeInterval = 600
 
     // MARK: - Glow Intensities
 
@@ -400,9 +401,13 @@ struct OverlayContentView: View {
         if timeUntilMeeting > Self.recentStartThresholdSeconds {
             return .seconds(Self.timerFastSeconds)
         }
-        // "Running for" displays minutes — tick less frequently
-        let absTime = abs(timeUntilMeeting)
-        if absTime < Self.timerMediumIntervalSeconds { return .seconds(Self.timerMediumSeconds) }
+        // "Running for" displays minutes — tick less frequently.
+        // After the fast tier (5 min past start), use medium ticks for another 5 min,
+        // then switch to slow ticks.
+        let elapsedSinceStart = -timeUntilMeeting
+        if elapsedSinceStart < Self.timerSlowIntervalSeconds {
+            return .seconds(Self.timerMediumSeconds)
+        }
         return .seconds(Self.timerSlowSeconds)
     }
 

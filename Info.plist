@@ -40,7 +40,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>com.unmissable.app</string>
-				<string>com.googleusercontent.apps.163959362751-6ab5fitaf0tc4q2ga1bfrjj8k882honn</string>
+				<string>$(GOOGLE_OAUTH_REDIRECT_SCHEME)</string>
 			</array>
 		</dict>
 	</array>

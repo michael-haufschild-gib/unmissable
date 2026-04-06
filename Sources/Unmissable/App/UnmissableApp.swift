@@ -13,29 +13,17 @@ struct UnmissableApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self)
     var appDelegate
     @State
-    private var appState: AppState?
+    private var appState = AppState(isTestEnvironment: AppRuntime.isRunningTests)
 
     var body: some Scene {
         MenuBarExtra {
-            Group {
-                if let appState {
-                    MenuBarView()
-                        .environment(appState)
-                        .environment(appState.calendar)
-                        .themed(themeManager: appState.themeManager)
-                        .accessibilityIdentifier(Accessibility.popoverIdentifier)
-                } else {
-                    Text("Loading...")
-                        .padding()
-                }
-            }
+            MenuBarView()
+                .environment(appState)
+                .environment(appState.calendar)
+                .themed(themeManager: appState.themeManager)
+                .accessibilityIdentifier(Accessibility.popoverIdentifier)
         } label: {
-            MenuBarLabelView(menuBarPreview: appState?.menuBarPreview)
-                .task {
-                    if appState == nil {
-                        appState = AppState(isTestEnvironment: AppRuntime.isRunningTests)
-                    }
-                }
+            MenuBarLabelView(menuBarPreview: appState.menuBarPreview)
                 .accessibilityIdentifier(Accessibility.statusItemIdentifier)
                 .accessibilityLabel(Accessibility.statusItemLabel)
                 .help(Accessibility.statusItemHelp)

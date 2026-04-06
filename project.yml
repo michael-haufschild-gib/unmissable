@@ -57,6 +57,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.unmissable.app
+        GOOGLE_OAUTH_REDIRECT_SCHEME: com.googleusercontent.apps.163959362751-6ab5fitaf0tc4q2ga1bfrjj8k882honn
         INFOPLIST_FILE: Info.plist
         CODE_SIGN_ENTITLEMENTS: Unmissable.entitlements
         COMBINE_HIDPI_IMAGES: YES
