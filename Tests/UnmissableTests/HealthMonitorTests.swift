@@ -70,4 +70,23 @@ struct HealthMonitorTests {
             return issues.contains(where: { $0.component == "Calendar Service" })
         }
     }
+
+    // MARK: - HealthIssue Equality
+
+    @Test
+    func healthIssue_equalityIgnoresId() {
+        let a = HealthIssue(severity: .error, component: "Sync", message: "Timeout", suggestion: "Retry")
+        let b = HealthIssue(severity: .error, component: "Sync", message: "Timeout", suggestion: "Retry")
+
+        // Different UUID instances but identical content — should be equal
+        #expect(a == b, "HealthIssues with identical content should be equal regardless of id")
+    }
+
+    @Test
+    func healthIssue_inequalityOnDifferentContent() {
+        let a = HealthIssue(severity: .error, component: "Sync", message: "Timeout", suggestion: "Retry")
+        let b = HealthIssue(severity: .warning, component: "Sync", message: "Timeout", suggestion: "Retry")
+
+        #expect(a != b, "HealthIssues with different severity should not be equal")
+    }
 }

@@ -34,10 +34,21 @@ final class AppState {
     private let isTestEnvironment: Bool
 
     init(
-        services: ServiceContainer = ServiceContainer(databaseManager: DatabaseManager()),
+        services: ServiceContainer? = nil,
         isTestEnvironment: Bool = false,
     ) {
-        self.services = services
+        if let services {
+            self.services = services
+        } else if isTestEnvironment {
+            // Safety net for the @main entry point during test runs.
+            // Use a temp database so we never touch the production DB.
+            // This AppState is unused — each test creates its own.
+            let tempDB = FileManager.default.temporaryDirectory
+                .appendingPathComponent("unmissable-test-host-\(UUID().uuidString).db")
+            self.services = ServiceContainer(databaseManager: DatabaseManager(databaseURL: tempDB))
+        } else {
+            self.services = ServiceContainer(databaseManager: DatabaseManager())
+        }
         self.isTestEnvironment = isTestEnvironment
 
         // Always install in-process observers so menuBarPreviewManager and
@@ -173,6 +184,21 @@ final class AppState {
                 return
             }
 
+            if AppRuntime.injectTestEvents {
+                // Events are already injected in CalendarService.init().
+                // Do NOT start the event scheduler — UI tests control overlay
+                // display explicitly.
+                if AppRuntime.showTestMeetingDetails,
+                   let firstEvent = services.calendarService.events.first
+                {
+                    showMeetingDetails(for: firstEvent)
+                }
+                AppDiagnostics.endFlow(flow, component: "AppState") {
+                    ["uiTestEvents": "injected"]
+                }
+                return
+            }
+
             await services.calendarService.checkConnectionStatus()
             let isConnected = services.calendarService.isConnected
             let providerCount = services.calendarService.connectedProviders.count
@@ -277,6 +303,10 @@ final class AppState {
         services.menuBarPreviewManager
     }
 
+    var activationPolicyManager: ActivationPolicyManager {
+        services.activationPolicyManager
+    }
+
     var calendar: CalendarService {
         services.calendarService
     }
@@ -360,7 +390,7 @@ final class AppState {
                 "Alert override set for event \(PrivacyUtils.redactedEventId(eventId)): \(minutes.map(String.init) ?? "default")",
             )
         } catch {
-            logger.error("Failed to save alert override: \(error.localizedDescription)")
+            logger.error("Failed to save alert override: \(PrivacyUtils.redactedError(error))")
         }
     }
 
@@ -371,7 +401,7 @@ final class AppState {
             alertOverrides = overrides
             services.eventScheduler.updateAlertOverrides(overrides)
         } catch {
-            logger.error("Failed to load alert overrides: \(error.localizedDescription)")
+            logger.error("Failed to load alert overrides: \(PrivacyUtils.redactedError(error))")
         }
     }
 

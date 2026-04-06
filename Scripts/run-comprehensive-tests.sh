@@ -114,19 +114,8 @@ else
     exit 1
 fi
 
-# Step 6: Run UI/Snapshot Tests
-log_info "Step 6: Running UI and snapshot tests..."
-if xcodebuild -project "$PROJECT_DIR/Unmissable.xcodeproj" -scheme "$SCHEME" -destination "$DESTINATION" test \
-    -only-testing:"SnapshotTests" \
-    -resultBundlePath "$REPORTS_DIR/ui-tests.xcresult" \
-    | tee "$REPORTS_DIR/ui-tests.log"; then
-    log_success "UI tests passed"
-else
-    log_warning "UI tests failed (may be acceptable for snapshot tests)"
-fi
-
-# Step 7: Generate Code Coverage Report
-log_info "Step 7: Generating code coverage report..."
+# Step 6: Generate Code Coverage Report
+log_info "Step 6: Generating code coverage report..."
 PROFDATA_PATH="$BUILD_DIR/debug/codecov/default.profdata"
 BINARY_PATH="$BUILD_DIR/debug/UnmissablePackageTests.xctest/Contents/MacOS/UnmissablePackageTests"
 if [ -f "$PROFDATA_PATH" ] && [ -f "$BINARY_PATH" ]; then
@@ -237,8 +226,8 @@ Generated: $(date)
 - Log: e2e-tests.log
 
 ### UI Tests
-- Status: $(if grep -q "Test Suite.*failed" "$REPORTS_DIR/ui-tests.log"; then echo "⚠️ ISSUES"; else echo "✅ PASSED"; fi)
-- Log: ui-tests.log
+- Status: ⏭️ NOT RUN (use Scripts/test-ui.sh separately)
+- Log: n/a
 
 ### Performance Tests
 - Status: $(if grep -q "Performance test failed" "$REPORTS_DIR/performance-tests.log"; then echo "⚠️ SLOW"; else echo "✅ PASSED"; fi)
@@ -283,7 +272,7 @@ if [ $CRITICAL_ISSUES -eq 0 ]; then
     echo "  ✅ E2E tests: PASSED"
     echo "  ✅ Memory tests: PASSED"
     echo "  📊 Performance tests: $(if grep -q "Performance test failed" "$REPORTS_DIR/performance-tests.log"; then echo "SLOW"; else echo "PASSED"; fi)"
-    echo "  📱 UI tests: $(if grep -q "Test Suite.*failed" "$REPORTS_DIR/ui-tests.log"; then echo "ISSUES"; else echo "PASSED"; fi)"
+    echo "  📱 UI tests: NOT RUN (use Scripts/test-ui.sh)"
     echo ""
     echo "📋 Reports generated in: $REPORTS_DIR"
     echo "📊 Coverage report: $COVERAGE_DIR"

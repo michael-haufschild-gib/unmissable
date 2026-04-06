@@ -88,7 +88,7 @@ actor DatabaseManager: DatabaseManaging {
             try fileManager.createDirectory(at: unmissableURL, withIntermediateDirectories: true)
             dbURL = unmissableURL.appendingPathComponent("unmissable.db")
         } catch {
-            logger.error("Failed to resolve database path: \(error.localizedDescription)")
+            logger.error("Failed to resolve database path: \(PrivacyUtils.redactedError(error))")
             isInitialized = false
             initializationError = "Database path resolution failed: \(error.localizedDescription)"
             return
@@ -99,9 +99,9 @@ actor DatabaseManager: DatabaseManaging {
             try Self.migrator.migrate(queue)
             isInitialized = true
             initializationError = nil
-            logger.info("Database initialized at: \(dbURL.path)")
+            logger.info("Database initialized at: \(PrivacyUtils.redactedPath(dbURL.path))")
         } catch {
-            logger.error("Failed to setup database: \(error.localizedDescription)")
+            logger.error("Failed to setup database: \(PrivacyUtils.redactedError(error))")
             isInitialized = false
             initializationError = "Database setup failed: \(error.localizedDescription)"
         }
@@ -115,9 +115,9 @@ actor DatabaseManager: DatabaseManaging {
             try Self.migrator.migrate(queue)
             isInitialized = true
             initializationError = nil
-            logger.info("Database initialized at: \(databaseURL.path)")
+            logger.info("Database initialized at: \(PrivacyUtils.redactedPath(databaseURL.path))")
         } catch {
-            logger.error("Failed to setup database: \(error.localizedDescription)")
+            logger.error("Failed to setup database: \(PrivacyUtils.redactedError(error))")
             isInitialized = false
             initializationError = "Database setup failed: \(error.localizedDescription)"
         }

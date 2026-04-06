@@ -5,7 +5,7 @@ import Testing
 /// Tests snooze timer expiring after meeting has started.
 /// Verifies snoozed overlays appear even when the meeting has already started.
 @MainActor
-struct SnoozeAfterMeetingStartTest {
+struct SnoozeAfterMeetingStartTests {
     @Test
     func snoozeTimerExpiresAfterMeetingStarted() async throws {
         let preferencesManager = PreferencesManager(themeManager: ThemeManager())
@@ -127,53 +127,5 @@ struct SnoozeAfterMeetingStartTest {
 
         overlayManager.hideOverlay()
         eventScheduler.stopScheduling()
-    }
-
-    @Test
-    func overlayMessagingForSnoozedMeetings() {
-        // Verify OverlayContentView can be constructed for each snoozed meeting state
-        let futureView = OverlayContentView(
-            event: TestUtilities.createTestEvent(
-                id: "snooze-future-test",
-                title: "Future Snoozed Meeting",
-                startDate: Date().addingTimeInterval(300),
-            ),
-            linkParser: LinkParser(),
-            onDismiss: {},
-            onJoin: {},
-            onSnooze: { _ in },
-            isFromSnooze: true,
-        )
-
-        let recentView = OverlayContentView(
-            event: TestUtilities.createTestEvent(
-                id: "snooze-recent-test",
-                title: "Recently Started Snoozed Meeting",
-                startDate: Date().addingTimeInterval(-120),
-            ),
-            linkParser: LinkParser(),
-            onDismiss: {},
-            onJoin: {},
-            onSnooze: { _ in },
-            isFromSnooze: true,
-        )
-
-        let ongoingView = OverlayContentView(
-            event: TestUtilities.createTestEvent(
-                id: "snooze-ongoing-test",
-                title: "Long Running Snoozed Meeting",
-                startDate: Date().addingTimeInterval(-900),
-            ),
-            linkParser: LinkParser(),
-            onDismiss: {},
-            onJoin: {},
-            onSnooze: { _ in },
-            isFromSnooze: true,
-        )
-
-        // Verify all views constructed without issues by checking a meaningful property
-        #expect(futureView.event.id == "snooze-future-test")
-        #expect(recentView.event.id == "snooze-recent-test")
-        #expect(ongoingView.event.id == "snooze-ongoing-test")
     }
 }

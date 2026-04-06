@@ -12,7 +12,7 @@ final class PreferencesWindowManager: NSObject {
 
     private let logger = Logger(category: "PreferencesWindowManager")
     private var preferencesWindow: NSWindow?
-    private let appState: AppState
+    private unowned let appState: AppState
 
     /// Whether the preferences window is currently visible. Observable by tests.
     var isWindowVisible: Bool {
@@ -81,6 +81,7 @@ final class PreferencesWindowManager: NSObject {
         window.delegate = self
 
         preferencesWindow = window
+        appState.activationPolicyManager.acquireRegularPolicy()
         activateWindow(window)
     }
 
@@ -99,11 +100,9 @@ final class PreferencesWindowManager: NSObject {
         }
 
         // Correct activation sequence for LSUIElement / menu-bar apps (mirrors
-        // OnboardingWindowManager): set .regular policy first, bring the window
-        // to the front, then activate the app so the system honours the request.
-        // Activating before makeKeyAndOrderFront can leave the window behind
-        // the current foreground app on macOS 15.
-        NSApp.setActivationPolicy(.regular)
+        // OnboardingWindowManager): .regular policy is acquired when the window
+        // is first created (createPreferencesWindow). Here we just bring it to
+        // the front and activate the app so the system honours the request.
         window.orderFrontRegardless()
         window.makeMain()
         window.makeKeyAndOrderFront(nil)
@@ -111,7 +110,8 @@ final class PreferencesWindowManager: NSObject {
         NSApp.activate(ignoringOtherApps: true)
         // Re-run after a brief settle. [weak window] ensures we do not retain
         // a window that is closed before the delay fires.
-        DispatchQueue.main.asyncAfter(deadline: .now() + Activation.settleDelay) { [weak window] in
+        Task { @MainActor [weak window] in
+            try? await Task.sleep(for: .seconds(Activation.settleDelay))
             guard let window else { return }
             _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
             NSApp.activate(ignoringOtherApps: true)
@@ -134,13 +134,6 @@ extension PreferencesWindowManager: NSWindowDelegate {
     func windowWillClose(_: Notification) {
         logger.info("Preferences window will close")
         preferencesWindow = nil
-
-        guard !AppRuntime.requiresRegularActivation else {
-            logger.info("UI testing mode — keeping .regular activation policy")
-            return
-        }
-
-        NSApp.setActivationPolicy(.accessory)
-        logger.info("Restored .accessory activation policy")
+        appState.activationPolicyManager.releaseRegularPolicy()
     }
 }

@@ -44,13 +44,6 @@
         "identifier" : "E2ETests",
         "name" : "E2ETests"
       }
-    },
-    {
-      "target" : {
-        "containerPath" : "container:Unmissable.xcodeproj",
-        "identifier" : "SnapshotTests",
-        "name" : "SnapshotTests"
-      }
     }
   ],
   "version" : 1

@@ -186,8 +186,9 @@ nonisolated enum HTMLSanitizer {
     /// Minimum length for `on*` to be considered an event handler (e.g. "on" + at least one char).
     private static let minEventHandlerPrefixLength = 2
 
-    /// Removes event handler attributes (on*) and neutralizes javascript:/data: URIs
-    /// within a tag string like `<a href="..." onclick="...">`.
+    /// Removes event handler attributes (on*), neutralizes javascript:/data: URIs in href,
+    /// and strips all `src` attributes to prevent external resource loading via the
+    /// Foundation HTML importer. Calendar descriptions should never auto-fetch remote assets.
     private static func sanitizeAttributes(_ tag: String) -> String {
         // Fast path: no attributes to sanitize
         guard tag.contains("=") else { return tag }
@@ -297,10 +298,15 @@ nonisolated enum HTMLSanitizer {
         }
         if attr.isEventHandler {
             // Drop event handler entirely
-        } else if attr.nameLower == "href" || attr.nameLower == "src",
+        } else if attr.nameLower == "src" {
+            // Always neutralize src — prevent external resource loading
+            result.append(contentsOf: tag[attr.wsStart ..< attr.attrStart])
+            result.append(attr.name)
+            result.append("=\"about:blank\"")
+        } else if attr.nameLower == "href",
                   isDangerousURI(String(tag[unquotedStart ..< tempI]))
         {
-            // Neutralize dangerous URI in unquoted value
+            // Neutralize dangerous URI in unquoted href value
             result.append(contentsOf: tag[attr.wsStart ..< attr.attrStart])
             result.append(attr.name)
             result.append("=\"about:blank\"")
@@ -322,10 +328,13 @@ nonisolated enum HTMLSanitizer {
             return quoted.afterQuote
         }
 
-        let hasDangerousURI = (attr.nameLower == "href" || attr.nameLower == "src")
-            && isDangerousURI(quoted.value)
+        // src attributes are always neutralized — auto-loading external resources
+        // (images, video, audio) is a privacy/tracking vector in untrusted HTML.
+        // href is only neutralized for javascript:/data: schemes.
+        let shouldNeutralize = attr.nameLower == "src"
+            || (attr.nameLower == "href" && isDangerousURI(quoted.value))
 
-        if hasDangerousURI {
+        if shouldNeutralize {
             result.append(contentsOf: tag[attr.wsStart ..< attr.attrStart])
             result.append(attr.name)
             result.append("=")

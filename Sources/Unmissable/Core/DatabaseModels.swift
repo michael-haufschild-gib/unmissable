@@ -24,7 +24,7 @@ private nonisolated func decodeJSONColumn<T: Decodable>(
     do {
         return try cachedDecoder.decode(T.self, from: data)
     } catch {
-        logger.error("Failed to decode \(column.name): \(error.localizedDescription)")
+        logger.error("Failed to decode \(column.name): \(PrivacyUtils.redactedError(error))")
         return defaultValue
     }
 }
@@ -43,7 +43,7 @@ private nonisolated func encodeJSONColumn(
         let data = try cachedEncoder.encode(value)
         container[column] = String(data: data, encoding: .utf8) ?? "[]"
     } catch {
-        logger.error("Failed to encode \(column.name): \(error.localizedDescription)")
+        logger.error("Failed to encode \(column.name): \(PrivacyUtils.redactedError(error))")
         container[column] = "[]"
     }
 }

@@ -1,7 +1,7 @@
 # Development Guide
 
 **Purpose**: Setup, building, running, and deploying Unmissable.
-**Platform**: macOS 14.0+ (Sonoma) | Swift 6.3 with strict concurrency | Xcode project (xcodegen)
+**Platform**: macOS 15.0+ (Sequoia) | Swift language mode 6 (toolchain 6.3, Xcode 26) with strict concurrency | Xcode project (xcodegen — no `Package.swift`)
 
 ---
 
@@ -9,9 +9,9 @@
 
 | Requirement | Minimum Version | Install Command |
 |-------------|-----------------|-----------------|
-| macOS | 14.0 (Sonoma) | - |
-| Xcode | 26+ | App Store |
-| Swift | 6.3+ | Included with Xcode 26+ |
+| macOS | 15.0 (Sequoia) | - |
+| Xcode | 26.4+ | App Store / Developer Portal |
+| Swift | 6.3 (toolchain bundled with Xcode 26.4) | Included with Xcode |
 | xcodegen | Latest | `brew install xcodegen` |
 | SwiftFormat | Latest | `brew install swiftformat` |
 | SwiftLint | Latest | `brew install swiftlint` |
@@ -56,7 +56,7 @@ xcodebuild build -project Unmissable.xcodeproj -scheme Unmissable -quiet
 | Regenerate xcodeproj | `xcodegen generate` |
 | Build + lint + test | `./Scripts/build.sh` |
 | Build release | `./Scripts/build-release.sh` |
-| Clean build | `swift package clean` |
+| Clean build | `xcodebuild clean -project Unmissable.xcodeproj -scheme Unmissable` |
 
 ---
 
@@ -81,20 +81,16 @@ xcodebuild build -project Unmissable.xcodeproj -scheme Unmissable -quiet
 
 ### Debug Build
 ```bash
-swift build
-# Output: .build/debug/Unmissable
+xcodebuild build -project Unmissable.xcodeproj -scheme Unmissable -configuration Debug -quiet
 ```
 
 ### Release Build
 ```bash
-swift build -c release
-# Output: .build/release/Unmissable
+./Scripts/build-release.sh
 ```
 
-### Build with Xcode
-```bash
-xcodebuild -scheme Unmissable -destination 'platform=macOS' build
-```
+### Build via Xcode IDE
+Open `Unmissable.xcodeproj`, select the `Unmissable` scheme, press Cmd+B.
 
 ---
 
@@ -110,7 +106,7 @@ xcodebuild -scheme Unmissable -destination 'platform=macOS' build
 > so `UNUserNotificationCenter` and other bundle-only APIs fail on startup.
 
 ### From Xcode
-1. Open `Package.swift` in Xcode
+1. Open `Unmissable.xcodeproj`
 2. Select `Unmissable` scheme
 3. Press Cmd+R
 
@@ -151,7 +147,7 @@ swiftlint --fix
 
 ### Quick Test Run
 ```bash
-xcodebuild -scheme Unmissable -destination 'platform=macOS' test
+./Scripts/test.sh
 ```
 
 ### Comprehensive Test Suite
@@ -162,18 +158,15 @@ xcodebuild -scheme Unmissable -destination 'platform=macOS' test
 
 ### Specific Tests
 ```bash
-# Run single test class
-xcodebuild -scheme Unmissable -destination 'platform=macOS' test -only-testing:UnmissableTests/EventTests
+# Run a specific test target
+./Scripts/test.sh UnmissableTests
 
-# Run single test method
-xcodebuild -scheme Unmissable -destination 'platform=macOS' test -only-testing:UnmissableTests/EventTests/testEventInitialization
-
-# Run via xcodebuild
-xcodebuild -scheme Unmissable -destination 'platform=macOS' test
-
-# Optional smoke check (non-authoritative for this repo setup)
-swift test
+# Run via xcodebuild directly (requires worker limit — prefer test.sh)
+xcodebuild -project Unmissable.xcodeproj -scheme Unmissable -destination 'platform=macOS' \
+  -maximum-concurrent-test-device-destinations 4 test
 ```
+
+> **Note**: There is no `Package.swift`. `swift test` does not work in this project.
 
 ### Test Reports
 After running `./Scripts/run-comprehensive-tests.sh`:
@@ -187,10 +180,11 @@ After running `./Scripts/run-comprehensive-tests.sh`:
 
 ### Build Fails with Missing Dependencies
 ```bash
-# Reset package cache
-swift package reset
-swift package resolve
-swift build
+# Reset Swift package cache (packages are SPM dependencies managed by Xcode)
+xcodebuild -project Unmissable.xcodeproj -resolvePackageDependencies
+# If that fails, delete DerivedData and let Xcode re-fetch
+rm -rf ~/Library/Developer/Xcode/DerivedData/Unmissable-*
+xcodebuild build -project Unmissable.xcodeproj -scheme Unmissable -quiet
 ```
 
 ### Tests Fail with Permission Errors
@@ -211,9 +205,8 @@ brew install swiftformat swiftlint
 
 ### Clean and Rebuild
 ```bash
-swift package clean
-rm -rf .build
-swift build
+xcodebuild clean -project Unmissable.xcodeproj -scheme Unmissable
+xcodebuild build -project Unmissable.xcodeproj -scheme Unmissable -quiet
 ```
 
 ---
@@ -274,8 +267,8 @@ swift build
 - Do use environment variables for CI
 
 **Building**:
-- Don't forget to run `swift package resolve` after adding dependencies
-- Do clean build if you see strange errors: `swift package clean`
+- Don't forget to run `xcodebuild -resolvePackageDependencies` after adding SPM dependencies to `project.yml`
+- Do clean build if you see strange errors: `xcodebuild clean -project Unmissable.xcodeproj -scheme Unmissable`
 - Don't ignore SwiftLint warnings
 - Do fix them before committing
 
@@ -287,7 +280,8 @@ swift build
 
 **Testing**:
 - Don't skip tests before committing
-- Do run at least `xcodebuild -scheme Unmissable -destination 'platform=macOS' test`
+- Do run at least `./Scripts/test.sh` before committing
+- Don't run bare `xcodebuild test` without worker limits — use `./Scripts/test.sh`
 - Don't commit with failing tests
 - Do run comprehensive tests before PRs: `./Scripts/run-comprehensive-tests.sh`
 

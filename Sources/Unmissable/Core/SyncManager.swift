@@ -230,7 +230,7 @@ final class SyncManager {
             let calendars = try await databaseManager.fetchCalendars(for: providerType)
             selectedCalendarIds = calendars.filter(\.isSelected).map(\.id)
         } catch {
-            logger.error("Database read error fetching calendars: \(error.localizedDescription)")
+            logger.error("Database read error fetching calendars: \(PrivacyUtils.redactedError(error))")
             syncStatus = .error("Database read error: \(error.localizedDescription)")
             AppDiagnostics.endFlow(flow, component: "SyncManager", outcome: .failure) {
                 ["reason": "dbReadError", "error": PrivacyUtils.redactedError(error)]
@@ -330,7 +330,7 @@ final class SyncManager {
                 ["events": "\(totalEventCount)", "calendars": "\(calendarIds.count)"]
             }
         } catch {
-            logger.error("Sync failed: \(error.localizedDescription)")
+            logger.error("Sync failed: \(PrivacyUtils.redactedError(error))")
             handleSyncError(error)
             AppDiagnostics.endFlow(flow, component: "SyncManager", outcome: .failure) {
                 ["error": PrivacyUtils.redactedError(error)]
@@ -542,7 +542,7 @@ final class SyncManager {
     }
 
     private func handleNetworkError(_ error: Error) {
-        logger.warning("Network error encountered: \(error.localizedDescription)")
+        logger.warning("Network error encountered: \(PrivacyUtils.redactedError(error))")
         guard retryCount < maxRetries else {
             logger.error("Max retries reached, giving up")
             syncStatus = .error("Network error after \(maxRetries) attempts")
@@ -569,7 +569,7 @@ final class SyncManager {
                 // Expected cancellation, do nothing
                 logger.debug("Retry task cancelled")
             } catch {
-                logger.error("Unexpected retry task error: \(error.localizedDescription)")
+                logger.error("Unexpected retry task error: \(PrivacyUtils.redactedError(error))")
             }
         }
     }

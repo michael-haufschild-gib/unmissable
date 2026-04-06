@@ -60,33 +60,10 @@ enum TestUtilities {
         provider: Provider = .meet,
         startDate: Date = Date().addingTimeInterval(defaultStartOffset),
     ) -> Event {
-        // swiftlint:disable force_unwrapping
-        // Test-only compile-time constant URLs.
-        let links: [URL] = switch provider {
-        case .meet:
-            [URL(string: "https://meet.google.com/abc-defg-hij")!]
-
-        case .zoom:
-            [URL(string: "https://zoom.us/j/123456789")!]
-
-        case .teams:
-            [URL(string: "https://teams.microsoft.com/l/meetup-join/abc123")!]
-
-        case .webex:
-            [URL(string: "https://example.webex.com/meet/123")!]
-
-        case .discord:
-            [URL(string: "https://discord.gg/abc123")!]
-
-        case .generic:
-            [URL(string: "https://example.com/meeting")!]
-        }
-        // swiftlint:enable force_unwrapping
-
-        return createTestEvent(
+        createTestEvent(
             title: "\(provider.rawValue.capitalized) Meeting",
             startDate: startDate,
-            links: links,
+            links: [TestMeetingURLs.url(for: provider)],
             provider: provider,
         )
     }
@@ -266,10 +243,7 @@ extension EventScheduler {
         return nil
     }
 
-    /// Clears all scheduled alerts (for testing)
-    func reset() {
-        scheduledAlerts.removeAll()
-    }
+    // Alert clearing is handled by stopScheduling() which resets all state.
 }
 
 extension TestUtilities {
@@ -295,9 +269,6 @@ extension TestUtilities {
         }
         throw TestTimeoutError()
     }
-
-    // waitForPublished removed - use waitForAsync with a condition closure instead
-    // The Published.Publisher async sequence has Sendable issues in Swift 6
 
     // MARK: - Performance Testing
 

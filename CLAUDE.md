@@ -4,7 +4,7 @@
 macOS menu bar app that ensures users never miss meetings via full-screen blocking overlays, calendar integration (Google + Apple), smart meeting link detection, and one-click join.
 
 ## Tech Stack
-Swift 6 language mode / toolchain 6.3 (strict concurrency) | macOS 15.0+ (Sequoia) | SwiftUI + AppKit | GRDB.swift | Xcode project (xcodegen)
+Swift language mode 6 / toolchain 6.3 / Xcode 26.4 (strict concurrency) | macOS 15.0+ (Sequoia) | SwiftUI + AppKit | GRDB.swift | Xcode project (xcodegen — no `Package.swift`)
 
 ## Constraints
 
@@ -19,7 +19,7 @@ Swift 6 language mode / toolchain 6.3 (strict concurrency) | macOS 15.0+ (Sequoi
 
 ## Dependencies
 
-AppAuth-iOS (OAuth 2.0) | GRDB.swift (SQLite) | KeychainAccess | Magnet (shortcuts) | SnapshotTesting
+AppAuth-iOS (OAuth 2.0) | GRDB.swift (SQLite) | KeychainAccess | Magnet (shortcuts)
 
 ## Commands
 
@@ -33,13 +33,13 @@ AppAuth-iOS (OAuth 2.0) | GRDB.swift (SQLite) | KeychainAccess | Magnet (shortcu
 | Format | `./Scripts/format.sh` |
 | Test (all) | `./Scripts/test.sh` |
 | Test (specific target) | `./Scripts/test.sh UnmissableTests` |
-| Test (UI / XCUITest) | `./Scripts/test-ui.sh` |
+| Test (UI / osascript) | `./Scripts/test-ui.sh` |
 | Test (skip lint) | `./Scripts/test.sh --skip-lint` |
 | Test (clean build) | `./Scripts/test.sh --clean` |
 | Test (comprehensive) | `./Scripts/run-comprehensive-tests.sh` |
 | Regenerate xcodeproj | `xcodegen generate` |
 
-Do **not** run bare `swift test` or `xcodebuild test` without worker limits. `test.sh` outputs `PASS`/`FAIL`/`BUILD_FAIL`/`LINT_FAIL`/`TIMEOUT` and writes `.build/test-result.json`.
+Do **not** run bare `xcodebuild test` without worker limits. There is no `Package.swift` — `swift test` does not work here. `test.sh` outputs `PASS`/`FAIL`/`BUILD_FAIL`/`LINT_FAIL`/`TIMEOUT` and writes `.build/test-result.json`.
 
 ## Project Structure
 `project.yml` is the source of truth for the Xcode project. Run `xcodegen generate` after editing it. The generated `Unmissable.xcodeproj` is committed to git.
@@ -50,10 +50,3 @@ Google Calendar OAuth: copy `Config.plist.example` to `Config.plist` (gitignored
 ## Required Reading
 @docs/architecture.md
 @docs/testing.md
-@docs/meta/styleguide.md
-
-## On-Demand References
-
-| Domain | Serena Memory |
-|--------|---------------|
-| Swift 6.3 changes & pitfalls | `swift_6_3_guide` |

@@ -37,12 +37,15 @@ extension DatabaseManager {
             try await dbQueue.read { db in
                 let overrides = try EventOverride.fetchAll(db)
                 return Dictionary(
-                    uniqueKeysWithValues: overrides.map {
+                    overrides.map {
                         (
                             EventOverride.compoundKey(eventId: $0.eventId, calendarId: $0.calendarId),
                             $0.alertMinutes,
                         )
                     },
+                    // Duplicates should not exist (UPSERT on save), but if they
+                    // do, keep the last-read row rather than crashing.
+                    uniquingKeysWith: { _, lastRead in lastRead },
                 )
             }
         }

@@ -176,13 +176,9 @@ final class PreferencesManager {
         userDefaults.set(value, forKey: PrefKey.playAlertSound)
     }
 
-    /// Convenience aliases for overlay scheduling
+    /// Convenience alias for overlay scheduling
     var soundEnabled: Bool {
         playAlertSound
-    }
-
-    var soundMinutesBefore: Int {
-        defaultAlertMinutes
     }
 
     private(set) var alertVolume: Double = alertVolumeDefault

@@ -430,7 +430,7 @@ struct ShortcutsPreferencesView: View {
                 .padding(.horizontal, design.spacing.md)
                 .padding(.vertical, design.spacing.sm)
                 .background(design.colors.surface)
-                .cornerRadius(design.corners.md)
+                .clipShape(RoundedRectangle(cornerRadius: design.corners.md))
                 .overlay(
                     RoundedRectangle(cornerRadius: design.corners.md)
                         .stroke(design.colors.borderDefault, lineWidth: Self.shortcutBorderWidth),

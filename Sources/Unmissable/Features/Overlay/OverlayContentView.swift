@@ -30,8 +30,6 @@ struct OverlayContentView: View {
     private static let accentShadowOpacity: Double = 0.5
     private static let borderOpacity: Double = 0.3
     private static let borderWidth: CGFloat = 1
-    private static let buttonScalePressed: CGFloat = 0.95
-    private static let buttonScaleNormal: CGFloat = 1.0
     private static let titleLineLimit = 3
     private static let timerFastSeconds = 1
     private static let timerMediumSeconds = 5
@@ -377,9 +375,7 @@ struct OverlayContentView: View {
     }
 
     private var backgroundColor: Color {
-        themeManager.resolvedTheme.isDark
-            ? Color.black.opacity(preferences.overlayOpacity)
-            : Color.white.opacity(preferences.overlayOpacity)
+        design.colors.background.opacity(preferences.overlayOpacity)
     }
 
     private var countdownColor: Color {
@@ -477,81 +473,4 @@ struct OverlayScaleButtonStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed ? Self.scalePressed : Self.scaleNormal)
             .animation(DesignAnimations.press, value: configuration.isPressed)
     }
-}
-
-// MARK: - Preview
-
-#Preview("Overlay Content - Before Meeting") {
-    let sampleEvent = Event(
-        id: "preview-1",
-        title: "Daily Team Standup with Engineering Team",
-        startDate: Date().addingTimeInterval(300),
-        endDate: Date().addingTimeInterval(1200),
-        organizer: "team-lead@company.com",
-        calendarId: "primary",
-        links: [URL(string: "https://meet.google.com/abc-defg-hij")].compactMap(\.self),
-    )
-
-    let themeManager = ThemeManager()
-
-    OverlayContentView(
-        event: sampleEvent,
-        linkParser: LinkParser(),
-        onDismiss: {},
-        onJoin: {},
-        onSnooze: { _ in },
-        isFromSnooze: false,
-    )
-    .environment(PreferencesManager(themeManager: themeManager))
-    .themed(themeManager: themeManager)
-}
-
-#Preview("Overlay Content - Meeting Started") {
-    let sampleEvent = Event(
-        id: "preview-2",
-        title: "Important Client Meeting",
-        startDate: Date().addingTimeInterval(-120),
-        endDate: Date().addingTimeInterval(1800),
-        organizer: "client@company.com",
-        calendarId: "primary",
-        links: [URL(string: "https://meet.google.com/xyz-uvwx-stu")].compactMap(\.self),
-    )
-
-    let themeManager = ThemeManager()
-
-    OverlayContentView(
-        event: sampleEvent,
-        linkParser: LinkParser(),
-        onDismiss: {},
-        onJoin: {},
-        onSnooze: { _ in },
-        isFromSnooze: false,
-    )
-    .environment(PreferencesManager(themeManager: themeManager))
-    .themed(themeManager: themeManager)
-}
-
-#Preview("Overlay Content - Snoozed Meeting Running") {
-    let sampleEvent = Event(
-        id: "preview-3",
-        title: "Snoozed Team Meeting",
-        startDate: Date().addingTimeInterval(-900),
-        endDate: Date().addingTimeInterval(1800),
-        organizer: "team@company.com",
-        calendarId: "primary",
-        links: [URL(string: "https://meet.google.com/xyz-uvwx-stu")].compactMap(\.self),
-    )
-
-    let themeManager = ThemeManager()
-
-    OverlayContentView(
-        event: sampleEvent,
-        linkParser: LinkParser(),
-        onDismiss: {},
-        onJoin: {},
-        onSnooze: { _ in },
-        isFromSnooze: true,
-    )
-    .environment(PreferencesManager(themeManager: themeManager))
-    .themed(themeManager: themeManager)
 }

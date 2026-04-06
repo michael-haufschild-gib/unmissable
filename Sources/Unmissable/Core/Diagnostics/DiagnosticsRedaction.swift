@@ -1,14 +1,18 @@
 import Foundation
 
-/// Extended redaction helpers for diagnostic logging.
+/// PII-safe redaction helpers for diagnostic logging.
 /// All helpers produce deterministic, stable output suitable for log correlation
 /// while stripping PII and secrets.
-extension PrivacyUtils {
-    /// Prefix length for email local-part display (matches base PrivacyUtils).
+/// Must be nonisolated to allow use from actors (DatabaseManager) and nonisolated contexts.
+nonisolated enum PrivacyUtils {
+    /// Prefix length for email local-part and calendar-ID display.
     private static let emailPrefixLength = 2
 
     /// Prefix length shown for generic identifiers.
     private static let idPrefixLength = 6
+
+    /// Prefix length shown for opaque calendar IDs (non-email).
+    private static let calendarIdPrefixLength = 8
 
     /// Maximum length for redacted error descriptions.
     private static let maxErrorLength = 120
@@ -21,6 +25,19 @@ extension PrivacyUtils {
 
     /// Number of path components to keep at the end of file paths.
     private static let pathTailComponents = 2
+
+    // MARK: - Calendar IDs
+
+    /// Redacts a calendar ID for logging — Google Calendar IDs often contain email addresses.
+    /// Shows a short prefix to aid debugging while protecting PII.
+    static func redactedCalendarId(_ id: String) -> String {
+        if id.contains("@") {
+            let parts = id.split(separator: "@", maxSplits: 1)
+            let prefix = parts.first.map { $0.prefix(emailPrefixLength) } ?? ""
+            return "\(prefix)***@\(parts.last ?? "***")"
+        }
+        return String(id.prefix(calendarIdPrefixLength)) + "..."
+    }
 
     // MARK: - Event & Entity IDs
 

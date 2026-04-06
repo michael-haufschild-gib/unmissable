@@ -55,7 +55,7 @@ while [ $# -gt 0 ]; do
             echo "Options:"
             echo "  --clean       Clean build artifacts before building"
             echo "  --skip-lint   Skip the SwiftLint check"
-            echo "  filter        Test target name (UnmissableTests, E2ETests, IntegrationTests, SnapshotTests)"
+            echo "  filter        Test target name (UnmissableTests, E2ETests, IntegrationTests)"
             echo ""
             echo "Examples:"
             echo "  $0                                    # all tests"

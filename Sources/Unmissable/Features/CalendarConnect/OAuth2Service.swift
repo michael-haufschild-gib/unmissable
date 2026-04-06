@@ -18,8 +18,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
     private static let authFlowTimeoutSeconds = 300
     private static let tokenRefreshTimeoutSeconds = 30
     private static let httpOK = 200
-    private static let oauthWindowX: CGFloat = 100
-    private static let oauthWindowY: CGFloat = 100
+    private static let oauthWindowOrigin: CGFloat = 100
     private static let oauthWindowWidth: CGFloat = 400
     private static let oauthWindowHeight: CGFloat = 300
     private static let errorCodeGeneric = -1
@@ -197,8 +196,8 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
         }
         let window = NSWindow(
             contentRect: NSRect(
-                x: Self.oauthWindowX,
-                y: Self.oauthWindowY,
+                x: Self.oauthWindowOrigin,
+                y: Self.oauthWindowOrigin,
                 width: Self.oauthWindowWidth,
                 height: Self.oauthWindowHeight,
             ),
@@ -228,7 +227,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
         currentAuthorizationFlow = nil
 
         if let error {
-            logger.error("Authorization failed: \(error.localizedDescription)")
+            logger.error("Authorization failed: \(PrivacyUtils.redactedError(error))")
             logger.error("   Error domain: \((error as NSError).domain)")
             logger.error("   Error code: \((error as NSError).code)")
             authorizationError = "Authorization failed: \(error.localizedDescription)"
@@ -286,7 +285,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
         }
 
         if let tokenError {
-            logger.error("Token exchange failed: \(tokenError.localizedDescription)")
+            logger.error("Token exchange failed: \(PrivacyUtils.redactedError(tokenError))")
             authorizationError = "Token exchange failed: \(tokenError.localizedDescription)"
             coordinator.resume(throwing: OAuth2Error.authorizationFailed(tokenError))
             return
@@ -345,7 +344,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
                     }
 
                     if let error {
-                        self?.logger.error("Token refresh failed: \(error.localizedDescription)")
+                        self?.logger.error("Token refresh failed: \(PrivacyUtils.redactedError(error))")
                         // Check if this is an auth error that requires re-authentication
                         let nsError = error as NSError
                         if nsError.domain == OIDOAuthTokenErrorDomain {
@@ -380,6 +379,11 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
     func signOut() {
         logger.info("Signing out user")
 
+        // Cancel any in-progress auth flow to prevent re-authentication
+        // if a callback arrives after signOut completes
+        currentAuthorizationFlow?.cancel()
+        currentAuthorizationFlow = nil
+
         authState = nil
         isAuthenticated = false
         userEmail = nil
@@ -413,7 +417,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
             logger.info("Auth state validated successfully")
             authorizationError = nil // Clear any previous errors
         } catch {
-            logger.error("Auth validation failed: \(error.localizedDescription)")
+            logger.error("Auth validation failed: \(PrivacyUtils.redactedError(error))")
             // getValidAccessToken already updates authorizationError and clears state if needed
         }
     }
@@ -442,7 +446,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
                 clearKeychain()
             }
         } catch {
-            logger.error("Failed to load auth state from keychain: \(error.localizedDescription)")
+            logger.error("Failed to load auth state from keychain: \(PrivacyUtils.redactedError(error))")
         }
     }
 
@@ -465,7 +469,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
 
             logger.info("Auth state serialized and saved to keychain")
         } catch {
-            logger.error("Failed to save auth state to keychain: \(error.localizedDescription)")
+            logger.error("Failed to save auth state to keychain: \(PrivacyUtils.redactedError(error))")
         }
     }
 
@@ -485,7 +489,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
             userEmail = email
             logger.info("User email fetched successfully")
         } catch {
-            logger.error("Failed to fetch user email: \(error.localizedDescription)")
+            logger.error("Failed to fetch user email: \(PrivacyUtils.redactedError(error))")
         }
     }
 
@@ -519,40 +523,10 @@ private struct GoogleUserInfo: Codable {
     fileprivate let email: String
 }
 
-enum OAuth2Error: LocalizedError {
-    case configurationError(String)
-    case authorizationFailed(Error)
-    case tokenRefreshFailed(Error)
-    case notAuthenticated
-    case userInfoFetchFailed
-    case timeout
-    case invalidTokenRequest
-
-    var errorDescription: String? {
-        switch self {
-        case let .configurationError(message):
-            "Configuration Error: \(message)"
-        case let .authorizationFailed(error):
-            "Authorization Failed: \(error.localizedDescription)"
-        case let .tokenRefreshFailed(error):
-            "Token Refresh Failed: \(error.localizedDescription)"
-        case .notAuthenticated:
-            "User not authenticated"
-        case .userInfoFetchFailed:
-            "Failed to fetch user information"
-        case .timeout:
-            "Authorization timed out. Please try again."
-        case .invalidTokenRequest:
-            "Invalid token exchange request"
-        }
-    }
-}
-
 // MARK: - OIDAuthStateChangeDelegate
 
 extension OAuth2Service: OIDAuthStateChangeDelegate {
     nonisolated func didChange(_: OIDAuthState) {
-        // OIDAuthState changed (e.g., tokens refreshed) - save to keychain
         Task { @MainActor in
             self.logger.info("OIDAuthState changed - saving updated state to keychain")
             self.saveAuthStateToKeychain()

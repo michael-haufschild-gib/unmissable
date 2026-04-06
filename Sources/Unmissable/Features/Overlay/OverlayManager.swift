@@ -22,6 +22,7 @@ final class OverlayManager: OverlayManaging {
     private let soundManager: SoundManager
     private let focusModeManager: FocusModeManager
     private let foregroundAppDetector: any ForegroundAppDetecting
+    private let notificationManager: any NotificationManaging
     private let linkParser: LinkParser
     private let themeManager: ThemeManager
 
@@ -48,6 +49,7 @@ final class OverlayManager: OverlayManaging {
         soundManager: SoundManager,
         focusModeManager: FocusModeManager? = nil,
         foregroundAppDetector: any ForegroundAppDetecting = ForegroundAppDetector(),
+        notificationManager: any NotificationManaging,
         linkParser: LinkParser = LinkParser(),
         themeManager: ThemeManager,
         isTestMode: Bool = false,
@@ -56,6 +58,7 @@ final class OverlayManager: OverlayManaging {
         self.eventScheduler = eventScheduler
         self.soundManager = soundManager
         self.foregroundAppDetector = foregroundAppDetector
+        self.notificationManager = notificationManager
         self.linkParser = linkParser
         self.themeManager = themeManager
         self.focusModeManager =
@@ -65,12 +68,18 @@ final class OverlayManager: OverlayManaging {
 
     func showOverlay(for event: Event, fromSnooze: Bool = false) {
         let startTime = Date()
-        logger.info("SHOW OVERLAY: Starting for event \(event.id), fromSnooze: \(fromSnooze)")
+        logger.info(
+            "SHOW OVERLAY: Starting for event \(PrivacyUtils.redactedEventId(event.id)), fromSnooze: \(fromSnooze)",
+        )
 
         // Prevent overlapping overlay operations
         if isOverlayVisible, activeEvent?.id == event.id {
             logger.info("SKIP: Overlay already visible for this event")
-            AppDiagnostics.record(component: "OverlayManager", phase: "showOverlay", outcome: .skipped) {
+            AppDiagnostics.record(
+                component: "OverlayManager",
+                phase: "showOverlay",
+                outcome: .skipped,
+            ) {
                 ["eventId": PrivacyUtils.redactedEventId(event.id), "reason": "alreadyVisible"]
             }
             return
@@ -90,7 +99,7 @@ final class OverlayManager: OverlayManaging {
         let maxAge: TimeInterval = fromSnooze ? Self.snoozeMaxAgeSeconds : Self.normalMaxAgeSeconds
         if timeSinceStart > maxAge {
             logger.info(
-                "SKIP: Meeting \(event.id) started \(Int(timeSinceStart) / Self.secondsPerMinute)min ago (max \(Int(maxAge) / Self.secondsPerMinute)min)",
+                "SKIP: Meeting \(PrivacyUtils.redactedEventId(event.id)) started \(Int(timeSinceStart) / Self.secondsPerMinute)min ago (max \(Int(maxAge) / Self.secondsPerMinute)min)",
             )
             AppDiagnostics.record(component: "OverlayManager", phase: "showOverlay", outcome: .skipped) {
                 [
@@ -110,7 +119,7 @@ final class OverlayManager: OverlayManaging {
         {
             if foregroundAppDetector.isMeetingAppInForeground(for: provider) {
                 logger.info(
-                    "SMART SUPPRESS: Native app in foreground for \(event.id) (\(provider.displayName))",
+                    "SMART SUPPRESS: Native app in foreground for \(PrivacyUtils.redactedEventId(event.id)) (\(provider.displayName))",
                 )
                 AppDiagnostics.record(component: "OverlayManager", phase: "showOverlay", outcome: .skipped) {
                     [
@@ -119,15 +128,17 @@ final class OverlayManager: OverlayManaging {
                         "provider": provider.displayName,
                     ]
                 }
+                sendSuppressionFallback(for: event)
                 return
             }
             if provider == .meet, foregroundAppDetector.isBrowserInForeground() {
                 logger.info(
-                    "SMART SUPPRESS: Browser in foreground for Meet event \(event.id)",
+                    "SMART SUPPRESS: Browser in foreground for Meet event \(PrivacyUtils.redactedEventId(event.id))",
                 )
                 AppDiagnostics.record(component: "OverlayManager", phase: "showOverlay", outcome: .skipped) {
                     ["eventId": PrivacyUtils.redactedEventId(event.id), "reason": "smartSuppress.browser"]
                 }
+                sendSuppressionFallback(for: event)
                 return
             }
         }
@@ -143,7 +154,7 @@ final class OverlayManager: OverlayManaging {
         isOverlayVisible = true
 
         logger.info(
-            "OVERLAY STATE: Set isOverlayVisible = true for event \(event.id), isSnoozed = \(self.isSnoozedAlert)",
+            "OVERLAY STATE: Set isOverlayVisible = true for event \(PrivacyUtils.redactedEventId(event.id)), isSnoozed = \(self.isSnoozedAlert)",
         )
 
         // Play alert sound if enabled and allowed by focus mode
@@ -159,7 +170,7 @@ final class OverlayManager: OverlayManaging {
 
     private func logShowOverlayCompletion(event: Event, fromSnooze: Bool, startTime: Date) {
         let responseTime = Date().timeIntervalSince(startTime)
-        logger.info("SHOW OVERLAY: Completed for event \(event.id) in \(responseTime)s")
+        logger.info("SHOW OVERLAY: Completed for event \(PrivacyUtils.redactedEventId(event.id)) in \(responseTime)s")
         AppDiagnostics.record(component: "OverlayManager", phase: "showOverlay") {
             [
                 "eventId": PrivacyUtils.redactedEventId(event.id),
@@ -169,6 +180,16 @@ final class OverlayManager: OverlayManaging {
                 "windowCount": "\(self.overlayWindows.count)",
             ]
         }
+    }
+
+    /// Sends a lightweight notification when the overlay is suppressed by smart suppression.
+    /// Ensures the user still gets a reminder even when their meeting app is already in the foreground.
+    private func sendSuppressionFallback(for event: Event) {
+        let primaryLink = linkParser.primaryLink(for: event)
+        Task {
+            await notificationManager.sendMeetingNotification(for: event, primaryLink: primaryLink)
+        }
+        logger.info("SMART SUPPRESS: Sent fallback notification for \(PrivacyUtils.redactedEventId(event.id))")
     }
 
     func hideOverlay() {
@@ -221,7 +242,9 @@ final class OverlayManager: OverlayManaging {
 
     private func createOverlayWindows(for event: Event) {
         if isTestMode {
-            logger.debug("TEST MODE: Skipping actual window creation for event \(event.id)")
+            logger.debug(
+                "TEST MODE: Skipping actual window creation for event \(PrivacyUtils.redactedEventId(event.id))",
+            )
             return
         }
 
@@ -251,6 +274,7 @@ final class OverlayManager: OverlayManaging {
             screen: screen,
         )
 
+        window.title = "Meeting Overlay"
         window.level = .screenSaver
         window.backgroundColor = .clear
         window.isOpaque = false

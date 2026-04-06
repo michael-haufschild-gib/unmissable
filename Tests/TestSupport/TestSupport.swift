@@ -133,6 +133,11 @@ public final class TestSafeOverlayManager: OverlayManaging {
     private let isTestEnvironment: Bool
     private let foregroundAppDetector: (any ForegroundAppDetecting)?
     private let preferencesManager: PreferencesManager?
+    private let notificationManager: (any NotificationManaging)?
+    private let linkParser: LinkParser?
+
+    /// All fallback notifications sent when smart suppression fires.
+    public private(set) var suppressionFallbackNotifications: [Event] = []
 
     /// Creates a test-safe overlay manager.
     /// Pass `foregroundAppDetector` and `preferencesManager` to enable smart suppression mirroring.
@@ -141,10 +146,14 @@ public final class TestSafeOverlayManager: OverlayManaging {
         isTestEnvironment: Bool = false,
         foregroundAppDetector: (any ForegroundAppDetecting)? = nil,
         preferencesManager: PreferencesManager? = nil,
+        notificationManager: (any NotificationManaging)? = nil,
+        linkParser: LinkParser? = nil,
     ) {
         self.isTestEnvironment = isTestEnvironment
         self.foregroundAppDetector = foregroundAppDetector
         self.preferencesManager = preferencesManager
+        self.notificationManager = notificationManager
+        self.linkParser = linkParser
     }
 
     public func showOverlay(for event: Event, fromSnooze: Bool = false) {
@@ -164,10 +173,12 @@ public final class TestSafeOverlayManager: OverlayManaging {
         {
             if detector.isMeetingAppInForeground(for: provider) {
                 logger.debug("TEST-SAFE: Smart suppressed — native app in foreground")
+                sendSuppressionFallback(for: event)
                 return
             }
             if provider == .meet, detector.isBrowserInForeground() {
                 logger.debug("TEST-SAFE: Smart suppressed — browser in foreground for Meet")
+                sendSuppressionFallback(for: event)
                 return
             }
         }
@@ -193,6 +204,21 @@ public final class TestSafeOverlayManager: OverlayManaging {
         activeEvent = event
         isOverlayVisible = true
         logger.debug("TEST-SAFE: Set overlay visible = true")
+    }
+
+    private func sendSuppressionFallback(for event: Event) {
+        suppressionFallbackNotifications.append(event)
+        guard let notificationManager else { return }
+        let primaryLink = linkParser?.primaryLink(for: event)
+        // Call synchronously to avoid test race conditions from unstructured Tasks.
+        // TestSafeNotificationManager.sendMeetingNotification doesn't actually suspend.
+        if let testNotifManager = notificationManager as? TestSafeNotificationManager {
+            testNotifManager.recordNotification(for: event, primaryLink: primaryLink)
+        } else {
+            Task {
+                await notificationManager.sendMeetingNotification(for: event, primaryLink: primaryLink)
+            }
+        }
     }
 
     public func hideOverlay() {
@@ -243,6 +269,11 @@ public final class TestSafeNotificationManager: NotificationManaging {
         sentNotifications.append((event: event, primaryLink: primaryLink))
     } // swiftlint:enable async_without_await
 
+    /// Synchronous recording for test doubles that need to avoid Task-based races.
+    public func recordNotification(for event: Event, primaryLink: URL?) {
+        sentNotifications.append((event: event, primaryLink: primaryLink))
+    }
+
     /// Registers notification categories (no-op in tests).
     public func registerCategories() {
         logger.debug("TEST-SAFE: Registered notification categories")
@@ -263,9 +294,9 @@ public final class TestSafeMeetingDetailsPopupManager: MeetingDetailsPopupManagi
     public func showPopup(for event: Event, relativeTo _: NSWindow? = nil) {
         logger.debug("TEST-SAFE SHOW: Popup for \(event.title)")
 
-        // Mirror real behavior: if already visible, just log
-        if isPopupVisible {
-            logger.debug("TEST-SAFE: Popup already visible")
+        // Mirror production: same event → bring to front (no-op), different event → replace
+        if isPopupVisible, lastShownEvent?.id == event.id {
+            logger.debug("TEST-SAFE: Same event already visible, no-op")
             return
         }
 
@@ -425,3 +456,48 @@ public func findAccessibilityElement(identifier: String, in view: NSView) -> NSV
     }
     return nil
 }
+
+// MARK: - Shared Test URLs
+
+/// Canonical meeting URLs for each provider, shared across all test targets.
+/// Both `TestUtilities.createMeetingEvent` (unit tests) and `E2EEventBuilder.onlineMeeting`
+/// (E2E tests) use these to avoid duplicating the provider URL mapping.
+public enum TestMeetingURLs {
+    // swiftlint:disable force_unwrapping
+    // Compile-time constant URLs — safe to force-unwrap.
+    /// Returns the canonical test URL for the given meeting provider.
+    public static func url(for provider: Provider) -> URL {
+        switch provider {
+        case .meet:
+            URL(string: "https://meet.google.com/abc-defg-hij")!
+        case .zoom:
+            URL(string: "https://zoom.us/j/123456789")!
+        case .teams:
+            URL(string: "https://teams.microsoft.com/l/meetup-join/abc123")!
+        case .webex:
+            URL(string: "https://example.webex.com/meet/123")!
+        case .discord:
+            URL(string: "https://discord.gg/abc123")!
+        case .generic:
+            URL(string: "https://example.com/meeting")!
+        }
+    }
+    // swiftlint:enable force_unwrapping
+}
+
+// MARK: - Observation Yield (shared across all test targets)
+
+/// Millisecond duration for a single observation yield cycle.
+private let observationYieldMilliseconds = 10
+
+// swiftlint:disable no_raw_task_sleep_in_tests
+/// Yields control so `@Observable` / Combine pipelines can propagate.
+/// Use instead of raw `Task.sleep` when waiting for observation-driven state updates.
+/// `iterations` > 1 is needed when the pipeline dispatches multiple async hops.
+public func yieldToObservation(iterations: Int = 1) async throws {
+    for _ in 0 ..< iterations {
+        try await Task.sleep(for: .milliseconds(observationYieldMilliseconds))
+    }
+}
+
+// swiftlint:enable no_raw_task_sleep_in_tests

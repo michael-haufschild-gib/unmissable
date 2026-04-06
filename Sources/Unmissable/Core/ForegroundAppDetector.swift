@@ -18,6 +18,9 @@ final class ForegroundAppDetector: ForegroundAppDetecting {
         "company.thebrowser.Browser", // Arc
         "com.brave.Browser",
         "com.microsoft.edgemac",
+        "com.operasoftware.Opera",
+        "com.vivaldi.Vivaldi",
+        "com.kagi.kagimacOS", // Orion
     ]
 
     func isMeetingAppInForeground(for provider: Provider) -> Bool {

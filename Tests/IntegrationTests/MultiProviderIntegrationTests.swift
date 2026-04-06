@@ -152,64 +152,55 @@ struct MultiProviderIntegrationTests {
         #expect(!calendarService.isConnected)
     }
 
-    // MARK: - Observation Yield
-
-    // swiftlint:disable no_raw_task_sleep_in_tests - observation yield infrastructure
-    private func yieldToObservation() async {
-        try? await Task.sleep(for: .milliseconds(10))
-    }
-
-    // swiftlint:enable no_raw_task_sleep_in_tests
-
     // MARK: - Aggregated Sync Status: One Syncing, One Idle
 
     @Test
-    func syncStatusReportsSyncingWhenOneProviderIsSyncing() async {
+    func syncStatusReportsSyncingWhenOneProviderIsSyncing() async throws {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         injectProvider(.apple, authenticated: true)
 
         googleSync.syncStatus = .syncing
-        await yieldToObservation()
+        try await yieldToObservation()
 
         #expect(calendarService.syncStatus == .syncing)
     }
 
     @Test
-    func syncStatusReturnsToIdleWhenAllProvidersIdle() async {
+    func syncStatusReturnsToIdleWhenAllProvidersIdle() async throws {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         injectProvider(.apple, authenticated: true)
 
         googleSync.syncStatus = .syncing
-        await yieldToObservation()
+        try await yieldToObservation()
         #expect(calendarService.syncStatus == .syncing)
 
         googleSync.syncStatus = .idle
-        await yieldToObservation()
+        try await yieldToObservation()
         #expect(calendarService.syncStatus == .idle)
     }
 
     // MARK: - Aggregated Sync Status: Error Propagation
 
     @Test
-    func syncStatusReportsErrorWhenOneProviderHasError() async {
+    func syncStatusReportsErrorWhenOneProviderHasError() async throws {
         injectProvider(.google, authenticated: true)
         let (_, _, appleSync) = injectProvider(.apple, authenticated: true)
 
         appleSync.syncStatus = .error("Apple Calendar sync failed")
-        await yieldToObservation()
+        try await yieldToObservation()
 
         #expect(calendarService.syncStatus == .error("Apple Calendar sync failed"))
     }
 
     @Test
-    func syncingTakesPriorityOverError() async {
+    func syncingTakesPriorityOverError() async throws {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         let (_, _, appleSync) = injectProvider(.apple, authenticated: true)
 
         appleSync.syncStatus = .error("Some error")
-        await yieldToObservation()
+        try await yieldToObservation()
         googleSync.syncStatus = .syncing
-        await yieldToObservation()
+        try await yieldToObservation()
 
         #expect(calendarService.syncStatus == .syncing)
     }
@@ -245,26 +236,26 @@ struct MultiProviderIntegrationTests {
     // MARK: - Sync Status Transitions
 
     @Test
-    func bothProvidersSyncingReportsSync() async {
+    func bothProvidersSyncingReportsSync() async throws {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         let (_, _, appleSync) = injectProvider(.apple, authenticated: true)
 
         googleSync.syncStatus = .syncing
         appleSync.syncStatus = .syncing
-        await yieldToObservation()
+        try await yieldToObservation()
 
         #expect(calendarService.syncStatus == .syncing)
     }
 
     @Test
-    func oneProviderSyncingOneErrorReportsSyncing() async {
+    func oneProviderSyncingOneErrorReportsSyncing() async throws {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         let (_, _, appleSync) = injectProvider(.apple, authenticated: true)
 
         googleSync.syncStatus = .syncing
-        await yieldToObservation()
+        try await yieldToObservation()
         appleSync.syncStatus = .error("Apple error")
-        await yieldToObservation()
+        try await yieldToObservation()
 
         #expect(
             calendarService.syncStatus == .syncing,
@@ -273,13 +264,13 @@ struct MultiProviderIntegrationTests {
     }
 
     @Test
-    func bothProvidersErrorReportsError() async {
+    func bothProvidersErrorReportsError() async throws {
         let (_, _, googleSync) = injectProvider(.google, authenticated: true)
         let (_, _, appleSync) = injectProvider(.apple, authenticated: true)
 
         googleSync.syncStatus = .error("Google error")
         appleSync.syncStatus = .error("Apple error")
-        await yieldToObservation()
+        try await yieldToObservation()
 
         // Should report one of the errors
         guard case .error = calendarService.syncStatus else {

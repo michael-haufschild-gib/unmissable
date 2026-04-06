@@ -25,7 +25,7 @@ final class LoginItemManager: LoginItemManaging {
                 logger.info("Unregistered login item")
             }
         } catch {
-            logger.error("Failed to update login item registration: \(error.localizedDescription)")
+            logger.error("Failed to update login item registration: \(PrivacyUtils.redactedError(error))")
         }
     }
 

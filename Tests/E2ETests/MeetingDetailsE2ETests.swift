@@ -140,7 +140,7 @@ struct MeetingDetailsE2ETests {
     // MARK: - Popup Does Not Block While Visible
 
     @Test
-    func showingSecondPopupWhileFirstVisibleIsIdempotent() async throws {
+    func showingSecondPopupReplacesPrevious() async throws {
         let event1 = E2EEventBuilder.futureEvent(id: "e2e-popup-dup-1", minutesFromNow: 10)
         let event2 = E2EEventBuilder.futureEvent(id: "e2e-popup-dup-2", minutesFromNow: 20)
 
@@ -154,11 +154,28 @@ struct MeetingDetailsE2ETests {
         #expect(env.meetingDetailsPopupManager.isPopupVisible)
         #expect(env.meetingDetailsPopupManager.lastShownEvent?.id == event1.id)
 
-        // Showing second popup while first is visible — TestSafe implementation ignores
+        // Showing different event replaces the previous popup (matches production behavior)
         env.meetingDetailsPopupManager.showPopup(for: dbEvent2)
         #expect(env.meetingDetailsPopupManager.isPopupVisible)
-        // First event remains shown (test-safe behavior)
-        #expect(env.meetingDetailsPopupManager.lastShownEvent?.id == event1.id)
+        #expect(env.meetingDetailsPopupManager.lastShownEvent?.id == event2.id)
+    }
+
+    @Test
+    func showingSamePopupTwiceIsIdempotent() async throws {
+        let event = E2EEventBuilder.futureEvent(id: "e2e-popup-same", minutesFromNow: 10)
+        try await env.seedEvents([event])
+
+        let fetched = try await env.fetchUpcomingEvents()
+        let dbEvent = try #require(fetched.first)
+
+        env.meetingDetailsPopupManager.showPopup(for: dbEvent)
+        #expect(env.meetingDetailsPopupManager.isPopupVisible)
+        #expect(env.meetingDetailsPopupManager.lastShownEvent?.id == event.id)
+
+        // Showing same event again is a no-op (matches production bring-to-front)
+        env.meetingDetailsPopupManager.showPopup(for: dbEvent)
+        #expect(env.meetingDetailsPopupManager.isPopupVisible)
+        #expect(env.meetingDetailsPopupManager.lastShownEvent?.id == event.id)
     }
 
     // MARK: - Popup and Overlay Coexistence

@@ -51,7 +51,7 @@ final class NotificationManager: NSObject, NotificationManaging {
             }
             return granted
         } catch {
-            logger.error("Notification permission request failed: \(error.localizedDescription)")
+            logger.error("Notification permission request failed: \(PrivacyUtils.redactedError(error))")
             return false
         }
     }
@@ -80,7 +80,7 @@ final class NotificationManager: NSObject, NotificationManaging {
 
         do {
             try await UNUserNotificationCenter.current().add(request)
-            logger.info("Delivered notification for event \(event.id)")
+            logger.info("Delivered notification for event \(PrivacyUtils.redactedEventId(event.id))")
             AppDiagnostics.record(component: "NotificationManager", phase: "deliver") {
                 [
                     "eventId": PrivacyUtils.redactedEventId(event.id),
@@ -89,7 +89,7 @@ final class NotificationManager: NSObject, NotificationManaging {
             }
         } catch {
             logger.error(
-                "Failed to deliver notification for event \(event.id): \(error.localizedDescription)",
+                "Failed to deliver notification for event \(PrivacyUtils.redactedEventId(event.id)): \(PrivacyUtils.redactedError(error))",
             )
             AppDiagnostics.record(
                 component: "NotificationManager",

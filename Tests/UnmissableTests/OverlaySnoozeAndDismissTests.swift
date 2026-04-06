@@ -66,7 +66,7 @@ struct OverlaySnoozeAndDismissTests {
         let testDurations = [1, 5, 10, 15]
 
         for duration in testDurations {
-            eventScheduler.reset()
+            eventScheduler.stopScheduling()
 
             let event = TestUtilities.createTestEvent(title: "Test Meeting \(duration)")
             overlayManager.showOverlayImmediately(for: event)
@@ -83,25 +83,17 @@ struct OverlaySnoozeAndDismissTests {
     }
 
     @Test
-    func snoozeOverlayStopsCountdownTimer() async throws {
+    func snoozeOverlayResetsCountdownToZero() {
         defer { overlayManager.hideOverlay() }
         let event = TestUtilities.createTestEvent()
 
         overlayManager.showOverlayImmediately(for: event)
-
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
-            overlayManager.timeUntilMeeting > 0
-        }
+        #expect(overlayManager.timeUntilMeeting > 0, "Countdown should be active before snooze")
 
         overlayManager.snoozeOverlay(for: 5)
-        let countdownAfterSnooze = overlayManager.timeUntilMeeting
 
-        // Verify timer stopped by waiting and checking value hasn't changed
-        try? await TestUtilities.waitForAsync(timeout: 2.0) { @MainActor @Sendable in
-            overlayManager.timeUntilMeeting != countdownAfterSnooze
-        }
-
-        #expect(countdownAfterSnooze == overlayManager.timeUntilMeeting, "Timer should stop after snooze")
+        // After snooze, activeEvent is nil so timeUntilMeeting returns 0
+        #expect(overlayManager.timeUntilMeeting == 0, "Countdown should be zero after snooze")
     }
 
     // MARK: - Dismiss Functionality Tests
@@ -123,24 +115,17 @@ struct OverlaySnoozeAndDismissTests {
     }
 
     @Test
-    func dismissOverlayStopsCountdownTimer() async throws {
+    func dismissOverlayResetsCountdownToZero() {
         defer { overlayManager.hideOverlay() }
         let event = TestUtilities.createTestEvent()
 
         overlayManager.showOverlayImmediately(for: event)
-
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
-            overlayManager.timeUntilMeeting > 0
-        }
+        #expect(overlayManager.timeUntilMeeting > 0, "Countdown should be active before dismiss")
 
         overlayManager.hideOverlay()
-        let countdownAfterDismiss = overlayManager.timeUntilMeeting
 
-        try? await TestUtilities.waitForAsync(timeout: 2.0) { @MainActor @Sendable in
-            overlayManager.timeUntilMeeting != countdownAfterDismiss
-        }
-
-        #expect(countdownAfterDismiss == overlayManager.timeUntilMeeting, "Timer should stop after dismiss")
+        // After dismiss, activeEvent is nil so timeUntilMeeting returns 0
+        #expect(overlayManager.timeUntilMeeting == 0, "Countdown should be zero after dismiss")
     }
 
     @Test
@@ -179,7 +164,7 @@ struct OverlaySnoozeAndDismissTests {
         let event = TestUtilities.createTestEvent()
 
         for i in 0 ..< 5 {
-            eventScheduler.reset()
+            eventScheduler.stopScheduling()
             overlayManager.showOverlayImmediately(for: event)
             #expect(overlayManager.isOverlayVisible, "Overlay should show for iteration \(i)")
 
@@ -215,8 +200,10 @@ struct OverlaySnoozeAndDismissTests {
         overlayManager.showOverlayImmediately(for: event)
         overlayManager.snoozeOverlay(for: 0)
         #expect(!overlayManager.isOverlayVisible, "Overlay should be hidden even with 0-minute snooze")
+        #expect(eventScheduler.snoozeScheduled, "Zero-minute snooze should still schedule (clamped to 1)")
+        #expect(eventScheduler.snoozeMinutes == 1, "Zero minutes should be clamped to minimum of 1")
 
-        eventScheduler.reset()
+        eventScheduler.stopScheduling()
         overlayManager.showOverlayImmediately(for: event)
         overlayManager.snoozeOverlay(for: 1440) // 24 hours
 
@@ -246,7 +233,7 @@ struct OverlaySnoozeAndDismissTests {
     // MARK: - State Consistency Tests
 
     @Test
-    func overlayStateConsistencyAfterSnooze() async {
+    func overlayStateConsistencyAfterSnooze() {
         defer { overlayManager.hideOverlay() }
         let event = TestUtilities.createTestEvent()
 
@@ -260,19 +247,11 @@ struct OverlaySnoozeAndDismissTests {
 
         #expect(!overlayManager.isOverlayVisible, "isOverlayVisible should be false")
         #expect(overlayManager.activeEvent == nil, "activeEvent should be nil")
-
-        let countdownAfterSnooze = overlayManager.timeUntilMeeting
-        try? await TestUtilities.waitForAsync(timeout: 2.0) { @MainActor @Sendable in
-            overlayManager.timeUntilMeeting != countdownAfterSnooze
-        }
-
-        #expect(
-            countdownAfterSnooze == overlayManager.timeUntilMeeting, "Timer should not be running after snooze",
-        )
+        #expect(overlayManager.timeUntilMeeting == 0, "Countdown should be zero after snooze")
     }
 
     @Test
-    func overlayStateConsistencyAfterDismiss() async {
+    func overlayStateConsistencyAfterDismiss() {
         defer { overlayManager.hideOverlay() }
         let event = TestUtilities.createTestEvent()
 
@@ -285,14 +264,6 @@ struct OverlaySnoozeAndDismissTests {
 
         #expect(!overlayManager.isOverlayVisible, "isOverlayVisible should be false")
         #expect(overlayManager.activeEvent == nil, "activeEvent should be nil")
-
-        let countdownAfterDismiss = overlayManager.timeUntilMeeting
-        try? await TestUtilities.waitForAsync(timeout: 2.0) { @MainActor @Sendable in
-            overlayManager.timeUntilMeeting != countdownAfterDismiss
-        }
-
-        #expect(
-            countdownAfterDismiss == overlayManager.timeUntilMeeting, "Timer should not be running after dismiss",
-        )
+        #expect(overlayManager.timeUntilMeeting == 0, "Countdown should be zero after dismiss")
     }
 }
