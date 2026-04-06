@@ -84,13 +84,15 @@ market_readiness*.md
 godmode_*.md
 
 # Build artifacts and review reports
+*.app
+*.dmg
 release/
 codereview-*/
 coverage/
 
 # Stale test reports (should be CI artifacts, not committed)
 test-reports/
-
+instetten555
 # Debug logs
 /tmp/unmissable_debug.log
 

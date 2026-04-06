@@ -4,6 +4,7 @@ import Observation
 import OSLog
 import SwiftUI
 
+@MainActor
 @Observable
 final class OverlayManager: OverlayManaging {
     private let logger = Logger(category: "OverlayManager")
@@ -274,6 +275,7 @@ final class OverlayManager: OverlayManaging {
             screen: screen,
         )
 
+        window.isReleasedWhenClosed = false
         window.title = "Meeting Overlay"
         window.level = .screenSaver
         window.backgroundColor = .clear

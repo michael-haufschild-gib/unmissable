@@ -33,6 +33,7 @@ settings:
     # SWIFT_VERSION uses major versions only (6.0 = Swift 6 language mode).
     SWIFT_VERSION: "6.0"
     MACOSX_DEPLOYMENT_TARGET: "15.0"
+    EXCLUDED_ARCHS: x86_64
 
 targetTemplates:
   TestTarget:
@@ -42,10 +43,6 @@ targetTemplates:
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_STRICT_CONCURRENCY: complete
         OTHER_SWIFT_FLAGS:
-          - "-Xfrontend"
-          - "-default-isolation"
-          - "-Xfrontend"
-          - "MainActor"
           - "-enable-upcoming-feature"
           - "InferIsolatedConformances"
           - "-enable-upcoming-feature"
@@ -67,10 +64,6 @@ targets:
         LD_RUNPATH_SEARCH_PATHS:
           - "@executable_path/../Frameworks"
         OTHER_SWIFT_FLAGS:
-          - "-Xfrontend"
-          - "-default-isolation"
-          - "-Xfrontend"
-          - "MainActor"
           - "-enable-upcoming-feature"
           - "InferIsolatedConformances"
           - "-enable-upcoming-feature"

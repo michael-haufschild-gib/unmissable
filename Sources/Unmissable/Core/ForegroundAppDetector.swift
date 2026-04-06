@@ -6,6 +6,7 @@ import OSLog
 /// Used by `OverlayManager` to suppress the full-screen overlay when the user
 /// already has the meeting's native app (or a browser for web-based meetings)
 /// in the foreground. All methods are synchronous and require no permissions.
+@MainActor
 final class ForegroundAppDetector: ForegroundAppDetecting {
     private let logger = Logger(category: "ForegroundAppDetector")
 

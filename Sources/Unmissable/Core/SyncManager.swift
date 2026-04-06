@@ -3,6 +3,7 @@ import Network
 import Observation
 import OSLog
 
+@MainActor
 @Observable
 final class SyncManager {
     private let logger = Logger(category: "SyncManager")

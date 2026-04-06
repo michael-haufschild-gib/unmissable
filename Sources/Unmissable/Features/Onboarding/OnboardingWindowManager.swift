@@ -8,6 +8,7 @@ import SwiftUI
 /// Follows the same pattern as ``PreferencesWindowManager``: a standalone
 /// `NSWindow` hosting a SwiftUI view, activated in the foreground so it is
 /// immediately visible despite the app being a menu-bar accessory.
+@MainActor
 @Observable
 final class OnboardingWindowManager: NSObject {
     private enum Activation {
@@ -79,6 +80,8 @@ final class OnboardingWindowManager: NSObject {
         newWindow.collectionBehavior = [.moveToActiveSpace]
         newWindow.hidesOnDeactivate = false
         newWindow.isReleasedWhenClosed = false
+        newWindow.titlebarAppearsTransparent = true
+        newWindow.styleMask.insert(.fullSizeContentView)
         newWindow.delegate = self
 
         window = newWindow
@@ -140,6 +143,11 @@ extension OnboardingWindowManager: NSWindowDelegate {
 
     func windowWillClose(_: Notification) {
         logger.info("Onboarding window will close")
+        // If the user connected a calendar during onboarding but closed the
+        // window instead of clicking "Done", still mark onboarding complete.
+        if appState.calendar.isConnected {
+            appState.markOnboardingComplete()
+        }
         window = nil
         appState.activationPolicyManager.releaseRegularPolicy()
     }

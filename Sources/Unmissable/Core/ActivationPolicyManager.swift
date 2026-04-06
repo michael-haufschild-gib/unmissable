@@ -8,6 +8,7 @@ import OSLog
 /// Multiple managers (Preferences, Onboarding) may hold `.regular` concurrently;
 /// this type ensures the policy reverts to `.accessory` only when *every* holder
 /// has released.
+@MainActor
 final class ActivationPolicyManager {
     private let logger = Logger(category: "ActivationPolicyManager")
 

@@ -4,6 +4,7 @@ import Foundation
 import Observation
 import OSLog
 
+@MainActor
 @Observable
 final class AppState {
     private let logger = Logger(category: "AppState")
@@ -80,24 +81,38 @@ final class AppState {
             .store(in: &cancellables)
     }
 
+    /// Whether `checkInitialState()` has already been called.
+    /// Prevents double invocation from both the notification and the fallback path.
+    private var didCheckInitialState = false
+
     /// Defers initial state checks until after NSApplication finishes launching.
     ///
-    /// `AppState.init()` runs during `@State` initialization — before
-    /// `applicationDidFinishLaunching` sets `.accessory` activation policy (or
-    /// decides to skip that in UI testing mode) and
-    /// before the `MenuBarExtra` scene is established. Creating windows or
-    /// calling `NSApp.activate()` at that point leaves them in a non-key state
-    /// once the policy switches. Subscribing to `didFinishLaunchingNotification`
-    /// guarantees `checkInitialState()` fires after the delegate returns and the
-    /// run loop is ready.
+    /// When `AppState` is created eagerly during `@State` initialization it runs
+    /// before `applicationDidFinishLaunching`, so we subscribe to the notification.
+    /// When `AppState` is created lazily (e.g. from a `.task` modifier) the
+    /// notification may have already fired. To cover both cases we subscribe AND
+    /// schedule a fallback on the next run-loop turn — whichever fires first wins,
+    /// the `didCheckInitialState` guard prevents double invocation.
     private func observeAppLaunch() {
         NotificationCenter.default.publisher(for: NSApplication.didFinishLaunchingNotification)
             .first()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                self?.checkInitialState()
+                self?.runInitialStateOnce()
             }
             .store(in: &cancellables)
+
+        // Fallback: if the notification already fired before we subscribed,
+        // this fires on the next run-loop turn instead.
+        DispatchQueue.main.async { [weak self] in
+            self?.runInitialStateOnce()
+        }
+    }
+
+    private func runInitialStateOnce() {
+        guard !didCheckInitialState else { return }
+        didCheckInitialState = true
+        checkInitialState()
     }
 
     /// Observes both `events` and `startedEvents` in a single tracking block.
@@ -321,13 +336,21 @@ final class AppState {
 
     // MARK: - Onboarding
 
-    /// Marks onboarding as complete, closes the onboarding window, and requests
-    /// the accessibility permission that was deferred until after onboarding.
-    func completeOnboarding() {
+    /// Marks onboarding as complete and requests the accessibility permission
+    /// that was deferred until after onboarding. Idempotent — safe to call
+    /// multiple times (e.g. from both the "Done" button and the window-close
+    /// delegate).
+    func markOnboardingComplete() {
+        guard !services.preferencesManager.hasCompletedOnboarding else { return }
         logger.info("Onboarding completed")
         services.preferencesManager.setHasCompletedOnboarding(true)
-        onboardingWindowManager.close()
         requestAccessibilityPermission()
+    }
+
+    /// Marks onboarding as complete and closes the onboarding window.
+    func completeOnboarding() {
+        markOnboardingComplete()
+        onboardingWindowManager.close()
     }
 
     /// Shows a demo overlay with a synthetic event so the user can experience

@@ -3,8 +3,8 @@ import Foundation
 /// PII-safe redaction helpers for diagnostic logging.
 /// All helpers produce deterministic, stable output suitable for log correlation
 /// while stripping PII and secrets.
-/// Must be nonisolated to allow use from actors (DatabaseManager) and nonisolated contexts.
-nonisolated enum PrivacyUtils {
+/// Usable from actors (DatabaseManager) and nonisolated contexts.
+enum PrivacyUtils {
     /// Prefix length for email local-part and calendar-ID display.
     private static let emailPrefixLength = 2
 

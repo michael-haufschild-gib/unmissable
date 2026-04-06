@@ -4,6 +4,7 @@ import Foundation
 import Observation
 import OSLog
 
+@MainActor
 @Observable
 final class SoundManager {
     private let logger = Logger(category: "SoundManager")

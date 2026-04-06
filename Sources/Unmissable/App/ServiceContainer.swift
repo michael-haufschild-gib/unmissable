@@ -3,6 +3,7 @@ import OSLog
 
 /// Owns the construction and lifecycle of all application services.
 /// AppState reads from this container instead of constructing services directly.
+@MainActor
 final class ServiceContainer {
     private let logger = Logger(category: "ServiceContainer")
     let databaseManager: any DatabaseManaging

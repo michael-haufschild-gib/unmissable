@@ -56,7 +56,6 @@ struct CalendarPreferencesView: View {
             }
             .padding(design.spacing.xl)
         }
-        .background(design.colors.background)
     }
 
     // MARK: - Provider Connection

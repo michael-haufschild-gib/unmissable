@@ -195,7 +195,7 @@ struct OverlayContentView: View {
     }
 
     private var countdownDisplay: some View {
-        VStack(spacing: design.spacing.md * fontScale) {
+        VStack(spacing: design.spacing.xl * fontScale) {
             if timeUntilMeeting > 0 {
                 Text("Starting in")
                     .font(design.fonts.title3)
@@ -396,8 +396,12 @@ struct OverlayContentView: View {
     // MARK: - Timer Management
 
     private func optimalTimerInterval() -> Duration {
+        // Always tick every second while countdown shows seconds (meeting hasn't started or just started)
+        if timeUntilMeeting > 0 || timeUntilMeeting > Self.recentStartThresholdSeconds {
+            return .seconds(Self.timerFastSeconds)
+        }
+        // "Running for" displays minutes — tick less frequently
         let absTime = abs(timeUntilMeeting)
-        if absTime < Self.timerFastIntervalSeconds { return .seconds(Self.timerFastSeconds) }
         if absTime < Self.timerMediumIntervalSeconds { return .seconds(Self.timerMediumSeconds) }
         return .seconds(Self.timerSlowSeconds)
     }

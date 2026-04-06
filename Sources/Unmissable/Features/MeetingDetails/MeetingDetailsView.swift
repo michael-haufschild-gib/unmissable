@@ -61,7 +61,12 @@ struct MeetingDetailsView: View {
                 .padding(design.spacing.lg)
             }
         }
-        .background(design.colors.background)
+        .background {
+            ZStack {
+                VisualEffectBackground()
+                design.colors.glass.opacity(UMGlassModifier.glassOverlayOpacity)
+            }
+        }
         .clipShape(RoundedRectangle(cornerRadius: design.corners.lg))
         .shadow(
             color: design.shadows.soft.color,
@@ -103,7 +108,7 @@ struct MeetingDetailsView: View {
             .buttonStyle(UMButtonStyle(.ghost, size: .icon))
         }
         .padding(design.spacing.lg)
-        .background(design.colors.background)
+        .background(.ultraThinMaterial)
         .overlay(
             Rectangle()
                 .fill(design.colors.borderSubtle)

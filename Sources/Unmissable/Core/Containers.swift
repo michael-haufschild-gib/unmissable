@@ -1,4 +1,68 @@
+import AppKit
 import SwiftUI
+
+// MARK: - Behind-Window Visual Effect
+
+/// Wraps `NSVisualEffectView` with `.behindWindow` blending so the desktop
+/// and windows underneath show through with a frosted blur.
+///
+/// Use as `.background(VisualEffectBackground().ignoresSafeArea())`.
+struct VisualEffectBackground: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+    let blendingMode: NSVisualEffectView.BlendingMode
+
+    init(
+        material: NSVisualEffectView.Material = .hudWindow,
+        blendingMode: NSVisualEffectView.BlendingMode = .behindWindow,
+    ) {
+        self.material = material
+        self.blendingMode = blendingMode
+    }
+
+    func makeNSView(context _: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = blendingMode
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context _: Context) {
+        nsView.material = material
+    }
+}
+
+// MARK: - Window Glass Modifier
+
+/// Applies behind-window glassmorphism suitable for window/panel roots.
+/// Combines `NSVisualEffectView` (real desktop blur) with the theme's glass tint.
+struct UMWindowGlassModifier: ViewModifier {
+    let material: NSVisualEffectView.Material
+
+    @Environment(\.design)
+    private var design
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                ZStack {
+                    VisualEffectBackground(material: material)
+                    design.colors.glass.opacity(UMGlassModifier.glassOverlayOpacity)
+                }
+                .ignoresSafeArea()
+            }
+    }
+}
+
+extension View {
+    /// Glass background that blurs the desktop behind the window, tinted with
+    /// the current theme's glass color. Apply to window/panel root views.
+    func umWindowGlass(
+        material: NSVisualEffectView.Material = .hudWindow,
+    ) -> some View {
+        modifier(UMWindowGlassModifier(material: material))
+    }
+}
 
 // MARK: - Glass Modifier
 
@@ -10,8 +74,10 @@ struct UMGlassModifier: ViewModifier {
     @Environment(\.design)
     private var design
 
+    /// Glass overlay opacity shared with window-level glass backgrounds.
+    static let glassOverlayOpacity: Double = 0.6
+
     private enum Metrics {
-        static let glassOverlayOpacity: Double = 0.6
         static let highlightTopOpacity: Double = 0.06
         static let strokeWidth: CGFloat = 0.5
     }
@@ -19,7 +85,7 @@ struct UMGlassModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background(.ultraThinMaterial)
-            .background(design.colors.glass.opacity(Metrics.glassOverlayOpacity))
+            .background(design.colors.glass.opacity(Self.glassOverlayOpacity))
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)

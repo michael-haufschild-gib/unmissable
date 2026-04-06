@@ -4,6 +4,7 @@ import Foundation
 // MARK: - Test Utilities for Comprehensive Testing
 
 /// Centralized test utilities for creating test data, mocking services, and testing async operations
+@MainActor
 enum TestUtilities {
     // MARK: - Constants
 

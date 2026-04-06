@@ -5,6 +5,7 @@ import OSLog
 
 /// Handles EventKit permission requests for Apple Calendar access.
 /// No OAuth needed — uses the system permission dialog.
+@MainActor
 @Observable
 final class AppleCalendarAuthService: CalendarAuthProviding {
     private let logger = Logger(category: "AppleCalendarAuth")

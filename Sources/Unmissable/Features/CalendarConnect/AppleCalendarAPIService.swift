@@ -5,6 +5,7 @@ import OSLog
 
 /// Fetches calendars and events from macOS Calendar via EventKit.
 /// Supports iCloud, Exchange, CalDAV, and any other source configured in System Settings.
+@MainActor
 @Observable
 final class AppleCalendarAPIService: CalendarAPIProviding {
     private let logger = Logger(category: "AppleCalendarAPI")

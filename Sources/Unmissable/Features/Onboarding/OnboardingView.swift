@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Onboarding Screen Enum
 
 /// The three screens in the first-launch onboarding flow.
+@MainActor
 enum OnboardingScreen: Int, CaseIterable {
     case welcome
     case connectCalendar
@@ -30,9 +31,6 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
-            design.colors.background
-                .ignoresSafeArea()
-
             Group {
                 switch currentScreen {
                 case .welcome:
@@ -47,6 +45,7 @@ struct OnboardingView: View {
             }
             .animation(DesignAnimations.content, value: currentScreen)
         }
+        .umWindowGlass()
     }
 }
 
@@ -152,15 +151,28 @@ private extension OnboardingView {
 
             Spacer()
 
-            Button("Skip for now") {
-                currentScreen = .allSet
+            if calendarService.isConnected {
+                Button("Continue") {
+                    currentScreen = .allSet
+                }
+                .buttonStyle(UMButtonStyle(.primary, size: .lg))
+                .accessibilityIdentifier("onboarding-continue-connected-button")
+                .padding(.bottom, design.spacing.xxl)
+            } else {
+                Button("Skip for now") {
+                    currentScreen = .allSet
+                }
+                .buttonStyle(UMButtonStyle(.ghost))
+                .accessibilityIdentifier("onboarding-skip-button")
+                .disabled(connectingProvider != nil)
+                .padding(.bottom, design.spacing.xxl)
             }
-            .buttonStyle(UMButtonStyle(.ghost))
-            .accessibilityIdentifier("onboarding-skip-button")
-            .disabled(connectingProvider != nil)
-            .padding(.bottom, design.spacing.xxl)
         }
         .padding(design.spacing.xxl)
+    }
+
+    func isProviderConnected(_ provider: CalendarProviderType) -> Bool {
+        calendarService.connectedProviders.contains(provider)
     }
 
     func calendarProviderButton(
@@ -169,12 +181,14 @@ private extension OnboardingView {
         isRecommended: Bool,
     ) -> some View {
         Button {
-            connectCalendar(provider: provider)
+            if !isProviderConnected(provider) {
+                connectCalendar(provider: provider)
+            }
         } label: {
             HStack(spacing: design.spacing.md) {
                 Image(systemName: provider.iconName)
                     .font(design.fonts.title2)
-                    .foregroundColor(design.colors.accent)
+                    .foregroundColor(isProviderConnected(provider) ? design.colors.success : design.colors.accent)
                     .frame(width: Metrics.providerIconWidth)
 
                 VStack(alignment: .leading, spacing: design.spacing.xs) {
@@ -183,7 +197,9 @@ private extension OnboardingView {
                             .font(design.fonts.headline)
                             .foregroundColor(design.colors.textPrimary)
 
-                        if isRecommended {
+                        if isProviderConnected(provider) {
+                            UMBadge("Connected", variant: .success)
+                        } else if isRecommended {
                             UMBadge("Recommended", variant: .accent)
                         }
                     }
@@ -199,6 +215,9 @@ private extension OnboardingView {
                 if connectingProvider == provider {
                     ProgressView()
                         .controlSize(.small)
+                } else if isProviderConnected(provider) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(design.colors.success)
                 }
             }
             .padding(design.spacing.md)
@@ -206,10 +225,14 @@ private extension OnboardingView {
             .clipShape(RoundedRectangle(cornerRadius: design.corners.md))
             .overlay(
                 RoundedRectangle(cornerRadius: design.corners.md)
-                    .stroke(design.colors.borderSubtle, lineWidth: Metrics.borderWidth),
+                    .stroke(
+                        isProviderConnected(provider) ? design.colors.success : design.colors.borderSubtle,
+                        lineWidth: Metrics.borderWidth,
+                    ),
             )
         }
         .buttonStyle(UMButtonStyle(.ghost))
+        .disabled(isProviderConnected(provider))
     }
 
     func connectCalendar(provider: CalendarProviderType) {

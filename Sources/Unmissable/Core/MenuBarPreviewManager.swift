@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import OSLog
 
+@MainActor
 @Observable
 final class MenuBarPreviewManager {
     private let logger = Logger(category: "MenuBarPreviewManager")

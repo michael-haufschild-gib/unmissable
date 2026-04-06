@@ -289,6 +289,9 @@ struct DesignFonts {
     let mono: Font = .system(size: 13, weight: .medium, design: .monospaced)
     let monoSmall: Font = .system(size: 11, weight: .medium, design: .monospaced)
 
+    /// Compact mono font for the system menu bar status item label (outside themed context).
+    static let menuBarLabel: Font = .system(size: 12, weight: .medium, design: .monospaced)
+
     /// Large icon used for onboarding hero illustrations and splash screens.
     let heroIcon: Font = .system(size: 64, weight: .regular)
 

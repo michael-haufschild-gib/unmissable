@@ -5,12 +5,14 @@ import SwiftUI
 
 /// Default size for the meeting details popup window.
 /// Shared between MeetingDetailsView and MeetingDetailsPopupManager.
+@MainActor
 enum MeetingDetailsLayout {
     private static let popupWidth: CGFloat = 480
     private static let popupHeight: CGFloat = 600
     static let popupSize = NSSize(width: popupWidth, height: popupHeight)
 }
 
+@MainActor
 @Observable
 final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
     private let logger = Logger(category: "MeetingDetailsPopupManager")

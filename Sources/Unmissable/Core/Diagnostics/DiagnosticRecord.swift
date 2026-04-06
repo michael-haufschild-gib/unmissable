@@ -2,8 +2,8 @@ import Foundation
 
 /// A single structured diagnostic event captured by the diagnostics system.
 /// Records are lightweight value types designed for ring-buffer storage and JSONL export.
-/// Explicitly `nonisolated` so the `nonisolated` FlightRecorder can store and encode them.
-nonisolated struct DiagnosticRecord: Codable {
+/// Nonisolated so the nonisolated FlightRecorder can store and encode them.
+struct DiagnosticRecord: Codable {
     /// When this record was created.
     let timestamp: Date
     /// App launch session identifier — groups all records from one run.
@@ -51,14 +51,14 @@ nonisolated struct DiagnosticRecord: Codable {
 
 /// Tracks the lifecycle of a multi-step operation (e.g., a sync cycle).
 /// Created by `AppDiagnostics.startFlow`, closed by `AppDiagnostics.endFlow`.
-nonisolated struct FlowContext {
+struct FlowContext {
     let flowId: String
     let name: String
     let startTime: Date
 }
 
 /// Shared constants for the diagnostics subsystem.
-nonisolated enum DiagnosticConstants {
+enum DiagnosticConstants {
     /// Number of characters shown from a flow ID in log summaries.
     static let flowIdDisplayLength = 8
 }

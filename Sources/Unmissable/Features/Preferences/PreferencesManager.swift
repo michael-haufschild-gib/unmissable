@@ -45,6 +45,7 @@ private extension UserDefaults {
     }
 }
 
+@MainActor
 @Observable
 final class PreferencesManager {
     @ObservationIgnored

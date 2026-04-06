@@ -61,7 +61,7 @@ struct PreferencesView: View {
                 }
             }
             .padding(design.spacing.sm)
-            .background(design.colors.surface)
+            .background(.ultraThinMaterial)
 
             Rectangle()
                 .fill(design.colors.borderSubtle)
@@ -82,7 +82,7 @@ struct PreferencesView: View {
             }
             .environment(appState.preferences)
         }
-        .background(design.colors.background)
+        .umWindowGlass()
         .frame(width: Self.windowWidth, height: Self.windowHeight)
     }
 }
@@ -96,7 +96,7 @@ struct GeneralPreferencesView: View {
     private var design
 
     private static let defaultAlertPickerWidth: CGFloat = 140
-    private static let lengthBasedPickerWidth: CGFloat = 80
+    private static let lengthBasedPickerWidth: CGFloat = 110
     private static let syncPickerWidth: CGFloat = 120
 
     // Picker tag values (minutes)
@@ -135,7 +135,6 @@ struct GeneralPreferencesView: View {
             }
             .padding(design.spacing.xl)
         }
-        .background(design.colors.background)
     }
 
     // MARK: - Alert Timing
@@ -403,7 +402,6 @@ struct ShortcutsPreferencesView: View {
             }
             .padding(design.spacing.xl)
         }
-        .background(design.colors.background)
     }
 
     private func shortcutRow(

@@ -22,6 +22,7 @@ private final nonisolated class NotificationTokenBag: @unchecked Sendable {
     }
 }
 
+@MainActor
 @Observable
 final class FocusModeManager {
     private let logger = Logger(category: "FocusModeManager")
