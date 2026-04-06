@@ -33,7 +33,7 @@ AppAuth-iOS (OAuth 2.0) | GRDB.swift (SQLite) | KeychainAccess | Magnet (shortcu
 | Format | `./Scripts/format.sh` |
 | Test (all) | `./Scripts/test.sh` |
 | Test (specific target) | `./Scripts/test.sh UnmissableTests` |
-| Test (UI / XCUITest) | `./Scripts/test-ui.sh` |
+| Test (UI / osascript) | `./Scripts/test-ui.sh` |
 | Test (skip lint) | `./Scripts/test.sh --skip-lint` |
 | Test (clean build) | `./Scripts/test.sh --clean` |
 | Test (comprehensive) | `./Scripts/run-comprehensive-tests.sh` |
@@ -50,10 +50,3 @@ Google Calendar OAuth: copy `Config.plist.example` to `Config.plist` (gitignored
 ## Required Reading
 @docs/architecture.md
 @docs/testing.md
-@docs/meta/styleguide.md
-
-## On-Demand References
-
-| Domain | Serena Memory |
-|--------|---------------|
-| Swift 6.3 changes & pitfalls | `swift_6_3_guide` |

@@ -4,6 +4,8 @@ import OSLog
 enum AppRuntime {
     static let isUITesting = ProcessInfo.processInfo.arguments.contains("--uitesting")
     static let requiresRegularActivation = ProcessInfo.processInfo.arguments.contains("--ui-testing-regular-activation")
+    static let injectTestEvents = ProcessInfo.processInfo.arguments.contains("--inject-test-events")
+    static let showTestMeetingDetails = ProcessInfo.processInfo.arguments.contains("--show-test-meeting-details")
 
     /// True when the process hosts a test bundle (XCTest or Swift Testing).
     /// Used by the app entry point to create AppState with `isTestEnvironment: true`

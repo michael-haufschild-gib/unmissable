@@ -57,6 +57,10 @@ final class CalendarService {
     /// The timer checks this alongside time-based staleness to avoid unnecessary DB reads.
     @ObservationIgnored
     private var needsUIRefresh = false
+    /// When true, loadCachedData() is a no-op. Set by injectSyntheticEventsForUITesting()
+    /// to prevent the init-time Task from overwriting injected test data.
+    @ObservationIgnored
+    var usingSyntheticData = false
 
     /// Shared EKEventStore for Apple Calendar (reused across auth + API services)
     @ObservationIgnored
@@ -83,9 +87,14 @@ final class CalendarService {
         self.linkParser = linkParser
         self.sharedEventStore = eventStore
         setupTimezoneObserver()
-        startUIRefreshTimer()
-        Task {
-            await loadCachedData()
+
+        if AppRuntime.injectTestEvents {
+            injectSyntheticEventsForUITesting()
+        } else {
+            startUIRefreshTimer()
+            Task {
+                await loadCachedData()
+            }
         }
     }
 
@@ -139,7 +148,7 @@ final class CalendarService {
                 }
             }
         } catch {
-            logger.error("Connection failed for \(providerType.rawValue): \(error.localizedDescription)")
+            logger.error("Connection failed for \(providerType.rawValue): \(PrivacyUtils.redactedError(error))")
             syncAggregatedAuthState()
             AppDiagnostics.endFlow(flow, component: "CalendarService", outcome: .failure) {
                 ["provider": providerType.rawValue, "error": PrivacyUtils.redactedError(error)]
@@ -159,7 +168,7 @@ final class CalendarService {
         do {
             try await databaseManager.deleteAllDataForProvider(providerType)
         } catch {
-            logger.error("Failed to delete data for \(providerType.rawValue): \(error.localizedDescription)")
+            logger.error("Failed to delete data for \(providerType.rawValue): \(PrivacyUtils.redactedError(error))")
         }
         await loadCachedData()
 
@@ -226,7 +235,7 @@ final class CalendarService {
             providerTypes = Set(calendars.map(\.sourceProvider))
         } catch {
             logger.error(
-                "Failed to fetch calendars for provider restoration: \(error.localizedDescription)",
+                "Failed to fetch calendars for provider restoration: \(PrivacyUtils.redactedError(error))",
             )
             return
         }
@@ -299,7 +308,7 @@ final class CalendarService {
                     try await databaseManager.saveCalendars([updatedCalendar])
                 } catch {
                     calendarUpdateError = "Failed to save calendar selection: \(error.localizedDescription)"
-                    logger.error("Failed to save calendar selection: \(error.localizedDescription)")
+                    logger.error("Failed to save calendar selection: \(PrivacyUtils.redactedError(error))")
                     return
                 }
 
@@ -326,7 +335,7 @@ final class CalendarService {
                     try await databaseManager.saveCalendars([updatedCalendar])
                 } catch {
                     calendarUpdateError = "Failed to save alert mode: \(error.localizedDescription)"
-                    logger.error("Failed to save alert mode: \(error.localizedDescription)")
+                    logger.error("Failed to save alert mode: \(PrivacyUtils.redactedError(error))")
                 }
             }
         }
@@ -544,6 +553,7 @@ final class CalendarService {
     }
 
     private func loadCachedData() async {
+        guard !usingSyntheticData else { return }
         do {
             calendars = try await databaseManager.fetchCalendars()
             events = try await databaseManager.fetchUpcomingEvents(limit: Self.upcomingEventsLimit)
@@ -560,7 +570,7 @@ final class CalendarService {
                 ]
             }
         } catch {
-            logger.error("Failed to load cached data: \(error.localizedDescription)")
+            logger.error("Failed to load cached data: \(PrivacyUtils.redactedError(error))")
             AppDiagnostics.record(
                 component: "CalendarService",
                 phase: "cacheLoaded",

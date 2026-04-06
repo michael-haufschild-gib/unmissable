@@ -389,7 +389,7 @@ final class EventScheduler {
                     if Task.isCancelled {
                         break
                     }
-                    logger.error("Alert monitoring error: \(error.localizedDescription)")
+                    logger.error("Alert monitoring error: \(PrivacyUtils.redactedError(error))")
                     // Prevent rapid error looping
                     try? await sleepForSeconds(Self.errorRecoverySleepSeconds)
                 }
@@ -503,7 +503,9 @@ final class EventScheduler {
             logger.info("REMINDER: Sending notification for event \(PrivacyUtils.redactedEventId(event.id))")
             let primaryLink = linkParser.primaryLink(for: event)
             guard let notificationManager else {
-                logger.error("NotificationManager unavailable — cannot deliver alert for event \(PrivacyUtils.redactedEventId(event.id))")
+                logger.error(
+                    "NotificationManager unavailable — cannot deliver alert for event \(PrivacyUtils.redactedEventId(event.id))",
+                )
                 AppDiagnostics.record(
                     component: "EventScheduler",
                     phase: "deliverAlert",

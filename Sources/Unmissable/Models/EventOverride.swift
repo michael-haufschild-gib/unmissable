@@ -23,11 +23,15 @@ nonisolated struct EventOverride: Identifiable, Codable, Equatable {
 
     /// Compound key for Identifiable conformance.
     var id: String {
-        "\(eventId)_\(calendarId)"
+        Self.compoundKey(eventId: eventId, calendarId: calendarId)
     }
 
     /// Compound key used to look up overrides by (eventId, calendarId).
     /// Matches the format used by EventScheduler and AppState.
+    ///
+    /// The `_` separator is safe because calendar IDs always contain `@`
+    /// (Google) or are UUIDs (Apple), making collisions with event ID
+    /// suffixes impossible in practice.
     static func compoundKey(eventId: String, calendarId: String) -> String {
         "\(eventId)_\(calendarId)"
     }

@@ -138,6 +138,7 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
         )
 
         // Configure window properties
+        window.title = "Meeting Details"
         window.contentView = NSHostingView(rootView: contentView)
         window.isReleasedWhenClosed = false
         window.level = NSWindow

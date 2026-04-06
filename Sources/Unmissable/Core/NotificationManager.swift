@@ -51,7 +51,7 @@ final class NotificationManager: NSObject, NotificationManaging {
             }
             return granted
         } catch {
-            logger.error("Notification permission request failed: \(error.localizedDescription)")
+            logger.error("Notification permission request failed: \(PrivacyUtils.redactedError(error))")
             return false
         }
     }

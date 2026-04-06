@@ -133,6 +133,11 @@ public final class TestSafeOverlayManager: OverlayManaging {
     private let isTestEnvironment: Bool
     private let foregroundAppDetector: (any ForegroundAppDetecting)?
     private let preferencesManager: PreferencesManager?
+    private let notificationManager: (any NotificationManaging)?
+    private let linkParser: LinkParser?
+
+    /// All fallback notifications sent when smart suppression fires.
+    public private(set) var suppressionFallbackNotifications: [Event] = []
 
     /// Creates a test-safe overlay manager.
     /// Pass `foregroundAppDetector` and `preferencesManager` to enable smart suppression mirroring.
@@ -141,10 +146,14 @@ public final class TestSafeOverlayManager: OverlayManaging {
         isTestEnvironment: Bool = false,
         foregroundAppDetector: (any ForegroundAppDetecting)? = nil,
         preferencesManager: PreferencesManager? = nil,
+        notificationManager: (any NotificationManaging)? = nil,
+        linkParser: LinkParser? = nil,
     ) {
         self.isTestEnvironment = isTestEnvironment
         self.foregroundAppDetector = foregroundAppDetector
         self.preferencesManager = preferencesManager
+        self.notificationManager = notificationManager
+        self.linkParser = linkParser
     }
 
     public func showOverlay(for event: Event, fromSnooze: Bool = false) {
@@ -164,10 +173,12 @@ public final class TestSafeOverlayManager: OverlayManaging {
         {
             if detector.isMeetingAppInForeground(for: provider) {
                 logger.debug("TEST-SAFE: Smart suppressed — native app in foreground")
+                sendSuppressionFallback(for: event)
                 return
             }
             if provider == .meet, detector.isBrowserInForeground() {
                 logger.debug("TEST-SAFE: Smart suppressed — browser in foreground for Meet")
+                sendSuppressionFallback(for: event)
                 return
             }
         }
@@ -193,6 +204,15 @@ public final class TestSafeOverlayManager: OverlayManaging {
         activeEvent = event
         isOverlayVisible = true
         logger.debug("TEST-SAFE: Set overlay visible = true")
+    }
+
+    private func sendSuppressionFallback(for event: Event) {
+        suppressionFallbackNotifications.append(event)
+        guard let notificationManager else { return }
+        let primaryLink = linkParser?.primaryLink(for: event)
+        Task {
+            await notificationManager.sendMeetingNotification(for: event, primaryLink: primaryLink)
+        }
     }
 
     public func hideOverlay() {
@@ -468,4 +488,5 @@ func yieldToObservation(iterations: Int = 1) async throws {
         try await Task.sleep(for: .milliseconds(observationYieldMilliseconds))
     }
 }
+
 // swiftlint:enable no_raw_task_sleep_in_tests

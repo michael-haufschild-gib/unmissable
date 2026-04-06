@@ -184,6 +184,21 @@ final class AppState {
                 return
             }
 
+            if AppRuntime.injectTestEvents {
+                // Events are already injected in CalendarService.init().
+                // Do NOT start the event scheduler — UI tests control overlay
+                // display explicitly.
+                if AppRuntime.showTestMeetingDetails,
+                   let firstEvent = services.calendarService.events.first
+                {
+                    showMeetingDetails(for: firstEvent)
+                }
+                AppDiagnostics.endFlow(flow, component: "AppState") {
+                    ["uiTestEvents": "injected"]
+                }
+                return
+            }
+
             await services.calendarService.checkConnectionStatus()
             let isConnected = services.calendarService.isConnected
             let providerCount = services.calendarService.connectedProviders.count
@@ -375,7 +390,7 @@ final class AppState {
                 "Alert override set for event \(PrivacyUtils.redactedEventId(eventId)): \(minutes.map(String.init) ?? "default")",
             )
         } catch {
-            logger.error("Failed to save alert override: \(error.localizedDescription)")
+            logger.error("Failed to save alert override: \(PrivacyUtils.redactedError(error))")
         }
     }
 
@@ -386,7 +401,7 @@ final class AppState {
             alertOverrides = overrides
             services.eventScheduler.updateAlertOverrides(overrides)
         } catch {
-            logger.error("Failed to load alert overrides: \(error.localizedDescription)")
+            logger.error("Failed to load alert overrides: \(PrivacyUtils.redactedError(error))")
         }
     }
 

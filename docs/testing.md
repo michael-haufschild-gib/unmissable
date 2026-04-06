@@ -1,7 +1,7 @@
 # Testing Guide
 
 **Purpose**: Writing and running tests in Unmissable.
-**Test Stack**: Swift Testing (`import Testing`) | XCUITest (UI tests only) | xcodebuild
+**Test Stack**: Swift Testing (`import Testing`) | osascript UI tests | xcodebuild
 
 ---
 
@@ -12,7 +12,7 @@
 | Unit tests | `Tests/UnmissableTests/` | `[ClassName]Tests.swift` |
 | Integration tests | `Tests/IntegrationTests/` | `[Feature]IntegrationTests.swift` |
 | E2E tests | `Tests/E2ETests/` | `[Flow]E2ETests.swift` |
-| UI tests (XCUITest) | `Tests/UITests/` | `[Feature]UITests.swift` |
+| UI tests (osascript) | `Scripts/test-ui.sh` | Shell functions: `test_[feature]_[scenario]` |
 | Test support | `Tests/TestSupport/` | Shared test doubles |
 
 ---
@@ -40,7 +40,7 @@ All test commands go through `Scripts/test.sh`, which uses `xcodebuild` with a *
 # Full build + lint + format + test cycle
 ./Scripts/build.sh
 
-# UI tests (XCUITest)
+# UI tests (osascript-based, launches real app)
 ./Scripts/test-ui.sh
 ```
 
@@ -50,7 +50,7 @@ The script outputs a clear status line (`PASS`, `FAIL`, `BUILD_FAIL`, `LINT_FAIL
 
 ## How to Write a Unit Test
 
-Unit, integration, and E2E tests all use **Swift Testing** (`import Testing`). XCTest is only used in `Tests/UITests/` (XCUITest requires it).
+Unit, integration, and E2E tests all use **Swift Testing** (`import Testing`). UI tests use `Scripts/test-ui.sh` (osascript-based — see below).
 
 **Location**: `Tests/UnmissableTests/[ClassName]Tests.swift`
 
@@ -161,36 +161,53 @@ extension Event {
 
 ---
 
+## UI Tests (osascript)
 
----
+UI tests live in `Scripts/test-ui.sh` and use **System Events AppleScript** to interact with the running app. XCUITest is not used because its synthesised events do not trigger mouse clicks correctly.
 
-## UI Tests (XCUITest)
+```bash
+# Run all UI tests
+./Scripts/test-ui.sh
 
-UI tests in `Tests/UITests/` use XCUITest, which requires XCTest as its base. This is the **only** place `import XCTest` and `XCTestCase` appear in the project.
+# Build first, then run
+./Scripts/test-ui.sh --build
 
-```swift
-import XCTest
+# Run a single test
+./Scripts/test-ui.sh test_menubar_click_opens_dropdown
+```
 
-final class [Feature]UITests: XCTestCase {
-    var app: XCUIApplication!
+### How to add a UI test
 
-    override func setUp() {
-        super.setUp()
-        continueAfterFailure = false
-        app = XCUIApplication()
-        app.launch()
-    }
+Add a shell function to `Scripts/test-ui.sh`:
 
-    override func tearDown() {
-        app = nil
-        super.tearDown()
-    }
-
-    func test[Feature]_[scenario]() {
-        // XCUITest assertions
-    }
+```bash
+test_my_feature_scenario() {
+    launch_app --uitesting -hasCompletedOnboarding 1
+    click_status_item >/dev/null
+    sleep 1
+    # Assert via osascript queries
+    wait_for_windows 1 5
 }
 ```
+
+Then register it in the `main` section:
+
+```bash
+run_test "test_my_feature_scenario" test_my_feature_scenario
+```
+
+### Available helpers
+
+| Helper | Purpose |
+|--------|---------|
+| `launch_app [args...]` | Launch the built app with arguments |
+| `kill_app` | Terminate the app |
+| `click_status_item` | Click the menu bar status item |
+| `window_count` | Return number of app windows |
+| `window_exists "title"` | Check if a window with title exists |
+| `wait_for_windows N [timeout]` | Wait for at least N windows |
+| `wait_for_window_gone "title" [timeout]` | Wait for window to close |
+| `app_query 'script'` | Run AppleScript in System Events context |
 
 ---
 
@@ -247,11 +264,5 @@ These patterns produce **errors** in test files:
 
 **Framework choice**:
 - Don't use `import XCTest` in unit/integration/E2E tests.
-- Do use `import XCTest` only in `Tests/UITests/` (XCUITest requirement).
-
-## On-Demand References
-
-| Domain | Serena Memory |
-|--------|---------------|
-| Test pruning decisions | `test_pruning_nonlegacy_overlay_pass2` |
-| Overlay test stabilization | `system_integration_overlay_visibility_stabilization_2026_02_21` |
+- Don't use XCUITest for UI tests.
+- Do use `Scripts/test-ui.sh` (osascript-based) for UI interaction tests.

@@ -227,7 +227,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
         currentAuthorizationFlow = nil
 
         if let error {
-            logger.error("Authorization failed: \(error.localizedDescription)")
+            logger.error("Authorization failed: \(PrivacyUtils.redactedError(error))")
             logger.error("   Error domain: \((error as NSError).domain)")
             logger.error("   Error code: \((error as NSError).code)")
             authorizationError = "Authorization failed: \(error.localizedDescription)"
@@ -285,7 +285,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
         }
 
         if let tokenError {
-            logger.error("Token exchange failed: \(tokenError.localizedDescription)")
+            logger.error("Token exchange failed: \(PrivacyUtils.redactedError(tokenError))")
             authorizationError = "Token exchange failed: \(tokenError.localizedDescription)"
             coordinator.resume(throwing: OAuth2Error.authorizationFailed(tokenError))
             return
@@ -344,7 +344,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
                     }
 
                     if let error {
-                        self?.logger.error("Token refresh failed: \(error.localizedDescription)")
+                        self?.logger.error("Token refresh failed: \(PrivacyUtils.redactedError(error))")
                         // Check if this is an auth error that requires re-authentication
                         let nsError = error as NSError
                         if nsError.domain == OIDOAuthTokenErrorDomain {
@@ -379,6 +379,11 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
     func signOut() {
         logger.info("Signing out user")
 
+        // Cancel any in-progress auth flow to prevent re-authentication
+        // if a callback arrives after signOut completes
+        currentAuthorizationFlow?.cancel()
+        currentAuthorizationFlow = nil
+
         authState = nil
         isAuthenticated = false
         userEmail = nil
@@ -412,7 +417,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
             logger.info("Auth state validated successfully")
             authorizationError = nil // Clear any previous errors
         } catch {
-            logger.error("Auth validation failed: \(error.localizedDescription)")
+            logger.error("Auth validation failed: \(PrivacyUtils.redactedError(error))")
             // getValidAccessToken already updates authorizationError and clears state if needed
         }
     }
@@ -441,7 +446,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
                 clearKeychain()
             }
         } catch {
-            logger.error("Failed to load auth state from keychain: \(error.localizedDescription)")
+            logger.error("Failed to load auth state from keychain: \(PrivacyUtils.redactedError(error))")
         }
     }
 
@@ -464,7 +469,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
 
             logger.info("Auth state serialized and saved to keychain")
         } catch {
-            logger.error("Failed to save auth state to keychain: \(error.localizedDescription)")
+            logger.error("Failed to save auth state to keychain: \(PrivacyUtils.redactedError(error))")
         }
     }
 
@@ -484,7 +489,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
             userEmail = email
             logger.info("User email fetched successfully")
         } catch {
-            logger.error("Failed to fetch user email: \(error.localizedDescription)")
+            logger.error("Failed to fetch user email: \(PrivacyUtils.redactedError(error))")
         }
     }
 

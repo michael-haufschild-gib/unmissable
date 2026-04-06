@@ -35,7 +35,7 @@ final class SoundManager {
 
             logger.info("Playing alert sound at volume \(self.preferencesManager.alertVolume)")
         } catch {
-            logger.error("Failed to play alert sound: \(error.localizedDescription)")
+            logger.error("Failed to play alert sound: \(PrivacyUtils.redactedError(error))")
             // Fallback to system sound
             playSystemAlertSound()
         }

@@ -54,6 +54,7 @@ final class ServiceContainer {
                 eventScheduler: eventScheduler,
                 soundManager: soundManager,
                 focusModeManager: focusModeManager,
+                notificationManager: notificationManager,
                 linkParser: linkParser,
                 themeManager: themeManager,
             )

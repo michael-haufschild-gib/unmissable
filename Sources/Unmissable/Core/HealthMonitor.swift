@@ -180,7 +180,7 @@ final class HealthMonitor {
            Date().timeIntervalSince(activeEvent.endDate) > Self.stuckOverlayThresholdSeconds
         {
             logger.warning(
-                "Stuck overlay detected for event \(activeEvent.id) — meeting ended 30+ minutes ago",
+                "Stuck overlay detected for event \(PrivacyUtils.redactedEventId(activeEvent.id)) — meeting ended 30+ minutes ago",
             )
             issues.append(
                 HealthIssue(
@@ -222,7 +222,7 @@ final class HealthMonitor {
         let previousStatus = healthStatus
 
         if !criticalIssues.isEmpty {
-            healthStatus = .critical(issues: criticalIssues)
+            healthStatus = .critical(issues: issues)
         } else if !warnings.isEmpty {
             healthStatus = .degraded(issues: warnings)
         } else {
@@ -272,11 +272,16 @@ final class HealthMonitor {
     func getHealthSummary() -> String {
         switch healthStatus {
         case .healthy:
-            "All systems operational"
+            return "All systems operational"
         case let .degraded(issues):
-            "\(issues.count) warning\(issues.count == 1 ? "" : "s")"
+            return "\(issues.count) warning\(issues.count == 1 ? "" : "s")"
         case let .critical(issues):
-            "\(issues.count) critical issue\(issues.count == 1 ? "" : "s")"
+            let critCount = issues.count { $0.severity == .error }
+            let warnCount = issues.count { $0.severity == .warning }
+            if warnCount > 0 {
+                return "\(critCount) critical, \(warnCount) warning\(warnCount == 1 ? "" : "s")"
+            }
+            return "\(critCount) critical issue\(critCount == 1 ? "" : "s")"
         }
     }
 }

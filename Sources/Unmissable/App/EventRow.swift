@@ -190,7 +190,9 @@ struct EventRow: View {
                             calendarId: event.calendarId,
                             minutes: option.minutes,
                         )
-                        currentOverride = option.minutes
+                        // Don't set currentOverride here — rely on onChange to
+                        // pick up the new value from appState.alertOverrides.
+                        // This avoids showing stale UI if the DB save fails.
                     }
                 } label: {
                     Label(option.label, systemImage: option.iconName)

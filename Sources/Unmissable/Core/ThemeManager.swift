@@ -129,15 +129,8 @@ enum AccentColor: String, CaseIterable {
     }
 
     var color: Color {
-        switch self {
-        case .blue: Color(hue: 0.72, saturation: 0.55, brightness: 0.88)
-        case .cyan: Color(hue: 0.54, saturation: 0.55, brightness: 0.88)
-        case .green: Color(hue: 0.40, saturation: 0.60, brightness: 0.85)
-        case .magenta: Color(hue: 0.91, saturation: 0.60, brightness: 0.88)
-        case .orange: Color(hue: 0.08, saturation: 0.70, brightness: 0.92)
-        case .violet: Color(hue: 0.80, saturation: 0.55, brightness: 0.88)
-        case .red: Color(hue: 0.03, saturation: 0.70, brightness: 0.85)
-        }
+        let (h, s, b) = hsbComponents
+        return Color(hue: h, saturation: s, brightness: b)
     }
 
     var hoverColor: Color {
@@ -201,7 +194,7 @@ enum AccentColor: String, CaseIterable {
         return (
             Int((r1 + m) * 255),
             Int((g1 + m) * 255),
-            Int((b1 + m) * 255)
+            Int((b1 + m) * 255),
         )
     }
 }

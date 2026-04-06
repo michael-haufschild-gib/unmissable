@@ -3,9 +3,9 @@ import Testing
 @testable import Unmissable
 
 @MainActor
-struct EventOverrideTests {
+final class EventOverrideTests {
     private var db: DatabaseManager
-    private var tempDir: URL
+    private let tempDir: URL
 
     /// Default calendar ID used by most tests.
     private let calId = "cal-1"
@@ -23,11 +23,14 @@ struct EventOverrideTests {
         db = DatabaseManager(databaseURL: dbURL)
     }
 
+    deinit {
+        try? FileManager.default.removeItem(at: tempDir)
+    }
+
     // MARK: - CRUD
 
     @Test
     func saveAndFetchAlertOverride_roundtrips() async throws {
-        defer { try? FileManager.default.removeItem(at: tempDir) }
         try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 10)
 
         let result = try await db.fetchAlertOverride(for: "event-1", calendarId: calId)
@@ -36,14 +39,12 @@ struct EventOverrideTests {
 
     @Test
     func fetchAlertOverride_noOverride_returnsNil() async throws {
-        defer { try? FileManager.default.removeItem(at: tempDir) }
         let result = try await db.fetchAlertOverride(for: "nonexistent", calendarId: calId)
         #expect(result == nil, "Should return nil when no override exists")
     }
 
     @Test
     func saveAlertOverride_nilMinutes_deletesOverride() async throws {
-        defer { try? FileManager.default.removeItem(at: tempDir) }
         try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 5)
         try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: nil)
 
@@ -53,7 +54,6 @@ struct EventOverrideTests {
 
     @Test
     func saveAlertOverride_updatesExistingOverride() async throws {
-        defer { try? FileManager.default.removeItem(at: tempDir) }
         try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 5)
         try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 15)
 
@@ -63,7 +63,6 @@ struct EventOverrideTests {
 
     @Test
     func saveAlertOverride_zeroMinutes_persistsAsNoAlert() async throws {
-        defer { try? FileManager.default.removeItem(at: tempDir) }
         try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 0)
 
         let result = try await db.fetchAlertOverride(for: "event-1", calendarId: calId)
@@ -72,7 +71,6 @@ struct EventOverrideTests {
 
     @Test
     func fetchAllAlertOverrides_returnsAllOverrides() async throws {
-        defer { try? FileManager.default.removeItem(at: tempDir) }
         try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 5)
         try await db.saveAlertOverride(eventId: "event-2", calendarId: calId, minutes: 10)
         try await db.saveAlertOverride(eventId: "event-3", calendarId: calId, minutes: 0)
@@ -88,7 +86,6 @@ struct EventOverrideTests {
 
     @Test
     func fetchAllAlertOverrides_emptyDatabase_returnsEmptyDict() async throws {
-        defer { try? FileManager.default.removeItem(at: tempDir) }
         let overrides = try await db.fetchAllAlertOverrides()
         #expect(overrides.isEmpty, "Empty database should return empty dictionary")
     }
@@ -97,7 +94,6 @@ struct EventOverrideTests {
 
     @Test
     func saveAlertOverride_negativeMinutes_clampedToZero() async throws {
-        defer { try? FileManager.default.removeItem(at: tempDir) }
         try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: -5)
 
         let result = try await db.fetchAlertOverride(for: "event-1", calendarId: calId)
@@ -106,7 +102,6 @@ struct EventOverrideTests {
 
     @Test
     func saveAlertOverride_excessiveMinutes_clampedToMax() async throws {
-        defer { try? FileManager.default.removeItem(at: tempDir) }
         try await db.saveAlertOverride(eventId: "event-1", calendarId: calId, minutes: 120)
 
         let result = try await db.fetchAlertOverride(for: "event-1", calendarId: calId)
@@ -117,7 +112,6 @@ struct EventOverrideTests {
 
     @Test
     func overrideSurvivesReplaceEvents() async throws {
-        defer { try? FileManager.default.removeItem(at: tempDir) }
         let start = Date().addingTimeInterval(600)
         let end = start.addingTimeInterval(3600)
         let calendarId = "cal-sync"
@@ -154,7 +148,6 @@ struct EventOverrideTests {
 
     @Test
     func overrideSurvivesReplaceEvents_eventRemovedFromSync() async throws {
-        defer { try? FileManager.default.removeItem(at: tempDir) }
         let start = Date().addingTimeInterval(600)
         let end = start.addingTimeInterval(3600)
         let calendarId = "cal-sync"
@@ -185,7 +178,6 @@ struct EventOverrideTests {
 
     @Test
     func performMaintenance_cleansOrphanedOverrides() async throws {
-        defer { try? FileManager.default.removeItem(at: tempDir) }
         let start = Date().addingTimeInterval(600)
         let end = start.addingTimeInterval(3600)
 

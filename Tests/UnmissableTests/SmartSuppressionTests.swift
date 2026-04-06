@@ -227,6 +227,96 @@ struct SmartSuppressionTests {
         )
     }
 
+    // MARK: - Suppression Fallback Notification
+
+    @Test
+    func showOverlay_suppressedNativeApp_sendsFallbackNotification() {
+        let detector = TestSafeForegroundAppDetector()
+        detector.meetingAppInForeground = true
+        let prefs = TestUtilities.createTestPreferencesManager()
+        prefs.setSmartSuppression(true)
+        let notifManager = TestSafeNotificationManager()
+
+        let overlay = TestSafeOverlayManager(
+            isTestEnvironment: true,
+            foregroundAppDetector: detector,
+            preferencesManager: prefs,
+            notificationManager: notifManager,
+        )
+
+        let event = TestUtilities.createTestEvent(provider: .zoom)
+        overlay.showOverlay(for: event, fromSnooze: false)
+
+        #expect(
+            !overlay.isOverlayVisible,
+            "Overlay should be suppressed",
+        )
+        #expect(
+            overlay.suppressionFallbackNotifications.count == 1,
+            "Fallback notification should be recorded when overlay is suppressed",
+        )
+        #expect(
+            overlay.suppressionFallbackNotifications.first?.id == event.id,
+            "Fallback notification should be for the correct event",
+        )
+    }
+
+    @Test
+    func showOverlay_suppressedBrowser_sendsFallbackNotification() {
+        let detector = TestSafeForegroundAppDetector()
+        detector.browserInForeground = true
+        let prefs = TestUtilities.createTestPreferencesManager()
+        prefs.setSmartSuppression(true)
+        let notifManager = TestSafeNotificationManager()
+
+        let overlay = TestSafeOverlayManager(
+            isTestEnvironment: true,
+            foregroundAppDetector: detector,
+            preferencesManager: prefs,
+            notificationManager: notifManager,
+        )
+
+        let event = TestUtilities.createTestEvent(provider: .meet)
+        overlay.showOverlay(for: event, fromSnooze: false)
+
+        #expect(
+            !overlay.isOverlayVisible,
+            "Meet overlay should be suppressed when browser in foreground",
+        )
+        #expect(
+            overlay.suppressionFallbackNotifications.count == 1,
+            "Fallback notification should be sent for browser-suppressed Meet event",
+        )
+    }
+
+    @Test
+    func showOverlay_notSuppressed_noFallbackNotification() {
+        let detector = TestSafeForegroundAppDetector()
+        detector.meetingAppInForeground = false
+        let prefs = TestUtilities.createTestPreferencesManager()
+        prefs.setSmartSuppression(true)
+        let notifManager = TestSafeNotificationManager()
+
+        let overlay = TestSafeOverlayManager(
+            isTestEnvironment: true,
+            foregroundAppDetector: detector,
+            preferencesManager: prefs,
+            notificationManager: notifManager,
+        )
+
+        let event = TestUtilities.createTestEvent(provider: .zoom)
+        overlay.showOverlay(for: event, fromSnooze: false)
+
+        #expect(
+            overlay.isOverlayVisible,
+            "Overlay should show when app is not in foreground",
+        )
+        #expect(
+            overlay.suppressionFallbackNotifications.isEmpty,
+            "No fallback notification when overlay is shown normally",
+        )
+    }
+
     // MARK: - Preference Persistence
 
     @Test

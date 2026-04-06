@@ -134,25 +134,9 @@ targets:
       - package: swift-concurrency-extras
         product: ConcurrencyExtras
 
-  UnmissableUITests:
-    type: bundle.ui-testing
-    templates:
-      - TestTarget
-    sources:
-      - path: Tests/UITests
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.unmissable.UnmissableUITests
-        # Override TestTarget flags: drop -default-isolation MainActor.
-        # XCTestCase lifecycle methods (setUp/tearDown/init) are nonisolated,
-        # which conflicts with @MainActor default isolation.
-        OTHER_SWIFT_FLAGS:REPLACE:
-          - "-enable-upcoming-feature"
-          - "InferIsolatedConformances"
-          - "-enable-upcoming-feature"
-          - "NonisolatedNonsendingByDefault"
-    dependencies:
-      - target: Unmissable
+  # UI tests removed — XCUITest event synthesis does not work with SwiftUI
+  # MenuBarExtra. UI tests now run via Scripts/test-ui.sh (osascript-based).
+  # See docs/adr/002-ui-tests-osascript-over-xcuitest.md.
 
 schemes:
   Unmissable:
@@ -173,13 +157,4 @@ schemes:
     archive:
       revealArchiveInOrganizer: true
 
-  UnmissableUITests:
-    build:
-      targets:
-        Unmissable: all
-        UnmissableUITests: [testing]
-    run:
-      executable: Unmissable
-    test:
-      targets:
-        - UnmissableUITests
+  # UnmissableUITests scheme removed — see docs/adr/002-ui-tests-osascript-over-xcuitest.md
