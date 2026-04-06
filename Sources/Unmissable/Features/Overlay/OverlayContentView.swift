@@ -396,8 +396,8 @@ struct OverlayContentView: View {
     // MARK: - Timer Management
 
     private func optimalTimerInterval() -> Duration {
-        // Always tick every second while countdown shows seconds (meeting hasn't started or just started)
-        if timeUntilMeeting > 0 || timeUntilMeeting > Self.recentStartThresholdSeconds {
+        // Tick every second while countdown shows seconds (meeting hasn't started or just started)
+        if timeUntilMeeting > Self.recentStartThresholdSeconds {
             return .seconds(Self.timerFastSeconds)
         }
         // "Running for" displays minutes — tick less frequently

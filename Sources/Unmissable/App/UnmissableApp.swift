@@ -36,6 +36,9 @@ struct UnmissableApp: App {
                         appState = AppState(isTestEnvironment: AppRuntime.isRunningTests)
                     }
                 }
+                .accessibilityIdentifier(Accessibility.statusItemIdentifier)
+                .accessibilityLabel(Accessibility.statusItemLabel)
+                .help(Accessibility.statusItemHelp)
         }
         .menuBarExtraStyle(.window)
     }

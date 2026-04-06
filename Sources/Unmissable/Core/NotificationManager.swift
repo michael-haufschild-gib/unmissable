@@ -6,8 +6,8 @@ import UserNotifications
 // MARK: - Notification Constants
 
 /// Compile-time string constants for notification identifiers.
-/// Marked `nonisolated` so `nonisolated` delegate methods
-/// can reference them without isolation errors.
+/// Static lets on a non-actor enum are implicitly Sendable,
+/// so `nonisolated` delegate methods can reference them freely.
 enum NotificationConstants {
     /// Notification category for meetings with a joinable link.
     static let meetingWithLinkCategory = "MEETING_WITH_LINK"

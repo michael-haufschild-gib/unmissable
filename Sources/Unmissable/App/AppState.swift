@@ -83,6 +83,7 @@ final class AppState {
 
     /// Whether `checkInitialState()` has already been called.
     /// Prevents double invocation from both the notification and the fallback path.
+    @ObservationIgnored
     private var didCheckInitialState = false
 
     /// Defers initial state checks until after NSApplication finishes launching.

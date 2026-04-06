@@ -2,7 +2,7 @@ import Foundation
 
 /// A single structured diagnostic event captured by the diagnostics system.
 /// Records are lightweight value types designed for ring-buffer storage and JSONL export.
-/// Nonisolated so the nonisolated FlightRecorder can store and encode them.
+/// Sendable value type — safe to use from FlightRecorder's lock-based thread safety.
 struct DiagnosticRecord: Codable {
     /// When this record was created.
     let timestamp: Date
