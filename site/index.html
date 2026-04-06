@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unmissable - Never Miss a Meeting</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --border: #23232f;
+      --text: #e4e4ed;
+      --muted: #8888a0;
+      --accent: #6366f1;
+      --accent-soft: #6366f120;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    .container { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+    header {
+      padding: 48px 0 32px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+    header p {
+      color: var(--muted);
+      font-size: 1.1rem;
+    }
+    main { padding: 48px 0; }
+    .hero {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .hero h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .hero p {
+      color: var(--muted);
+      max-width: 540px;
+      margin: 0 auto;
+    }
+    .features {
+      display: grid;
+      gap: 16px;
+      margin-bottom: 48px;
+    }
+    .feature {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+    }
+    .feature h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .feature p {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .links {
+      text-align: center;
+      padding: 32px 0;
+      border-top: 1px solid var(--border);
+    }
+    .links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      margin: 0 16px;
+    }
+    .links a:hover { color: var(--accent); }
+    footer {
+      text-align: center;
+      padding: 24px 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Unmissable</h1>
+      <p>macOS menu bar app</p>
+    </header>
+
+    <main>
+      <div class="hero">
+        <h2>Never miss a meeting again</h2>
+        <p>Unmissable lives in your menu bar and shows full-screen blocking overlays before meetings start, so you always join on time.</p>
+      </div>
+
+      <div class="features">
+        <div class="feature">
+          <h3>Calendar integration</h3>
+          <p>Connects to Google Calendar and Apple Calendar. Reads your events and detects meeting links automatically.</p>
+        </div>
+        <div class="feature">
+          <h3>Full-screen overlays</h3>
+          <p>When a meeting is about to start, a full-screen overlay appears with a one-click join button. Impossible to miss.</p>
+        </div>
+        <div class="feature">
+          <h3>Smart link detection</h3>
+          <p>Automatically finds Zoom, Google Meet, Microsoft Teams, and other meeting links in your calendar events.</p>
+        </div>
+        <div class="feature">
+          <h3>Privacy-first</h3>
+          <p>No telemetry, no analytics, no data sent to third parties. Your calendar data stays on your Mac.</p>
+        </div>
+      </div>
+    </main>
+
+    <div class="links">
+      <a href="privacy.html">Privacy Policy</a>
+      <a href="terms.html">Terms of Service</a>
+      <a href="https://github.com/michael-haufschild-gib/unmissable">GitHub</a>
+    </div>
+
+    <footer>
+      &copy; 2026 Unmissable
+    </footer>
+  </div>
+</body>
+</html>
