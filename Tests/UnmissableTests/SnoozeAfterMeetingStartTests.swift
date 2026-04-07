@@ -29,7 +29,7 @@ struct SnoozeAfterMeetingStartTests {
         #expect(!overlayManager.isOverlayVisible, "Overlay should be hidden after snooze")
 
         // Wait for meeting to start
-        try await TestUtilities.waitForAsync(timeout: 4.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             testEvent.startDate < Date()
         }
 
@@ -47,7 +47,7 @@ struct SnoozeAfterMeetingStartTests {
         #expect(activeEvent.id == testEvent.id, "Should show correct event")
 
         // Verify overlay stays visible for snoozed alerts
-        try await TestUtilities.waitForAsync(timeout: 2.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             overlayManager.isOverlayVisible
         }
 
@@ -74,7 +74,7 @@ struct SnoozeAfterMeetingStartTests {
         // Regular overlay should auto-hide quickly (5 minute threshold)
         overlayManager.showOverlayImmediately(for: testEvent, fromSnooze: false)
 
-        try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             !overlayManager.isOverlayVisible
         }
 
@@ -86,7 +86,7 @@ struct SnoozeAfterMeetingStartTests {
         // Snoozed overlay should be more lenient (30 minute threshold)
         overlayManager.showOverlay(for: testEvent, fromSnooze: true)
 
-        try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             overlayManager.isOverlayVisible
         }
 

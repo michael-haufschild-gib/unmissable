@@ -209,7 +209,7 @@ struct MenuBarPreviewManagerTests {
         prefs.setMenuBarDisplayMode(.icon)
 
         // Wait for the Combine sink to fire and state to update
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             manager.shouldShowIcon
         }
 

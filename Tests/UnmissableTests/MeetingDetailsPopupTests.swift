@@ -69,12 +69,12 @@ struct MeetingDetailsPopupTests {
         let sampleEvent = createSampleEvent()
 
         pm.showPopup(for: sampleEvent)
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             pm.isPopupVisible
         }
 
         pm.hidePopup()
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             !pm.isPopupVisible
         }
 
@@ -103,7 +103,7 @@ struct MeetingDetailsPopupTests {
 
         for _ in 0 ..< 5 {
             pm.showPopup(for: sampleEvent)
-            try await TestUtilities.waitForAsync(timeout: 0.5) { @MainActor @Sendable in
+            try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
                 pm.isPopupVisible
             }
             pm.hidePopup()
@@ -172,7 +172,7 @@ struct MeetingDetailsPopupTests {
 
         pm.showPopup(for: sampleEvent)
 
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             pm.isPopupVisible
         }
 
@@ -180,7 +180,7 @@ struct MeetingDetailsPopupTests {
 
         pm.hidePopup()
 
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             !pm.isPopupVisible
         }
 

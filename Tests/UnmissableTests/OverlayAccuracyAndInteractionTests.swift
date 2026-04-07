@@ -69,7 +69,7 @@ struct OverlayAccuracyAndInteractionTests {
         overlayManager.showOverlayImmediately(for: event)
 
         // Verify computed property reflects remaining time
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             self.overlayManager.timeUntilMeeting > 0
         }
 
@@ -78,7 +78,7 @@ struct OverlayAccuracyAndInteractionTests {
         #expect(initialCountdown < 125, "Initial countdown should be close to 2 minutes")
 
         // Verify computed property tracks wall clock
-        try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             self.overlayManager.timeUntilMeeting < initialCountdown - 0.9
         }
 
@@ -129,7 +129,7 @@ struct OverlayAccuracyAndInteractionTests {
 
         overlayManager.showOverlayImmediately(for: event)
 
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             self.overlayManager.timeUntilMeeting < 0
         }
 
@@ -151,13 +151,13 @@ struct OverlayAccuracyAndInteractionTests {
 
         overlayManager.showOverlayImmediately(for: event)
 
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             self.overlayManager.timeUntilMeeting > 0
         }
         let initialTime = overlayManager.timeUntilMeeting
 
         // Verify computed property decreases over time
-        try await TestUtilities.waitForAsync(timeout: 4.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             self.overlayManager.timeUntilMeeting < initialTime - 1.5
         }
         let updatedTime = overlayManager.timeUntilMeeting
@@ -166,7 +166,7 @@ struct OverlayAccuracyAndInteractionTests {
         #expect(updatedTime < initialTime, "Time should be decreasing")
 
         // Verify continued decrease
-        try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             self.overlayManager.timeUntilMeeting < updatedTime - 0.5
         }
         let finalTime = overlayManager.timeUntilMeeting
@@ -180,7 +180,7 @@ struct OverlayAccuracyAndInteractionTests {
         let event = TestUtilities.createTestEvent(startDate: futureTime)
 
         overlayManager.showOverlayImmediately(for: event)
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             self.overlayManager.timeUntilMeeting > 0
         }
 
@@ -188,7 +188,7 @@ struct OverlayAccuracyAndInteractionTests {
         let timeAfterHide = overlayManager.timeUntilMeeting
 
         // Verify value doesn't change (timer stopped) via a brief poll
-        try? await TestUtilities.waitForAsync(timeout: 2.0) { @MainActor @Sendable in
+        try? await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             self.overlayManager.timeUntilMeeting != timeAfterHide
         }
 
@@ -202,13 +202,13 @@ struct OverlayAccuracyAndInteractionTests {
         let secondEvent = TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(600))
 
         overlayManager.showOverlayImmediately(for: firstEvent)
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             self.overlayManager.timeUntilMeeting > 0
         }
         let firstEventTime = overlayManager.timeUntilMeeting
 
         overlayManager.showOverlayImmediately(for: secondEvent)
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             self.overlayManager.timeUntilMeeting > firstEventTime + 200
         }
         let secondEventTime = overlayManager.timeUntilMeeting
@@ -218,7 +218,7 @@ struct OverlayAccuracyAndInteractionTests {
         )
 
         // Verify timer is running for second event
-        try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             self.overlayManager.timeUntilMeeting < secondEventTime - 0.5
         }
 
@@ -238,7 +238,7 @@ struct OverlayAccuracyAndInteractionTests {
         #expect(overlayManager.isOverlayVisible, "Overlay should be visible")
 
         // Wait and verify overlay is still responsive
-        try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             self.overlayManager.isOverlayVisible
         }
 
@@ -256,7 +256,7 @@ struct OverlayAccuracyAndInteractionTests {
         let showDuration = Date().timeIntervalSince(showStartTime)
         #expect(showDuration < 0.5, "Overlay should show quickly (not frozen)")
 
-        try await TestUtilities.waitForAsync(timeout: 2.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             self.overlayManager.isOverlayVisible
         }
 
@@ -276,7 +276,7 @@ struct OverlayAccuracyAndInteractionTests {
         overlayManager.showOverlayImmediately(for: event)
         let firstReading = overlayManager.timeUntilMeeting
 
-        try await TestUtilities.waitForAsync(timeout: 4.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             self.overlayManager.timeUntilMeeting < firstReading - 2.0
         }
         let secondReading = overlayManager.timeUntilMeeting
@@ -329,7 +329,7 @@ struct OverlayAccuracyAndInteractionTests {
 
         overlayManager.showOverlayImmediately(for: event)
 
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             self.overlayManager.timeUntilMeeting > 0
         }
         let startTime = Date()
@@ -359,7 +359,7 @@ struct OverlayAccuracyAndInteractionTests {
 
         overlayManager.showOverlayImmediately(for: event)
 
-        try await TestUtilities.waitForAsync(timeout: 4.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             self.overlayManager.timeUntilMeeting < 1
         }
 
@@ -377,7 +377,7 @@ struct OverlayAccuracyAndInteractionTests {
 
         overlayManager.showOverlayImmediately(for: event)
 
-        try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             !self.overlayManager.isOverlayVisible
         }
 

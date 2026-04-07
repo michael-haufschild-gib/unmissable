@@ -243,25 +243,33 @@ extension EventScheduler {
 extension TestUtilities {
     // MARK: - Async Testing Utilities
 
-    /// Wait for async operations with timeout
+    /// Wait for async operations with timeout.
+    ///
+    /// Checks the deadline after every condition evaluation so the timeout
+    /// fires even when `await condition()` blocks on a contended MainActor.
     static func waitForAsync(
         timeout: TimeInterval = 5.0,
         condition: @escaping @Sendable () async -> Bool,
     ) async throws {
-        let startTime = Date()
-
-        while Date().timeIntervalSince(startTime) < timeout {
-            if await condition() {
-                return
-            }
-            // swiftlint:disable:next no_raw_task_sleep_in_tests - this IS the polling infrastructure
-            try await Task.sleep(nanoseconds: pollingInterval)
-        }
-
         struct TestTimeoutError: Error, CustomStringConvertible {
             let description = "Timed out waiting for async condition"
         }
-        throw TestTimeoutError()
+
+        let deadline = Date().addingTimeInterval(timeout)
+
+        while true {
+            if await condition() {
+                return
+            }
+            if Date() >= deadline {
+                throw TestTimeoutError()
+            }
+            // swiftlint:disable:next no_raw_task_sleep_in_tests - this IS the polling infrastructure
+            try await Task.sleep(nanoseconds: pollingInterval)
+            if Date() >= deadline {
+                throw TestTimeoutError()
+            }
+        }
     }
 
     // MARK: - Performance Testing

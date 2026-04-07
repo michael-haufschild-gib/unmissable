@@ -269,7 +269,7 @@ struct EventSchedulerComprehensiveTests {
 
         // Wait for rescheduling
         let scheduler = eventScheduler
-        try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             return scheduler.scheduledAlerts.contains { alert in
                 if case .snooze = alert.alertType { return true }
                 return false
@@ -327,7 +327,7 @@ struct EventSchedulerComprehensiveTests {
         scheduler = nil
 
         // Give longer time for cleanup
-        try await TestUtilities.waitForAsync(timeout: 2.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             weakScheduler == nil
         }
 

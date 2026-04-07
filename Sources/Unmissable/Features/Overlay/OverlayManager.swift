@@ -141,16 +141,6 @@ final class OverlayManager: OverlayManaging {
                 sendSuppressionFallback(for: event)
                 return
             }
-            if provider == .meet, foregroundAppDetector.isBrowserInForeground() {
-                logger.info(
-                    "SMART SUPPRESS: Browser in foreground for Meet event \(PrivacyUtils.redactedEventId(event.id))",
-                )
-                AppDiagnostics.record(component: "OverlayManager", phase: "showOverlay", outcome: .skipped) {
-                    ["eventId": PrivacyUtils.redactedEventId(event.id), "reason": "smartSuppress.browser"]
-                }
-                sendSuppressionFallback(for: event)
-                return
-            }
         }
 
         // Clean up any existing overlay first (atomic operation)
@@ -172,6 +162,26 @@ final class OverlayManager: OverlayManaging {
 
         // Create windows synchronously (View manages its own countdown timer)
         createOverlayWindows(for: event)
+
+        // Guard: if no windows were created (e.g. NSScreen.main is nil during
+        // screen connect/disconnect), reset state to avoid phantom overlay that
+        // blocks future overlays via the duplicate check.
+        if overlayWindows.isEmpty, !isTestMode {
+            logger.warning(
+                "SHOW OVERLAY: No windows created for event \(PrivacyUtils.redactedEventId(event.id)) — resetting state",
+            )
+            activeEvent = nil
+            isOverlayVisible = false
+            isSnoozedAlert = false
+            AppDiagnostics.record(
+                component: "OverlayManager",
+                phase: "showOverlay",
+                outcome: .failure,
+            ) {
+                ["eventId": PrivacyUtils.redactedEventId(event.id), "reason": "noScreensAvailable"]
+            }
+            return
+        }
 
         logShowOverlayCompletion(event: event, fromSnooze: fromSnooze, startTime: startTime)
     }

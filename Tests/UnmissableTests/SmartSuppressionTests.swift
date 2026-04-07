@@ -52,19 +52,6 @@ struct SmartSuppressionTests {
         #expect(detector.isMeetingAppInForeground(for: .zoom))
     }
 
-    @Test
-    func stubDetector_browserInForeground_returnsFalseByDefault() {
-        let detector = TestSafeForegroundAppDetector()
-        #expect(!detector.isBrowserInForeground())
-    }
-
-    @Test
-    func stubDetector_browserInForeground_returnsTrueWhenSet() {
-        let detector = TestSafeForegroundAppDetector()
-        detector.browserInForeground = true
-        #expect(detector.isBrowserInForeground())
-    }
-
     // MARK: - Smart Suppression Integration (via TestSafe)
 
     @Test
@@ -160,55 +147,9 @@ struct SmartSuppressionTests {
     }
 
     @Test
-    func showOverlay_meetProviderSuppressedWhenBrowserInForeground() {
-        let detector = TestSafeForegroundAppDetector()
-        detector.browserInForeground = true
-        let prefs = TestUtilities.createTestPreferencesManager()
-        prefs.setSmartSuppression(true)
-
-        let overlay = TestSafeOverlayManager(
-            isTestEnvironment: true,
-            foregroundAppDetector: detector,
-            preferencesManager: prefs,
-        )
-
-        let event = TestUtilities.createTestEvent(provider: .meet)
-        overlay.showOverlay(for: event, fromSnooze: false)
-
-        #expect(
-            !overlay.isOverlayVisible,
-            "Google Meet overlay should be suppressed when browser is in foreground",
-        )
-    }
-
-    @Test
-    func showOverlay_nonMeetProviderNotSuppressedByBrowser() {
-        let detector = TestSafeForegroundAppDetector()
-        detector.browserInForeground = true
-        detector.meetingAppInForeground = false
-        let prefs = TestUtilities.createTestPreferencesManager()
-        prefs.setSmartSuppression(true)
-
-        let overlay = TestSafeOverlayManager(
-            isTestEnvironment: true,
-            foregroundAppDetector: detector,
-            preferencesManager: prefs,
-        )
-
-        let event = TestUtilities.createTestEvent(provider: .zoom)
-        overlay.showOverlay(for: event, fromSnooze: false)
-
-        #expect(
-            overlay.isOverlayVisible,
-            "Zoom overlay should not be suppressed just because a browser is in foreground",
-        )
-    }
-
-    @Test
     func showOverlay_noProviderNotSuppressed() {
         let detector = TestSafeForegroundAppDetector()
         detector.meetingAppInForeground = true
-        detector.browserInForeground = true
         let prefs = TestUtilities.createTestPreferencesManager()
         prefs.setSmartSuppression(true)
 
@@ -266,38 +207,6 @@ struct SmartSuppressionTests {
         #expect(
             notifManager.sentNotifications.first?.event.id == event.id,
             "NotificationManager should have delivered notification for the correct event",
-        )
-    }
-
-    @Test
-    func showOverlay_suppressedBrowser_sendsFallbackNotification() {
-        let detector = TestSafeForegroundAppDetector()
-        detector.browserInForeground = true
-        let prefs = TestUtilities.createTestPreferencesManager()
-        prefs.setSmartSuppression(true)
-        let notifManager = TestSafeNotificationManager()
-
-        let overlay = TestSafeOverlayManager(
-            isTestEnvironment: true,
-            foregroundAppDetector: detector,
-            preferencesManager: prefs,
-            notificationManager: notifManager,
-        )
-
-        let event = TestUtilities.createTestEvent(provider: .meet)
-        overlay.showOverlay(for: event, fromSnooze: false)
-
-        #expect(
-            !overlay.isOverlayVisible,
-            "Meet overlay should be suppressed when browser in foreground",
-        )
-        #expect(
-            overlay.suppressionFallbackNotifications.count == 1,
-            "Fallback notification should be sent for browser-suppressed Meet event",
-        )
-        #expect(
-            notifManager.sentNotifications.count == 1,
-            "NotificationManager should have delivered the browser fallback notification",
         )
     }
 

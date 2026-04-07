@@ -176,11 +176,6 @@ public final class TestSafeOverlayManager: OverlayManaging {
                 sendSuppressionFallback(for: event)
                 return
             }
-            if provider == .meet, detector.isBrowserInForeground() {
-                logger.debug("TEST-SAFE: Smart suppressed — browser in foreground for Meet")
-                sendSuppressionFallback(for: event)
-                return
-            }
         }
 
         // Auto-dismiss for meetings that started too long ago.
@@ -314,23 +309,16 @@ public final class TestSafeMeetingDetailsPopupManager: MeetingDetailsPopupManagi
 // MARK: - Test-Safe Foreground App Detector
 
 /// Stubbed foreground app detector for tests.
-/// Set `meetingAppInForeground` and `browserInForeground` to control test behavior.
+/// Set `meetingAppInForeground` to control test behavior.
 @preconcurrency @MainActor
 public final class TestSafeForegroundAppDetector: ForegroundAppDetecting {
     /// When true, `isMeetingAppInForeground(for:)` returns true for any provider.
     public var meetingAppInForeground = false
 
-    /// When true, `isBrowserInForeground()` returns true.
-    public var browserInForeground = false
-
     public init() {}
 
     public func isMeetingAppInForeground(for _: Provider) -> Bool {
         meetingAppInForeground
-    }
-
-    public func isBrowserInForeground() -> Bool {
-        browserInForeground
     }
 }
 
