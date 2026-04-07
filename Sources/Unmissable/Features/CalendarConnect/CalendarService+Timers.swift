@@ -19,7 +19,7 @@ extension CalendarService {
     /// (local edits, iCloud sync) trigger a reactive sync without waiting
     /// for the next periodic interval.
     func setupEventStoreChangeObserver() {
-        NotificationCenter.default.publisher(for: .EKEventStoreChanged)
+        NotificationCenter.default.publisher(for: .EKEventStoreChanged, object: sharedEventStore)
             .sink { [weak self] _ in
                 Task { @MainActor in
                     self?.handleEventStoreChanged()
@@ -103,8 +103,9 @@ extension CalendarService {
                     let sleepInterval = nextBoundaryInterval()
                     try await Task.sleep(for: .seconds(sleepInterval))
                     if !Task.isCancelled, needsUIRefresh || hasTimeBoundaryChange() {
-                        needsUIRefresh = false
-                        await loadCachedData()
+                        if await loadCachedData() {
+                            needsUIRefresh = false
+                        }
                     }
                 } catch {
                     break

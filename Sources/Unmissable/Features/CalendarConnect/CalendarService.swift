@@ -69,7 +69,7 @@ final class CalendarService {
 
     /// Shared EKEventStore for Apple Calendar (reused across auth + API services)
     @ObservationIgnored
-    private let sharedEventStore: EKEventStore
+    let sharedEventStore: EKEventStore
 
     /// Publisher that fires after events are updated from a sync cycle.
     /// Supports multiple observers without retain-cycle risk.
@@ -560,8 +560,9 @@ final class CalendarService {
         nextSyncTime = nextSyncTimes.min()
     }
 
-    func loadCachedData() async {
-        guard !usingSyntheticData else { return }
+    @discardableResult
+    func loadCachedData() async -> Bool {
+        guard !usingSyntheticData else { return true }
         do {
             calendars = try await databaseManager.fetchCalendars()
             events = try await Self.deduplicateEvents(
@@ -581,6 +582,7 @@ final class CalendarService {
                     "started": "\(self.startedEvents.count)",
                 ]
             }
+            return true
         } catch {
             logger.error("Failed to load cached data: \(PrivacyUtils.redactedError(error))")
             AppDiagnostics.record(
@@ -590,6 +592,7 @@ final class CalendarService {
             ) {
                 ["error": PrivacyUtils.redactedError(error)]
             }
+            return false
         }
     }
 }
