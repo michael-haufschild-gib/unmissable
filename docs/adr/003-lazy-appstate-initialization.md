@@ -36,13 +36,13 @@ Unmissable is an `LSUIElement` (menu-bar-only) app. It uses `NSApp.setActivation
 
 1. Swift runtime creates `UnmissableApp` → `@State` property initializers fire
 2. `AppState.init()` → creates `ServiceContainer` → creates `OverlayManager`, `ActivationPolicyManager`, etc.
-3. `ServiceContainer.init()` triggers `OverlayManager.init()` which interacts with `NSApp`
+3. `ServiceContainer.init()` creates managers that register `NotificationCenter` observers and interact with `NSApp` indirectly
 4. `applicationDidFinishLaunching` fires → `NSApp.setActivationPolicy(.accessory)`
 
 When `AppState` is initialized eagerly (step 1–3), the service graph construction races with AppKit's own startup sequence. Specifically:
 
-- `OverlayManager` creates `NSWindow` instances during init, which implicitly touches `NSApp` state before the activation policy is set
-- The `ActivationPolicyManager` reference count starts at 0 (correct), but the windows created during eager init register with the window server before the `.accessory` policy takes effect
+- Service graph construction during `@State` init touches `NSApp` state (e.g., `NotificationCenter` observers for screen parameter changes, `ActivationPolicyManager` setup) before the activation policy is set
+- The `ActivationPolicyManager` reference count starts at 0 (correct), but services initialized during eager init interact with the window server before the `.accessory` policy takes effect
 - On macOS 15+, this causes the system to treat the app as having a stale activation state — the `MenuBarExtra` status item **receives click events but the popover never opens**
 
 ### Why .task works

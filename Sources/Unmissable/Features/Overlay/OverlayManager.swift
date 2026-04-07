@@ -21,7 +21,7 @@ final class OverlayManager: OverlayManaging {
     private var overlayWindows: [NSWindow] = []
 
     @ObservationIgnored
-    private var screenParameterObserver: (any NSObjectProtocol)?
+    private nonisolated(unsafe) var screenParameterObserver: (any NSObjectProtocol)?
 
     private let preferencesManager: PreferencesManager
     private let soundManager: SoundManager
@@ -72,10 +72,16 @@ final class OverlayManager: OverlayManaging {
                 object: nil,
                 queue: .main,
             ) { [weak self] _ in
-                MainActor.assumeIsolated {
+                Task { @MainActor in
                     self?.handleScreenParametersChanged()
                 }
             }
+        }
+    }
+
+    deinit {
+        if let observer = screenParameterObserver {
+            NotificationCenter.default.removeObserver(observer)
         }
     }
 
