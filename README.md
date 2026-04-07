@@ -12,7 +12,7 @@ Vibecoded with [Claude Code](https://claude.ai/code).
 - **Smart Link Detection** — Meet, Zoom, Teams, Webex
 - **Multi-Display Support** — Alerts on all screens
 - **Global Shortcuts** — Join/dismiss via keyboard
-- **Snooze & Focus Mode** — Override Do Not Disturb
+- **Snooze** — Postpone alerts with configurable snooze timers
 - **Auto-Updates** — Sparkle-powered update checks
 
 ## Requirements

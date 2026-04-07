@@ -11,7 +11,6 @@ final class ServiceContainer {
     let themeManager: ThemeManager
     let preferencesManager: PreferencesManager
     let soundManager: SoundManager
-    let focusModeManager: FocusModeManager
     let calendarService: CalendarService
     let overlayManager: any OverlayManaging
     let eventScheduler: EventScheduler
@@ -36,7 +35,6 @@ final class ServiceContainer {
 
         preferencesManager = preferencesManagerOverride ?? PreferencesManager(themeManager: themeManager)
         soundManager = SoundManager(preferencesManager: preferencesManager)
-        focusModeManager = FocusModeManager(preferencesManager: preferencesManager)
         calendarService = CalendarService(
             preferencesManager: preferencesManager,
             databaseManager: databaseManager,
@@ -54,7 +52,6 @@ final class ServiceContainer {
                 preferencesManager: preferencesManager,
                 eventScheduler: eventScheduler,
                 soundManager: soundManager,
-                focusModeManager: focusModeManager,
                 notificationManager: notificationManager,
                 linkParser: linkParser,
                 themeManager: themeManager,

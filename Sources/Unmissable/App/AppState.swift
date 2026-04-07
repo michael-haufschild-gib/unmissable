@@ -176,14 +176,11 @@ final class AppState {
         // changed it in System Settings > General > Login Items)
         services.preferencesManager.syncLoginItemWithSystem()
 
-        // First-time users see the onboarding flow; returning users get the
-        // accessibility-permission prompt (no-op if already granted).
+        // First-time users see the onboarding flow.
         let hasCompletedOnboarding = services.preferencesManager.hasCompletedOnboarding
         if !hasCompletedOnboarding {
             logger.info("First launch detected — showing onboarding")
             onboardingWindowManager.showOnboarding()
-        } else {
-            requestAccessibilityPermission()
         }
 
         AppDiagnostics.record(component: "AppState", phase: "initialChecks") {
@@ -337,15 +334,12 @@ final class AppState {
 
     // MARK: - Onboarding
 
-    /// Marks onboarding as complete and requests the accessibility permission
-    /// that was deferred until after onboarding. Idempotent — safe to call
-    /// multiple times (e.g. from both the "Done" button and the window-close
-    /// delegate).
+    /// Marks onboarding as complete. Idempotent — safe to call multiple times
+    /// (e.g. from both the "Done" button and the window-close delegate).
     func markOnboardingComplete() {
         guard !services.preferencesManager.hasCompletedOnboarding else { return }
         logger.info("Onboarding completed")
         services.preferencesManager.setHasCompletedOnboarding(true)
-        requestAccessibilityPermission()
     }
 
     /// Marks onboarding as complete and closes the onboarding window.
@@ -379,22 +373,6 @@ final class AppState {
     private enum DemoOverlay {
         static let startDelaySeconds: TimeInterval = 120
         static let endDelaySeconds: TimeInterval = 1920
-    }
-
-    /// Requests accessibility permission from the system.
-    /// Prompts the user only if permission has not already been granted.
-    private func requestAccessibilityPermission() {
-        guard !AppRuntime.isUITesting else {
-            logger.info("Skipping accessibility permission prompt in UI testing mode")
-            return
-        }
-
-        let options: NSDictionary = ["AXTrustedCheckOptionPrompt": true]
-        let accessibilityEnabled = AXIsProcessTrustedWithOptions(options)
-
-        if !accessibilityEnabled {
-            logger.warning("Accessibility permissions not granted")
-        }
     }
 
     // MARK: - Alert Overrides
