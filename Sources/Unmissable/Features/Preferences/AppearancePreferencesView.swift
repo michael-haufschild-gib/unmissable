@@ -8,8 +8,8 @@ struct AppearancePreferencesView: View {
     @Environment(ThemeManager.self)
     private var themeManager
 
-    private static let themePickerWidth: CGFloat = 160
-    private static let menuBarPickerWidth: CGFloat = 140
+    private static let themePickerWidth: CGFloat = 180
+    private static let menuBarPickerWidth: CGFloat = 180
     private static let swatchSize: CGFloat = 24
     private static let swatchRingSize: CGFloat = 30
     private static let swatchRingOpacity: Double = 0.3
@@ -55,6 +55,7 @@ struct AppearancePreferencesView: View {
                                     Text(mode.displayName).tag(mode)
                                 }
                             }
+                            .labelsHidden()
                             .pickerStyle(.menu)
                             .umPickerStyle()
                             .frame(width: Self.themePickerWidth)
@@ -95,6 +96,7 @@ struct AppearancePreferencesView: View {
                                 Text(mode.displayName).tag(mode)
                             }
                         }
+                        .labelsHidden()
                         .pickerStyle(.menu)
                         .umPickerStyle()
                         .frame(width: Self.menuBarPickerWidth)

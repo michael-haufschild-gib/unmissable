@@ -95,9 +95,9 @@ struct GeneralPreferencesView: View {
     @Environment(\.design)
     private var design
 
-    private static let defaultAlertPickerWidth: CGFloat = 140
-    private static let lengthBasedPickerWidth: CGFloat = 110
-    private static let syncPickerWidth: CGFloat = 120
+    private static let defaultAlertPickerWidth: CGFloat = 160
+    private static let lengthBasedPickerWidth: CGFloat = 140
+    private static let syncPickerWidth: CGFloat = 140
 
     // Picker tag values (minutes)
     private static let alertTag1Min = 1
@@ -174,6 +174,7 @@ struct GeneralPreferencesView: View {
                 Text("10 minutes").tag(Self.alertTag10Min)
                 Text("15 minutes").tag(Self.alertTag15Min)
             }
+            .labelsHidden()
             .pickerStyle(.menu)
             .umPickerStyle()
             .frame(width: Self.defaultAlertPickerWidth)
@@ -215,6 +216,7 @@ struct GeneralPreferencesView: View {
                     Text("2 min").tag(Self.alertTag2Min)
                     Text("5 min").tag(Self.alertTag5Min)
                 }
+                .labelsHidden()
                 .pickerStyle(.menu)
                 .umPickerStyle()
                 .frame(width: Self.lengthBasedPickerWidth)
@@ -232,6 +234,7 @@ struct GeneralPreferencesView: View {
                     Text("5 min").tag(Self.alertTag5Min)
                     Text("10 min").tag(Self.alertTag10Min)
                 }
+                .labelsHidden()
                 .pickerStyle(.menu)
                 .umPickerStyle()
                 .frame(width: Self.lengthBasedPickerWidth)
@@ -249,6 +252,7 @@ struct GeneralPreferencesView: View {
                     Text("10 min").tag(Self.alertTag10Min)
                     Text("15 min").tag(Self.alertTag15Min)
                 }
+                .labelsHidden()
                 .pickerStyle(.menu)
                 .umPickerStyle()
                 .frame(width: Self.lengthBasedPickerWidth)
@@ -307,6 +311,7 @@ struct GeneralPreferencesView: View {
                         Text("2 minutes").tag(Self.syncTag2Min)
                         Text("5 minutes").tag(Self.syncTag5Min)
                     }
+                    .labelsHidden()
                     .pickerStyle(.menu)
                     .umPickerStyle()
                     .frame(width: Self.syncPickerWidth)
