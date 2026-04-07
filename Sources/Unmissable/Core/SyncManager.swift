@@ -6,7 +6,7 @@ import OSLog
 @MainActor
 @Observable
 final class SyncManager {
-    private let logger = Logger(category: "SyncManager")
+    let logger = Logger(category: "SyncManager")
 
     var syncStatus: SyncStatus = .idle
     var lastSyncTime: Date?
@@ -15,7 +15,7 @@ final class SyncManager {
     var retryCount: Int = 0
 
     @ObservationIgnored
-    private let providerType: CalendarProviderType
+    let providerType: CalendarProviderType
     @ObservationIgnored
     private let apiService: any CalendarAPIProviding
     @ObservationIgnored
@@ -99,7 +99,7 @@ final class SyncManager {
         networkMonitor?.cancel()
     }
 
-    private var syncInterval: TimeInterval {
+    var syncInterval: TimeInterval {
         TimeInterval(preferencesManager.syncIntervalSeconds)
     }
 
@@ -186,18 +186,18 @@ final class SyncManager {
             return
         }
 
-        let intervalSeconds = syncInterval
-        logger.info("Starting periodic sync every \(Int(intervalSeconds))s")
+        logger.info("Starting periodic sync (base interval: \(Int(self.syncInterval))s)")
 
         // Schedule periodic sync
         syncTask = Task { @MainActor in
             // First sync immediately
             await performSync()
 
-            // Then repeat every interval
+            // Then repeat — interval adapts to time of day each cycle
             while !Task.isCancelled {
                 do {
-                    try await Task.sleep(for: .seconds(intervalSeconds))
+                    let interval = effectiveSyncInterval()
+                    try await Task.sleep(for: .seconds(interval))
                     if !Task.isCancelled {
                         await performSync()
                     }

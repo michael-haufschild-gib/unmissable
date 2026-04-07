@@ -56,11 +56,24 @@ final class PreferencesManager {
 
     // MARK: - Default Values
 
-    private static let defaultAlertMinutesDefault = 1
-    private static let shortMeetingAlertDefault = 1
-    private static let mediumMeetingAlertDefault = 2
-    private static let longMeetingAlertDefault = 5
+    private static let alertMinutes1 = 1
+    private static let alertMinutes2 = 2
+    private static let alertMinutes5 = 5
+    private static let alertMinutes10 = 10
+    private static let alertMinutes15 = 15
+
+    private static let defaultAlertMinutesDefault = alertMinutes1
+    private static let shortMeetingAlertDefault = alertMinutes1
+    private static let mediumMeetingAlertDefault = alertMinutes2
+    private static let longMeetingAlertDefault = alertMinutes5
     private static let alertMinutesRange = 0 ... 60
+
+    /// Valid picker options — used for both view tags and load-time validation.
+    /// A stored value outside these sets causes the picker to render empty.
+    static let defaultAlertOptions = [alertMinutes1, alertMinutes2, alertMinutes5, alertMinutes10, alertMinutes15]
+    static let shortMeetingAlertOptions = [alertMinutes1, alertMinutes2, alertMinutes5]
+    static let mediumMeetingAlertOptions = [alertMinutes2, alertMinutes5, alertMinutes10]
+    static let longMeetingAlertOptions = [alertMinutes5, alertMinutes10, alertMinutes15]
     private static let syncIntervalDefault = 60
     private static let syncIntervalRange = 30 ... 3600
     private static let overlayOpacityDefault: Double = 0.9
@@ -270,6 +283,12 @@ final class PreferencesManager {
         max(range.lowerBound, min(value, range.upperBound))
     }
 
+    /// Returns `value` if it appears in `valid`, otherwise `fallback`.
+    /// Prevents picker showing empty when UserDefaults holds a stale value.
+    private static func snapToValid(_ value: Int, valid: [Int], fallback: Int) -> Int {
+        valid.contains(value) ? value : fallback
+    }
+
     private func loadThemePreferences() {
         if let themeRawValue = userDefaults.object(forKey: PrefKey.themeMode) as? String,
            let theme = ThemeMode(rawValue: themeRawValue)
@@ -299,22 +318,26 @@ final class PreferencesManager {
     }
 
     private func loadPreferences() {
-        defaultAlertMinutes = Self.clamp(
+        defaultAlertMinutes = Self.snapToValid(
             userDefaults.object(forKey: PrefKey.defaultAlertMinutes) as? Int ?? Self.defaultAlertMinutesDefault,
-            to: Self.alertMinutesRange,
+            valid: Self.defaultAlertOptions,
+            fallback: Self.defaultAlertMinutesDefault,
         )
         useLengthBasedTiming = userDefaults.bool(forKey: PrefKey.useLengthBasedTiming)
-        shortMeetingAlertMinutes = Self.clamp(
+        shortMeetingAlertMinutes = Self.snapToValid(
             userDefaults.object(forKey: PrefKey.shortMeetingAlertMinutes) as? Int ?? Self.shortMeetingAlertDefault,
-            to: Self.alertMinutesRange,
+            valid: Self.shortMeetingAlertOptions,
+            fallback: Self.shortMeetingAlertDefault,
         )
-        mediumMeetingAlertMinutes = Self.clamp(
+        mediumMeetingAlertMinutes = Self.snapToValid(
             userDefaults.object(forKey: PrefKey.mediumMeetingAlertMinutes) as? Int ?? Self.mediumMeetingAlertDefault,
-            to: Self.alertMinutesRange,
+            valid: Self.mediumMeetingAlertOptions,
+            fallback: Self.mediumMeetingAlertDefault,
         )
-        longMeetingAlertMinutes = Self.clamp(
+        longMeetingAlertMinutes = Self.snapToValid(
             userDefaults.object(forKey: PrefKey.longMeetingAlertMinutes) as? Int ?? Self.longMeetingAlertDefault,
-            to: Self.alertMinutesRange,
+            valid: Self.longMeetingAlertOptions,
+            fallback: Self.longMeetingAlertDefault,
         )
 
         syncIntervalSeconds = Self.clamp(

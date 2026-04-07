@@ -70,6 +70,7 @@
 		68DB22CC3E20935F3CDD8774 /* EventGrouping.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FA7B125B69C16D010FC7FC2 /* EventGrouping.swift */; };
 		6A67DADD858D4A9DA7C6F6CA /* GoogleCalendarConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02B4EFB2BF831381357EBF43 /* GoogleCalendarConfigTests.swift */; };
 		6AB17E67C46A0E08EE2CCB2E /* HTMLTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2009403A4FE3EDE0D0252762 /* HTMLTextView.swift */; };
+		6BF74F0EC38AC58CEA9D4883 /* CalendarService+Timers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DF2BA76D8A5EEAE73F7F93F /* CalendarService+Timers.swift */; };
 		7004D483CDB207DBFD5CC935 /* SyncManagerLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F6F42D7C03009093294667F /* SyncManagerLifecycleTests.swift */; };
 		716B2EBD2DF1C15DCDC7E462 /* GoogleCalendarConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FEE7757A31E4B66999763C0 /* GoogleCalendarConfig.swift */; };
 		72317C203D630FA3EF0DF314 /* Clocks in Frameworks */ = {isa = PBXBuildFile; productRef = 04FFE9FF844C108F8424812C /* Clocks */; };
@@ -89,6 +90,7 @@
 		881CE01DBC062A2B5801F75B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEBF93492117A2AC65028F04 /* AppDelegate.swift */; };
 		89C150F137ABE72AA4FAAFF1 /* MeetingDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D3BAE6C2FFC47FDA33A61D9 /* MeetingDetailsView.swift */; };
 		8F44D71E217799CFEED747F8 /* LoginItemManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E287B37EF9CCEDB3AB113D9 /* LoginItemManager.swift */; };
+		8F53EA52B47933A3678294F1 /* SyncManager+Schedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36CCFFE53AF758D6CFEEF2A4 /* SyncManager+Schedule.swift */; };
 		91A08CE9DEE7D88788E0093F /* HealthMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3542F07F670015242BDB17F7 /* HealthMonitor.swift */; };
 		94EE363478A004F5D12464DA /* ForegroundAppDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F31CECCB72616ADFDBE2CF /* ForegroundAppDetector.swift */; };
 		960C762CDE32198A9BDB4F84 /* HealthMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCA23C16C29D9AA84857F066 /* HealthMonitorTests.swift */; };
@@ -218,6 +220,7 @@
 		2FEE7757A31E4B66999763C0 /* GoogleCalendarConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleCalendarConfig.swift; sourceTree = "<group>"; };
 		31B438C6AC4225E343A773DF /* EventAttachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventAttachment.swift; sourceTree = "<group>"; };
 		3542F07F670015242BDB17F7 /* HealthMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthMonitor.swift; sourceTree = "<group>"; };
+		36CCFFE53AF758D6CFEEF2A4 /* SyncManager+Schedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SyncManager+Schedule.swift"; sourceTree = "<group>"; };
 		397E7D150A333C0FDB532E97 /* SyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncManager.swift; sourceTree = "<group>"; };
 		3A0A2539B21307B4AE5C9659 /* CalendarService+UITestInjection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CalendarService+UITestInjection.swift"; sourceTree = "<group>"; };
 		3A21CAA6F79EA8A39C06CDEE /* OnboardingWindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingWindowManager.swift; sourceTree = "<group>"; };
@@ -251,6 +254,7 @@
 		6CE94DB5A9A779240A1570AB /* OverlaySnoozeAndDismissTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlaySnoozeAndDismissTests.swift; sourceTree = "<group>"; };
 		6D3BAE6C2FFC47FDA33A61D9 /* MeetingDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDetailsView.swift; sourceTree = "<group>"; };
 		6DB6408E36B5119A42F97830 /* EventFilteringTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventFilteringTests.swift; sourceTree = "<group>"; };
+		6DF2BA76D8A5EEAE73F7F93F /* CalendarService+Timers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CalendarService+Timers.swift"; sourceTree = "<group>"; };
 		6FA7B125B69C16D010FC7FC2 /* EventGrouping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventGrouping.swift; sourceTree = "<group>"; };
 		76A8FA382EBD0436D8B734D4 /* ThemeCascadeE2ETests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeCascadeE2ETests.swift; sourceTree = "<group>"; };
 		79837BE0201D1E071DA6AB90 /* MenuBarE2ETests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarE2ETests.swift; sourceTree = "<group>"; };
@@ -428,6 +432,7 @@
 				A35D13F723366EE6D9E67D7E /* Styles.swift */,
 				10197BB42E9FC751636C1D39 /* SyncError.swift */,
 				397E7D150A333C0FDB532E97 /* SyncManager.swift */,
+				36CCFFE53AF758D6CFEEF2A4 /* SyncManager+Schedule.swift */,
 				A642417F3A63E5B99585F4D0 /* ThemeManager.swift */,
 				A4E2D3306224CECEB62C8D61 /* Diagnostics */,
 			);
@@ -643,6 +648,7 @@
 				677359BDD3C4BB27AB9D6779 /* AppleCalendarAPIService.swift */,
 				06E1DE0CEA279C13913CCC61 /* AppleCalendarAuthService.swift */,
 				2FAD1ACB97AE81E329AE3DAD /* CalendarService.swift */,
+				6DF2BA76D8A5EEAE73F7F93F /* CalendarService+Timers.swift */,
 				3A0A2539B21307B4AE5C9659 /* CalendarService+UITestInjection.swift */,
 				142FF31246087EE57AE046C9 /* GoogleCalendarAPIService.swift */,
 				94EAA90B58BF480414CC142C /* GoogleCalendarModels.swift */,
@@ -906,6 +912,7 @@
 				E2090A9E3C797115C5FA98AE /* CalendarInfo.swift in Sources */,
 				E28961FF7E378A6810084A8F /* CalendarPreferencesView.swift in Sources */,
 				3DAC7A854A15854FE033D5E5 /* CalendarProviderType.swift in Sources */,
+				6BF74F0EC38AC58CEA9D4883 /* CalendarService+Timers.swift in Sources */,
 				241DAE6B04D9054F6E85F287 /* CalendarService+UITestInjection.swift in Sources */,
 				C2C85E29E0DD4FB7061875A6 /* CalendarService.swift in Sources */,
 				CBC13813F6F2D2812963E615 /* Containers.swift in Sources */,
@@ -961,6 +968,7 @@
 				3D6AE0CD73821A659CAC9230 /* SoundManager.swift in Sources */,
 				7429393557C8B894CBAFF7F6 /* Styles.swift in Sources */,
 				D44E1C1BA87662EFA3A39A94 /* SyncError.swift in Sources */,
+				8F53EA52B47933A3678294F1 /* SyncManager+Schedule.swift in Sources */,
 				EAD95F4EE90BC80DE72602B3 /* SyncManager.swift in Sources */,
 				F1A880E93141B363BCDD63E7 /* SyncStatus.swift in Sources */,
 				995C7E609D9BC373E7AE93F1 /* ThemeManager.swift in Sources */,
@@ -1016,6 +1024,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1040,6 +1049,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1064,6 +1074,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1088,6 +1099,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1168,7 +1180,6 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				EXCLUDED_ARCHS = x86_64;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -1199,6 +1210,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1223,6 +1235,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1280,7 +1293,6 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				EXCLUDED_ARCHS = x86_64;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;

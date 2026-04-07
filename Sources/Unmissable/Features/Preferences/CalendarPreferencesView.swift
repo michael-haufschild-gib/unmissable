@@ -235,6 +235,7 @@ struct CalendarSelectionRow: View {
             ) {}
                 .toggleStyle(UMToggleStyle())
                 .labelsHidden()
+                .fixedSize()
                 .accessibilityLabel("Toggle \(calendar.name)")
 
             VStack(alignment: .leading, spacing: design.spacing.xs) {

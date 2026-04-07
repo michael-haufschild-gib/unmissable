@@ -13,9 +13,12 @@ final class HealthMonitor {
     @ObservationIgnored
     private var healthCheckTask: Task<Void, Never>?
     @ObservationIgnored
-    private let healthCheckInterval: TimeInterval = 60.0 // Check every minute
-    @ObservationIgnored
     private let memoryWarningThresholdMB: Double = 200.0 // Warn if app uses more than 200 MB
+
+    /// Health check interval when all systems are healthy (5 minutes).
+    private static let healthyCheckInterval: TimeInterval = 300.0
+    /// Health check interval when issues are detected (1 minute).
+    private static let degradedCheckInterval: TimeInterval = 60.0
 
     /// Retry count above which sync failures are flagged as critical.
     private static let syncRetryWarningThreshold = 3
@@ -61,6 +64,13 @@ final class HealthMonitor {
         performHealthCheck()
     }
 
+    /// Returns the appropriate check interval based on current health status.
+    /// Healthy systems are checked infrequently (5 min); degraded/critical systems
+    /// are checked every minute to track resolution.
+    private var currentCheckInterval: TimeInterval {
+        healthStatus.isHealthy ? Self.healthyCheckInterval : Self.degradedCheckInterval
+    }
+
     private func startHealthMonitoring() {
         logger.info("Starting health monitoring")
 
@@ -70,7 +80,8 @@ final class HealthMonitor {
 
             while !Task.isCancelled {
                 do {
-                    try await Task.sleep(for: .seconds(Int(healthCheckInterval)))
+                    let interval = currentCheckInterval
+                    try await Task.sleep(for: .seconds(Int(interval)))
                     if !Task.isCancelled {
                         performHealthCheck()
                     }
