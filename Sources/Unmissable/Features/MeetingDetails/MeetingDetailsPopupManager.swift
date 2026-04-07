@@ -200,6 +200,7 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
 
 // MARK: - Window Delegate
 
+@MainActor
 private class PopupWindowDelegate: NSObject, NSWindowDelegate {
     private let onClose: () -> Void
 
