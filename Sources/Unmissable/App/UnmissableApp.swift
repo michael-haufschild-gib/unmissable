@@ -12,21 +12,37 @@ struct UnmissableApp: App {
 
     @NSApplicationDelegateAdaptor(AppDelegate.self)
     var appDelegate
+
+    // CRITICAL: AppState MUST be initialized lazily in .task, NOT eagerly.
+    // Eager init runs before NSApplication.didFinishLaunching, which breaks
+    // the activation policy and blocks menu bar clicks. This took 2 days to
+    // debug — do NOT change this to eager init.
     @State
-    private var appState = AppState(isTestEnvironment: AppRuntime.isRunningTests)
+    private var appState: AppState?
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarView()
-                .environment(appState)
-                .environment(appState.calendar)
-                .themed(themeManager: appState.themeManager)
-                .accessibilityIdentifier(Accessibility.popoverIdentifier)
+            Group {
+                if let appState {
+                    MenuBarView()
+                        .environment(appState)
+                        .environment(appState.calendar)
+                        .themed(themeManager: appState.themeManager)
+                        .accessibilityIdentifier(Accessibility.popoverIdentifier)
+                } else {
+                    Text("Loading...")
+                        .padding()
+                }
+            }
         } label: {
-            MenuBarLabelView()
-                .environment(appState.menuBarPreview)
-                .accessibilityLabel(Accessibility.statusItemLabel)
+            MenuBarLabelView(menuBarPreview: appState?.menuBarPreview)
+                .task {
+                    if appState == nil {
+                        appState = AppState(isTestEnvironment: AppRuntime.isRunningTests)
+                    }
+                }
                 .accessibilityIdentifier(Accessibility.statusItemIdentifier)
+                .accessibilityLabel(Accessibility.statusItemLabel)
                 .help(Accessibility.statusItemHelp)
         }
         .menuBarExtraStyle(.window)
@@ -34,18 +50,15 @@ struct UnmissableApp: App {
 }
 
 struct MenuBarLabelView: View {
-    @Environment(MenuBarPreviewManager.self)
-    var menuBarPreview
-    @Environment(\.design)
-    private var design
+    var menuBarPreview: MenuBarPreviewManager?
 
     var body: some View {
         Group {
-            if menuBarPreview.shouldShowIcon {
-                Image(systemName: "calendar.badge.clock")
-            } else if let text = menuBarPreview.menuBarText {
+            if let menuBarPreview, !menuBarPreview.shouldShowIcon,
+               let text = menuBarPreview.menuBarText
+            {
                 Text(text)
-                    .font(design.fonts.monoSmall)
+                    .font(DesignFonts.menuBarLabel)
             } else {
                 Image(systemName: "calendar.badge.clock")
             }

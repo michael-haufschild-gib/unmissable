@@ -6,9 +6,9 @@ import UserNotifications
 // MARK: - Notification Constants
 
 /// Compile-time string constants for notification identifiers.
-/// Marked `nonisolated` so `nonisolated` delegate methods
-/// can reference them without isolation errors.
-nonisolated enum NotificationConstants {
+/// Static lets on a non-actor enum are implicitly Sendable,
+/// so `nonisolated` delegate methods can reference them freely.
+enum NotificationConstants {
     /// Notification category for meetings with a joinable link.
     static let meetingWithLinkCategory = "MEETING_WITH_LINK"
 
@@ -30,6 +30,7 @@ nonisolated enum NotificationConstants {
 /// Delivers macOS Notification Center alerts as a lighter alternative to the
 /// full-screen overlay. Handles permission requests, notification delivery,
 /// and the "Join" action when the user taps the notification.
+@MainActor
 final class NotificationManager: NSObject, NotificationManaging {
     private let logger = Logger(category: "NotificationManager")
 

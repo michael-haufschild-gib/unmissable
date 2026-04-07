@@ -5,6 +5,7 @@ import Observation
 import OSLog
 import Sauce
 
+@MainActor
 @Observable
 final class ShortcutsManager {
     private let logger = Logger(category: "ShortcutsManager")

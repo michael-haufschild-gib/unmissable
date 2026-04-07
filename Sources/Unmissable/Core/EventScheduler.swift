@@ -3,6 +3,7 @@ import Foundation
 import Observation
 import OSLog
 
+@MainActor
 @Observable
 final class EventScheduler {
     private let logger = Logger(category: "EventScheduler")
@@ -39,6 +40,11 @@ final class EventScheduler {
     /// `refreshMonitoring` from starting a loop. Used by tests that
     /// don't need the monitoring loop.
     private var monitoringEnabled = false
+
+    /// Event IDs whose overlay alert has already been delivered (via monitoring
+    /// loop, missed-alert path, or snooze re-fire). Prevents repeated overlay
+    /// delivery on every sync-triggered reschedule. Cleared on `stopScheduling()`.
+    private var deliveredAlertEventIDs: Set<String> = []
 
     /// Abstraction over `Task.sleep` for deterministic testing.
     /// Production default sleeps for the given number of seconds.
@@ -105,8 +111,8 @@ final class EventScheduler {
     }
 
     func startScheduling(events: [Event], overlayManager: any OverlayManaging) {
-        monitoringEnabled = true
         scheduleWithoutMonitoring(events: events, overlayManager: overlayManager)
+        monitoringEnabled = true
         startMonitoring(overlayManager: overlayManager)
         logger.debug("Event scheduling setup completed")
         AppDiagnostics.record(component: "EventScheduler", phase: "startScheduling") {
@@ -136,6 +142,7 @@ final class EventScheduler {
         let missedEvents = scheduleAlerts(for: events)
         for event in missedEvents {
             logger.info("Missed alert time for event \(PrivacyUtils.redactedEventId(event.id)), triggering immediately")
+            deliveredAlertEventIDs.insert(event.id)
             deliverAlert(for: event, overlayManager: overlayManager, fromSnooze: false)
         }
     }
@@ -179,6 +186,7 @@ final class EventScheduler {
         let missedEvents = scheduleAlerts(for: currentEvents)
         for event in missedEvents {
             logger.info("Missed alert time for event \(PrivacyUtils.redactedEventId(event.id)), triggering immediately")
+            deliveredAlertEventIDs.insert(event.id)
             deliverAlert(for: event, overlayManager: overlayManager, fromSnooze: false)
         }
         if monitoringEnabled {
@@ -194,6 +202,7 @@ final class EventScheduler {
         // Clean up properly to prevent memory leaks
         currentEvents.removeAll()
         currentOverlayManager = nil
+        deliveredAlertEventIDs.removeAll()
 
         logger.debug("Event scheduling stopped")
     }
@@ -266,7 +275,9 @@ final class EventScheduler {
                     alertType: .reminder(minutesBefore: overlayTiming),
                 )
                 scheduledAlerts.append(overlayAlert)
-            } else if event.startDate > currentTime {
+            } else if event.startDate > currentTime,
+                      !deliveredAlertEventIDs.contains(event.id)
+            {
                 // Alert time has passed but meeting hasn't started (e.g. app started late)
                 missedAlertEvents.append(event)
             }
@@ -462,6 +473,7 @@ final class EventScheduler {
         switch alert.alertType {
         case let .reminder(minutes):
             alertTypeName = "reminder(\(minutes)min)"
+            deliveredAlertEventIDs.insert(alert.event.id)
             deliverAlert(for: alert.event, overlayManager: overlayManager, fromSnooze: false)
 
         case .meetingStart:

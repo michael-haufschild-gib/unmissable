@@ -209,54 +209,6 @@ struct PreferenceGatedFlowsE2ETests {
         #expect(unwrappedLong.event.id == "e2e-lb-long")
     }
 
-    // MARK: - Focus Mode Override Preference Through Full Overlay Trigger
-
-    @Test
-    func focusModeOverride_overlayShowsDespiteDND() async throws {
-        env.preferencesManager.setOverlayShowMinutesBefore(0)
-
-        let focusModeManager = FocusModeManager(
-            preferencesManager: env.preferencesManager,
-            isTestMode: true,
-        )
-
-        // DND on, override off — overlay suppressed
-        focusModeManager.isDoNotDisturbEnabled = true
-        env.preferencesManager.setOverrideFocusMode(false)
-
-        let event = E2EEventBuilder.futureEvent(
-            id: "e2e-focus-override",
-            title: "Focus Override Meeting",
-            minutesFromNow: 1,
-            durationMinutes: 60,
-        )
-        try await env.seedAndSchedule([event])
-
-        // Check before showing — DND should suppress
-        #expect(!focusModeManager.shouldShowOverlay())
-
-        // Now toggle override on
-        env.preferencesManager.setOverrideFocusMode(true)
-        #expect(focusModeManager.shouldShowOverlay())
-
-        // With override on, overlay should work
-        if focusModeManager.shouldShowOverlay() {
-            env.overlayManager.showOverlayImmediately(for: event)
-        }
-        #expect(env.overlayManager.isOverlayVisible)
-        #expect(env.overlayManager.activeEvent?.id == event.id)
-
-        // Full cycle: snooze → re-fire check
-        env.overlayManager.snoozeOverlay(for: 5)
-        #expect(!env.overlayManager.isOverlayVisible)
-
-        let hasSnooze = env.eventScheduler.scheduledAlerts.contains { alert in
-            if case .snooze = alert.alertType { return true }
-            return false
-        }
-        #expect(hasSnooze, "Snooze should work with focus override enabled")
-    }
-
     // MARK: - Overlay Show Minutes Before = 0 (At Event Start)
 
     @Test

@@ -96,7 +96,7 @@ struct GeneralPreferencesView: View {
     private var design
 
     private static let defaultAlertPickerWidth: CGFloat = 140
-    private static let lengthBasedPickerWidth: CGFloat = 80
+    private static let lengthBasedPickerWidth: CGFloat = 110
     private static let syncPickerWidth: CGFloat = 120
 
     // Picker tag values (minutes)

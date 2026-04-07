@@ -18,6 +18,8 @@ struct MenuBarView: View {
     var calendarService
     @Environment(\.design)
     private var design
+    @Environment(\.dismiss)
+    private var dismiss
 
     private var includeAllDay: Bool {
         appState.preferences.includeAllDayEvents
@@ -154,6 +156,7 @@ struct MenuBarView: View {
 
             HStack {
                 Button("Preferences") {
+                    dismiss()
                     appState.showPreferences()
                 }
                 .buttonStyle(UMButtonStyle(.ghost, size: .sm))
@@ -264,7 +267,21 @@ struct MenuBarView: View {
     }
 
     private var eventsListSection: some View {
-        Group {
+        VStack(spacing: design.spacing.md) {
+            HStack {
+                Text("Show today only")
+                    .font(design.fonts.caption)
+                    .foregroundColor(design.colors.textSecondary)
+
+                Spacer()
+
+                Toggle(isOn: appState.preferences.showTodayOnlyInMenuBarBinding) {}
+                    .toggleStyle(UMToggleStyle())
+                    .labelsHidden()
+                    .accessibilityLabel("Show today only")
+            }
+            .padding(.horizontal, design.spacing.lg)
+
             if groupedEvents.isEmpty {
                 HStack(spacing: design.spacing.sm) {
                     Image(systemName: "calendar")
@@ -280,24 +297,8 @@ struct MenuBarView: View {
                 .umCard(.flat)
                 .padding(.horizontal, design.spacing.lg)
             } else {
-                VStack(spacing: design.spacing.md) {
-                    HStack {
-                        Text("Show today only")
-                            .font(design.fonts.caption)
-                            .foregroundColor(design.colors.textSecondary)
-
-                        Spacer()
-
-                        Toggle(isOn: appState.preferences.showTodayOnlyInMenuBarBinding) {}
-                            .toggleStyle(UMToggleStyle())
-                            .labelsHidden()
-                            .accessibilityLabel("Show today only")
-                    }
-                    .padding(.horizontal, design.spacing.lg)
-
-                    ForEach(groupedEvents) { group in
-                        eventGroupView(group)
-                    }
+                ForEach(groupedEvents) { group in
+                    eventGroupView(group)
                 }
             }
         }

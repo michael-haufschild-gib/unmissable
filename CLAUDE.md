@@ -10,7 +10,7 @@ Swift language mode 6 / toolchain 6.3 / Xcode 26.4 (strict concurrency) | macOS 
 
 | Constraint | Rule |
 |-----------|------|
-| Concurrency | Swift 6 strict concurrency + ApproachableConcurrency in all targets. Sources use `defaultIsolation(MainActor.self)`. |
+| Concurrency | Swift 6 strict concurrency + ApproachableConcurrency in all targets. Sources use explicit `@MainActor` on classes/protocols (no `defaultIsolation` compiler flag). |
 | UI tokens | All UI must use design system tokens. Raw values are lint errors. See `docs/meta/styleguide.md`. |
 | Test safety | Never instantiate `OverlayManager` or `AppState()` in tests. Use `TestSafeOverlayManager` / `isTestEnvironment: true`. |
 | Logging | `OSLog` only (subsystem `com.unmissable.app`). No `print()`. No PII. |

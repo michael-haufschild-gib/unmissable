@@ -5,7 +5,7 @@
 	<key>GoogleOAuthClientID</key>
 	<string>YOUR_GOOGLE_OAUTH_CLIENT_ID_HERE</string>
 	<key>RedirectScheme</key>
-	<string>com.unmissable.app</string>
+	<string>YOUR_REVERSED_CLIENT_ID_HERE</string>
 	<key>Environment</key>
 	<string>development</string>
 </dict>

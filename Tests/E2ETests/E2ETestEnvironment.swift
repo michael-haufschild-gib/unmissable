@@ -40,7 +40,6 @@ final class E2ETestEnvironment {
         preferencesManager.setPlayAlertSound(false)
         preferencesManager.setUseLengthBasedTiming(false)
         preferencesManager.setShowOnAllDisplays(false)
-        preferencesManager.setOverrideFocusMode(false)
         preferencesManager.setAutoJoinEnabled(false)
         preferencesManager.setIncludeAllDayEvents(false)
 

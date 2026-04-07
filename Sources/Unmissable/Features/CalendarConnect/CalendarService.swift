@@ -5,6 +5,7 @@ import Observation
 import OSLog
 
 /// Representation of a connected calendar provider backend.
+@MainActor
 struct ProviderBackend {
     let type: CalendarProviderType
     let auth: any CalendarAuthProviding
@@ -12,6 +13,7 @@ struct ProviderBackend {
     let sync: SyncManager
 }
 
+@MainActor
 @Observable
 final class CalendarService {
     private let logger = Logger(category: "CalendarService")

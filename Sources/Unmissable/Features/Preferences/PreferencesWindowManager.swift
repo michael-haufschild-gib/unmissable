@@ -4,6 +4,7 @@ import OSLog
 import SwiftUI
 
 /// Manages the preferences window with proper activation and foreground behavior
+@MainActor
 @Observable
 final class PreferencesWindowManager: NSObject {
     private enum Activation {

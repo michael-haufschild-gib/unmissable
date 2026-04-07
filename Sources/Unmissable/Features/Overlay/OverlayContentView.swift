@@ -41,6 +41,7 @@ struct OverlayContentView: View {
     private static let recentStartThresholdSeconds: TimeInterval = -300
     private static let timerFastIntervalSeconds: TimeInterval = 60
     private static let timerMediumIntervalSeconds: TimeInterval = 300
+    private static let timerSlowThresholdSeconds: TimeInterval = 600
 
     // MARK: - Glow Intensities
 
@@ -195,7 +196,7 @@ struct OverlayContentView: View {
     }
 
     private var countdownDisplay: some View {
-        VStack(spacing: design.spacing.md * fontScale) {
+        VStack(spacing: design.spacing.xl * fontScale) {
             if timeUntilMeeting > 0 {
                 Text("Starting in")
                     .font(design.fonts.title3)
@@ -396,9 +397,16 @@ struct OverlayContentView: View {
     // MARK: - Timer Management
 
     private func optimalTimerInterval() -> Duration {
-        let absTime = abs(timeUntilMeeting)
-        if absTime < Self.timerFastIntervalSeconds { return .seconds(Self.timerFastSeconds) }
-        if absTime < Self.timerMediumIntervalSeconds { return .seconds(Self.timerMediumSeconds) }
+        // Countdown shows seconds — need 1s ticks
+        if timeUntilMeeting > 0 {
+            return .seconds(Self.timerFastSeconds)
+        }
+        // "Meeting Started" and "Running for" both show minute-level text.
+        // 5s cadence is sufficient until 10 min past start, then 30s.
+        let elapsedSinceStart = -timeUntilMeeting
+        if elapsedSinceStart < Self.timerSlowThresholdSeconds {
+            return .seconds(Self.timerMediumSeconds)
+        }
         return .seconds(Self.timerSlowSeconds)
     }
 

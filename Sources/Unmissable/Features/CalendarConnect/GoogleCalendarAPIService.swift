@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import OSLog
 
+@MainActor
 @Observable
 final class GoogleCalendarAPIService: CalendarAPIProviding {
     private let logger = Logger(category: "GoogleCalendarAPIService")
@@ -482,7 +483,7 @@ final class GoogleCalendarAPIService: CalendarAPIProviding {
     }
 }
 
-nonisolated enum GoogleCalendarAPIError: LocalizedError {
+enum GoogleCalendarAPIError: LocalizedError {
     case invalidURL
     case invalidResponse
     case requestFailed(Int, String)

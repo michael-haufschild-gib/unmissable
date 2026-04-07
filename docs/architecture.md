@@ -83,8 +83,7 @@ All token usage is lint-enforced. See `docs/meta/styleguide.md` for the full lis
 ```swift
 import Foundation
 
-// nonisolated required — defaultIsolation(MainActor.self) makes types @MainActor by default
-nonisolated struct [Name]: Identifiable, Codable, Equatable {
+struct [Name]: Identifiable, Codable, Equatable {
     let id: String
     // Add properties
 
@@ -105,6 +104,7 @@ import Foundation
 import Observation
 import OSLog
 
+@MainActor
 @Observable
 final class [Name]Manager {
     private let logger = Logger(subsystem: "com.unmissable.app", category: "[Name]Manager")
@@ -154,8 +154,8 @@ protocol OverlayManaging: AnyObject {
     func showOverlay(for event: Event)
 }
 
-// Production implementation (@Observable via defaultIsolation)
-@Observable
+// Production implementation
+@MainActor @Observable
 final class OverlayManager: OverlayManaging { ... }
 
 // Test-safe implementation
@@ -177,9 +177,9 @@ final class ServiceContainer {
 }
 ```
 
-### defaultIsolation and @MainActor
+### @MainActor Isolation
 
-The `Unmissable` target uses `.defaultIsolation(MainActor.self)` — all types are implicitly `@MainActor`. Value types and utilities that must escape MainActor are marked `nonisolated`. Use `@concurrent nonisolated` for async functions that must run on the background executor.
+All manager classes and protocols are explicitly annotated `@MainActor`. Value types (models) are not isolated. Use `@concurrent nonisolated` for async functions that must run on the background executor.
 
 ### Async/Await for Concurrency
 

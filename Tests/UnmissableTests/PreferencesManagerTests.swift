@@ -31,7 +31,6 @@ struct PreferencesManagerTests {
         #expect(preferencesManager.fontSize == .medium)
         #expect(preferencesManager.showOnAllDisplays)
         #expect(preferencesManager.playAlertSound)
-        #expect(preferencesManager.overrideFocusMode)
         #expect(preferencesManager.launchAtLogin)
     }
 

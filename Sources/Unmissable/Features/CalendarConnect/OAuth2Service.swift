@@ -1,10 +1,11 @@
-import AppAuth
+@preconcurrency import AppAuth
 import AppKit
 import Foundation
 import KeychainAccess
 import Observation
 import OSLog
 
+@MainActor
 @Observable
 final class OAuth2Service: NSObject, CalendarAuthProviding {
     private let logger = Logger(category: "OAuth2Service")
@@ -156,19 +157,22 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
         let presentingWindow = findOrCreatePresentingWindow()
         let userAgent = OIDExternalUserAgentMac(presenting: presentingWindow)
 
-        self.currentAuthorizationFlow = OIDAuthorizationService.present(
-            request,
-            externalUserAgent: userAgent,
-        ) { [weak self] authorizationResponse, error in
-            Task { @MainActor in
+        let callback: @Sendable (OIDAuthorizationResponse?, (any Error)?) -> Void = { authorizationResponse, error in
+            nonisolated(unsafe) let response = authorizationResponse
+            Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.handleAuthorizationCallback(
-                    authResponse: authorizationResponse,
+                    authResponse: response,
                     error: error,
                     coordinator: coordinator,
                 )
             }
         }
+        self.currentAuthorizationFlow = OIDAuthorizationService.present(
+            request,
+            externalUserAgent: userAgent,
+            callback: callback,
+        )
 
         if self.currentAuthorizationFlow == nil {
             logger.error("Failed to start authorization flow - currentAuthorizationFlow is nil")
@@ -205,6 +209,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
             backing: .buffered,
             defer: false,
         )
+        window.isReleasedWhenClosed = false
         window.title = "Unmissable OAuth"
         window.makeKeyAndOrderFront(nil)
         createdOAuthWindow = window
@@ -258,17 +263,20 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
             return
         }
 
-        OIDAuthorizationService.perform(tokenRequest) { [weak self] tokenResponse, tokenError in
-            Task { @MainActor in
+        let tokenCallback: @Sendable (OIDTokenResponse?, (any Error)?) -> Void = { tokenResponse, tokenError in
+            nonisolated(unsafe) let authResp = authResponse
+            nonisolated(unsafe) let tokResp = tokenResponse
+            Task { @MainActor [weak self] in
                 guard let self else { return }
                 await self.handleTokenExchange(
-                    authResponse: authResponse,
-                    tokenResponse: tokenResponse,
+                    authResponse: authResp,
+                    tokenResponse: tokResp,
                     tokenError: tokenError,
                     coordinator: coordinator,
                 )
             }
         }
+        OIDAuthorizationService.perform(tokenRequest, callback: tokenCallback)
     }
 
     /// Handles the token exchange response
@@ -335,8 +343,8 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
                 return OAuth2Error.timeout
             }
 
-            authState.performAction { [weak self] accessToken, _, error in
-                Task { @MainActor in
+            let refreshCallback: @Sendable (String?, String?, (any Error)?) -> Void = { accessToken, _, error in
+                Task { @MainActor [weak self] in
                     // Guard against processing after timeout already completed
                     guard !coordinator.isCompleted else {
                         self?.logger.info("Token refresh callback ignored — already completed/timed out")
@@ -373,6 +381,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
                     }
                 }
             }
+            authState.performAction(freshTokens: refreshCallback)
         }
     }
 

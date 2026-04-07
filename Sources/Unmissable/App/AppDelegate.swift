@@ -1,6 +1,7 @@
 import Cocoa
 import OSLog
 
+@MainActor
 enum AppRuntime {
     static let isUITesting = ProcessInfo.processInfo.arguments.contains("--uitesting")
     static let requiresRegularActivation = ProcessInfo.processInfo.arguments.contains("--ui-testing-regular-activation")
@@ -13,6 +14,7 @@ enum AppRuntime {
     static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
 }
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let logger = Logger(category: "AppDelegate")
 

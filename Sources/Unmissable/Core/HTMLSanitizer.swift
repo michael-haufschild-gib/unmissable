@@ -511,7 +511,7 @@ nonisolated enum HTMLSanitizer {
 
 // MARK: - Character Helpers
 
-private nonisolated extension Character {
+private extension Character {
     var isASCIILetter: Bool {
         ("a" ... "z").contains(self) || ("A" ... "Z").contains(self)
     }

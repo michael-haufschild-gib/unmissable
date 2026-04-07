@@ -52,9 +52,15 @@ else
     echo "WARNING: Config.plist not found - app may not work without OAuth configuration"
 fi
 
-# Ad-hoc code sign (no developer account required)
-echo "Code signing with ad-hoc signature..."
-codesign --force --deep --sign - "${APP_BUNDLE}"
+# Ad-hoc code sign with entitlements preserved.
+# The source entitlements use $(AppIdentifierPrefix) which Xcode resolves at
+# build-time to the team ID. Ad-hoc signing has no team ID, so we strip it —
+# the keychain still works via the default access group.
+ENTITLEMENTS="${PROJECT_DIR}/Unmissable.entitlements"
+RESOLVED_ENTITLEMENTS="${BUILD_DIR}/resolved.entitlements"
+sed 's/\$(AppIdentifierPrefix)//g' "$ENTITLEMENTS" > "$RESOLVED_ENTITLEMENTS"
+echo "Code signing with ad-hoc signature (preserving entitlements)..."
+codesign --force --deep --sign - --entitlements "$RESOLVED_ENTITLEMENTS" "${APP_BUNDLE}"
 
 # Verify the bundle
 echo "Verifying app bundle..."
@@ -79,8 +85,23 @@ else
     exit 1
 fi
 
+# Build DMG
+DMG_PATH="${PROJECT_DIR}/${APP_NAME}.dmg"
+rm -f "${DMG_PATH}"
+echo "Creating DMG..."
+hdiutil create -volname "${APP_NAME}" \
+    -srcfolder "${APP_BUNDLE}" \
+    -ov -format UDZO \
+    "${DMG_PATH}"
+
+echo ""
+echo "DMG created: ${DMG_PATH}"
+
 # Cleanup archive
 rm -rf "${BUILD_DIR}"
 
 echo ""
 echo "Release build complete!"
+echo "Outputs:"
+echo "  App:  ${APP_BUNDLE}"
+echo "  DMG:  ${DMG_PATH}"

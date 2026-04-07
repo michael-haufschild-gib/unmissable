@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import OSLog
 
+@MainActor
 @Observable
 final class HealthMonitor {
     private let logger = Logger(category: "HealthMonitor")
@@ -286,6 +287,7 @@ final class HealthMonitor {
     }
 }
 
+@MainActor
 enum HealthStatus: Equatable {
     case healthy
     case degraded(issues: [HealthIssue])
@@ -299,6 +301,7 @@ enum HealthStatus: Equatable {
     }
 }
 
+@MainActor
 struct HealthIssue: Identifiable, Equatable {
     let id = UUID()
     let severity: Severity
@@ -321,6 +324,7 @@ struct HealthIssue: Identifiable, Equatable {
     }
 }
 
+@MainActor
 struct HealthMetrics {
     var lastHealthCheck: Date?
     var memoryUsageMB: Double = 0.0

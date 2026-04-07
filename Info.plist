@@ -40,6 +40,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>com.unmissable.app</string>
+				<string>$(GOOGLE_OAUTH_REDIRECT_SCHEME)</string>
 			</array>
 		</dict>
 	</array>

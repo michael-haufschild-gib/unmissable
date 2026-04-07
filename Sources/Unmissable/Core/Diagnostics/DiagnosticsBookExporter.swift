@@ -3,7 +3,7 @@ import Foundation
 /// Produces a human-readable "bug book" markdown document from the current
 /// diagnostics state. Designed for AI agent consumption on test failure
 /// or on-demand debug export from the running app.
-nonisolated enum DiagnosticsBookExporter {
+enum DiagnosticsBookExporter {
     /// Maximum number of recent records included in the bug book.
     private static let tailRecordCount = 50
 

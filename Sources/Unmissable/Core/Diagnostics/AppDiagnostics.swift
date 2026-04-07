@@ -16,7 +16,7 @@ import OSLog
 ///   `UserDefaults(key: "com.unmissable.diagnostics.enabled")` or the
 ///   `UNMISSABLE_DIAGNOSTICS` environment variable — intended for field debugging,
 ///   not end-user UI.
-nonisolated enum AppDiagnostics {
+enum AppDiagnostics {
     // MARK: - Session Identity
 
     /// Unique identifier for this app launch. Set once, never changes.

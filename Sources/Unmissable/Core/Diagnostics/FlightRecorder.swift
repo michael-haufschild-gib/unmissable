@@ -8,40 +8,40 @@ import os
 /// practice because diagnostic writes are infrequent.
 ///
 /// Records are stored in memory and exported on demand to JSONL or markdown.
-final nonisolated class FlightRecorder: Sendable {
+final class FlightRecorder: Sendable {
     /// Maximum records retained. Oldest records are dropped when full.
     static let defaultCapacity = 500
 
     private let storage: OSAllocatedUnfairLock<RingBuffer>
 
-    nonisolated init(capacity: Int = FlightRecorder.defaultCapacity) {
+    init(capacity: Int = FlightRecorder.defaultCapacity) {
         precondition(capacity > 0, "FlightRecorder capacity must be greater than 0")
         storage = OSAllocatedUnfairLock(initialState: RingBuffer(capacity: capacity))
     }
 
     /// Appends a record to the ring buffer. O(1), lock-protected.
-    nonisolated func append(_ record: DiagnosticRecord) {
+    func append(_ record: DiagnosticRecord) {
         storage.withLock { $0.append(record) }
     }
 
     /// Returns a snapshot of all records in chronological order.
-    nonisolated func snapshot() -> [DiagnosticRecord] {
+    func snapshot() -> [DiagnosticRecord] {
         storage.withLock { $0.snapshot() }
     }
 
     /// Number of records currently stored.
-    nonisolated var count: Int {
+    var count: Int {
         storage.withLock { $0.count }
     }
 
     /// Removes all stored records.
-    nonisolated func clear() {
+    func clear() {
         storage.withLock { $0.clear() }
     }
 
     /// Exports all records as newline-delimited JSON (JSONL).
     /// Each line is one JSON-encoded `DiagnosticRecord`.
-    nonisolated func exportJSONL() -> Data {
+    func exportJSONL() -> Data {
         let records = snapshot()
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -58,13 +58,13 @@ final nonisolated class FlightRecorder: Sendable {
     }
 
     /// Writes the JSONL export to the given file URL.
-    nonisolated func exportJSONL(to url: URL) throws {
+    func exportJSONL(to url: URL) throws {
         let data = exportJSONL()
         try data.write(to: url, options: .atomic)
     }
 
     /// Returns the most recent `count` records in chronological order.
-    nonisolated func tail(_ count: Int) -> [DiagnosticRecord] {
+    func tail(_ count: Int) -> [DiagnosticRecord] {
         let all = snapshot()
         return Array(all.suffix(count))
     }
@@ -74,7 +74,7 @@ final nonisolated class FlightRecorder: Sendable {
 
 /// Fixed-capacity circular buffer for `DiagnosticRecord`.
 /// Only accessed inside `OSAllocatedUnfairLock` — no isolation needed.
-private nonisolated struct RingBuffer {
+private struct RingBuffer {
     private var buffer: [DiagnosticRecord?]
     private var writeIndex = 0
     private(set) var count = 0

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import Unmissable
 
+@MainActor
 struct ScheduledAlertTests {
     // MARK: - isActive
 

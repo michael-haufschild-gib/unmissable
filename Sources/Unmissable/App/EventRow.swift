@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// Defines the available per-event alert override options shown in the context menu.
+@MainActor
 enum AlertOverrideOption: CaseIterable {
     case defaultTiming
     case oneMinute

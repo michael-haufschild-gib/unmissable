@@ -6,6 +6,7 @@ import SwiftUI
 
 // MARK: - Theme Manager
 
+@MainActor
 @Observable
 final class ThemeManager {
     var themeMode: ThemeMode = .system
@@ -32,11 +33,12 @@ final class ThemeManager {
 
     private func setupSystemAppearanceObserver() {
         guard NSApp != nil else { return }
-        systemAppearanceObserver = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
-            Task { @MainActor in
+        let onChange: @Sendable (NSApplication, NSKeyValueObservedChange<NSAppearance>) -> Void = { _, _ in
+            Task { @MainActor [weak self] in
                 self?.resolve()
             }
         }
+        systemAppearanceObserver = NSApp.observe(\.effectiveAppearance, changeHandler: onChange)
     }
 
     private func resolve() {
@@ -81,6 +83,7 @@ final class ThemeManager {
 
 // MARK: - Theme Enums
 
+@MainActor
 enum ThemeMode: String, CaseIterable {
     case system
     case light
@@ -101,6 +104,7 @@ enum ThemeMode: String, CaseIterable {
     }
 }
 
+@MainActor
 enum ResolvedTheme: String {
     case light
     case darkBlue

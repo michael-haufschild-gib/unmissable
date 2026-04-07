@@ -4,6 +4,7 @@ import Observation
 import OSLog
 import SwiftUI
 
+@MainActor
 @Observable
 final class OverlayManager: OverlayManaging {
     private let logger = Logger(category: "OverlayManager")
@@ -18,9 +19,12 @@ final class OverlayManager: OverlayManaging {
     }
 
     private var overlayWindows: [NSWindow] = []
+
+    @ObservationIgnored
+    private nonisolated(unsafe) var screenParameterObserver: (any NSObjectProtocol)?
+
     private let preferencesManager: PreferencesManager
     private let soundManager: SoundManager
-    private let focusModeManager: FocusModeManager
     private let foregroundAppDetector: any ForegroundAppDetecting
     private let notificationManager: any NotificationManaging
     private let linkParser: LinkParser
@@ -47,7 +51,6 @@ final class OverlayManager: OverlayManaging {
         preferencesManager: PreferencesManager,
         eventScheduler: EventScheduler,
         soundManager: SoundManager,
-        focusModeManager: FocusModeManager? = nil,
         foregroundAppDetector: any ForegroundAppDetecting = ForegroundAppDetector(),
         notificationManager: any NotificationManaging,
         linkParser: LinkParser = LinkParser(),
@@ -61,9 +64,25 @@ final class OverlayManager: OverlayManaging {
         self.notificationManager = notificationManager
         self.linkParser = linkParser
         self.themeManager = themeManager
-        self.focusModeManager =
-            focusModeManager ?? FocusModeManager(preferencesManager: preferencesManager)
         self.isTestMode = isTestMode
+
+        if !isTestMode {
+            screenParameterObserver = NotificationCenter.default.addObserver(
+                forName: NSApplication.didChangeScreenParametersNotification,
+                object: nil,
+                queue: .main,
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    self?.handleScreenParametersChanged()
+                }
+            }
+        }
+    }
+
+    deinit {
+        if let observer = screenParameterObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 
     func showOverlay(for event: Event, fromSnooze: Bool = false) {
@@ -81,15 +100,6 @@ final class OverlayManager: OverlayManaging {
                 outcome: .skipped,
             ) {
                 ["eventId": PrivacyUtils.redactedEventId(event.id), "reason": "alreadyVisible"]
-            }
-            return
-        }
-
-        // Check if we should show overlay based on Focus/DND status
-        guard focusModeManager.shouldShowOverlay() else {
-            logger.info("FOCUS MODE: Overlay suppressed due to Focus/DND mode")
-            AppDiagnostics.record(component: "OverlayManager", phase: "showOverlay", outcome: .skipped) {
-                ["eventId": PrivacyUtils.redactedEventId(event.id), "reason": "focusMode"]
             }
             return
         }
@@ -157,10 +167,8 @@ final class OverlayManager: OverlayManaging {
             "OVERLAY STATE: Set isOverlayVisible = true for event \(PrivacyUtils.redactedEventId(event.id)), isSnoozed = \(self.isSnoozedAlert)",
         )
 
-        // Play alert sound if enabled and allowed by focus mode
-        if focusModeManager.shouldPlaySound() {
-            soundManager.playAlertSound()
-        }
+        // Play alert sound if enabled
+        soundManager.playAlertSound()
 
         // Create windows synchronously (View manages its own countdown timer)
         createOverlayWindows(for: event)
@@ -240,6 +248,20 @@ final class OverlayManager: OverlayManaging {
         logger.info("Snooze scheduled through EventScheduler")
     }
 
+    private func handleScreenParametersChanged() {
+        guard isOverlayVisible, let event = activeEvent else { return }
+
+        logger.info("Screen parameters changed — recreating \(self.overlayWindows.count) overlay windows")
+
+        let staleWindows = overlayWindows
+        overlayWindows.removeAll()
+        for window in staleWindows {
+            window.close()
+        }
+
+        createOverlayWindows(for: event)
+    }
+
     private func createOverlayWindows(for event: Event) {
         if isTestMode {
             logger.debug(
@@ -274,6 +296,7 @@ final class OverlayManager: OverlayManaging {
             screen: screen,
         )
 
+        window.isReleasedWhenClosed = false
         window.title = "Meeting Overlay"
         window.level = .screenSaver
         window.backgroundColor = .clear

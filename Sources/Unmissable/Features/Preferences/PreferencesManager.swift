@@ -21,7 +21,6 @@ private enum PrefKey: String {
     case showOnAllDisplays
     case playAlertSound
     case alertVolume
-    case overrideFocusMode
     case autoJoinEnabled
     case allowSnooze
     case menuBarDisplayMode
@@ -45,6 +44,7 @@ private extension UserDefaults {
     }
 }
 
+@MainActor
 @Observable
 final class PreferencesManager {
     @ObservationIgnored
@@ -185,13 +185,6 @@ final class PreferencesManager {
     func setAlertVolume(_ value: Double) {
         alertVolume = Self.clamp(value, to: Self.alertVolumeRange)
         userDefaults.set(alertVolume, forKey: PrefKey.alertVolume)
-    }
-
-    /// Focus mode
-    private(set) var overrideFocusMode: Bool = true
-    func setOverrideFocusMode(_ value: Bool) {
-        overrideFocusMode = value
-        userDefaults.set(value, forKey: PrefKey.overrideFocusMode)
     }
 
     /// Smart suppression — suppress overlay when the meeting app is already in the foreground
@@ -356,7 +349,6 @@ final class PreferencesManager {
             to: Self.alertVolumeRange,
         )
 
-        overrideFocusMode = userDefaults.object(forKey: PrefKey.overrideFocusMode) as? Bool ?? true
         smartSuppression = userDefaults.object(forKey: PrefKey.smartSuppression) as? Bool ?? true
         autoJoinEnabled = userDefaults.bool(forKey: PrefKey.autoJoinEnabled)
         allowSnooze = userDefaults.object(forKey: PrefKey.allowSnooze) as? Bool ?? true

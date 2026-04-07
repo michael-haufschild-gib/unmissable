@@ -1,6 +1,7 @@
 import Foundation
 
 /// Event grouping structure for date-based organization in the menu bar.
+@MainActor
 struct EventGroup: Identifiable {
     let title: String
     let events: [Event]
@@ -13,6 +14,7 @@ struct EventGroup: Identifiable {
 /// Pure-logic utility for filtering and grouping events by date.
 /// Extracted from MenuBarView to keep the view under the 500-line limit
 /// and make the grouping logic independently testable.
+@MainActor
 enum EventGrouping {
     /// Returns the next weekday date if `tomorrow` falls on a weekend, otherwise nil.
     static func nextWeekday(after tomorrow: Date, calendar: Calendar) -> Date? {

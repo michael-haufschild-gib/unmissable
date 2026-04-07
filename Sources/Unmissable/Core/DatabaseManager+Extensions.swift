@@ -2,14 +2,14 @@ import Foundation
 import GRDB
 import OSLog
 
-private nonisolated let extensionLogger = Logger(category: "DatabaseManager")
+private let extensionLogger = Logger(category: "DatabaseManager")
 
 // MARK: - Alert Overrides
 
 /// Valid range for per-event alert overrides (minutes before start).
 /// Matches PreferencesManager's alertMinutesRange. Zero means "suppress all alerts".
-private nonisolated let alertOverrideMinutesRange = 0 ... 60
-private nonisolated let redactedIdPrefixLength = 4
+private let alertOverrideMinutesRange = 0 ... 60
+private let redactedIdPrefixLength = 4
 
 extension DatabaseManager {
     func fetchAlertOverride(for eventId: String, calendarId: String) async throws -> Int? {
@@ -254,7 +254,7 @@ extension DatabaseManager {
 
 // MARK: - Error Types
 
-nonisolated enum DatabaseError: LocalizedError {
+enum DatabaseError: LocalizedError {
     case notInitialized
     case migrationFailed(String)
     case timeout
