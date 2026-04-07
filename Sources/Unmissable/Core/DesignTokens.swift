@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 // swiftlint:disable no_magic_numbers
@@ -442,6 +443,27 @@ struct ThemedModifier: ViewModifier {
                 accent: themeManager.accentColor,
             ))
             .environment(themeManager)
+            .preferredColorScheme(themeManager.resolvedTheme.isDark ? .dark : .light)
+            .background(WindowAppearanceBridge(isDark: themeManager.resolvedTheme.isDark))
+    }
+}
+
+/// Bridges the resolved theme to the hosting NSWindow's appearance.
+/// NSMenu popups inherit appearance from their parent window, so this
+/// ensures dropdowns rendered by native Picker(.menu) controls match
+/// the custom theme. Reactive: updates when the theme changes at runtime.
+private struct WindowAppearanceBridge: NSViewRepresentable {
+    var isDark: Bool
+
+    func makeNSView(context _: Context) -> NSView {
+        let view = NSView()
+        view.alphaValue = 0
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context _: Context) {
+        let name: NSAppearance.Name = isDark ? .darkAqua : .aqua
+        nsView.window?.appearance = NSAppearance(named: name)
     }
 }
 

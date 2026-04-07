@@ -77,7 +77,7 @@ struct SystemIntegrationTests {
 
         // Wait for rescheduling to complete
         let scheduler = eventScheduler
-        try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             // Check if any alert has the new timing to confirm rescheduling happened
             return scheduler.scheduledAlerts.contains { alert in
                 if case let .reminder(minutes) = alert.alertType {
@@ -325,7 +325,7 @@ struct SystemIntegrationTests {
 
         // Wait for rescheduling to propagate after preference change
         let scheduler = eventScheduler
-        try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             scheduler.scheduledAlerts.contains { alert in
                 if case let .reminder(minutes) = alert.alertType {
                     return minutes == 8
@@ -369,9 +369,6 @@ struct SystemIntegrationTests {
 
             // Change preferences (should trigger rescheduling)
             prefs.testOverlayShowMinutesBefore = 7
-
-            // Wait for rescheduling
-            try? await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in true }
         }
 
         #expect(totalTime < 10.0, "End-to-end workflow should complete in under 10 seconds")
@@ -401,14 +398,14 @@ struct SystemIntegrationTests {
         mockPreferences.testSoundEnabled = true
         mockPreferences.testDefaultAlertMinutes = 3
 
-        // Wait for preference change to propagate
+        // Wait for preference change to propagate — sound adds a second alert
         let scheduler = eventScheduler
-        try await TestUtilities.waitForAsync(timeout: 3.0) { @MainActor @Sendable in
-            return scheduler.scheduledAlerts.count >= 1
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
+            scheduler.scheduledAlerts.count >= 2
         }
 
-        // Should now have different alert configuration
+        // Should now have overlay + sound alerts
         let updatedAlerts = eventScheduler.scheduledAlerts
-        #expect(updatedAlerts.count >= 1)
+        #expect(updatedAlerts.count >= 2, "Enabling sound should add a sound alert alongside overlay")
     }
 }

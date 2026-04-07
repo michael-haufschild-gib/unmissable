@@ -67,10 +67,6 @@ protocol NotificationManaging {
 protocol ForegroundAppDetecting {
     /// Whether the native app for the given provider is the frontmost application.
     func isMeetingAppInForeground(for provider: Provider) -> Bool
-
-    /// Whether any common web browser is the frontmost application.
-    /// Used as a heuristic for browser-based meeting providers (e.g. Google Meet).
-    func isBrowserInForeground() -> Bool
 }
 
 // MARK: - Calendar Provider Protocols

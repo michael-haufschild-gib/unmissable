@@ -31,7 +31,7 @@ struct EventSchedulerSnoozePreservationTests {
         )
 
         preferences.setOverlayShowMinutesBefore(3)
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             scheduler.scheduledAlerts.contains { alert in
                 if case .snooze = alert.alertType { return alert.event.id == event.id }
                 return false

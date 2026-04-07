@@ -100,6 +100,7 @@ final class EventScheduler {
             _ = preferencesManager.mediumMeetingAlertMinutes
             _ = preferencesManager.longMeetingAlertMinutes
             _ = preferencesManager.playAlertSound
+            _ = preferencesManager.autoJoinEnabled
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -242,6 +243,11 @@ final class EventScheduler {
         let currentTime = now()
         var missedAlertEvents: [Event] = []
 
+        // Prune stale delivery tracking — keep only IDs still in the event set.
+        // Prevents unbounded growth for always-running menu bar app.
+        let allEventIDs = Set(events.map(\.id))
+        deliveredAlertEventIDs.formIntersection(allEventIDs)
+
         for event in events {
             // Skip all-day events — they aren't joinable meetings
             if event.isAllDay { continue }
@@ -275,16 +281,25 @@ final class EventScheduler {
                     alertType: .reminder(minutesBefore: overlayTiming),
                 )
                 scheduledAlerts.append(overlayAlert)
-            } else if event.startDate > currentTime,
-                      !deliveredAlertEventIDs.contains(event.id)
-            {
-                // Alert time has passed but meeting hasn't started (e.g. app started late)
+            } else if !deliveredAlertEventIDs.contains(event.id) {
+                // Alert time has passed — either meeting hasn't started yet
+                // (app launched late) or meeting started recently. Deliver now;
+                // showOverlay's maxAge check gates stale meetings.
                 missedAlertEvents.append(event)
             }
-            // Implicit else: event already started (startDate <= now).
-            // Intentionally no overlay — a retroactive blocking overlay for an
-            // in-progress meeting would be disorienting. The menu bar shows
-            // "Starting" for these events; snoozed alerts are preserved separately.
+
+            // Schedule auto-join at meeting start when enabled and event has a link.
+            if preferencesManager.autoJoinEnabled,
+               event.startDate > currentTime,
+               linkParser.isOnlineMeeting(event)
+            {
+                let startAlert = ScheduledAlert(
+                    event: event,
+                    triggerDate: event.startDate,
+                    alertType: .meetingStart,
+                )
+                scheduledAlerts.append(startAlert)
+            }
 
             // Schedule a secondary reminder at length-based timing (if it differs from overlay timing).
             // Despite the historical name "sound alert", this is another .reminder that routes through

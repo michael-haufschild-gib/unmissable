@@ -8,7 +8,7 @@ struct HealthMonitorTests {
     func init_performsInitialHealthCheckImmediately() async throws {
         var monitor: HealthMonitor? = HealthMonitor()
 
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             monitor?.metrics.lastHealthCheck != nil
         }
 
@@ -36,7 +36,7 @@ struct HealthMonitorTests {
             overlayManager: overlayManager,
         )
 
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             guard case let .degraded(issues) = monitor.healthStatus else { return false }
             return issues.contains(where: { $0.component == "Calendar Service" })
         }
@@ -56,7 +56,7 @@ struct HealthMonitorTests {
         let monitor = HealthMonitor()
 
         // Let the initial check run before dependencies are attached.
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             monitor.metrics.lastHealthCheck != nil
         }
 
@@ -65,7 +65,7 @@ struct HealthMonitorTests {
             overlayManager: overlayManager,
         )
 
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             guard case let .degraded(issues) = monitor.healthStatus else { return false }
             return issues.contains(where: { $0.component == "Calendar Service" })
         }

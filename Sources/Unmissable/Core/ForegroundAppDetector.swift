@@ -4,25 +4,11 @@ import OSLog
 /// Detects the frontmost application using `NSWorkspace`.
 ///
 /// Used by `OverlayManager` to suppress the full-screen overlay when the user
-/// already has the meeting's native app (or a browser for web-based meetings)
-/// in the foreground. All methods are synchronous and require no permissions.
+/// already has the meeting's native app in the foreground.
+/// All methods are synchronous and require no permissions.
 @MainActor
 final class ForegroundAppDetector: ForegroundAppDetecting {
     private let logger = Logger(category: "ForegroundAppDetector")
-
-    /// Bundle identifiers for common macOS web browsers.
-    /// Used to detect browser-based meeting providers (Google Meet).
-    private static let browserBundleIDs: Set<String> = [
-        "com.apple.Safari",
-        "com.google.Chrome",
-        "org.mozilla.firefox",
-        "company.thebrowser.Browser", // Arc
-        "com.brave.Browser",
-        "com.microsoft.edgemac",
-        "com.operasoftware.Opera",
-        "com.vivaldi.Vivaldi",
-        "com.kagi.kagimacOS", // Orion
-    ]
 
     func isMeetingAppInForeground(for provider: Provider) -> Bool {
         let bundleIDs = provider.knownBundleIdentifiers
@@ -39,12 +25,5 @@ final class ForegroundAppDetector: ForegroundAppDetecting {
             )
         }
         return match
-    }
-
-    func isBrowserInForeground() -> Bool {
-        guard let frontBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier else {
-            return false
-        }
-        return Self.browserBundleIDs.contains(frontBundleID)
     }
 }

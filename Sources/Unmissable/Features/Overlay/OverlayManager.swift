@@ -141,16 +141,6 @@ final class OverlayManager: OverlayManaging {
                 sendSuppressionFallback(for: event)
                 return
             }
-            if provider == .meet, foregroundAppDetector.isBrowserInForeground() {
-                logger.info(
-                    "SMART SUPPRESS: Browser in foreground for Meet event \(PrivacyUtils.redactedEventId(event.id))",
-                )
-                AppDiagnostics.record(component: "OverlayManager", phase: "showOverlay", outcome: .skipped) {
-                    ["eventId": PrivacyUtils.redactedEventId(event.id), "reason": "smartSuppress.browser"]
-                }
-                sendSuppressionFallback(for: event)
-                return
-            }
         }
 
         // Clean up any existing overlay first (atomic operation)
@@ -167,11 +157,32 @@ final class OverlayManager: OverlayManaging {
             "OVERLAY STATE: Set isOverlayVisible = true for event \(PrivacyUtils.redactedEventId(event.id)), isSnoozed = \(self.isSnoozedAlert)",
         )
 
-        // Play alert sound if enabled
-        soundManager.playAlertSound()
-
         // Create windows synchronously (View manages its own countdown timer)
         createOverlayWindows(for: event)
+
+        // Guard: if no windows were created (e.g. NSScreen.main is nil during
+        // screen connect/disconnect), reset state to avoid phantom overlay that
+        // blocks future overlays via the duplicate check. Don't play sound either —
+        // alerting without a visible overlay confuses users.
+        if overlayWindows.isEmpty, !isTestMode {
+            logger.warning(
+                "SHOW OVERLAY: No windows created for event \(PrivacyUtils.redactedEventId(event.id)) — resetting state",
+            )
+            activeEvent = nil
+            isOverlayVisible = false
+            isSnoozedAlert = false
+            AppDiagnostics.record(
+                component: "OverlayManager",
+                phase: "showOverlay",
+                outcome: .failure,
+            ) {
+                ["eventId": PrivacyUtils.redactedEventId(event.id), "reason": "noScreensAvailable"]
+            }
+            return
+        }
+
+        // Play alert sound after confirming windows are visible
+        soundManager.playAlertSound()
 
         logShowOverlayCompletion(event: event, fromSnooze: fromSnooze, startTime: startTime)
     }
@@ -260,6 +271,17 @@ final class OverlayManager: OverlayManaging {
         }
 
         createOverlayWindows(for: event)
+
+        // If rebuild produced zero windows (e.g. display disconnected mid-rebuild),
+        // reset state to avoid a phantom overlay that blocks future reminders.
+        if overlayWindows.isEmpty, !isTestMode {
+            logger.warning(
+                "SCREEN CHANGE: No windows after rebuild for event \(PrivacyUtils.redactedEventId(event.id)) — resetting state",
+            )
+            activeEvent = nil
+            isOverlayVisible = false
+            isSnoozedAlert = false
+        }
     }
 
     private func createOverlayWindows(for event: Event) {
@@ -282,9 +304,12 @@ final class OverlayManager: OverlayManaging {
             window.makeKeyAndOrderFront(nil)
         }
 
-        // Force app activation to ensure windows receive input immediately
-        // Since this is an LSUIElement (menu bar) app, windows don't steal focus automatically
-        NSApplication.shared.activate()
+        // Force app activation to ensure windows receive input immediately.
+        // Only activate when windows were actually created — activating with
+        // zero windows steals focus from the user's current app for no reason.
+        if !overlayWindows.isEmpty {
+            NSApplication.shared.activate()
+        }
     }
 
     private func createOverlayWindow(for screen: NSScreen, event: Event) -> NSWindow {

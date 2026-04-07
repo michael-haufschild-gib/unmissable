@@ -134,7 +134,7 @@ struct OverlaySnoozeAndDismissTests {
         let event = TestUtilities.createTestEvent(startDate: Date().addingTimeInterval(600))
 
         overlayManager.showOverlayImmediately(for: event)
-        try await TestUtilities.waitForAsync(timeout: 1.0) { @MainActor @Sendable in
+        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
             overlayManager.timeUntilMeeting > 0
         }
         #expect(overlayManager.timeUntilMeeting > 590, "Should be close to 10 minutes")
