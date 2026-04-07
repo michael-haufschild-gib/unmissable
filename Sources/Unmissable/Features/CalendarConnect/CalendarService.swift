@@ -559,8 +559,12 @@ final class CalendarService {
         guard !usingSyntheticData else { return }
         do {
             calendars = try await databaseManager.fetchCalendars()
-            events = try await databaseManager.fetchUpcomingEvents(limit: Self.upcomingEventsLimit)
-            startedEvents = try await databaseManager.fetchStartedMeetings(limit: Self.startedMeetingsLimit)
+            events = try await Self.deduplicateEvents(
+                databaseManager.fetchUpcomingEvents(limit: Self.upcomingEventsLimit),
+            )
+            startedEvents = try await Self.deduplicateEvents(
+                databaseManager.fetchStartedMeetings(limit: Self.startedMeetingsLimit),
+            )
 
             logger.debug(
                 "Cache loaded: \(self.calendars.count) calendars, \(self.events.count) upcoming, \(self.startedEvents.count) started",
@@ -582,6 +586,32 @@ final class CalendarService {
                 ["error": PrivacyUtils.redactedError(error)]
             }
         }
+    }
+
+    // MARK: - Deduplication
+
+    /// Removes cross-provider duplicates where the same meeting is synced from
+    /// both Apple Calendar and Google Calendar. Keeps the event with the most
+    /// meeting links (better for one-click join UX).
+    static func deduplicateEvents(_ events: [Event]) -> [Event] {
+        var seen: [String: Int] = [:] // dedup key → index in result
+        var result: [Event] = []
+
+        for event in events {
+            let key = "\(event.title.trimmingCharacters(in: .whitespaces))|\(event.startDate.timeIntervalSince1970)|\(event.endDate.timeIntervalSince1970)"
+
+            if let existingIndex = seen[key] {
+                // Keep whichever has more meeting links
+                if event.links.count > result[existingIndex].links.count {
+                    result[existingIndex] = event
+                }
+            } else {
+                seen[key] = result.count
+                result.append(event)
+            }
+        }
+
+        return result
     }
 
     // MARK: - UI Refresh Timer

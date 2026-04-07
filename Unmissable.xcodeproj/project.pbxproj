@@ -34,6 +34,7 @@
 		29A0DB7171CF9AABB99B1C70 /* ProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 421550C4B7B983BA72000DB0 /* ProviderTests.swift */; };
 		2A34CF21A9D21E817A896E2B /* Clocks in Frameworks */ = {isa = PBXBuildFile; productRef = E72B9932EB61C5C689310822 /* Clocks */; };
 		2B9536EECE3F816956F39553 /* DatabaseManager+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 053F7A7A9706230F3A3C2B9F /* DatabaseManager+Extensions.swift */; };
+		2CE8D2A75E9E282192AC6806 /* EventDeduplicationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F95FDE812283DD78BC926B47 /* EventDeduplicationTests.swift */; };
 		2D59374B376C99903A1855B1 /* AlertTimingResolutionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBF98F706F2F06DF1F3AA237 /* AlertTimingResolutionTests.swift */; };
 		2D7B33A8BC3A79825085CEA3 /* Provider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BB6BE320D603D2ED5E9AE9C /* Provider.swift */; };
 		2DED0961537D9C052883A931 /* SchedulerOverrideTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47EF0AE28511D8B40B2207F2 /* SchedulerOverrideTests.swift */; };
@@ -315,6 +316,7 @@
 		F5711D4DB99578EFCD1B1D53 /* OverlayContentView+Previews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OverlayContentView+Previews.swift"; sourceTree = "<group>"; };
 		F7F820410F23194DF6074307 /* Unmissable.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Unmissable.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F8EB499EA1C81B20A6F23017 /* DatabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager.swift; sourceTree = "<group>"; };
+		F95FDE812283DD78BC926B47 /* EventDeduplicationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDeduplicationTests.swift; sourceTree = "<group>"; };
 		FA5D28CF4F8C2E1B092E7C79 /* ScheduledAlert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduledAlert.swift; sourceTree = "<group>"; };
 		FDB7A96A55047E63A347812F /* DatabaseConcurrencyIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseConcurrencyIntegrationTests.swift; sourceTree = "<group>"; };
 		FFC0B253FF7D839D7E5FA6AE /* MeetingDetailsE2ETests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDetailsE2ETests.swift; sourceTree = "<group>"; };
@@ -559,6 +561,7 @@
 				CFD34B19D8B71004ACB5E659 /* DiagnosticsTests.swift */,
 				3FAC13CA4A3774092F51C81E /* DisplayPropertyTests.swift */,
 				23F0D1215A28C54185AE0D29 /* EventAttachmentTests.swift */,
+				F95FDE812283DD78BC926B47 /* EventDeduplicationTests.swift */,
 				6DB6408E36B5119A42F97830 /* EventFilteringTests.swift */,
 				A451938600C40988623DBDB6 /* EventOverrideTests.swift */,
 				E8AB9687283818C0FBF796AD /* EventSchedulerComprehensiveTests.swift */,
@@ -810,6 +813,7 @@
 				E64855B437A2A3BFD4EB5FAA /* DiagnosticsTests.swift in Sources */,
 				D19060DD73F3F6B2BE95E907 /* DisplayPropertyTests.swift in Sources */,
 				EC42C00C156C941C58817F70 /* EventAttachmentTests.swift in Sources */,
+				2CE8D2A75E9E282192AC6806 /* EventDeduplicationTests.swift in Sources */,
 				C5C75430E5F3D6CD2AED0E37 /* EventFilteringTests.swift in Sources */,
 				B27FDECC224D00EB0402BCDC /* EventOverrideTests.swift in Sources */,
 				4EF43D1FE74741FE0B892714 /* EventSchedulerComprehensiveTests.swift in Sources */,
