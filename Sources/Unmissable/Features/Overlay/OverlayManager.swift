@@ -271,6 +271,17 @@ final class OverlayManager: OverlayManaging {
         }
 
         createOverlayWindows(for: event)
+
+        // If rebuild produced zero windows (e.g. display disconnected mid-rebuild),
+        // reset state to avoid a phantom overlay that blocks future reminders.
+        if overlayWindows.isEmpty, !isTestMode {
+            logger.warning(
+                "SCREEN CHANGE: No windows after rebuild for event \(PrivacyUtils.redactedEventId(event.id)) — resetting state",
+            )
+            activeEvent = nil
+            isOverlayVisible = false
+            isSnoozedAlert = false
+        }
     }
 
     private func createOverlayWindows(for event: Event) {
