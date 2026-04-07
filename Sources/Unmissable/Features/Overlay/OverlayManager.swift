@@ -4,6 +4,23 @@ import Observation
 import OSLog
 import SwiftUI
 
+// MARK: - Overlay Window
+
+/// Borderless overlay window that accepts key events.
+/// Plain `NSWindow` with `.borderless` style refuses key status,
+/// breaking keyboard shortcuts (e.g. ESC to dismiss).
+final class OverlayWindow: NSWindow {
+    override var canBecomeKey: Bool {
+        true
+    }
+
+    override var canBecomeMain: Bool {
+        true
+    }
+}
+
+// MARK: - Overlay Manager
+
 @MainActor
 @Observable
 final class OverlayManager: OverlayManaging {
@@ -19,6 +36,13 @@ final class OverlayManager: OverlayManaging {
     }
 
     private var overlayWindows: [NSWindow] = []
+
+    /// Debounce task for screen parameter changes.
+    /// macOS fires `didChangeScreenParametersNotification` multiple times
+    /// in rapid succession during display connect/disconnect. Debouncing
+    /// ensures we rebuild windows only once after the layout settles.
+    @ObservationIgnored
+    private var screenRebuildTask: Task<Void, Never>?
 
     @ObservationIgnored
     private nonisolated(unsafe) var screenParameterObserver: (any NSObjectProtocol)?
@@ -38,6 +62,9 @@ final class OverlayManager: OverlayManaging {
 
     /// Required dependency for snooze scheduling — must be provided at init.
     private let eventScheduler: EventScheduler
+
+    private static let screenRebuildDebounceMilliseconds = 300
+    private static let screenRebuildDebounce: Duration = .milliseconds(screenRebuildDebounceMilliseconds)
 
     private static let normalMaxAgeMinutes = 5
     private static let snoozeMaxAgeMinutes = 30
@@ -216,6 +243,10 @@ final class OverlayManager: OverlayManaging {
 
         soundManager.stopSound()
 
+        // Cancel any pending screen rebuild — the overlay is going away.
+        screenRebuildTask?.cancel()
+        screenRebuildTask = nil
+
         // Clear state immediately to prevent any race conditions
         activeEvent = nil
         isOverlayVisible = false
@@ -260,27 +291,42 @@ final class OverlayManager: OverlayManaging {
     }
 
     private func handleScreenParametersChanged() {
-        guard isOverlayVisible, let event = activeEvent else { return }
+        guard isOverlayVisible, activeEvent != nil else { return }
 
-        logger.info("Screen parameters changed — recreating \(self.overlayWindows.count) overlay windows")
+        // Cancel any pending rebuild — a newer notification supersedes it.
+        screenRebuildTask?.cancel()
 
-        let staleWindows = overlayWindows
-        overlayWindows.removeAll()
-        for window in staleWindows {
-            window.close()
-        }
+        screenRebuildTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: Self.screenRebuildDebounce)
+            } catch {
+                return // Cancelled by a subsequent notification — expected.
+            }
 
-        createOverlayWindows(for: event)
+            guard let self, self.isOverlayVisible, let event = self.activeEvent else { return }
 
-        // If rebuild produced zero windows (e.g. display disconnected mid-rebuild),
-        // reset state to avoid a phantom overlay that blocks future reminders.
-        if overlayWindows.isEmpty, !isTestMode {
-            logger.warning(
-                "SCREEN CHANGE: No windows after rebuild for event \(PrivacyUtils.redactedEventId(event.id)) — resetting state",
+            self.logger.info(
+                "Screen parameters settled — recreating \(self.overlayWindows.count) overlay windows",
             )
-            activeEvent = nil
-            isOverlayVisible = false
-            isSnoozedAlert = false
+
+            let staleWindows = self.overlayWindows
+            self.overlayWindows.removeAll()
+            for window in staleWindows {
+                window.close()
+            }
+
+            self.createOverlayWindows(for: event)
+
+            // If rebuild produced zero windows (e.g. display disconnected mid-rebuild),
+            // reset state to avoid a phantom overlay that blocks future reminders.
+            if self.overlayWindows.isEmpty, !self.isTestMode {
+                self.logger.warning(
+                    "SCREEN CHANGE: No windows after rebuild for event \(PrivacyUtils.redactedEventId(event.id)) — resetting state",
+                )
+                self.activeEvent = nil
+                self.isOverlayVisible = false
+                self.isSnoozedAlert = false
+            }
         }
     }
 
@@ -313,7 +359,7 @@ final class OverlayManager: OverlayManaging {
     }
 
     private func createOverlayWindow(for screen: NSScreen, event: Event) -> NSWindow {
-        let window = NSWindow(
+        let window = OverlayWindow(
             contentRect: screen.frame,
             styleMask: [.borderless],
             backing: .buffered,
@@ -326,8 +372,9 @@ final class OverlayManager: OverlayManaging {
         window.level = .screenSaver
         window.backgroundColor = .clear
         window.isOpaque = false
+        window.hasShadow = false
         window.ignoresMouseEvents = false
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
 
         // Button callbacks run on MainActor since OverlayManager is MainActor-isolated
         let linkParser = self.linkParser
@@ -359,6 +406,8 @@ final class OverlayManager: OverlayManaging {
         .themed(themeManager: themeManager)
 
         let hostingView = NSHostingView(rootView: overlayContent)
+        hostingView.wantsLayer = true
+        hostingView.layer?.backgroundColor = .clear
         window.contentView = hostingView
 
         return window
