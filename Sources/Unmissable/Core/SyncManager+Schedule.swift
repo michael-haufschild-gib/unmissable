@@ -34,7 +34,9 @@ extension SyncManager {
 
         let base = syncInterval
         guard isOffHours() else { return base }
-        return min(base * Self.offHoursMultiplier, Self.offHoursMaxIntervalSeconds)
+        // Off-hours should always be slower than business hours, never faster.
+        // Cap at 5 min but ensure the result is at least `base`.
+        return max(base, min(base * Self.offHoursMultiplier, Self.offHoursMaxIntervalSeconds))
     }
 
     /// Whether the current local time is outside business hours.

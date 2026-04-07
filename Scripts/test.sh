@@ -243,7 +243,7 @@ TOTAL_FAILURES=$(( ${SWIFT_TESTING_FAILURES:-0} + ${XCTEST_FAILURES:-0} ))
 # --- Step 6: Report ---
 
 echo ""
-if [ "$TOTAL_TESTS" -gt 0 ] && [ "$TOTAL_FAILURES" -eq 0 ]; then
+if [ "$TEST_EXIT" -eq 0 ] && [ "$TOTAL_TESTS" -gt 0 ] && [ "$TOTAL_FAILURES" -eq 0 ]; then
     echo "PASS ($TOTAL_TESTS tests, 0 failures, ${TEST_DURATION}s)"
     write_result "PASS" "$TOTAL_TESTS" 0 "$TEST_DURATION"
     exit 0

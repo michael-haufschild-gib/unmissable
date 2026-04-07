@@ -22,7 +22,6 @@ final class CalendarService {
 
     private static let upcomingEventsLimit = 50
     private static let startedMeetingsLimit = 20
-    private static let uiRefreshIntervalSeconds = 30
 
     // MARK: - Observable State
 

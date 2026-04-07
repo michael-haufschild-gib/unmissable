@@ -129,9 +129,14 @@ extension CalendarService {
             nearest = min(nearest, untilStart)
         }
 
-        // Next started event end
-        if let firstStarted = startedEvents.first(where: { $0.endDate > now }) {
-            let untilEnd = firstStarted.endDate.timeIntervalSince(now)
+        // Nearest started event end (startedEvents is sorted by startDate desc,
+        // not endDate, so we must scan all to find the soonest end boundary)
+        if let nearestEnd = startedEvents
+            .filter({ $0.endDate > now })
+            .map(\.endDate)
+            .min()
+        {
+            let untilEnd = nearestEnd.timeIntervalSince(now)
             nearest = min(nearest, untilEnd)
         }
 
