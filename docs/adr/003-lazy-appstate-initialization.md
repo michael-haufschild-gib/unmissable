@@ -75,9 +75,13 @@ Because `.task` fires after view appearance, `applicationDidFinishLaunching` has
 
 **Rejected alternative**: Eager init with deferred service construction (splitting `ServiceContainer` into a two-phase init). This was considered but rejected because it would spread the timing constraint across multiple types instead of containing it in one place (`UnmissableApp.task`).
 
+### Swift 6 strict concurrency implications
+
+Lazy initialization via `.task` also avoids a subtle Swift 6 concurrency issue. With strict concurrency enabled (`SWIFT_STRICT_CONCURRENCY: complete`), `@State` property initializers in the `@main` App struct run in a context where the compiler must prove `@MainActor` isolation. By deferring to `.task` — which SwiftUI guarantees runs on `@MainActor` — the initialization site has unambiguous isolation, preventing compiler errors or runtime assertions when `ServiceContainer` creates `@MainActor`-isolated managers.
+
 ## References
 
 - `Sources/Unmissable/App/UnmissableApp.swift` — lazy init site with explanatory comment
-- `Sources/Unmissable/App/AppDelegate.swift:35` — `.accessory` policy set in `applicationDidFinishLaunching`
+- `Sources/Unmissable/App/AppDelegate.swift` — `.accessory` policy set in `applicationDidFinishLaunching`
 - `Sources/Unmissable/Core/ActivationPolicyManager.swift` — ref-counted policy coordinator
-- `Sources/Unmissable/App/AppState.swift:97` — `observeAppLaunch()` dual-path mechanism
+- `AppState.observeAppLaunch()` — dual-path mechanism for notification timing

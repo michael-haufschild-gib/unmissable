@@ -5,7 +5,7 @@ import Foundation
 /// malformed HTML, nested content, and edge cases in attribute values.
 /// Preserves safe formatting tags (p, a, strong, em, ul, ol, li, h1-h6, br, div, span, img, etc.)
 /// used in calendar event descriptions.
-enum HTMLSanitizer {
+nonisolated enum HTMLSanitizer {
     /// Tags whose entire content (including nested elements) must be removed.
     private static let dangerousPairedTags: Set<String> = [
         "script", "style", "iframe", "object", "form",

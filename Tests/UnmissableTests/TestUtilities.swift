@@ -4,7 +4,6 @@ import Foundation
 // MARK: - Test Utilities for Comprehensive Testing
 
 /// Centralized test utilities for creating test data, mocking services, and testing async operations
-@MainActor
 enum TestUtilities {
     // MARK: - Constants
 
@@ -145,7 +144,6 @@ enum TestUtilities {
         prefs.setPlayAlertSound(true)
         prefs.setAutoJoinEnabled(false)
         prefs.setShowOnAllDisplays(true)
-        prefs.setOverrideFocusMode(true)
         prefs.setSmartSuppression(true)
         return prefs
     }
@@ -184,11 +182,6 @@ extension PreferencesManager {
     var testShowOnAllDisplays: Bool {
         get { showOnAllDisplays }
         set { setShowOnAllDisplays(newValue) }
-    }
-
-    var testOverrideFocusMode: Bool {
-        get { overrideFocusMode }
-        set { setOverrideFocusMode(newValue) }
     }
 
     var testSmartSuppression: Bool {

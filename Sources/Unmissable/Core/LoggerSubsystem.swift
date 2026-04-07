@@ -6,7 +6,8 @@ extension Logger {
     static let subsystemID = "com.unmissable.app"
 
     /// Convenience initializer using the shared subsystem.
-    init(category: String) {
+    /// `nonisolated` because `Logger` is thread-safe and callers may log from any isolation context.
+    nonisolated init(category: String) {
         self.init(subsystem: Self.subsystemID, category: category)
     }
 }
