@@ -200,6 +200,7 @@ final class MeetingDetailsPopupManager: MeetingDetailsPopupManaging {
 
 // MARK: - Window Delegate
 
+@MainActor
 private class PopupWindowDelegate: NSObject, NSWindowDelegate {
     private let onClose: () -> Void
 
@@ -223,7 +224,7 @@ private class PopupWindowDelegate: NSObject, NSWindowDelegate {
             // Don't close if the popup regained focus or no window is key
             // (a menu/popover is likely open above the popup)
             let keyWindow = NSApp.keyWindow
-            if keyWindow === window || keyWindow == nil {
+            if keyWindow === window || keyWindow == nil || keyWindow is OverlayWindow {
                 return
             }
             self?.onClose()

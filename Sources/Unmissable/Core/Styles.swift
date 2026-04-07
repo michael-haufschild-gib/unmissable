@@ -193,7 +193,7 @@ struct UMToggleStyle: ToggleStyle {
             Spacer()
 
             HStack(spacing: 0) {
-                if !configuration.isOn {
+                if configuration.isOn {
                     Spacer()
                 }
 
@@ -206,7 +206,7 @@ struct UMToggleStyle: ToggleStyle {
                         y: Metrics.thumbShadowY,
                     )
 
-                if configuration.isOn {
+                if !configuration.isOn {
                     Spacer()
                 }
             }

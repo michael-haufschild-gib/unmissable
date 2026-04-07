@@ -192,10 +192,10 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
     }
 
     private func findOrCreatePresentingWindow() -> NSWindow {
-        if let keyWindow = NSApplication.shared.keyWindow {
+        if let keyWindow = NSApplication.shared.keyWindow, !(keyWindow is OverlayWindow) {
             return keyWindow
         }
-        if let mainWindow = NSApplication.shared.mainWindow {
+        if let mainWindow = NSApplication.shared.mainWindow, !(mainWindow is OverlayWindow) {
             return mainWindow
         }
         let window = NSWindow(
