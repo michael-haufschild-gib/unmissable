@@ -157,15 +157,13 @@ final class OverlayManager: OverlayManaging {
             "OVERLAY STATE: Set isOverlayVisible = true for event \(PrivacyUtils.redactedEventId(event.id)), isSnoozed = \(self.isSnoozedAlert)",
         )
 
-        // Play alert sound if enabled
-        soundManager.playAlertSound()
-
         // Create windows synchronously (View manages its own countdown timer)
         createOverlayWindows(for: event)
 
         // Guard: if no windows were created (e.g. NSScreen.main is nil during
         // screen connect/disconnect), reset state to avoid phantom overlay that
-        // blocks future overlays via the duplicate check.
+        // blocks future overlays via the duplicate check. Don't play sound either —
+        // alerting without a visible overlay confuses users.
         if overlayWindows.isEmpty, !isTestMode {
             logger.warning(
                 "SHOW OVERLAY: No windows created for event \(PrivacyUtils.redactedEventId(event.id)) — resetting state",
@@ -182,6 +180,9 @@ final class OverlayManager: OverlayManaging {
             }
             return
         }
+
+        // Play alert sound after confirming windows are visible
+        soundManager.playAlertSound()
 
         logShowOverlayCompletion(event: event, fromSnooze: fromSnooze, startTime: startTime)
     }
@@ -292,9 +293,12 @@ final class OverlayManager: OverlayManaging {
             window.makeKeyAndOrderFront(nil)
         }
 
-        // Force app activation to ensure windows receive input immediately
-        // Since this is an LSUIElement (menu bar) app, windows don't steal focus automatically
-        NSApplication.shared.activate()
+        // Force app activation to ensure windows receive input immediately.
+        // Only activate when windows were actually created — activating with
+        // zero windows steals focus from the user's current app for no reason.
+        if !overlayWindows.isEmpty {
+            NSApplication.shared.activate()
+        }
     }
 
     private func createOverlayWindow(for screen: NSScreen, event: Event) -> NSWindow {

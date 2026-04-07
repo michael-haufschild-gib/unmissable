@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 // swiftlint:disable no_magic_numbers

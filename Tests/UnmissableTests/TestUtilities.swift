@@ -245,8 +245,9 @@ extension TestUtilities {
 
     /// Wait for async operations with timeout.
     ///
-    /// Checks the deadline after every condition evaluation so the timeout
-    /// fires even when `await condition()` blocks on a contended MainActor.
+    /// Checks the deadline between polls. If `condition()` itself blocks
+    /// (e.g. contending for the MainActor), the timeout cannot fire until
+    /// that call returns.
     static func waitForAsync(
         timeout: TimeInterval = 5.0,
         condition: @escaping @Sendable () async -> Bool,

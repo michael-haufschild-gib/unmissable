@@ -369,9 +369,6 @@ struct SystemIntegrationTests {
 
             // Change preferences (should trigger rescheduling)
             prefs.testOverlayShowMinutesBefore = 7
-
-            // Wait for rescheduling
-            try? await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in true }
         }
 
         #expect(totalTime < 10.0, "End-to-end workflow should complete in under 10 seconds")
@@ -401,14 +398,14 @@ struct SystemIntegrationTests {
         mockPreferences.testSoundEnabled = true
         mockPreferences.testDefaultAlertMinutes = 3
 
-        // Wait for preference change to propagate
+        // Wait for preference change to propagate — sound adds a second alert
         let scheduler = eventScheduler
         try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
-            return scheduler.scheduledAlerts.count >= 1
+            scheduler.scheduledAlerts.count >= 2
         }
 
-        // Should now have different alert configuration
+        // Should now have overlay + sound alerts
         let updatedAlerts = eventScheduler.scheduledAlerts
-        #expect(updatedAlerts.count >= 1)
+        #expect(updatedAlerts.count >= 2, "Enabling sound should add a sound alert alongside overlay")
     }
 }
