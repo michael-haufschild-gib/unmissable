@@ -51,6 +51,7 @@ struct UMButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(borderColor, lineWidth: borderLineWidth),
             )
+            .contentShape(Rectangle())
             .scaleEffect(configuration.isPressed ? Metrics.pressedScale : Metrics.fullScale)
             .opacity(isEnabled ? Metrics.fullOpacity : Metrics.disabledOpacity)
             .animation(DesignAnimations.press, value: configuration.isPressed)

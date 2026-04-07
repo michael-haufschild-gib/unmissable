@@ -28,6 +28,26 @@ final class MenuBarPreviewManager {
     /// Minutes per day, used for time display formatting.
     private static let minutesPerDay = 1440
 
+    // MARK: - Adaptive Timer Intervals
+
+    // The display never shows seconds — only "N min", "N:NN h", "< 1 min", or "Starting".
+    // Tick rates are tuned so the displayed text is never stale by more than one display unit.
+
+    /// In-progress meeting: text is static "Starting", no visible change.
+    private static let timerIntervalStarted = 60
+    /// Meeting <2 min away: quick ticks for "< 1 min" → "Starting" transition.
+    private static let timerIntervalImminent = 10
+    /// Meeting 2–60 min away: minute-granularity display, 30s worst-case staleness.
+    private static let timerIntervalSoon = 30
+    /// Meeting 1–3 hours away: display changes once per minute.
+    private static let timerIntervalHours = 60
+    /// Meeting >3 hours away: display changes slowly, 2 min tick is fine.
+    private static let timerIntervalDistant = 120
+    /// Threshold (seconds) below which the "imminent" interval applies.
+    private static let imminentThresholdSeconds: TimeInterval = 120
+    /// Threshold (seconds) for the "hours" bracket boundary (3 hours).
+    private static let distantThresholdSeconds: TimeInterval = 10_800
+
     init(preferencesManager: PreferencesManager) {
         self.preferencesManager = preferencesManager
         setupBindings()
@@ -136,7 +156,8 @@ final class MenuBarPreviewManager {
         timerTask = Task { @MainActor in
             while !Task.isCancelled {
                 do {
-                    try await Task.sleep(for: .seconds(1))
+                    let interval = optimalTimerInterval()
+                    try await Task.sleep(for: .seconds(interval))
                     if !Task.isCancelled {
                         updateTimerDisplayIfNeeded()
                     }
@@ -146,6 +167,36 @@ final class MenuBarPreviewManager {
                 }
             }
         }
+    }
+
+    /// Computes the optimal tick interval based on how far away the next meeting is.
+    /// The menu bar display never shows seconds, so sub-minute precision is unnecessary
+    /// for most time ranges. This reduces wake-ups from ~86,400/day to ~2,000–4,000/day.
+    private func optimalTimerInterval() -> Int {
+        guard let nextMeeting = getNextMeeting() else {
+            return Self.timerIntervalDistant
+        }
+
+        let timeLeft = nextMeeting.startDate.timeIntervalSince(Date())
+
+        // Meeting already started — "Starting" is static text
+        if timeLeft <= 0 {
+            return Self.timerIntervalStarted
+        }
+        // Meeting <2 min — need quick ticks for "< 1 min" → "Starting"
+        if timeLeft < Self.imminentThresholdSeconds {
+            return Self.timerIntervalImminent
+        }
+        // Meeting 2–60 min — minute-granularity display
+        if timeLeft < TimeInterval(Self.secondsPerMinute * Self.minutesPerHour) {
+            return Self.timerIntervalSoon
+        }
+        // Meeting 1–3 hours
+        if timeLeft < Self.distantThresholdSeconds {
+            return Self.timerIntervalHours
+        }
+        // Meeting >3 hours
+        return Self.timerIntervalDistant
     }
 
     private func stopTimer() {

@@ -228,21 +228,27 @@ if [ "$TEST_EXIT" -eq 124 ] 2>/dev/null || grep -q "^TIMEOUT:" "$LOG_FILE" 2>/de
     exit 1
 fi
 
-# Parse xcodebuild test results
-TOTAL_TESTS=$(grep -cE 'Test Case.*(passed|failed)' "$LOG_FILE" 2>/dev/null || true)
-TOTAL_FAILURES=$(grep -cE 'Test Case.*failed' "$LOG_FILE" 2>/dev/null || true)
-TOTAL_TESTS=${TOTAL_TESTS:-0}
-TOTAL_FAILURES=${TOTAL_FAILURES:-0}
+# Parse test results — supports both Swift Testing ("✔ Test foo() passed") and
+# XCTest ("Test Case '-[Class method]' passed") output formats.
+# Individual Swift Testing tests contain "()" in the method name; summary lines
+# ("Test run with N tests ...") do not, so the "\(\)" anchor excludes summaries.
+SWIFT_TESTING_TOTAL=$(grep -cE '^[✔✘] Test .*\(\).*(passed|failed)' "$LOG_FILE" 2>/dev/null || true)
+XCTEST_TOTAL=$(grep -cE 'Test Case.*(passed|failed)' "$LOG_FILE" 2>/dev/null || true)
+TOTAL_TESTS=$(( ${SWIFT_TESTING_TOTAL:-0} + ${XCTEST_TOTAL:-0} ))
+
+SWIFT_TESTING_FAILURES=$(grep -cE '^✘ Test .*\(\).*failed' "$LOG_FILE" 2>/dev/null || true)
+XCTEST_FAILURES=$(grep -cE 'Test Case.*failed' "$LOG_FILE" 2>/dev/null || true)
+TOTAL_FAILURES=$(( ${SWIFT_TESTING_FAILURES:-0} + ${XCTEST_FAILURES:-0} ))
 
 # --- Step 6: Report ---
 
 echo ""
-if [ "$TEST_EXIT" -eq 0 ] && [ "$TOTAL_FAILURES" -eq 0 ]; then
+if [ "$TEST_EXIT" -eq 0 ] && [ "$TOTAL_TESTS" -gt 0 ] && [ "$TOTAL_FAILURES" -eq 0 ]; then
     echo "PASS ($TOTAL_TESTS tests, 0 failures, ${TEST_DURATION}s)"
     write_result "PASS" "$TOTAL_TESTS" 0 "$TEST_DURATION"
     exit 0
 else
-    FAILING_TESTS=$(grep "Test Case.*failed" "$LOG_FILE" 2>/dev/null | head -20 || true)
+    FAILING_TESTS=$(grep -E '^✘ Test .*\(\).*failed|Test Case.*failed' "$LOG_FILE" 2>/dev/null | head -20 || true)
     echo "FAIL ($TOTAL_TESTS tests, $TOTAL_FAILURES failures, ${TEST_DURATION}s)"
     if [ -n "$FAILING_TESTS" ]; then
         echo ""

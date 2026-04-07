@@ -22,6 +22,7 @@ struct DiagnosticsTests {
 
     @Test
     func record_whenEnabled_appendsWithCorrectFields() throws {
+        AppDiagnostics.recorder.clear()
         AppDiagnostics.record(component: "Test", phase: "check", outcome: .info)
 
         let record = try #require(AppDiagnostics.recorder.snapshot().first)
@@ -33,6 +34,7 @@ struct DiagnosticsTests {
 
     @Test
     func record_metadataClosureIsEvaluated() throws {
+        AppDiagnostics.recorder.clear()
         var closureCalled = false
         AppDiagnostics.record(component: "Test", phase: "meta") {
             closureCalled = true
@@ -60,6 +62,7 @@ struct DiagnosticsTests {
 
     @Test
     func startAndEndFlow_correlatesViaFlowId() throws {
+        AppDiagnostics.recorder.clear()
         let flow = AppDiagnostics.startFlow("testOp", component: "TestComp")
         // Flow ID is a valid UUID
         let parsedFlowId = try #require(UUID(uuidString: flow.flowId), "Flow ID should be valid UUID")
@@ -133,6 +136,7 @@ struct DiagnosticsTests {
 
     @Test
     func flightRecorder_tail_returnsCorrectLastN() {
+        AppDiagnostics.recorder.clear()
         for i in 0 ..< 10 {
             AppDiagnostics.record(component: "Test", phase: "item\(i)")
         }
@@ -147,6 +151,7 @@ struct DiagnosticsTests {
 
     @Test
     func exportJSONL_producesDecodableRecords() throws {
+        AppDiagnostics.recorder.clear()
         AppDiagnostics.record(component: "A", phase: "start", outcome: .info) {
             ["key": "val"]
         }
@@ -203,6 +208,7 @@ struct DiagnosticsTests {
 
     @Test
     func bugBookExport_containsSessionAndStateAndFailures() throws {
+        AppDiagnostics.recorder.clear()
         AppDiagnostics.record(component: "Test", phase: "action", outcome: .failure) {
             ["detail": "something broke"]
         }

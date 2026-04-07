@@ -16,13 +16,12 @@ struct ProviderBackend {
 @MainActor
 @Observable
 final class CalendarService {
-    private let logger = Logger(category: "CalendarService")
+    let logger = Logger(category: "CalendarService")
 
     // MARK: - Constants
 
     private static let upcomingEventsLimit = 50
     private static let startedMeetingsLimit = 20
-    private static let uiRefreshIntervalSeconds = 30
 
     // MARK: - Observable State
 
@@ -41,7 +40,7 @@ final class CalendarService {
     // MARK: - Private State
 
     @ObservationIgnored
-    private var providers: [CalendarProviderType: ProviderBackend] = [:]
+    var providers: [CalendarProviderType: ProviderBackend] = [:]
     @ObservationIgnored
     private let databaseManager: any DatabaseManaging
     @ObservationIgnored
@@ -49,16 +48,20 @@ final class CalendarService {
     @ObservationIgnored
     private let linkParser: LinkParser
     @ObservationIgnored
-    private var cancellables = Set<AnyCancellable>()
+    var cancellables = Set<AnyCancellable>()
     // Observation stops naturally when a provider is removed from `providers`
     // (the observe* methods guard on `providers[type]` and bail if nil).
 
     @ObservationIgnored
-    private var uiRefreshTask: Task<Void, Never>?
+    var uiRefreshTask: Task<Void, Never>?
     /// Dirty flag: set when sync or timezone changes require a UI refresh.
     /// The timer checks this alongside time-based staleness to avoid unnecessary DB reads.
     @ObservationIgnored
-    private var needsUIRefresh = false
+    var needsUIRefresh = false
+    /// Debounce task for EKEventStoreChanged notifications.
+    /// Apple Calendar can fire rapid bursts during iCloud sync.
+    @ObservationIgnored
+    var ekChangedDebounceTask: Task<Void, Never>?
     /// When true, loadCachedData() is a no-op. Set by injectSyntheticEventsForUITesting()
     /// to prevent the init-time Task from overwriting injected test data.
     @ObservationIgnored
@@ -66,7 +69,7 @@ final class CalendarService {
 
     /// Shared EKEventStore for Apple Calendar (reused across auth + API services)
     @ObservationIgnored
-    private let sharedEventStore: EKEventStore
+    let sharedEventStore: EKEventStore
 
     /// Publisher that fires after events are updated from a sync cycle.
     /// Supports multiple observers without retain-cycle risk.
@@ -495,6 +498,8 @@ final class CalendarService {
                 }
             }
             .store(in: &cancellables)
+
+        setupEventStoreChangeObserver()
     }
 
     // MARK: - Aggregated State
@@ -555,8 +560,9 @@ final class CalendarService {
         nextSyncTime = nextSyncTimes.min()
     }
 
-    private func loadCachedData() async {
-        guard !usingSyntheticData else { return }
+    @discardableResult
+    func loadCachedData() async -> Bool {
+        guard !usingSyntheticData else { return true }
         do {
             calendars = try await databaseManager.fetchCalendars()
             events = try await Self.deduplicateEvents(
@@ -576,6 +582,7 @@ final class CalendarService {
                     "started": "\(self.startedEvents.count)",
                 ]
             }
+            return true
         } catch {
             logger.error("Failed to load cached data: \(PrivacyUtils.redactedError(error))")
             AppDiagnostics.record(
@@ -585,71 +592,7 @@ final class CalendarService {
             ) {
                 ["error": PrivacyUtils.redactedError(error)]
             }
+            return false
         }
-    }
-
-    // MARK: - Deduplication
-
-    /// Removes cross-provider duplicates where the same meeting is synced from
-    /// both Apple Calendar and Google Calendar. Keeps the event with the most
-    /// meeting links (better for one-click join UX).
-    static func deduplicateEvents(_ events: [Event]) -> [Event] {
-        var seen: [String: Int] = [:] // dedup key → index in result
-        var result: [Event] = []
-
-        for event in events {
-            let key = "\(event.title.trimmingCharacters(in: .whitespaces))|\(event.startDate.timeIntervalSince1970)|\(event.endDate.timeIntervalSince1970)"
-
-            if let existingIndex = seen[key] {
-                // Keep whichever has more meeting links
-                if event.links.count > result[existingIndex].links.count {
-                    result[existingIndex] = event
-                }
-            } else {
-                seen[key] = result.count
-                result.append(event)
-            }
-        }
-
-        return result
-    }
-
-    // MARK: - UI Refresh Timer
-
-    /// Whether any event crossed a time boundary (started or ended) since the arrays were last loaded.
-    private func hasTimeBoundaryChange() -> Bool {
-        let now = Date()
-        // An upcoming event has started since last refresh
-        if events.contains(where: { $0.startDate <= now }) {
-            return true
-        }
-        // A started event has ended since last refresh
-        if startedEvents.contains(where: { $0.endDate <= now }) {
-            return true
-        }
-        return false
-    }
-
-    private func startUIRefreshTimer() {
-        uiRefreshTask = Task { @MainActor in
-            while !Task.isCancelled {
-                do {
-                    try await Task.sleep(for: .seconds(Self.uiRefreshIntervalSeconds))
-                    if !Task.isCancelled, needsUIRefresh || hasTimeBoundaryChange() {
-                        needsUIRefresh = false
-                        await loadCachedData()
-                    }
-                } catch {
-                    break
-                }
-            }
-        }
-        logger.debug("UI refresh timer started")
-    }
-
-    private func stopUIRefreshTimer() {
-        uiRefreshTask?.cancel()
-        uiRefreshTask = nil
-        logger.debug("UI refresh timer stopped")
     }
 }
