@@ -9,6 +9,7 @@ import SwiftUI
 /// Borderless overlay window that accepts key events.
 /// Plain `NSWindow` with `.borderless` style refuses key status,
 /// breaking keyboard shortcuts (e.g. ESC to dismiss).
+@MainActor
 final class OverlayWindow: NSWindow {
     override var canBecomeKey: Bool {
         true
@@ -323,6 +324,7 @@ final class OverlayManager: OverlayManaging {
                 self.logger.warning(
                     "SCREEN CHANGE: No windows after rebuild for event \(PrivacyUtils.redactedEventId(event.id)) — resetting state",
                 )
+                self.soundManager.stopSound()
                 self.activeEvent = nil
                 self.isOverlayVisible = false
                 self.isSnoozedAlert = false

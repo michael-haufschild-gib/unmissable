@@ -3,7 +3,7 @@ import Testing
 @testable import Unmissable
 
 /// Verifies that `OverlayWindow` overrides the borderless-window defaults
-/// that otherwise prevent keyboard input and cause shadow artifacts.
+/// that otherwise prevent keyboard input and normal main-window focus.
 @MainActor
 struct OverlayWindowTests {
     private let sut: OverlayWindow
