@@ -226,12 +226,8 @@ final class PreferencesManager {
 
         case .externalOnly:
             let externals = screens.filter { screen in
-                guard let num = screen.deviceDescription[
-                    NSDeviceDescriptionKey("NSScreenNumber"),
-                ] as? CGDirectDisplayID else {
-                    return false
-                }
-                return CGDisplayIsBuiltin(num) == 0
+                guard let id = DisplayIdentifier(screen: screen) else { return false }
+                return !id.isBuiltIn
             }
             // Fall back to main if no externals connected (e.g. laptop undocked)
             return externals.isEmpty ? [NSScreen.main].compactMap(\.self) : externals

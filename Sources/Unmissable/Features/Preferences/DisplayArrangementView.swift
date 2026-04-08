@@ -100,7 +100,7 @@ struct DisplayArrangementView: View {
             "\(info.identifier.localizedName), \(isSelected ? "selected" : "not selected")",
         )
         .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .accessibilityHint("Double-tap to toggle this display")
+        .accessibilityHint("Activate to toggle this display")
     }
 
     // MARK: - Layout Computation
@@ -164,6 +164,6 @@ private struct ScreenInfo: Identifiable {
     let frame: CGRect
 
     var id: String {
-        identifier.persistenceKey + "-" + identifier.localizedName
+        identifier.persistenceKey
     }
 }
