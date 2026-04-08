@@ -143,7 +143,7 @@ enum TestUtilities {
         prefs.setOverlayShowMinutesBefore(defaultOverlayMinutesBefore)
         prefs.setPlayAlertSound(true)
         prefs.setAutoJoinEnabled(false)
-        prefs.setShowOnAllDisplays(true)
+        prefs.setDisplaySelectionMode(.all)
         prefs.setSmartSuppression(true)
         return prefs
     }
@@ -179,9 +179,9 @@ extension PreferencesManager {
         set { setAutoJoinEnabled(newValue) }
     }
 
-    var testShowOnAllDisplays: Bool {
-        get { showOnAllDisplays }
-        set { setShowOnAllDisplays(newValue) }
+    var testDisplaySelectionMode: DisplaySelectionMode {
+        get { displaySelectionMode }
+        set { setDisplaySelectionMode(newValue) }
     }
 
     var testSmartSuppression: Bool {

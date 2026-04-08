@@ -340,11 +340,7 @@ final class OverlayManager: OverlayManaging {
             return
         }
 
-        let screens = NSScreen.screens
-
-        // Use preferences to determine which displays to show on
-        let screensToUse =
-            preferencesManager.showOnAllDisplays ? screens : [NSScreen.main].compactMap(\.self)
+        let screensToUse = preferencesManager.screensForOverlay()
 
         for screen in screensToUse {
             let window = createOverlayWindow(for: screen, event: event)
@@ -361,8 +357,13 @@ final class OverlayManager: OverlayManaging {
     }
 
     private func createOverlayWindow(for screen: NSScreen, event: Event) -> NSWindow {
+        // Use .zero for contentRect and set frame explicitly via setFrame(_:display:)
+        // to avoid coordinate misinterpretation. When a `screen:` parameter is passed,
+        // AppKit may interpret contentRect relative to that screen's coordinate space,
+        // but screen.frame is in global coordinates — causing the window to be offset
+        // on secondary displays (the origin is effectively applied twice).
         let window = OverlayWindow(
-            contentRect: screen.frame,
+            contentRect: .zero,
             styleMask: [.borderless],
             backing: .buffered,
             defer: false,
@@ -377,6 +378,9 @@ final class OverlayManager: OverlayManaging {
         window.hasShadow = false
         window.ignoresMouseEvents = false
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+
+        // Position and size the window using global screen coordinates.
+        window.setFrame(screen.frame, display: true)
 
         // Button callbacks run on MainActor since OverlayManager is MainActor-isolated
         let linkParser = self.linkParser

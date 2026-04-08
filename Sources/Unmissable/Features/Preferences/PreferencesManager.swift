@@ -1,3 +1,5 @@
+import AppKit
+import CoreGraphics
 import Foundation
 import Observation
 import SwiftUI
@@ -18,7 +20,9 @@ private enum PrefKey: String {
     case overlayShowMinutesBefore
     case fontSize
     case minimalMode
-    case showOnAllDisplays
+    case showOnAllDisplays // legacy — migrated to displaySelectionMode
+    case displaySelectionMode
+    case selectedDisplayKeys
     case playAlertSound
     case alertVolume
     case autoJoinEnabled
@@ -176,10 +180,70 @@ final class PreferencesManager {
         userDefaults.set(value, forKey: PrefKey.minimalMode)
     }
 
-    private(set) var showOnAllDisplays: Bool = true
-    func setShowOnAllDisplays(_ value: Bool) {
-        showOnAllDisplays = value
-        userDefaults.set(value, forKey: PrefKey.showOnAllDisplays)
+    // MARK: - Display Selection
+
+    private(set) var displaySelectionMode: DisplaySelectionMode = .all
+    func setDisplaySelectionMode(_ value: DisplaySelectionMode) {
+        displaySelectionMode = value
+        userDefaults.set(value.rawValue, forKey: PrefKey.displaySelectionMode)
+    }
+
+    /// Hardware fingerprints of user-selected displays (used only when mode is `.selected`).
+    private(set) var selectedDisplayKeys: Set<String> = []
+    func setSelectedDisplayKeys(_ value: Set<String>) {
+        selectedDisplayKeys = value
+        userDefaults.set(Array(value), forKey: PrefKey.selectedDisplayKeys)
+    }
+
+    /// Toggles a single display's selection state by its persistence key.
+    func toggleDisplay(key: String) {
+        var keys = selectedDisplayKeys
+        if keys.contains(key) {
+            keys.remove(key)
+        } else {
+            keys.insert(key)
+        }
+        setSelectedDisplayKeys(keys)
+    }
+
+    /// Legacy accessor kept for backward compatibility with tests.
+    var showOnAllDisplays: Bool {
+        displaySelectionMode == .all
+    }
+
+    /// Resolves the current display preference against live connected screens.
+    /// Returns the set of `NSScreen` instances the overlay should appear on.
+    func screensForOverlay() -> [NSScreen] {
+        let screens = NSScreen.screens
+        guard !screens.isEmpty else { return [] }
+
+        switch displaySelectionMode {
+        case .all:
+            return screens
+
+        case .mainOnly:
+            return [NSScreen.main].compactMap(\.self)
+
+        case .externalOnly:
+            let externals = screens.filter { screen in
+                guard let id = DisplayIdentifier(screen: screen) else { return false }
+                return !id.isBuiltIn
+            }
+            // Fall back to main if no externals connected (e.g. laptop undocked)
+            return externals.isEmpty ? [NSScreen.main].compactMap(\.self) : externals
+
+        case .selected:
+            guard !selectedDisplayKeys.isEmpty else {
+                // No screens selected — treat as "all" to avoid showing nothing
+                return screens
+            }
+            let matched = screens.filter { screen in
+                guard let id = DisplayIdentifier(screen: screen) else { return false }
+                return selectedDisplayKeys.contains(id.persistenceKey)
+            }
+            // Fall back to all if none of the saved screens are connected
+            return matched.isEmpty ? screens : matched
+        }
     }
 
     /// Sound
@@ -317,6 +381,24 @@ final class PreferencesManager {
         themeManager.setAccent(accentColor)
     }
 
+    private func loadDisplaySelectionPreferences() {
+        if let modeRaw = userDefaults.object(forKey: PrefKey.displaySelectionMode) as? String,
+           let mode = DisplaySelectionMode(rawValue: modeRaw)
+        {
+            // New-format preference exists — use it directly
+            displaySelectionMode = mode
+        } else {
+            // Migrate from legacy showOnAllDisplays boolean
+            let legacyAll = userDefaults.object(forKey: PrefKey.showOnAllDisplays) as? Bool ?? true
+            displaySelectionMode = legacyAll ? .all : .mainOnly
+            userDefaults.set(displaySelectionMode.rawValue, forKey: PrefKey.displaySelectionMode)
+        }
+
+        if let savedKeys = userDefaults.object(forKey: PrefKey.selectedDisplayKeys) as? [String] {
+            selectedDisplayKeys = Set(savedKeys)
+        }
+    }
+
     private func loadPreferences() {
         defaultAlertMinutes = Self.snapToValid(
             userDefaults.object(forKey: PrefKey.defaultAlertMinutes) as? Int ?? Self.defaultAlertMinutesDefault,
@@ -364,7 +446,7 @@ final class PreferencesManager {
         }
 
         minimalMode = userDefaults.bool(forKey: PrefKey.minimalMode)
-        showOnAllDisplays = userDefaults.object(forKey: PrefKey.showOnAllDisplays) as? Bool ?? true
+        loadDisplaySelectionPreferences()
 
         playAlertSound = userDefaults.object(forKey: PrefKey.playAlertSound) as? Bool ?? true
         alertVolume = Self.clamp(

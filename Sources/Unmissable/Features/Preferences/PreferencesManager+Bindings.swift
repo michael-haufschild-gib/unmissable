@@ -115,4 +115,11 @@ extension PreferencesManager {
             set: { self.setSmartSuppression($0) },
         )
     }
+
+    var displaySelectionModeBinding: Binding<DisplaySelectionMode> {
+        Binding(
+            get: { self.displaySelectionMode },
+            set: { self.setDisplaySelectionMode($0) },
+        )
+    }
 }

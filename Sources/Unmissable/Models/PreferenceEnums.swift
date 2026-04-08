@@ -23,6 +23,29 @@ nonisolated enum FontSize: String, CaseIterable {
     }
 }
 
+nonisolated enum DisplaySelectionMode: String, CaseIterable {
+    case all
+    case mainOnly
+    case externalOnly
+    case selected
+
+    var displayName: String {
+        switch self {
+        case .all:
+            "All Displays"
+
+        case .mainOnly:
+            "Main Display Only"
+
+        case .externalOnly:
+            "External Displays Only"
+
+        case .selected:
+            "Choose Displays…"
+        }
+    }
+}
+
 nonisolated enum MenuBarDisplayMode: String, CaseIterable {
     case icon
     case timer
