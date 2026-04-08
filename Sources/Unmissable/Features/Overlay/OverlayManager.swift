@@ -55,6 +55,9 @@ final class OverlayManager: OverlayManaging {
     private let linkParser: LinkParser
     private let themeManager: ThemeManager
 
+    /// Dynamic dismiss hint text, updated when the dismiss shortcut changes.
+    var dismissShortcutHint = "Press ESC to dismiss"
+
     /// SNOOZE FIX: Track when overlay is shown from snooze alert
     private var isSnoozedAlert = false
 
@@ -407,6 +410,7 @@ final class OverlayManager: OverlayManaging {
                 }
             },
             isFromSnooze: isSnoozedAlert,
+            dismissShortcutHint: dismissShortcutHint,
         )
         .environment(preferencesManager)
         .themed(themeManager: themeManager)

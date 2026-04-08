@@ -8,6 +8,7 @@ struct OverlayContentView: View {
     let onJoin: () -> Void
     let onSnooze: (Int) -> Void
     let isFromSnooze: Bool
+    let dismissShortcutHint: String
 
     @Environment(PreferencesManager.self)
     private var preferences
@@ -69,6 +70,7 @@ struct OverlayContentView: View {
         onJoin: @escaping () -> Void,
         onSnooze: @escaping (Int) -> Void,
         isFromSnooze: Bool = false,
+        dismissShortcutHint: String = "Press ESC to dismiss",
     ) {
         self.event = event
         self.linkParser = linkParser
@@ -76,6 +78,7 @@ struct OverlayContentView: View {
         self.onJoin = onJoin
         self.onSnooze = onSnooze
         self.isFromSnooze = isFromSnooze
+        self.dismissShortcutHint = dismissShortcutHint
         _timeUntilMeeting = State(initialValue: event.startDate.timeIntervalSinceNow)
     }
 
@@ -103,7 +106,7 @@ struct OverlayContentView: View {
                 actionButtons
 
                 if !preferences.minimalMode {
-                    Text("Press ESC to dismiss")
+                    Text(dismissShortcutHint)
                         .font(design.fonts.caption)
                         .foregroundColor(design.colors.textTertiary)
                         .tracking(DesignTracking.sectionLabel)

@@ -10,6 +10,8 @@ protocol OverlayManaging: AnyObject {
     var isOverlayVisible: Bool { get }
     /// Computed time until meeting starts (negative if meeting has started)
     var timeUntilMeeting: TimeInterval { get }
+    /// Dynamic dismiss hint text, updated when the dismiss shortcut changes.
+    var dismissShortcutHint: String { get set }
 
     func showOverlay(for event: Event, fromSnooze: Bool)
     func hideOverlay()

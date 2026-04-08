@@ -61,6 +61,7 @@ final class ServiceContainer {
         shortcutsManager = ShortcutsManager(
             overlayManager: overlayManager, linkParser: linkParser,
         )
+        shortcutsManager.setPreferencesManager(preferencesManager)
         healthMonitor = HealthMonitor(
             calendarService: calendarService,
             overlayManager: overlayManager,

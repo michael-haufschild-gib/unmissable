@@ -43,6 +43,7 @@
 		2E4F969A4DAE64E71A988749 /* DisplayIdentifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCB83812FAFBE55430140475 /* DisplayIdentifier.swift */; };
 		2EF5BE55DFBD7EE2ABBFE662 /* PreferencesManager+Bindings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21FC3252D6B17471F599ED26 /* PreferencesManager+Bindings.swift */; };
 		311CE8EEA7B96E42992BB9B9 /* DiagnosticsRedactionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57A6E7CDD97D73E6619D30E4 /* DiagnosticsRedactionTests.swift */; };
+		327E606C542D148696DDBDB1 /* ShortcutRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87CFD7D81AAECBFDAC43358D /* ShortcutRecorderView.swift */; };
 		3543BF9FF22BF59C330C1EE5 /* EventRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B364378874A8830BA8641D3B /* EventRow.swift */; };
 		3584DB91A86C1C329F5B7B72 /* ScheduledAlertTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09BCB797A3FB2956CDF713F7 /* ScheduledAlertTests.swift */; };
 		3807D6480253F3E86415329A /* DatabaseMigrations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43F3DDBA77AD2996597F5BAE /* DatabaseMigrations.swift */; };
@@ -269,6 +270,7 @@
 		84FBCA180E457EE9AF5DAF02 /* ServiceContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceContainer.swift; sourceTree = "<group>"; };
 		8564711FE117F72BC0D21697 /* SnoozeAfterMeetingStartTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnoozeAfterMeetingStartTests.swift; sourceTree = "<group>"; };
 		85FF4DBC547C7E5DA669A869 /* OAuth2Service.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuth2Service.swift; sourceTree = "<group>"; };
+		87CFD7D81AAECBFDAC43358D /* ShortcutRecorderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutRecorderView.swift; sourceTree = "<group>"; };
 		89D40C5932F610500F9FEA6F /* ShortcutsManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutsManagerTests.swift; sourceTree = "<group>"; };
 		89D9B833DE60968A24467C4F /* OverlayContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayContentView.swift; sourceTree = "<group>"; };
 		8C558B8DDE6B336410E6B289 /* TestUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestUtilities.swift; sourceTree = "<group>"; };
@@ -406,6 +408,7 @@
 		4A0BDB6A1E7FB64ADB6731EA /* Shortcuts */ = {
 			isa = PBXGroup;
 			children = (
+				87CFD7D81AAECBFDAC43358D /* ShortcutRecorderView.swift */,
 				E062095E4FAA0705CEC269AE /* ShortcutsManager.swift */,
 			);
 			path = Shortcuts;
@@ -976,6 +979,7 @@
 				2D7B33A8BC3A79825085CEA3 /* Provider.swift in Sources */,
 				C2C4F3F66698B40894D42255 /* ScheduledAlert.swift in Sources */,
 				83045E62818336D242040618 /* ServiceContainer.swift in Sources */,
+				327E606C542D148696DDBDB1 /* ShortcutRecorderView.swift in Sources */,
 				3C6E5D85DAE4351C0597D3F2 /* ShortcutsManager.swift in Sources */,
 				3D6AE0CD73821A659CAC9230 /* SoundManager.swift in Sources */,
 				7429393557C8B894CBAFF7F6 /* Styles.swift in Sources */,

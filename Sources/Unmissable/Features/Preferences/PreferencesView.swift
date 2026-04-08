@@ -1,3 +1,4 @@
+import Magnet
 import SwiftUI
 
 private enum PreferencesTab: Int, CaseIterable {
@@ -81,6 +82,7 @@ struct PreferencesView: View {
                 }
             }
             .environment(appState.preferences)
+            .environment(appState.shortcuts)
         }
         .background(design.colors.background)
         .frame(width: Self.windowWidth, height: Self.windowHeight)
@@ -407,12 +409,10 @@ struct GeneralPreferencesView: View {
 // MARK: - Shortcuts Preferences
 
 struct ShortcutsPreferencesView: View {
-    @Environment(PreferencesManager.self)
-    var preferences
+    @Environment(ShortcutsManager.self)
+    var shortcuts
     @Environment(\.design)
     private var design
-
-    private static let shortcutBorderWidth: CGFloat = 1
 
     var body: some View {
         ScrollView {
@@ -432,13 +432,31 @@ struct ShortcutsPreferencesView: View {
                         shortcutRow(
                             title: "Dismiss overlay",
                             subtitle: "Close the current meeting alert",
-                            shortcut: ShortcutsManager.dismissShortcutDisplay,
+                            currentLabels: shortcuts.dismissLabels,
+                            onRecord: { shortcuts.updateDismissShortcut(keyCombo: $0) },
+                            onReset: { shortcuts.resetToDefaults() },
                         )
 
                         shortcutRow(
                             title: "Join meeting",
                             subtitle: "Quickly join the current meeting",
-                            shortcut: ShortcutsManager.joinShortcutDisplay,
+                            currentLabels: shortcuts.joinLabels,
+                            onRecord: { shortcuts.updateJoinShortcut(keyCombo: $0) },
+                            onReset: { shortcuts.resetToDefaults() },
+                        )
+                    }
+                }
+
+                UMSection("Tips", icon: "lightbulb") {
+                    VStack(alignment: .leading, spacing: design.spacing.md) {
+                        tipRow(
+                            text: "Click a shortcut field and press a new key combination to change it",
+                        )
+                        tipRow(
+                            text: "Shortcuts must include at least one modifier key (⌘, ⌥, ⌃, or ⇧)",
+                        )
+                        tipRow(
+                            text: "Press Esc without modifiers to cancel recording",
                         )
                     }
                 }
@@ -453,7 +471,9 @@ struct ShortcutsPreferencesView: View {
     private func shortcutRow(
         title: String,
         subtitle: String,
-        shortcut: String,
+        currentLabels: [String],
+        onRecord: @escaping (KeyCombo) -> Bool,
+        onReset: @escaping () -> Void,
     ) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: design.spacing.xs) {
@@ -468,17 +488,23 @@ struct ShortcutsPreferencesView: View {
 
             Spacer()
 
-            Text(shortcut)
-                .font(design.fonts.mono)
-                .foregroundColor(design.colors.textPrimary)
-                .padding(.horizontal, design.spacing.md)
-                .padding(.vertical, design.spacing.sm)
-                .background(design.colors.surface)
-                .clipShape(RoundedRectangle(cornerRadius: design.corners.md))
-                .overlay(
-                    RoundedRectangle(cornerRadius: design.corners.md)
-                        .stroke(design.colors.borderDefault, lineWidth: Self.shortcutBorderWidth),
-                )
+            ShortcutRecorderView(
+                currentLabels: currentLabels,
+                onRecord: onRecord,
+                onReset: onReset,
+            )
+        }
+    }
+
+    private func tipRow(text: String) -> some View {
+        HStack(alignment: .top, spacing: design.spacing.sm) {
+            Image(systemName: "arrow.right.circle.fill")
+                .font(design.fonts.caption)
+                .foregroundColor(design.colors.textTertiary)
+
+            Text(text)
+                .font(design.fonts.caption)
+                .foregroundColor(design.colors.textSecondary)
         }
     }
 }

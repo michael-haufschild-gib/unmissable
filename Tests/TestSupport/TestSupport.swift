@@ -118,6 +118,7 @@ public final class TestSafeOverlayManager: OverlayManaging {
 
     public var activeEvent: Event?
     public var isOverlayVisible = false
+    public var dismissShortcutHint = "Press ESC to dismiss"
 
     /// Computed time until meeting starts (negative if meeting has started)
     public var timeUntilMeeting: TimeInterval {

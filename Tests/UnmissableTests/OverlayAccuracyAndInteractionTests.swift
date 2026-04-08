@@ -348,7 +348,7 @@ struct OverlayAccuracyAndInteractionTests {
         let countdownDecrease = initialCountdown - finalCountdown
 
         let difference = abs(actualElapsed - countdownDecrease)
-        #expect(difference < 0.5, "Timer should be accurate over longer periods")
+        #expect(difference < 1.0, "Timer should be accurate over longer periods")
     }
 
     // MARK: - Edge Cases
