@@ -98,6 +98,7 @@ struct GeneralPreferencesView: View {
     private static let defaultAlertPickerWidth: CGFloat = 160
     private static let lengthBasedPickerWidth: CGFloat = 140
     private static let syncPickerWidth: CGFloat = 140
+    private static let displayPickerWidth: CGFloat = 200
 
     // Picker tag values (minutes)
     private static let alertTag1Min = 1
@@ -127,6 +128,7 @@ struct GeneralPreferencesView: View {
                 }
 
                 alertTimingSection
+                displaySelectionSection
                 smartAlertSection
                 syncSettingsSection
                 startupSection
@@ -260,6 +262,43 @@ struct GeneralPreferencesView: View {
         }
         .padding(design.spacing.lg)
         .umCard(.flat)
+    }
+
+    // MARK: - Display Selection
+
+    private var displaySelectionSection: some View {
+        UMSection("Display Selection", icon: "display") {
+            VStack(spacing: design.spacing.lg) {
+                HStack {
+                    VStack(alignment: .leading, spacing: design.spacing.xs) {
+                        Text("Show overlay on")
+                            .font(design.fonts.callout)
+                            .foregroundColor(design.colors.textPrimary)
+
+                        Text("Choose which displays show the meeting overlay")
+                            .font(design.fonts.caption)
+                            .foregroundColor(design.colors.textSecondary)
+                    }
+
+                    Spacer()
+
+                    Picker("Displays", selection: preferences.displaySelectionModeBinding) {
+                        ForEach(DisplaySelectionMode.allCases, id: \.self) { mode in
+                            Text(mode.displayName).tag(mode)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .umPickerStyle()
+                    .frame(width: Self.displayPickerWidth)
+                }
+
+                if preferences.displaySelectionMode == .selected {
+                    DisplayArrangementView()
+                        .umCard(.flat)
+                }
+            }
+        }
     }
 
     // MARK: - Smart Alerts

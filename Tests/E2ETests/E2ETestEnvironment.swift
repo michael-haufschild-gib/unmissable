@@ -39,7 +39,7 @@ final class E2ETestEnvironment {
         preferencesManager.setOverlayShowMinutesBefore(TestConstants.overlayShowMinutesBefore)
         preferencesManager.setPlayAlertSound(false)
         preferencesManager.setUseLengthBasedTiming(false)
-        preferencesManager.setShowOnAllDisplays(false)
+        preferencesManager.setDisplaySelectionMode(.mainOnly)
         preferencesManager.setAutoJoinEnabled(false)
         preferencesManager.setIncludeAllDayEvents(false)
 

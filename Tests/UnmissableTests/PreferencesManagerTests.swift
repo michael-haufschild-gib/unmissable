@@ -29,7 +29,7 @@ struct PreferencesManagerTests {
         #expect(preferencesManager.themeMode == .system)
         #expect(abs(preferencesManager.overlayOpacity - 0.9) <= 0.001)
         #expect(preferencesManager.fontSize == .medium)
-        #expect(preferencesManager.showOnAllDisplays)
+        #expect(preferencesManager.displaySelectionMode == .all)
         #expect(preferencesManager.playAlertSound)
         #expect(preferencesManager.launchAtLogin)
     }
@@ -386,6 +386,97 @@ struct PreferencesManagerTests {
         #expect(
             preferencesManager.launchAtLogin,
             "Should NOT override preference when system reports not-registered",
+        )
+    }
+
+    // MARK: - Display Selection
+
+    @Test
+    func displaySelectionMode_defaultIsAll() {
+        #expect(preferencesManager.displaySelectionMode == .all)
+        #expect(preferencesManager.selectedDisplayKeys.isEmpty)
+    }
+
+    @Test
+    func displaySelectionMode_persistsAcrossInstances() throws {
+        preferencesManager.setDisplaySelectionMode(.externalOnly)
+
+        let defaults = try #require(UserDefaults(suiteName: testSuiteName))
+        let newManager = PreferencesManager(
+            userDefaults: defaults, themeManager: ThemeManager(),
+        )
+        #expect(newManager.displaySelectionMode == .externalOnly)
+    }
+
+    @Test
+    func selectedDisplayKeys_persistsAcrossInstances() throws {
+        preferencesManager.setSelectedDisplayKeys(["1715-10092-100", "1552-41054-200"])
+
+        let defaults = try #require(UserDefaults(suiteName: testSuiteName))
+        let newManager = PreferencesManager(
+            userDefaults: defaults, themeManager: ThemeManager(),
+        )
+        #expect(newManager.selectedDisplayKeys == ["1715-10092-100", "1552-41054-200"])
+    }
+
+    @Test
+    func toggleDisplay_addsAndRemovesKey() {
+        let key = "1715-10092-100"
+        preferencesManager.toggleDisplay(key: key)
+        #expect(preferencesManager.selectedDisplayKeys.contains(key))
+
+        preferencesManager.toggleDisplay(key: key)
+        #expect(!preferencesManager.selectedDisplayKeys.contains(key))
+    }
+
+    @Test
+    func displaySelectionMode_legacyMigration_allDisplaysTrue() throws {
+        // Write legacy boolean, no new key
+        let defaults = try #require(UserDefaults(suiteName: testSuiteName))
+        defaults.removeObject(forKey: "displaySelectionMode")
+        defaults.set(true, forKey: "showOnAllDisplays")
+
+        let newManager = PreferencesManager(
+            userDefaults: defaults, themeManager: ThemeManager(),
+        )
+        #expect(
+            newManager.displaySelectionMode == .all,
+            "Legacy showOnAllDisplays=true should migrate to .all",
+        )
+    }
+
+    @Test
+    func displaySelectionMode_legacyMigration_allDisplaysFalse() throws {
+        let defaults = try #require(UserDefaults(suiteName: testSuiteName))
+        defaults.removeObject(forKey: "displaySelectionMode")
+        defaults.set(false, forKey: "showOnAllDisplays")
+
+        let newManager = PreferencesManager(
+            userDefaults: defaults, themeManager: ThemeManager(),
+        )
+        #expect(
+            newManager.displaySelectionMode == .mainOnly,
+            "Legacy showOnAllDisplays=false should migrate to .mainOnly",
+        )
+    }
+
+    @Test
+    func showOnAllDisplays_legacyAccessor_matchesMode() {
+        preferencesManager.setDisplaySelectionMode(.all)
+        #expect(preferencesManager.showOnAllDisplays)
+
+        preferencesManager.setDisplaySelectionMode(.externalOnly)
+        #expect(!preferencesManager.showOnAllDisplays)
+
+        preferencesManager.setDisplaySelectionMode(.mainOnly)
+        #expect(!preferencesManager.showOnAllDisplays)
+    }
+
+    @Test
+    func displaySelectionModeEnum_allCases() {
+        #expect(
+            DisplaySelectionMode.allCases == [.all, .mainOnly, .externalOnly, .selected],
+            "DisplaySelectionMode should have exactly 4 cases in order",
         )
     }
 }
