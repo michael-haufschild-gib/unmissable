@@ -136,6 +136,9 @@ final class CalendarService {
                 guard let self else { return }
                 self.needsUIRefresh = true
                 self.startUIRefreshTimer()
+                Task {
+                    await self.loadCachedData()
+                }
             },
         )
     }

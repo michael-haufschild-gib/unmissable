@@ -87,6 +87,7 @@ final class SyncManager {
         self.networkMonitor = networkMonitor
         self.sleepObserver = sleepObserver
         self.callbackKey = "\(Self.sleepKey).\(providerType.rawValue)"
+        self.isOnline = networkMonitor.isOnline
         setupNetworkCallbacks()
         setupPreferencesObserver()
         setupSleepObserver(sleepObserver)
@@ -347,8 +348,9 @@ final class SyncManager {
             lastManualSyncTime = Date()
         }
 
-        guard isOnline else {
+        guard networkMonitor.isOnline else {
             logger.debug("Skipping sync - device is offline")
+            isOnline = false
             syncStatus = .offline
             return false
         }

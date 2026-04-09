@@ -101,8 +101,10 @@ struct ShortcutRecorderView: View {
 
     private var resetButton: some View {
         Button {
+            isRecording = false
             onReset()
             showError = false
+            errorClearTask?.cancel()
         } label: {
             Image(systemName: "arrow.counterclockwise")
                 .font(design.fonts.caption)

@@ -47,6 +47,8 @@ final class HealthMonitor {
 
     /// Registry key for sleep/wake callbacks.
     private static let sleepKey = "HealthMonitor"
+    @ObservationIgnored
+    private weak var sleepObserver: SystemSleepObserver?
 
     init(
         calendarService: CalendarService? = nil,
@@ -56,6 +58,7 @@ final class HealthMonitor {
     ) {
         self.calendarService = calendarService
         self.overlayManager = overlayManager
+        self.sleepObserver = sleepObserver
         if startImmediately {
             startHealthMonitoring()
         }
@@ -64,6 +67,9 @@ final class HealthMonitor {
 
     deinit {
         healthCheckTask?.cancel()
+        MainActor.assumeIsolated {
+            sleepObserver?.unregister(key: Self.sleepKey)
+        }
     }
 
     private func setupSleepObserver(_ sleepObserver: SystemSleepObserver?) {

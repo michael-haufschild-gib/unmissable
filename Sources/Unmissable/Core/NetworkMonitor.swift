@@ -12,6 +12,8 @@ final class NetworkMonitor {
     private let logger = Logger(category: "NetworkMonitor")
 
     /// Current network reachability status.
+    /// Defaults to `true` (optimistic); corrected by the first `NWPathMonitor`
+    /// update which arrives without debounce delay.
     private(set) var isOnline: Bool = true
 
     /// Registered callbacks fired when the network transitions from offline to online.
@@ -26,6 +28,9 @@ final class NetworkMonitor {
     private var monitorTask: Task<Void, Never>?
     @ObservationIgnored
     private var pendingUpdate: Task<Void, Never>?
+    /// Whether the initial path update has been applied (skips debounce).
+    @ObservationIgnored
+    private var hasReceivedInitialUpdate = false
 
     /// Debounce delay for network status changes (milliseconds).
     private static let debounceMs: UInt64 = 500
@@ -80,15 +85,21 @@ final class NetworkMonitor {
 
         pendingUpdate = Task { @MainActor [weak self] in
             guard let self else { return }
-            do {
-                try await Task.sleep(for: .milliseconds(Self.debounceMs))
-            } catch is CancellationError {
-                return
-            } catch {
-                return
-            }
 
-            guard !Task.isCancelled else { return }
+            // Skip debounce for the first update so consumers get the real
+            // state immediately instead of sitting on the `false` default.
+            if hasReceivedInitialUpdate {
+                do {
+                    try await Task.sleep(for: .milliseconds(Self.debounceMs))
+                } catch is CancellationError {
+                    return
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
+            } else {
+                hasReceivedInitialUpdate = true
+            }
 
             let wasOnline = isOnline
             isOnline = path.status == .satisfied
