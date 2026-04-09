@@ -138,17 +138,30 @@ final class ShortcutsManager {
             return true
         }
 
+        // Already registered with this exact combo — accept silently
+        if let existing = dismissShortcut, existing.keyCombo == keyCombo {
+            return true
+        }
+
+        // Unregister old binding first so the identifier is available in HotKeyCenter
+        let previousHotKey = dismissShortcut
+        previousHotKey?.unregister()
+        dismissShortcut = nil
+
         let hotKey = HotKey(identifier: "dismiss_overlay", keyCombo: keyCombo) { [weak self] _ in
             Task { @MainActor in self?.dismissOverlay() }
         }
 
         guard hotKey.register() else {
             logger.error("Failed to register dismiss shortcut — key combo may already be in use")
+            // Roll back: re-register the previous binding if possible
+            if let previousHotKey {
+                previousHotKey.register()
+                dismissShortcut = previousHotKey
+            }
             return false
         }
 
-        // Registration succeeded — now safe to tear down old binding
-        dismissShortcut?.unregister()
         dismissShortcut = hotKey
         dismissLabels = Self.modifierAndKeyLabels(
             modifiers: keyCombo.keyEquivalentModifierMask, key: keyCombo.key,
@@ -169,17 +182,30 @@ final class ShortcutsManager {
             return true
         }
 
+        // Already registered with this exact combo — accept silently
+        if let existing = joinShortcut, existing.keyCombo == keyCombo {
+            return true
+        }
+
+        // Unregister old binding first so the identifier is available in HotKeyCenter
+        let previousHotKey = joinShortcut
+        previousHotKey?.unregister()
+        joinShortcut = nil
+
         let hotKey = HotKey(identifier: "join_meeting", keyCombo: keyCombo) { [weak self] _ in
             Task { @MainActor in self?.joinMeeting() }
         }
 
         guard hotKey.register() else {
             logger.error("Failed to register join shortcut — key combo may already be in use")
+            // Roll back: re-register the previous binding if possible
+            if let previousHotKey {
+                previousHotKey.register()
+                joinShortcut = previousHotKey
+            }
             return false
         }
 
-        // Registration succeeded — now safe to tear down old binding
-        joinShortcut?.unregister()
         joinShortcut = hotKey
         joinLabels = Self.modifierAndKeyLabels(
             modifiers: keyCombo.keyEquivalentModifierMask, key: keyCombo.key,
