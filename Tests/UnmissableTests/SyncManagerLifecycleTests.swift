@@ -23,6 +23,8 @@ struct SyncManagerLifecycleTests {
             apiService: apiService,
             databaseManager: databaseManager,
             preferencesManager: preferences,
+            networkMonitor: NetworkMonitor(),
+            sleepObserver: nil,
         )
     }
 
@@ -130,6 +132,8 @@ struct SyncManagerLifecycleTests {
             apiService: apiService,
             databaseManager: databaseManager,
             preferencesManager: preferences,
+            networkMonitor: NetworkMonitor(),
+            sleepObserver: nil,
         )
         defer { failingManager.stopPeriodicSync() }
 

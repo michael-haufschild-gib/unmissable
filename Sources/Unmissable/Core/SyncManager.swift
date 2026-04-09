@@ -1,5 +1,4 @@
 import Foundation
-import Network
 import Observation
 import OSLog
 
@@ -23,11 +22,9 @@ final class SyncManager {
     @ObservationIgnored
     private let preferencesManager: PreferencesManager
     @ObservationIgnored
+    private let networkMonitor: NetworkMonitor
+    @ObservationIgnored
     private var syncTask: Task<Void, Never>?
-    @ObservationIgnored
-    private var networkMonitor: NWPathMonitor?
-    @ObservationIgnored
-    private var networkMonitorTask: Task<Void, Never>?
 
     /// Sync completion callback
     @ObservationIgnored
@@ -49,12 +46,6 @@ final class SyncManager {
     @ObservationIgnored
     private let minSyncCooldown: TimeInterval = 10.0 // Minimum 10 seconds between manual syncs
 
-    /// Network monitor debouncing
-    @ObservationIgnored
-    private var pendingNetworkUpdate: Task<Void, Never>?
-    @ObservationIgnored
-    private let networkDebounceDelay: TimeInterval = 0.5 // 500ms debounce
-
     /// Staleness TTL: clear cached events when the API consistently returns empty
     @ObservationIgnored
     private var stalenessReferenceDate: Date?
@@ -64,8 +55,6 @@ final class SyncManager {
     private static let secondsPerHour: TimeInterval = 3600
     private let stalenessTTL = TimeInterval(stalenessHours) * secondsPerHour
 
-    /// Milliseconds per second, used for network debounce conversion.
-    private static let millisecondsPerSecond: Double = 1000
     /// Maximum retry delay cap (seconds) — 5 minutes.
     private static let maxRetryDelaySeconds: TimeInterval = 300.0
     /// Exponential backoff base multiplier.
@@ -75,28 +64,30 @@ final class SyncManager {
     /// Jitter range upper bound for retry delay randomization.
     private static let jitterUpperBound: Double = 1.2
 
+    /// Registry key for sleep/wake callbacks.
+    private static let sleepKey = "SyncManager"
+
     init(
         providerType: CalendarProviderType,
         apiService: any CalendarAPIProviding,
         databaseManager: any DatabaseManaging,
         preferencesManager: PreferencesManager,
+        networkMonitor: NetworkMonitor,
+        sleepObserver: SystemSleepObserver?,
     ) {
         self.providerType = providerType
         self.apiService = apiService
         self.databaseManager = databaseManager
         self.preferencesManager = preferencesManager
-        setupNetworkMonitoring()
+        self.networkMonitor = networkMonitor
+        setupNetworkCallbacks()
         setupPreferencesObserver()
+        setupSleepObserver(sleepObserver)
     }
 
     deinit {
-        // Cancel async tasks first (they may reference the monitor)
-        networkMonitorTask?.cancel()
-        pendingNetworkUpdate?.cancel()
         syncTask?.cancel()
         retryTask?.cancel()
-        // Then cancel the monitor itself
-        networkMonitor?.cancel()
     }
 
     var syncInterval: TimeInterval {
@@ -123,61 +114,51 @@ final class SyncManager {
         }
     }
 
-    private func setupNetworkMonitoring() {
-        let monitor = NWPathMonitor()
-        networkMonitor = monitor
+    private func setupNetworkCallbacks() {
+        observeNetworkStatus()
 
-        // Create async stream for network path updates
-        let pathStream = AsyncStream<NWPath> { continuation in
-            monitor.pathUpdateHandler = { path in
-                continuation.yield(path)
-            }
-            continuation.onTermination = { _ in
-                monitor.cancel()
-            }
+        let providerKey = "\(Self.sleepKey).\(providerType.rawValue)"
+        networkMonitor.registerOnReconnect(key: providerKey) { [weak self] in
+            guard let self else { return }
+            self.logger.info("Network restored — triggering sync")
+            await self.performSync()
         }
+    }
 
-        // Start monitor on a background queue (required by NWPathMonitor)
-        monitor.start(queue: DispatchQueue(label: "com.unmissable.network", qos: .utility))
-
-        // Process path updates asynchronously
-        networkMonitorTask = Task { @MainActor [weak self] in
-            for await path in pathStream {
-                guard !Task.isCancelled else { break }
-                self?.handleNetworkPathUpdate(path)
+    private func observeNetworkStatus() {
+        withObservationTracking {
+            _ = networkMonitor.isOnline
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let online = self.networkMonitor.isOnline
+                self.isOnline = online
+                if !online {
+                    self.syncStatus = .offline
+                }
+                self.observeNetworkStatus()
             }
         }
     }
 
-    private func handleNetworkPathUpdate(_ path: NWPath) {
-        // Debounce rapid network status changes
-        pendingNetworkUpdate?.cancel()
-
-        pendingNetworkUpdate = Task { @MainActor [weak self] in
-            guard let self else { return }
-            do {
-                try await Task.sleep(
-                    for: .milliseconds(networkDebounceDelay * Self.millisecondsPerSecond),
-                )
-            } catch is CancellationError {
-                return // Debounced - a newer update superseded this one
-            } catch {
-                return
-            }
-
-            guard !Task.isCancelled else { return }
-
-            let wasOnline = isOnline
-            isOnline = path.status == .satisfied
-
-            if !wasOnline, isOnline {
-                logger.info("Network connection restored, attempting sync")
-                await performSync()
-            } else if !isOnline {
-                logger.warning("Network connection lost")
-                syncStatus = .offline
-            }
-        }
+    private func setupSleepObserver(_ sleepObserver: SystemSleepObserver?) {
+        guard let sleepObserver else { return }
+        let key = "\(Self.sleepKey).\(providerType.rawValue)"
+        sleepObserver.register(
+            key: key,
+            onSleep: { [weak self] in
+                guard let self else { return }
+                self.logger.info("System sleep — suspending periodic sync")
+                self.stopPeriodicSync()
+                self.retryTask?.cancel()
+                self.retryTask = nil
+            },
+            onWake: { [weak self] in
+                guard let self else { return }
+                self.logger.info("System wake — resuming periodic sync")
+                self.startPeriodicSync()
+            },
+        )
     }
 
     func startPeriodicSync() {

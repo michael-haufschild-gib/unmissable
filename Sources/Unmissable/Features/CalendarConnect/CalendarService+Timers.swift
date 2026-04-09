@@ -82,15 +82,18 @@ extension CalendarService {
     // MARK: - UI Refresh Timer
 
     /// Whether any event crossed a time boundary (started or ended) since the arrays were last loaded.
+    ///
+    /// Compares the current set of event IDs that would be in each category (upcoming vs. started)
+    /// against the IDs captured at the last `loadCachedData()` call. Returns true only when the
+    /// composition has actually changed — i.e., an event crossed from upcoming to started, or a
+    /// started event ended. This replaces the previous check (`startDate <= now`) which returned
+    /// true permanently once any event had started, triggering unnecessary DB reads every cycle.
     func hasTimeBoundaryChange() -> Bool {
         let now = Date()
-        if events.contains(where: { $0.startDate <= now }) {
-            return true
-        }
-        if startedEvents.contains(where: { $0.endDate <= now }) {
-            return true
-        }
-        return false
+        let currentUpcomingIDs = Set(events.filter { $0.startDate > now }.map(\.id))
+        let currentStartedIDs = Set(startedEvents.filter { $0.endDate > now }.map(\.id))
+        return currentUpcomingIDs != lastLoadedUpcomingIDs
+            || currentStartedIDs != lastLoadedStartedIDs
     }
 
     func startUIRefreshTimer() {

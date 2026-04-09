@@ -12,6 +12,7 @@
 		083939CC4BC629506712A008 /* CalendarInfoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A440BAF0F8C0D6714CA63F /* CalendarInfoTests.swift */; };
 		087FF8D5F0FA266DA25EF34C /* UserJourneyE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E921CB46170B5B9598FC07E /* UserJourneyE2ETests.swift */; };
 		096E2D6F15494DBD3D7CD2B0 /* OverlayContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89D9B833DE60968A24467C4F /* OverlayContentView.swift */; };
+		0B78A0D90E680C53721FE387 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 104F0AF89F163DDA85D76C5C /* NetworkMonitor.swift */; };
 		0B7ABF324A75BEAE3682974F /* OverlayWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8114C5A99B2314C168E1E8A /* OverlayWindowTests.swift */; };
 		0FA1D57E0F473561887D9FDA /* MeetingDetailsE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFC0B253FF7D839D7E5FA6AE /* MeetingDetailsE2ETests.swift */; };
 		1318B7CE7D2D8B91065853D5 /* TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6CF6FC631371A3092EBF3AA /* TestSupport.swift */; };
@@ -84,6 +85,7 @@
 		7519CFED285A425453345EC4 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F36EAC874EBB4D60408056 /* OnboardingView.swift */; };
 		76F7DE8D46747296B00AF70A /* DatabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8EB499EA1C81B20A6F23017 /* DatabaseManager.swift */; };
 		7731A7EAAF10782606B00D76 /* PreferenceEnums.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D3B82B2CDAA52E912275F24 /* PreferenceEnums.swift */; };
+		78E292AB8AEAC3D1B4559AA2 /* SystemSleepObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2A66A6387D6B6F77F404515 /* SystemSleepObserver.swift */; };
 		7BBD6CC7B52422057DEA8BB7 /* EventLifecycleE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45C141EF838B877C7BE153E0 /* EventLifecycleE2ETests.swift */; };
 		7E2752C02C5FB2F92DCC7CE9 /* CalendarSyncE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E240190A776AD3BF58937BD5 /* CalendarSyncE2ETests.swift */; };
 		80D8B3E4DD05E0F1DF8C2490 /* ActivationPolicyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF1536D291C3997F81C0ACA6 /* ActivationPolicyManager.swift */; };
@@ -202,6 +204,7 @@
 		0BB6BE320D603D2ED5E9AE9C /* Provider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Provider.swift; sourceTree = "<group>"; };
 		0C256F7B89571BD9C68BEA93 /* DesignSystemTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystemTests.swift; sourceTree = "<group>"; };
 		10197BB42E9FC751636C1D39 /* SyncError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncError.swift; sourceTree = "<group>"; };
+		104F0AF89F163DDA85D76C5C /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		11CB6D45F4FC3CE4A20CF874 /* MultiProviderIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiProviderIntegrationTests.swift; sourceTree = "<group>"; };
 		122B471D06B4B1D1352EF905 /* SyncStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatus.swift; sourceTree = "<group>"; };
 		137430EBE50274154067FFA6 /* AppDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDiagnostics.swift; sourceTree = "<group>"; };
@@ -320,6 +323,7 @@
 		E062095E4FAA0705CEC269AE /* ShortcutsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutsManager.swift; sourceTree = "<group>"; };
 		E18B8EF505F95CAA0318AA81 /* CalendarProviderType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarProviderType.swift; sourceTree = "<group>"; };
 		E240190A776AD3BF58937BD5 /* CalendarSyncE2ETests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSyncE2ETests.swift; sourceTree = "<group>"; };
+		E2A66A6387D6B6F77F404515 /* SystemSleepObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemSleepObserver.swift; sourceTree = "<group>"; };
 		E586B0712AFF934D90C3D4AE /* LinkParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkParserTests.swift; sourceTree = "<group>"; };
 		E5AEB70A5120EE63B0BF37B6 /* Containers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Containers.swift; sourceTree = "<group>"; };
 		E8114C5A99B2314C168E1E8A /* OverlayWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayWindowTests.swift; sourceTree = "<group>"; };
@@ -434,6 +438,7 @@
 				CF2474D9DD48729683F164E8 /* LoggerSubsystem.swift */,
 				8E287B37EF9CCEDB3AB113D9 /* LoginItemManager.swift */,
 				54F653575473090B0C98EE71 /* MenuBarPreviewManager.swift */,
+				104F0AF89F163DDA85D76C5C /* NetworkMonitor.swift */,
 				693D7E3C6148DA70953A1F49 /* NotificationManager.swift */,
 				AAA274C6C401FB0FA142E7B1 /* NotificationNames.swift */,
 				92CBD02AD0955730D40A4523 /* Protocols.swift */,
@@ -442,6 +447,7 @@
 				10197BB42E9FC751636C1D39 /* SyncError.swift */,
 				397E7D150A333C0FDB532E97 /* SyncManager.swift */,
 				36CCFFE53AF758D6CFEEF2A4 /* SyncManager+Schedule.swift */,
+				E2A66A6387D6B6F77F404515 /* SystemSleepObserver.swift */,
 				A642417F3A63E5B99585F4D0 /* ThemeManager.swift */,
 				A4E2D3306224CECEB62C8D61 /* Diagnostics */,
 			);
@@ -961,6 +967,7 @@
 				89C150F137ABE72AA4FAAFF1 /* MeetingDetailsView.swift in Sources */,
 				211B6C06CC2AEBD96BF6FF38 /* MenuBarPreviewManager.swift in Sources */,
 				E0556A434F21C3C09C56FD40 /* MenuBarView.swift in Sources */,
+				0B78A0D90E680C53721FE387 /* NetworkMonitor.swift in Sources */,
 				E77ECA38D571AAC0AFF11E4E /* NotificationManager.swift in Sources */,
 				E65EB9279F84AD35C6A5D6C4 /* NotificationNames.swift in Sources */,
 				84872D5D922B29B4A02CC3D5 /* OAuth2Error.swift in Sources */,
@@ -987,6 +994,7 @@
 				8F53EA52B47933A3678294F1 /* SyncManager+Schedule.swift in Sources */,
 				EAD95F4EE90BC80DE72602B3 /* SyncManager.swift in Sources */,
 				F1A880E93141B363BCDD63E7 /* SyncStatus.swift in Sources */,
+				78E292AB8AEAC3D1B4559AA2 /* SystemSleepObserver.swift in Sources */,
 				995C7E609D9BC373E7AE93F1 /* ThemeManager.swift in Sources */,
 				1B2C821122F3D105CD16905B /* UnmissableApp.swift in Sources */,
 			);

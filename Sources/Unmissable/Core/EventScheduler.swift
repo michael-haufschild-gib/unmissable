@@ -67,9 +67,13 @@ final class EventScheduler {
     /// Minimum snooze duration (minutes). Prevents accidental immediate re-fire.
     private static let minimumSnoozeMinutes = 1
 
+    /// Registry key for sleep/wake callbacks.
+    private static let sleepKey = "EventScheduler"
+
     init(
         preferencesManager: PreferencesManager,
         linkParser: LinkParser,
+        sleepObserver: SystemSleepObserver? = nil,
         sleepForSeconds: @escaping @Sendable (TimeInterval) async throws -> Void = { seconds in
             try await Task.sleep(for: .seconds(seconds))
         },
@@ -80,10 +84,29 @@ final class EventScheduler {
         self.sleepForSeconds = sleepForSeconds
         self.now = now
         setupPreferencesObserver()
+        setupSleepObserver(sleepObserver)
     }
 
     deinit {
         monitoringTask?.cancel()
+    }
+
+    private func setupSleepObserver(_ sleepObserver: SystemSleepObserver?) {
+        guard let sleepObserver else { return }
+        sleepObserver.register(
+            key: Self.sleepKey,
+            onSleep: { [weak self] in
+                guard let self else { return }
+                self.logger.info("System sleep — cancelling monitoring task")
+                self.monitoringTask?.cancel()
+                self.monitoringTask = nil
+            },
+            onWake: { [weak self] in
+                guard let self else { return }
+                self.logger.info("System wake — resuming monitoring")
+                self.refreshMonitoring()
+            },
+        )
     }
 
     private func setupPreferencesObserver() {

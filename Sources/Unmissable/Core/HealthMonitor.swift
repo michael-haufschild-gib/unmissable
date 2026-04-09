@@ -40,9 +40,13 @@ final class HealthMonitor {
     private weak var calendarService: CalendarService?
     private weak var overlayManager: (any OverlayManaging)?
 
+    /// Registry key for sleep/wake callbacks.
+    private static let sleepKey = "HealthMonitor"
+
     init(
         calendarService: CalendarService? = nil,
         overlayManager: (any OverlayManaging)? = nil,
+        sleepObserver: SystemSleepObserver? = nil,
         startImmediately: Bool = true,
     ) {
         self.calendarService = calendarService
@@ -50,10 +54,24 @@ final class HealthMonitor {
         if startImmediately {
             startHealthMonitoring()
         }
+        setupSleepObserver(sleepObserver)
     }
 
     deinit {
         healthCheckTask?.cancel()
+    }
+
+    private func setupSleepObserver(_ sleepObserver: SystemSleepObserver?) {
+        guard let sleepObserver else { return }
+        sleepObserver.register(
+            key: Self.sleepKey,
+            onSleep: { [weak self] in
+                self?.stopHealthMonitoring()
+            },
+            onWake: { [weak self] in
+                self?.startHealthMonitoring()
+            },
+        )
     }
 
     func setup(
