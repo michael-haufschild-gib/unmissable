@@ -155,9 +155,10 @@ final class ShortcutsManager {
         guard hotKey.register() else {
             logger.error("Failed to register dismiss shortcut — key combo may already be in use")
             // Roll back: re-register the previous binding if possible
-            if let previousHotKey {
-                previousHotKey.register()
+            if let previousHotKey, previousHotKey.register() {
                 dismissShortcut = previousHotKey
+            } else if previousHotKey != nil {
+                logger.error("Failed to roll back dismiss shortcut — previous binding also lost")
             }
             return false
         }
@@ -199,9 +200,10 @@ final class ShortcutsManager {
         guard hotKey.register() else {
             logger.error("Failed to register join shortcut — key combo may already be in use")
             // Roll back: re-register the previous binding if possible
-            if let previousHotKey {
-                previousHotKey.register()
+            if let previousHotKey, previousHotKey.register() {
                 joinShortcut = previousHotKey
+            } else if previousHotKey != nil {
+                logger.error("Failed to roll back join shortcut — previous binding also lost")
             }
             return false
         }
