@@ -96,7 +96,7 @@ final class CalendarService {
     var lastLoadedStartedIDs: Set<String> = []
 
     /// Registry key for sleep/wake callbacks.
-    private static let sleepKey = "CalendarService"
+    static let sleepKey = "CalendarService"
 
     init(
         preferencesManager: PreferencesManager,
@@ -123,24 +123,6 @@ final class CalendarService {
                 await loadCachedData()
             }
         }
-    }
-
-    private func setupSleepObserver() {
-        guard let sleepObserver else { return }
-        sleepObserver.register(
-            key: Self.sleepKey,
-            onSleep: { [weak self] in
-                self?.stopUIRefreshTimer()
-            },
-            onWake: { [weak self] in
-                guard let self else { return }
-                self.needsUIRefresh = true
-                self.startUIRefreshTimer()
-                Task {
-                    await self.loadCachedData()
-                }
-            },
-        )
     }
 
     // MARK: - Provider Management
@@ -540,6 +522,12 @@ final class CalendarService {
                     "started": "\(self?.startedEvents.count ?? 0)",
                 ]
             }
+        }
+    }
+
+    deinit {
+        MainActor.assumeIsolated {
+            unregisterSleepObserver()
         }
     }
 

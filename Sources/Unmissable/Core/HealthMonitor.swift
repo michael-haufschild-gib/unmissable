@@ -45,8 +45,10 @@ final class HealthMonitor {
     @ObservationIgnored
     private var wasMonitoringBeforeSleep = false
 
-    /// Registry key for sleep/wake callbacks.
-    private static let sleepKey = "HealthMonitor"
+    /// Per-instance callback key for sleep/wake registration.
+    private static let callbackKeyPrefix = "HealthMonitor"
+    @ObservationIgnored
+    private let callbackKey = "\(callbackKeyPrefix).\(UUID().uuidString)"
     @ObservationIgnored
     private weak var sleepObserver: SystemSleepObserver?
 
@@ -68,14 +70,14 @@ final class HealthMonitor {
     deinit {
         healthCheckTask?.cancel()
         MainActor.assumeIsolated {
-            sleepObserver?.unregister(key: Self.sleepKey)
+            sleepObserver?.unregister(key: callbackKey)
         }
     }
 
     private func setupSleepObserver(_ sleepObserver: SystemSleepObserver?) {
         guard let sleepObserver else { return }
         sleepObserver.register(
-            key: Self.sleepKey,
+            key: callbackKey,
             onSleep: { [weak self] in
                 guard let self else { return }
                 self.wasMonitoringBeforeSleep = self.healthCheckTask != nil

@@ -2,9 +2,33 @@ import EventKit
 import Foundation
 import OSLog
 
-// MARK: - Deduplication, UI Refresh Timer & EKEventStoreChanged Observer
+// MARK: - Sleep/Wake, Deduplication, UI Refresh Timer & EKEventStoreChanged Observer
 
 extension CalendarService {
+    // MARK: - Sleep/Wake Observer
+
+    func setupSleepObserver() {
+        guard let sleepObserver else { return }
+        sleepObserver.register(
+            key: Self.sleepKey,
+            onSleep: { [weak self] in
+                self?.stopUIRefreshTimer()
+            },
+            onWake: { [weak self] in
+                guard let self else { return }
+                self.needsUIRefresh = true
+                self.startUIRefreshTimer()
+                Task {
+                    await self.loadCachedData()
+                }
+            },
+        )
+    }
+
+    func unregisterSleepObserver() {
+        sleepObserver?.unregister(key: Self.sleepKey)
+    }
+
     /// Seconds to debounce EKEventStoreChanged notifications. Apple Calendar
     /// can fire rapid bursts during iCloud sync; collapsing to one sync is sufficient.
     static let ekChangedDebounceSeconds: TimeInterval = 2.0
