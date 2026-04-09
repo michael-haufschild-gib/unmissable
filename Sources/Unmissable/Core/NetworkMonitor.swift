@@ -61,9 +61,6 @@ final class NetworkMonitor {
             pathMonitor.pathUpdateHandler = { path in
                 continuation.yield(path)
             }
-            continuation.onTermination = { _ in
-                pathMonitor.cancel()
-            }
         }
 
         pathMonitor.start(queue: DispatchQueue(label: "com.unmissable.network", qos: .utility))

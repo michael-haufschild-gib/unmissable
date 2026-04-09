@@ -434,7 +434,7 @@ struct ShortcutsPreferencesView: View {
                             subtitle: "Close the current meeting alert",
                             currentLabels: shortcuts.dismissLabels,
                             onRecord: { shortcuts.updateDismissShortcut(keyCombo: $0) },
-                            onReset: { shortcuts.resetToDefaults() },
+                            onReset: { shortcuts.resetDismissToDefault() },
                         )
 
                         shortcutRow(
@@ -442,7 +442,7 @@ struct ShortcutsPreferencesView: View {
                             subtitle: "Quickly join the current meeting",
                             currentLabels: shortcuts.joinLabels,
                             onRecord: { shortcuts.updateJoinShortcut(keyCombo: $0) },
-                            onReset: { shortcuts.resetToDefaults() },
+                            onReset: { shortcuts.resetJoinToDefault() },
                         )
                     }
                 }

@@ -64,8 +64,13 @@ final class SyncManager {
     /// Jitter range upper bound for retry delay randomization.
     private static let jitterUpperBound: Double = 1.2
 
-    /// Registry key for sleep/wake callbacks.
+    /// Registry key prefix for sleep/wake and network callbacks.
     private static let sleepKey = "SyncManager"
+    /// Fully-qualified callback key, stored at init for nonisolated deinit access.
+    @ObservationIgnored
+    private let callbackKey: String
+    @ObservationIgnored
+    private weak var sleepObserver: SystemSleepObserver?
 
     init(
         providerType: CalendarProviderType,
@@ -80,6 +85,8 @@ final class SyncManager {
         self.databaseManager = databaseManager
         self.preferencesManager = preferencesManager
         self.networkMonitor = networkMonitor
+        self.sleepObserver = sleepObserver
+        self.callbackKey = "\(Self.sleepKey).\(providerType.rawValue)"
         setupNetworkCallbacks()
         setupPreferencesObserver()
         setupSleepObserver(sleepObserver)
@@ -88,6 +95,14 @@ final class SyncManager {
     deinit {
         syncTask?.cancel()
         retryTask?.cancel()
+        // callbackKey is nonisolated-safe (let + String). The unregister calls
+        // mutate dictionaries on @MainActor objects, but deinit is nonisolated.
+        // Use MainActor.assumeIsolated since SyncManager is @MainActor and
+        // deinit of a MainActor class runs on the main thread.
+        MainActor.assumeIsolated {
+            networkMonitor.unregisterOnReconnect(key: callbackKey)
+            sleepObserver?.unregister(key: callbackKey)
+        }
     }
 
     var syncInterval: TimeInterval {
@@ -117,8 +132,7 @@ final class SyncManager {
     private func setupNetworkCallbacks() {
         observeNetworkStatus()
 
-        let providerKey = "\(Self.sleepKey).\(providerType.rawValue)"
-        networkMonitor.registerOnReconnect(key: providerKey) { [weak self] in
+        networkMonitor.registerOnReconnect(key: callbackKey) { [weak self] in
             guard let self else { return }
             self.logger.info("Network restored — triggering sync")
             await self.performSync()
@@ -143,9 +157,8 @@ final class SyncManager {
 
     private func setupSleepObserver(_ sleepObserver: SystemSleepObserver?) {
         guard let sleepObserver else { return }
-        let key = "\(Self.sleepKey).\(providerType.rawValue)"
         sleepObserver.register(
-            key: key,
+            key: callbackKey,
             onSleep: { [weak self] in
                 guard let self else { return }
                 self.logger.info("System sleep — suspending periodic sync")

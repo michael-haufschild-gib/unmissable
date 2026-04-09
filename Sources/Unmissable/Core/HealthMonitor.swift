@@ -40,6 +40,11 @@ final class HealthMonitor {
     private weak var calendarService: CalendarService?
     private weak var overlayManager: (any OverlayManaging)?
 
+    /// Tracks whether monitoring was deliberately active before sleep,
+    /// so wake only resumes if it was running.
+    @ObservationIgnored
+    private var wasMonitoringBeforeSleep = false
+
     /// Registry key for sleep/wake callbacks.
     private static let sleepKey = "HealthMonitor"
 
@@ -66,10 +71,13 @@ final class HealthMonitor {
         sleepObserver.register(
             key: Self.sleepKey,
             onSleep: { [weak self] in
-                self?.stopHealthMonitoring()
+                guard let self else { return }
+                self.wasMonitoringBeforeSleep = self.healthCheckTask != nil
+                self.stopHealthMonitoring()
             },
             onWake: { [weak self] in
-                self?.startHealthMonitoring()
+                guard let self, self.wasMonitoringBeforeSleep else { return }
+                self.startHealthMonitoring()
             },
         )
     }

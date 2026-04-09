@@ -455,7 +455,7 @@ final class CalendarService {
                 databaseManager: databaseManager,
                 preferencesManager: preferencesManager,
                 networkMonitor: NetworkMonitor(),
-                sleepObserver: nil,
+                sleepObserver: sleepObserver,
             )
         }
 

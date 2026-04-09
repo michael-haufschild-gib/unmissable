@@ -89,13 +89,38 @@ final class ShortcutsManager {
 
     /// Resets both shortcuts to defaults and clears persisted overrides.
     func resetToDefaults() {
+        var dismissReset = false
+        var joinReset = false
+
         if let defaultDismiss = KeyCombo(key: Self.defaultDismissKey, cocoaModifiers: Self.defaultDismissModifiers) {
-            registerDismiss(keyCombo: defaultDismiss)
+            dismissReset = registerDismiss(keyCombo: defaultDismiss)
         }
         if let defaultJoin = KeyCombo(key: Self.defaultJoinKey, cocoaModifiers: Self.defaultJoinModifiers) {
-            registerJoin(keyCombo: defaultJoin)
+            joinReset = registerJoin(keyCombo: defaultJoin)
         }
+
+        // Only clear persisted overrides for shortcuts that were successfully restored
+        if dismissReset {
+            preferencesManager?.setDismissShortcutJSON(nil)
+        }
+        if joinReset {
+            preferencesManager?.setJoinShortcutJSON(nil)
+        }
+    }
+
+    /// Resets only the dismiss shortcut to its default.
+    func resetDismissToDefault() {
+        guard let defaultDismiss = KeyCombo(key: Self.defaultDismissKey, cocoaModifiers: Self.defaultDismissModifiers),
+              registerDismiss(keyCombo: defaultDismiss)
+        else { return }
         preferencesManager?.setDismissShortcutJSON(nil)
+    }
+
+    /// Resets only the join shortcut to its default.
+    func resetJoinToDefault() {
+        guard let defaultJoin = KeyCombo(key: Self.defaultJoinKey, cocoaModifiers: Self.defaultJoinModifiers),
+              registerJoin(keyCombo: defaultJoin)
+        else { return }
         preferencesManager?.setJoinShortcutJSON(nil)
     }
 
@@ -103,10 +128,9 @@ final class ShortcutsManager {
 
     @discardableResult
     private func registerDismiss(keyCombo: KeyCombo?) -> Bool {
-        dismissShortcut?.unregister()
-        dismissShortcut = nil
-
         guard let keyCombo else {
+            dismissShortcut?.unregister()
+            dismissShortcut = nil
             dismissLabels = Self.modifierAndKeyLabels(
                 modifiers: Self.defaultDismissModifiers, key: Self.defaultDismissKey,
             )
@@ -120,12 +144,11 @@ final class ShortcutsManager {
 
         guard hotKey.register() else {
             logger.error("Failed to register dismiss shortcut — key combo may already be in use")
-            dismissLabels = Self.modifierAndKeyLabels(
-                modifiers: Self.defaultDismissModifiers, key: Self.defaultDismissKey,
-            )
             return false
         }
 
+        // Registration succeeded — now safe to tear down old binding
+        dismissShortcut?.unregister()
         dismissShortcut = hotKey
         dismissLabels = Self.modifierAndKeyLabels(
             modifiers: keyCombo.keyEquivalentModifierMask, key: keyCombo.key,
@@ -137,10 +160,9 @@ final class ShortcutsManager {
 
     @discardableResult
     private func registerJoin(keyCombo: KeyCombo?) -> Bool {
-        joinShortcut?.unregister()
-        joinShortcut = nil
-
         guard let keyCombo else {
+            joinShortcut?.unregister()
+            joinShortcut = nil
             joinLabels = Self.modifierAndKeyLabels(
                 modifiers: Self.defaultJoinModifiers, key: Self.defaultJoinKey,
             )
@@ -153,12 +175,11 @@ final class ShortcutsManager {
 
         guard hotKey.register() else {
             logger.error("Failed to register join shortcut — key combo may already be in use")
-            joinLabels = Self.modifierAndKeyLabels(
-                modifiers: Self.defaultJoinModifiers, key: Self.defaultJoinKey,
-            )
             return false
         }
 
+        // Registration succeeded — now safe to tear down old binding
+        joinShortcut?.unregister()
         joinShortcut = hotKey
         joinLabels = Self.modifierAndKeyLabels(
             modifiers: keyCombo.keyEquivalentModifierMask, key: keyCombo.key,

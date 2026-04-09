@@ -24,6 +24,8 @@ struct ShortcutRecorderView: View {
     private var isRecording = false
     @State
     private var showError = false
+    @State
+    private var errorClearTask: Task<Void, Never>?
 
     private enum Metrics {
         static let fieldMinWidth: CGFloat = 120
@@ -31,11 +33,6 @@ struct ShortcutRecorderView: View {
         static let borderWidth: CGFloat = 1
         static let recordingBorderWidth: CGFloat = 1.5
         static let errorDisplaySeconds: Double = 2
-        static let resetButtonSize: Size = .sm
-    }
-
-    private enum Size {
-        case sm
     }
 
     var body: some View {
@@ -74,6 +71,7 @@ struct ShortcutRecorderView: View {
         .onTapGesture {
             isRecording.toggle()
             showError = false
+            errorClearTask?.cancel()
         }
         .background(
             ShortcutRecorderEventHandler(
@@ -84,11 +82,7 @@ struct ShortcutRecorderView: View {
     }
 
     private var idleContent: some View {
-        HStack(spacing: design.spacing.xs) {
-            ForEach(Array(currentLabels.enumerated()), id: \.offset) { _, label in
-                UMKeyCap(label: label)
-            }
-        }
+        UMShortcutDisplay(labels: currentLabels)
     }
 
     private var recordingContent: some View {
@@ -121,12 +115,14 @@ struct ShortcutRecorderView: View {
 
     private func handleRecordedCombo(_ keyCombo: KeyCombo) {
         isRecording = false
+        errorClearTask?.cancel()
         if onRecord(keyCombo) {
             showError = false
         } else {
             showError = true
-            Task {
+            errorClearTask = Task { @MainActor in
                 try? await Task.sleep(for: .seconds(Metrics.errorDisplaySeconds))
+                guard !Task.isCancelled else { return }
                 showError = false
             }
         }
@@ -161,7 +157,11 @@ private struct ShortcutRecorderEventHandler: NSViewRepresentable {
     }
 
     final class Coordinator {
-        private var monitor: Any?
+        /// `NSEvent.addLocalMonitorForEvents` always delivers on the main thread,
+        /// and `NSEvent.removeMonitor` must be called from the same thread.
+        /// Marking as `nonisolated(unsafe)` avoids `@MainActor` on the class
+        /// (which would conflict with `deinit` calling `stopMonitoring`).
+        private nonisolated(unsafe) var monitor: Any?
 
         func startMonitoring(
             onKeyCombo: @escaping (KeyCombo) -> Void,
@@ -171,13 +171,13 @@ private struct ShortcutRecorderEventHandler: NSViewRepresentable {
 
             monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { event in
                 // Escape without modifiers cancels recording
-                let rawModifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-                if event.keyCode == UInt16(kVK_Escape), rawModifiers.isEmpty {
+                let deviceIndependentFlags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                if event.keyCode == UInt16(kVK_Escape), deviceIndependentFlags.isEmpty {
                     stopRecording()
                     return nil
                 }
 
-                let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                let modifiers = deviceIndependentFlags
                     .intersection([.command, .option, .shift, .control])
 
                 // Require at least one modifier

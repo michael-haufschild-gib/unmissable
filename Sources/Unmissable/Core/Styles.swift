@@ -305,8 +305,8 @@ struct UMStatusIndicator: View {
 /// Usage:
 /// ```
 /// HStack(spacing: design.spacing.xs) {
-///     UMKeyCap("⌘")
-///     UMKeyCap("Esc")
+///     UMKeyCap(label: "⌘")
+///     UMKeyCap(label: "Esc")
 /// }
 /// ```
 struct UMKeyCap: View {
