@@ -2,9 +2,33 @@ import EventKit
 import Foundation
 import OSLog
 
-// MARK: - Deduplication, UI Refresh Timer & EKEventStoreChanged Observer
+// MARK: - Sleep/Wake, Deduplication, UI Refresh Timer & EKEventStoreChanged Observer
 
 extension CalendarService {
+    // MARK: - Sleep/Wake Observer
+
+    func setupSleepObserver() {
+        guard let sleepObserver else { return }
+        sleepObserver.register(
+            key: Self.sleepKey,
+            onSleep: { [weak self] in
+                self?.stopUIRefreshTimer()
+            },
+            onWake: { [weak self] in
+                guard let self else { return }
+                self.needsUIRefresh = true
+                self.startUIRefreshTimer()
+                Task {
+                    await self.loadCachedData()
+                }
+            },
+        )
+    }
+
+    func unregisterSleepObserver() {
+        sleepObserver?.unregister(key: Self.sleepKey)
+    }
+
     /// Seconds to debounce EKEventStoreChanged notifications. Apple Calendar
     /// can fire rapid bursts during iCloud sync; collapsing to one sync is sufficient.
     static let ekChangedDebounceSeconds: TimeInterval = 2.0
@@ -82,15 +106,18 @@ extension CalendarService {
     // MARK: - UI Refresh Timer
 
     /// Whether any event crossed a time boundary (started or ended) since the arrays were last loaded.
+    ///
+    /// Compares the current set of event IDs that would be in each category (upcoming vs. started)
+    /// against the IDs captured at the last `loadCachedData()` call. Returns true only when the
+    /// composition has actually changed — i.e., an event crossed from upcoming to started, or a
+    /// started event ended. This replaces the previous check (`startDate <= now`) which returned
+    /// true permanently once any event had started, triggering unnecessary DB reads every cycle.
     func hasTimeBoundaryChange() -> Bool {
         let now = Date()
-        if events.contains(where: { $0.startDate <= now }) {
-            return true
-        }
-        if startedEvents.contains(where: { $0.endDate <= now }) {
-            return true
-        }
-        return false
+        let currentUpcomingIDs = Set(events.filter { $0.startDate > now }.map(\.id))
+        let currentStartedIDs = Set(startedEvents.filter { $0.endDate > now }.map(\.id))
+        return currentUpcomingIDs != lastLoadedUpcomingIDs
+            || currentStartedIDs != lastLoadedStartedIDs
     }
 
     func startUIRefreshTimer() {

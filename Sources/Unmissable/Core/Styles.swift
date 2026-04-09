@@ -297,6 +297,93 @@ struct UMStatusIndicator: View {
     }
 }
 
+// MARK: - Keycap
+
+/// Individual keyboard key rendered as a physical keycap.
+/// Used to display keyboard shortcuts with macOS-native visual treatment.
+///
+/// Usage:
+/// ```
+/// HStack(spacing: design.spacing.xs) {
+///     UMKeyCap(label: "⌘")
+///     UMKeyCap(label: "Esc")
+/// }
+/// ```
+struct UMKeyCap: View {
+    let label: String
+
+    @Environment(\.design)
+    private var design
+
+    private enum Metrics {
+        static let minWidth: CGFloat = 28
+        static let height: CGFloat = 26
+        static let highlightDivisor: CGFloat = 2
+        static let borderWidth: CGFloat = 0.5
+        static let bottomBorderWidth: CGFloat = 1.5
+        static let topHighlightOpacity: Double = 0.08
+    }
+
+    var body: some View {
+        Text(label)
+            .font(design.fonts.caption)
+            .fontWeight(.medium)
+            .foregroundColor(design.colors.textPrimary)
+            .frame(minWidth: Metrics.minWidth, minHeight: Metrics.height)
+            .padding(.horizontal, design.spacing.sm)
+            .background(design.colors.elevated)
+            .clipShape(RoundedRectangle(cornerRadius: design.corners.sm))
+            .overlay(
+                RoundedRectangle(cornerRadius: design.corners.sm)
+                    .stroke(design.colors.borderDefault, lineWidth: Metrics.borderWidth),
+            )
+            .overlay(alignment: .top) {
+                RoundedRectangle(cornerRadius: design.corners.sm)
+                    .fill(Color.white.opacity(Metrics.topHighlightOpacity))
+                    .frame(height: Metrics.height / Metrics.highlightDivisor)
+                    .mask(
+                        LinearGradient(
+                            colors: [.white, .clear],
+                            startPoint: .top,
+                            endPoint: .bottom,
+                        ),
+                    )
+            }
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(design.colors.borderStrong)
+                    .frame(height: Metrics.bottomBorderWidth)
+                    .clipShape(
+                        .rect(
+                            bottomLeadingRadius: design.corners.sm,
+                            bottomTrailingRadius: design.corners.sm,
+                        ),
+                    )
+            }
+    }
+}
+
+/// Renders a full keyboard shortcut as a row of keycaps.
+///
+/// Usage:
+/// ```
+/// UMShortcutDisplay(labels: ["⌘", "Esc"])
+/// ```
+struct UMShortcutDisplay: View {
+    let labels: [String]
+
+    @Environment(\.design)
+    private var design
+
+    var body: some View {
+        HStack(spacing: design.spacing.xs) {
+            ForEach(Array(labels.enumerated()), id: \.offset) { _, label in
+                UMKeyCap(label: label)
+            }
+        }
+    }
+}
+
 // MARK: - Badge
 
 /// Small pill label for status or category tags.

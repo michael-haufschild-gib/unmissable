@@ -20,6 +20,8 @@ final class ServiceContainer {
     let menuBarPreviewManager: MenuBarPreviewManager
     let meetingDetailsPopupManager: any MeetingDetailsPopupManaging
     let activationPolicyManager: ActivationPolicyManager
+    let systemSleepObserver: SystemSleepObserver
+    let networkMonitor: NetworkMonitor
 
     init(
         databaseManager: any DatabaseManaging,
@@ -33,16 +35,23 @@ final class ServiceContainer {
         self.linkParser = linkParser
         self.themeManager = themeManager
 
+        systemSleepObserver = SystemSleepObserver()
+        networkMonitor = NetworkMonitor()
+
         preferencesManager = preferencesManagerOverride ?? PreferencesManager(themeManager: themeManager)
         soundManager = SoundManager(preferencesManager: preferencesManager)
         calendarService = CalendarService(
             preferencesManager: preferencesManager,
             databaseManager: databaseManager,
             linkParser: linkParser,
+            networkMonitor: networkMonitor,
+            sleepObserver: systemSleepObserver,
         )
         notificationManager = NotificationManager()
         eventScheduler = EventScheduler(
-            preferencesManager: preferencesManager, linkParser: linkParser,
+            preferencesManager: preferencesManager,
+            linkParser: linkParser,
+            sleepObserver: systemSleepObserver,
         )
         eventScheduler.setNotificationManager(notificationManager)
         if let overlayManagerOverride {
@@ -57,13 +66,18 @@ final class ServiceContainer {
                 themeManager: themeManager,
             )
         }
-        menuBarPreviewManager = MenuBarPreviewManager(preferencesManager: preferencesManager)
+        menuBarPreviewManager = MenuBarPreviewManager(
+            preferencesManager: preferencesManager,
+            sleepObserver: systemSleepObserver,
+        )
         shortcutsManager = ShortcutsManager(
             overlayManager: overlayManager, linkParser: linkParser,
         )
+        shortcutsManager.setPreferencesManager(preferencesManager)
         healthMonitor = HealthMonitor(
             calendarService: calendarService,
             overlayManager: overlayManager,
+            sleepObserver: systemSleepObserver,
         )
         if let meetingDetailsPopupManagerOverride {
             meetingDetailsPopupManager = meetingDetailsPopupManagerOverride
@@ -79,7 +93,8 @@ final class ServiceContainer {
         logger.info("Service graph wired successfully")
         AppDiagnostics.record(component: "ServiceContainer", phase: "wired") {
             [
-                "services": "database,calendar,overlay,scheduler,health,notifications,shortcuts,menuBar,meetingDetails",
+                "services": "database,calendar,overlay,scheduler,health,notifications," +
+                    "shortcuts,menuBar,meetingDetails,sleepObserver,networkMonitor",
                 "databaseType": "\(type(of: databaseManager))",
             ]
         }

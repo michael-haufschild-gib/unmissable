@@ -48,9 +48,26 @@ final class MenuBarPreviewManager {
     /// Threshold (seconds) for the "hours" bracket boundary (3 hours).
     private static let distantThresholdSeconds: TimeInterval = 10_800
 
-    init(preferencesManager: PreferencesManager) {
+    /// Registry key for sleep/wake callbacks.
+    private static let sleepKey = "MenuBarPreviewManager"
+
+    init(preferencesManager: PreferencesManager, sleepObserver: SystemSleepObserver? = nil) {
         self.preferencesManager = preferencesManager
         setupBindings()
+        setupSleepObserver(sleepObserver)
+    }
+
+    private func setupSleepObserver(_ sleepObserver: SystemSleepObserver?) {
+        guard let sleepObserver else { return }
+        sleepObserver.register(
+            key: Self.sleepKey,
+            onSleep: { [weak self] in
+                self?.stopTimer()
+            },
+            onWake: { [weak self] in
+                self?.updateMenuBarDisplay()
+            },
+        )
     }
 
     private func setupBindings() {

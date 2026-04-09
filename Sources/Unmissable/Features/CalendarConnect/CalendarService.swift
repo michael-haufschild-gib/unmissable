@@ -81,17 +81,39 @@ final class CalendarService {
 
     // MARK: - Initialization
 
+    @ObservationIgnored
+    let networkMonitor: NetworkMonitor?
+    @ObservationIgnored
+    let sleepObserver: SystemSleepObserver?
+
+    /// Event IDs in the `events` array at last `loadCachedData()` call.
+    /// Used by `hasTimeBoundaryChange()` to detect actual category transitions
+    /// instead of the stale check that returned true whenever any event had started.
+    @ObservationIgnored
+    var lastLoadedUpcomingIDs: Set<String> = []
+    /// Event IDs in the `startedEvents` array at last `loadCachedData()` call.
+    @ObservationIgnored
+    var lastLoadedStartedIDs: Set<String> = []
+
+    /// Registry key for sleep/wake callbacks.
+    static let sleepKey = "CalendarService"
+
     init(
         preferencesManager: PreferencesManager,
         databaseManager: any DatabaseManaging,
         linkParser: LinkParser,
+        networkMonitor: NetworkMonitor? = nil,
+        sleepObserver: SystemSleepObserver? = nil,
         eventStore: EKEventStore = EKEventStore(),
     ) {
         self.preferencesManager = preferencesManager
         self.databaseManager = databaseManager
         self.linkParser = linkParser
+        self.networkMonitor = networkMonitor
+        self.sleepObserver = sleepObserver
         self.sharedEventStore = eventStore
         setupTimezoneObserver()
+        setupSleepObserver()
 
         if AppRuntime.injectTestEvents {
             injectSyntheticEventsForUITesting()
@@ -401,12 +423,26 @@ final class CalendarService {
             api = AppleCalendarAPIService(eventStore: sharedEventStore, linkParser: linkParser)
         }
 
-        let sync = SyncManager(
-            providerType: providerType,
-            apiService: api,
-            databaseManager: databaseManager,
-            preferencesManager: preferencesManager,
-        )
+        let sync = if let networkMonitor {
+            SyncManager(
+                providerType: providerType,
+                apiService: api,
+                databaseManager: databaseManager,
+                preferencesManager: preferencesManager,
+                networkMonitor: networkMonitor,
+                sleepObserver: sleepObserver,
+            )
+        } else {
+            // Test path: create with a standalone NetworkMonitor
+            SyncManager(
+                providerType: providerType,
+                apiService: api,
+                databaseManager: databaseManager,
+                preferencesManager: preferencesManager,
+                networkMonitor: NetworkMonitor(),
+                sleepObserver: sleepObserver,
+            )
+        }
 
         let backend = ProviderBackend(type: providerType, auth: auth, api: api, sync: sync)
         providers[providerType] = backend
@@ -489,6 +525,12 @@ final class CalendarService {
         }
     }
 
+    deinit {
+        MainActor.assumeIsolated {
+            unregisterSleepObserver()
+        }
+    }
+
     private func setupTimezoneObserver() {
         NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)
             .sink { [weak self] _ in
@@ -564,22 +606,33 @@ final class CalendarService {
     func loadCachedData() async -> Bool {
         guard !usingSyntheticData else { return true }
         do {
-            calendars = try await databaseManager.fetchCalendars()
-            events = try await Self.deduplicateEvents(
+            let newCalendars = try await databaseManager.fetchCalendars()
+            let newEvents = try await Self.deduplicateEvents(
                 databaseManager.fetchUpcomingEvents(limit: Self.upcomingEventsLimit),
             )
-            startedEvents = try await Self.deduplicateEvents(
+            let newStarted = try await Self.deduplicateEvents(
                 databaseManager.fetchStartedMeetings(limit: Self.startedMeetingsLimit),
             )
 
+            // Only mutate Observable properties when data actually changed.
+            // Skipping no-op writes prevents observation callbacks from firing
+            // every 5–60s when the UI refresh timer runs between syncs.
+            if calendars != newCalendars { calendars = newCalendars }
+            if events != newEvents { events = newEvents }
+            if startedEvents != newStarted { startedEvents = newStarted }
+
+            // Update boundary tracking for hasTimeBoundaryChange()
+            lastLoadedUpcomingIDs = Set(newEvents.map(\.id))
+            lastLoadedStartedIDs = Set(newStarted.map(\.id))
+
             logger.debug(
-                "Cache loaded: \(self.calendars.count) calendars, \(self.events.count) upcoming, \(self.startedEvents.count) started",
+                "Cache loaded: \(newCalendars.count) calendars, \(newEvents.count) upcoming, \(newStarted.count) started",
             )
             AppDiagnostics.record(component: "CalendarService", phase: "cacheLoaded") {
                 [
-                    "calendars": "\(self.calendars.count)",
-                    "upcoming": "\(self.events.count)",
-                    "started": "\(self.startedEvents.count)",
+                    "calendars": "\(newCalendars.count)",
+                    "upcoming": "\(newEvents.count)",
+                    "started": "\(newStarted.count)",
                 ]
             }
             return true

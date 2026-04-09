@@ -320,6 +320,10 @@ final class AppState {
         services.activationPolicyManager
     }
 
+    var shortcuts: ShortcutsManager {
+        services.shortcutsManager
+    }
+
     var calendar: CalendarService {
         services.calendarService
     }

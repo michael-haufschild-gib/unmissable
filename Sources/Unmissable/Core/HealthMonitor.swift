@@ -40,20 +40,54 @@ final class HealthMonitor {
     private weak var calendarService: CalendarService?
     private weak var overlayManager: (any OverlayManaging)?
 
+    /// Tracks whether monitoring was deliberately active before sleep,
+    /// so wake only resumes if it was running.
+    @ObservationIgnored
+    private var wasMonitoringBeforeSleep = false
+
+    /// Per-instance callback key for sleep/wake registration.
+    private static let callbackKeyPrefix = "HealthMonitor"
+    @ObservationIgnored
+    private let callbackKey = "\(callbackKeyPrefix).\(UUID().uuidString)"
+    @ObservationIgnored
+    private weak var sleepObserver: SystemSleepObserver?
+
     init(
         calendarService: CalendarService? = nil,
         overlayManager: (any OverlayManaging)? = nil,
+        sleepObserver: SystemSleepObserver? = nil,
         startImmediately: Bool = true,
     ) {
         self.calendarService = calendarService
         self.overlayManager = overlayManager
+        self.sleepObserver = sleepObserver
         if startImmediately {
             startHealthMonitoring()
         }
+        setupSleepObserver(sleepObserver)
     }
 
     deinit {
         healthCheckTask?.cancel()
+        MainActor.assumeIsolated {
+            sleepObserver?.unregister(key: callbackKey)
+        }
+    }
+
+    private func setupSleepObserver(_ sleepObserver: SystemSleepObserver?) {
+        guard let sleepObserver else { return }
+        sleepObserver.register(
+            key: callbackKey,
+            onSleep: { [weak self] in
+                guard let self else { return }
+                self.wasMonitoringBeforeSleep = self.healthCheckTask != nil
+                self.stopHealthMonitoring()
+            },
+            onWake: { [weak self] in
+                guard let self, self.wasMonitoringBeforeSleep else { return }
+                self.startHealthMonitoring()
+            },
+        )
     }
 
     func setup(

@@ -106,6 +106,8 @@ struct MultiProviderIntegrationTests {
             apiService: api,
             databaseManager: databaseManager,
             preferencesManager: preferencesManager,
+            networkMonitor: NetworkMonitor(),
+            sleepObserver: nil,
         )
 
         calendarService.injectTestBackend(type: type, auth: auth, api: api, sync: sync)

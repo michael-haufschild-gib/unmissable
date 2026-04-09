@@ -23,6 +23,8 @@ private enum PrefKey: String {
     case showOnAllDisplays // legacy — migrated to displaySelectionMode
     case displaySelectionMode
     case selectedDisplayKeys
+    case dismissShortcutJSON
+    case joinShortcutJSON
     case playAlertSound
     case alertVolume
     case autoJoinEnabled
@@ -246,6 +248,22 @@ final class PreferencesManager {
         }
     }
 
+    // MARK: - Custom Shortcuts (JSON-encoded KeyCombo data)
+
+    /// Raw JSON for the custom dismiss shortcut. `nil` means "use default (⌘ Esc)".
+    private(set) var dismissShortcutJSON: Data?
+    func setDismissShortcutJSON(_ value: Data?) {
+        dismissShortcutJSON = value
+        userDefaults.set(value, forKey: PrefKey.dismissShortcutJSON)
+    }
+
+    /// Raw JSON for the custom join shortcut. `nil` means "use default (⌘ Return)".
+    private(set) var joinShortcutJSON: Data?
+    func setJoinShortcutJSON(_ value: Data?) {
+        joinShortcutJSON = value
+        userDefaults.set(value, forKey: PrefKey.joinShortcutJSON)
+    }
+
     /// Sound
     private(set) var playAlertSound: Bool = true
     func setPlayAlertSound(_ value: Bool) {
@@ -447,6 +465,9 @@ final class PreferencesManager {
 
         minimalMode = userDefaults.bool(forKey: PrefKey.minimalMode)
         loadDisplaySelectionPreferences()
+
+        dismissShortcutJSON = userDefaults.object(forKey: PrefKey.dismissShortcutJSON) as? Data
+        joinShortcutJSON = userDefaults.object(forKey: PrefKey.joinShortcutJSON) as? Data
 
         playAlertSound = userDefaults.object(forKey: PrefKey.playAlertSound) as? Bool ?? true
         alertVolume = Self.clamp(

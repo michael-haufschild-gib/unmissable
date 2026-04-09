@@ -106,7 +106,7 @@ struct DisplayArrangementView: View {
     // MARK: - Layout Computation
 
     private struct LayoutInfo {
-        let rects: [String: CGRect]
+        let rects: [CGDirectDisplayID: CGRect]
     }
 
     private func computeLayout(in containerSize: CGSize) -> LayoutInfo {
@@ -133,7 +133,7 @@ struct DisplayArrangementView: View {
         // Scale to fit, preserving aspect ratio
         let scale = min(availableWidth / totalWidth, availableHeight / totalHeight)
 
-        var rects: [String: CGRect] = [:]
+        var rects: [CGDirectDisplayID: CGRect] = [:]
         for info in screenInfos {
             let f = info.frame
             // Normalize origin relative to bounding box, apply scale, center in container.
@@ -150,10 +150,15 @@ struct DisplayArrangementView: View {
 
     // MARK: - Screen Data
 
+    private static let screenNumberKey = NSDeviceDescriptionKey("NSScreenNumber")
+
     private func refreshScreens() {
         screenInfos = NSScreen.screens.compactMap { screen in
-            guard let id = DisplayIdentifier(screen: screen) else { return nil }
-            return ScreenInfo(identifier: id, frame: screen.frame)
+            guard let id = DisplayIdentifier(screen: screen),
+                  let displayID = screen.deviceDescription[Self.screenNumberKey]
+                  as? CGDirectDisplayID
+            else { return nil }
+            return ScreenInfo(identifier: id, frame: screen.frame, displayID: displayID)
         }
     }
 }
@@ -162,8 +167,10 @@ struct DisplayArrangementView: View {
 private struct ScreenInfo: Identifiable {
     let identifier: DisplayIdentifier
     let frame: CGRect
+    /// Unique per physical connection — unlike `persistenceKey`, which groups identical monitors.
+    let displayID: CGDirectDisplayID
 
-    var id: String {
-        identifier.persistenceKey
+    var id: CGDirectDisplayID {
+        displayID
     }
 }
