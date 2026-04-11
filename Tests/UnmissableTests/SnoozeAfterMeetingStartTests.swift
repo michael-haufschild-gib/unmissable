@@ -6,6 +6,10 @@ import Testing
 /// Verifies snoozed overlays appear even when the meeting has already started.
 @MainActor
 struct SnoozeAfterMeetingStartTests {
+    /// Seconds until the test's "meeting" starts. Kept short so the test completes
+    /// quickly, but long enough to avoid a flaky race with the initial overlay show.
+    private static let meetingStartsInSeconds: TimeInterval = 2
+
     @Test
     func snoozeTimerExpiresAfterMeetingStarted() async throws {
         let preferencesManager = PreferencesManager(themeManager: ThemeManager())
@@ -13,7 +17,7 @@ struct SnoozeAfterMeetingStartTests {
         let eventScheduler = EventScheduler(preferencesManager: preferencesManager, linkParser: LinkParser())
         overlayManager.setEventScheduler(eventScheduler)
 
-        let meetingStartTime = Date().addingTimeInterval(2)
+        let meetingStartTime = Date().addingTimeInterval(Self.meetingStartsInSeconds)
         let testEvent = TestUtilities.createTestEvent(
             id: "snooze-after-start-test",
             title: "Snooze After Start Test Meeting",
@@ -61,7 +65,10 @@ struct SnoozeAfterMeetingStartTests {
     }
 
     @Test
-    func snoozeAutoHideThresholds() async throws {
+    func snoozeAutoHideThresholds() {
+        // TestSafeOverlayManager.showOverlay applies the max-age guard synchronously
+        // and either sets isOverlayVisible immediately or returns early. No async
+        // wait is needed — direct assertions correctly reflect the guard's outcome.
         let overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
 
         let meetingStartTime = Date().addingTimeInterval(-600) // 10 minutes ago
@@ -71,25 +78,15 @@ struct SnoozeAfterMeetingStartTests {
             startDate: meetingStartTime,
         )
 
-        // Regular overlay should auto-hide quickly (5 minute threshold)
+        // Regular overlay: 10 minutes > 5-minute threshold → skipped
         overlayManager.showOverlayImmediately(for: testEvent, fromSnooze: false)
-
-        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
-            !overlayManager.isOverlayVisible
-        }
-
         #expect(
             !overlayManager.isOverlayVisible,
             "Regular overlay should auto-hide for meetings that started >5 minutes ago",
         )
 
-        // Snoozed overlay should be more lenient (30 minute threshold)
+        // Snoozed overlay: 10 minutes < 30-minute threshold → visible
         overlayManager.showOverlay(for: testEvent, fromSnooze: true)
-
-        try await TestUtilities.waitForAsync(timeout: 10.0) { @MainActor @Sendable in
-            overlayManager.isOverlayVisible
-        }
-
         #expect(
             overlayManager.isOverlayVisible,
             "Snoozed overlay should remain visible for meetings that started <30 minutes ago",
@@ -99,7 +96,7 @@ struct SnoozeAfterMeetingStartTests {
     }
 
     @Test
-    func snoozeLoggingAndDebugInfo() {
+    func scheduleSnooze_addsSnoozeAlertAndShowsOverlay() {
         let preferencesManager = PreferencesManager(themeManager: ThemeManager())
         let overlayManager = TestSafeOverlayManager(isTestEnvironment: true)
         let eventScheduler = EventScheduler(preferencesManager: preferencesManager, linkParser: LinkParser())

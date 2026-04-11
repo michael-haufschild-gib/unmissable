@@ -90,6 +90,23 @@ final class EventOverrideTests {
         #expect(overrides.isEmpty, "Empty database should return empty dictionary")
     }
 
+    // MARK: - Compound Key Collision
+
+    @Test
+    func compoundKey_doesNotCollideOnUnderscoreAmbiguity() {
+        // Google recurring event instance IDs use "<baseId>_<ISO timestamp>" format,
+        // so underscores appear in real event IDs. A naive "eventId_calendarId" join
+        // would collide with ("eventId", "suffix_calendarId"). The compound key must
+        // use a separator that cannot appear in either ID.
+        let a = EventOverride.compoundKey(
+            eventId: "event_20260411T100000Z", calendarId: "cal1",
+        )
+        let b = EventOverride.compoundKey(
+            eventId: "event", calendarId: "20260411T100000Z_cal1",
+        )
+        #expect(a != b, "Compound keys must not collide on underscore boundaries")
+    }
+
     // MARK: - Validation
 
     @Test

@@ -7,6 +7,12 @@ enum DiagnosticsBookExporter {
     /// Maximum number of recent records included in the bug book.
     private static let tailRecordCount = 50
 
+    /// Shared format style — reused across exports. `Date.ISO8601FormatStyle` is a
+    /// `Sendable` value type, so it's safe to hold in a static let under Swift 6
+    /// strict concurrency. Produces the same RFC 3339 / internet date-time format
+    /// as `ISO8601DateFormatter()` with default options.
+    private static let timestampFormatter = Date.ISO8601FormatStyle()
+
     /// Generates a markdown bug book.
     ///
     /// - Parameters:
@@ -27,7 +33,7 @@ enum DiagnosticsBookExporter {
         // Header
         lines.append("# Unmissable Diagnostic Report")
         lines.append("")
-        lines.append("**Generated**: \(ISO8601DateFormatter().string(from: Date()))")
+        lines.append("**Generated**: \(Self.timestampFormatter.format(Date()))")
         lines.append("**Session**: \(AppDiagnostics.sessionId)")
         lines.append("**Records in buffer**: \(recorder.count)")
         lines.append("")
@@ -71,9 +77,8 @@ enum DiagnosticsBookExporter {
             lines.append("## Recent Records (\(tail.count) of \(recorder.count))")
             lines.append("")
             lines.append("```")
-            let formatter = ISO8601DateFormatter()
             for record in tail {
-                let ts = formatter.string(from: record.timestamp)
+                let ts = Self.timestampFormatter.format(record.timestamp)
                 lines.append("[\(ts)] \(record.summary)")
             }
             lines.append("```")
@@ -85,9 +90,8 @@ enum DiagnosticsBookExporter {
         if !failures.isEmpty {
             lines.append("## Failures (\(failures.count))")
             lines.append("")
-            let formatter = ISO8601DateFormatter()
             for failure in failures {
-                let ts = formatter.string(from: failure.timestamp)
+                let ts = Self.timestampFormatter.format(failure.timestamp)
                 lines.append("- [\(ts)] \(failure.summary)")
             }
             lines.append("")

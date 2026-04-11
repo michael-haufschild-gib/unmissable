@@ -134,8 +134,6 @@ struct GeneralPreferencesView: View {
                 smartAlertSection
                 syncSettingsSection
                 startupSection
-
-                Spacer()
             }
             .padding(design.spacing.xl)
         }
@@ -171,7 +169,7 @@ struct GeneralPreferencesView: View {
 
             Spacer()
 
-            Picker("Minutes", selection: preferences.defaultAlertMinutesBinding) {
+            Picker("Default alert time", selection: preferences.defaultAlertMinutesBinding) {
                 Text("1 minute").tag(Self.alertTag1Min)
                 Text("2 minutes").tag(Self.alertTag2Min)
                 Text("5 minutes").tag(Self.alertTag5Min)
@@ -215,7 +213,7 @@ struct GeneralPreferencesView: View {
 
                 Spacer()
 
-                Picker("Short", selection: preferences.shortMeetingAlertMinutesBinding) {
+                Picker("Short meeting alert time", selection: preferences.shortMeetingAlertMinutesBinding) {
                     Text("1 min").tag(Self.alertTag1Min)
                     Text("2 min").tag(Self.alertTag2Min)
                     Text("5 min").tag(Self.alertTag5Min)
@@ -233,7 +231,7 @@ struct GeneralPreferencesView: View {
 
                 Spacer()
 
-                Picker("Medium", selection: preferences.mediumMeetingAlertMinutesBinding) {
+                Picker("Medium meeting alert time", selection: preferences.mediumMeetingAlertMinutesBinding) {
                     Text("2 min").tag(Self.alertTag2Min)
                     Text("5 min").tag(Self.alertTag5Min)
                     Text("10 min").tag(Self.alertTag10Min)
@@ -251,7 +249,7 @@ struct GeneralPreferencesView: View {
 
                 Spacer()
 
-                Picker("Long", selection: preferences.longMeetingAlertMinutesBinding) {
+                Picker("Long meeting alert time", selection: preferences.longMeetingAlertMinutesBinding) {
                     Text("5 min").tag(Self.alertTag5Min)
                     Text("10 min").tag(Self.alertTag10Min)
                     Text("15 min").tag(Self.alertTag15Min)
@@ -284,7 +282,7 @@ struct GeneralPreferencesView: View {
 
                     Spacer()
 
-                    Picker("Displays", selection: preferences.displaySelectionModeBinding) {
+                    Picker("Show overlay on displays", selection: preferences.displaySelectionModeBinding) {
                         ForEach(DisplaySelectionMode.allCases, id: \.self) { mode in
                             Text(mode.displayName).tag(mode)
                         }
@@ -346,7 +344,7 @@ struct GeneralPreferencesView: View {
 
                     Spacer()
 
-                    Picker("Interval", selection: preferences.syncIntervalSecondsBinding) {
+                    Picker("Sync interval", selection: preferences.syncIntervalSecondsBinding) {
                         Text("30 seconds").tag(Self.syncTag30Sec)
                         Text("1 minute").tag(Self.syncTag1Min)
                         Text("2 minutes").tag(Self.syncTag2Min)
@@ -460,8 +458,6 @@ struct ShortcutsPreferencesView: View {
                         )
                     }
                 }
-
-                Spacer()
             }
             .padding(design.spacing.xl)
         }

@@ -14,7 +14,6 @@ enum TestUtilities {
     private static let minutesInHour = 60
     private static let secondsInMinute = 60
     private static let secondsPerDay = TimeInterval(hoursInDay * minutesInHour * secondsInMinute)
-    private static let pollingInterval: UInt64 = 100_000_000
     private static let defaultAlertMinutes = 1
     private static let defaultMediumAlertMinutes = 2
     private static let defaultLongAlertMinutes = 5
@@ -245,32 +244,19 @@ extension TestUtilities {
 
     /// Wait for async operations with timeout.
     ///
-    /// Checks the deadline between polls. If `condition()` itself blocks
-    /// (e.g. contending for the MainActor), the timeout cannot fire until
-    /// that call returns.
+    /// Thin wrapper around `waitForCondition` (defined in TestSupport) so all test
+    /// targets share a single polling implementation. The description "async condition"
+    /// is generic — callers that want richer failure messages should call
+    /// `waitForCondition(description:)` directly.
     static func waitForAsync(
         timeout: TimeInterval = 5.0,
         condition: @escaping @Sendable () async -> Bool,
     ) async throws {
-        struct TestTimeoutError: Error, CustomStringConvertible {
-            let description = "Timed out waiting for async condition"
-        }
-
-        let deadline = Date().addingTimeInterval(timeout)
-
-        while true {
-            if await condition() {
-                return
-            }
-            if Date() >= deadline {
-                throw TestTimeoutError()
-            }
-            // swiftlint:disable:next no_raw_task_sleep_in_tests - this IS the polling infrastructure
-            try await Task.sleep(nanoseconds: pollingInterval)
-            if Date() >= deadline {
-                throw TestTimeoutError()
-            }
-        }
+        try await waitForCondition(
+            timeout: timeout,
+            description: "async condition",
+            condition: condition,
+        )
     }
 
     // MARK: - Performance Testing

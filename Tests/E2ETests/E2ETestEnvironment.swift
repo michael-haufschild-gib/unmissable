@@ -181,6 +181,11 @@ private enum TestConstants {
     static let defaultAlertMinutes = 5
     static let overlayShowMinutesBefore = 2
     static let diagnosticAlertLimit = 10
+    /// Upper bound for scheduling-path fetches. Larger than `defaultUpcomingLimit`
+    /// because `seedAndSchedule` may seed a batch that the scheduler needs to see
+    /// in its entirety; the read-only `fetchUpcomingEvents` helper is only used by
+    /// assertion code that doesn't care about the tail. Keep fetchLimit > any batch
+    /// count a test might use — if you write a test with ≥100 events, bump both.
     static let fetchLimit = 100
     static let defaultUpcomingLimit = 50
     static let defaultStartedLimit = 10
@@ -190,7 +195,6 @@ private enum TestConstants {
     static let oneHourAgoSeconds: TimeInterval = -3600
     static let oneDaySeconds: TimeInterval = 86_400
     static let hoursPerDay: TimeInterval = 24
-    static let e2ePollIntervalNanoseconds: UInt64 = 100_000_000
 }
 
 // MARK: - E2E Errors
@@ -341,24 +345,22 @@ enum E2EEventBuilder {
 
 // MARK: - E2E Assertion Helpers
 
-/// Waits for an async condition with a descriptive failure message.
-///
-/// Throws `E2EError.waitTimeout` on timeout so the calling test stops
-/// immediately rather than continuing with stale state that produces
-/// confusing cascading assertion failures.
+/// Waits for a MainActor-isolated condition with a descriptive failure message.
+/// Thin MainActor-flavored wrapper around the shared `waitForCondition` helper
+/// in TestSupport, so E2E tests don't have to wrap their predicates in `@Sendable`
+/// async closures. Bridges the `MainActor () -> Bool` signature that most E2E
+/// state checks use.
 @MainActor
 func e2eWait(
     timeout: TimeInterval = 5.0,
     description: String,
     condition: @escaping @MainActor @Sendable () -> Bool,
 ) async throws {
-    let deadline = Date().addingTimeInterval(timeout)
-    while !condition() {
-        guard Date() < deadline else {
-            throw E2EError.waitTimeout(description)
-        }
-        // E2E polling utility (equivalent to TestUtilities.waitForAsync)
-        // swiftlint:disable:next no_raw_task_sleep_in_tests
-        try await Task.sleep(nanoseconds: TestConstants.e2ePollIntervalNanoseconds)
-    }
+    try await waitForCondition(
+        timeout: timeout,
+        description: description,
+        condition: { @Sendable in
+            await MainActor.run { condition() }
+        },
+    )
 }

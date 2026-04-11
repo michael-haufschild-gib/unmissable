@@ -47,14 +47,14 @@ final class FlightRecorder: Sendable {
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = .sortedKeys
 
-        var lines: [Data] = []
+        let newline = UInt8(ascii: "\n")
+        var result = Data()
         for record in records {
-            if let line = try? encoder.encode(record) {
-                lines.append(line)
-            }
+            guard let line = try? encoder.encode(record) else { continue }
+            result.append(line)
+            result.append(newline)
         }
-        let newline = Data([UInt8(ascii: "\n")])
-        return lines.reduce(Data()) { $0 + $1 + newline }
+        return result
     }
 
     /// Writes the JSONL export to the given file URL.
@@ -94,11 +94,9 @@ private struct RingBuffer {
     }
 
     func snapshot() -> [DiagnosticRecord] {
-        // `count` is a stored Int tracking appended records, not a Collection property.
-        // swiftlint:disable:next empty_count
-        guard count > 0 else { return [] }
         if count < capacity {
-            // Buffer hasn't wrapped — records are in order from index 0
+            // Buffer hasn't wrapped — records are in order from index 0.
+            // When count == 0, prefix(0) yields an empty slice, returning [].
             return buffer.prefix(count).compactMap(\.self)
         }
         // Buffer has wrapped — oldest record is at writeIndex

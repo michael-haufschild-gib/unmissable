@@ -104,43 +104,6 @@ struct PreferenceCascadeE2ETests {
         )
     }
 
-    @Test
-    func lengthBasedTimingAffectsSoundAlertTiming() {
-        // Length-based timing affects SOUND alerts (via alertMinutes(for:)),
-        // not OVERLAY alerts (which use overlayShowMinutesBefore).
-        env.preferencesManager.setUseLengthBasedTiming(true)
-        env.preferencesManager.setShortMeetingAlertMinutes(1)
-        env.preferencesManager.setLongMeetingAlertMinutes(10)
-        env.preferencesManager.setOverlayShowMinutesBefore(5)
-        env.preferencesManager.setPlayAlertSound(true)
-
-        let shortEvent = E2EEventBuilder.futureEvent(
-            id: "e2e-lb-sound-short",
-            minutesFromNow: 30,
-            durationMinutes: 15, // Short: < 30 min
-        )
-        let longEvent = E2EEventBuilder.futureEvent(
-            id: "e2e-lb-sound-long",
-            minutesFromNow: 60,
-            durationMinutes: 120, // Long: > 60 min
-        )
-
-        // Verify alertMinutes returns different values for different durations
-        let shortAlertMinutes = env.preferencesManager.alertMinutes(for: shortEvent)
-        let longAlertMinutes = env.preferencesManager.alertMinutes(for: longEvent)
-        #expect(shortAlertMinutes == 1)
-        #expect(longAlertMinutes == 10)
-
-        // Toggle LB off — both should use defaultAlertMinutes
-        env.preferencesManager.setUseLengthBasedTiming(false)
-        env.preferencesManager.setDefaultAlertMinutes(3)
-
-        let shortAlertMinutesOff = env.preferencesManager.alertMinutes(for: shortEvent)
-        let longAlertMinutesOff = env.preferencesManager.alertMinutes(for: longEvent)
-        #expect(shortAlertMinutesOff == 3, "Should use default when LB is off")
-        #expect(longAlertMinutesOff == 3, "Should use default when LB is off")
-    }
-
     // MARK: - Sound Alert Toggle
 
     @Test

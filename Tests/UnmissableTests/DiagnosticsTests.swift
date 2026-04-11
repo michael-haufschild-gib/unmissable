@@ -119,6 +119,44 @@ struct DiagnosticsTests {
     }
 
     @Test
+    func flightRecorder_multipleWraparounds_retainsLastCapacityInOrder() {
+        // Write significantly more than capacity to exercise the modulo arithmetic
+        // across multiple wraparound cycles — a single wraparound test only
+        // verifies writeIndex crosses the end once.
+        let capacity = 4
+        let writes = capacity * 3 + 2 // 14 writes, capacity 4 → last 4 retained
+        let recorder = FlightRecorder(capacity: capacity)
+
+        for i in 0 ..< writes {
+            recorder.append(DiagnosticRecord(
+                timestamp: Date(),
+                sessionId: "test",
+                flowId: nil,
+                component: "Test",
+                phase: "item\(i)",
+                outcome: .info,
+                durationMs: nil,
+                metadata: [:],
+            ))
+        }
+
+        let snapshot = recorder.snapshot()
+        #expect(snapshot.count == capacity, "Should retain exactly capacity records")
+        // Expect items 10, 11, 12, 13 in chronological order (writes - capacity .. writes - 1)
+        let expected = (writes - capacity ..< writes).map { "item\($0)" }
+        let actual = snapshot.map(\.phase)
+        #expect(actual == expected, "Expected \(expected), got \(actual)")
+    }
+
+    @Test
+    func flightRecorder_emptySnapshot_returnsEmptyArray() {
+        let recorder = FlightRecorder(capacity: 5)
+        #expect(recorder.snapshot().isEmpty)
+        // swiftlint:disable:next empty_count
+        #expect(recorder.count == 0, "Internal count should match the empty snapshot")
+    }
+
+    @Test
     func flightRecorder_clear_removesAllRecords() {
         AppDiagnostics.record(component: "Test", phase: "one")
         AppDiagnostics.record(component: "Test", phase: "two")

@@ -7,7 +7,7 @@ import CoreGraphics
 /// that survives reboots for most monitors. When multiple identical monitors
 /// share the same fingerprint (same vendor+model+serial), all matching
 /// screens are treated as a group — selecting one selects all duplicates.
-struct DisplayIdentifier: Hashable, Codable, CustomStringConvertible {
+struct DisplayIdentifier: Hashable, CustomStringConvertible {
     let vendor: UInt32
     let model: UInt32
     let serial: UInt32
@@ -62,14 +62,5 @@ struct DisplayIdentifier: Hashable, Codable, CustomStringConvertible {
         hasher.combine(vendor)
         hasher.combine(model)
         hasher.combine(serial)
-    }
-
-    /// Returns identifiers for all currently connected screens.
-    @MainActor
-    static func allConnected() -> [(screen: NSScreen, identifier: Self)] {
-        NSScreen.screens.compactMap { screen in
-            guard let id = Self(screen: screen) else { return nil }
-            return (screen, id)
-        }
     }
 }

@@ -526,8 +526,12 @@ final class CalendarService {
     }
 
     deinit {
-        MainActor.assumeIsolated {
-            unregisterSleepObserver()
+        // Swift 6: nonisolated deinit can run off-main (e.g., cooperative
+        // pool), so `MainActor.assumeIsolated` would SIGTRAP. Dispatch the
+        // unregister asynchronously with a captured local.
+        let sleepObserver = sleepObserver
+        Task { @MainActor in
+            sleepObserver?.unregister(key: Self.sleepKey)
         }
     }
 

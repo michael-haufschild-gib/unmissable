@@ -216,6 +216,143 @@ struct EventFilteringTests {
         #expect(result.title == "Meeting Without Status")
     }
 
+    // MARK: - Guard Clause Coverage
+
+    @Test
+    func missingId_returnsNil() {
+        let oauth2Service = OAuth2Service()
+        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
+        let entry = GCalEventEntry(
+            id: nil,
+            summary: "Missing ID",
+            status: "confirmed",
+            start: GCalDateTime(dateTime: "2025-08-17T10:00:00Z", date: nil, timeZone: nil),
+            end: GCalDateTime(dateTime: "2025-08-17T11:00:00Z", date: nil, timeZone: nil),
+            organizer: nil,
+            description: nil,
+            location: nil,
+            attendees: [],
+            attachments: nil,
+            conferenceData: nil,
+            hangoutLink: nil,
+        )
+        #expect(apiService.convertToEvent(from: entry, calendarId: "test-calendar") == nil)
+    }
+
+    @Test
+    func missingSummary_returnsNil() {
+        let oauth2Service = OAuth2Service()
+        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
+        let entry = GCalEventEntry(
+            id: "no-summary-123",
+            summary: nil,
+            status: "confirmed",
+            start: GCalDateTime(dateTime: "2025-08-17T10:00:00Z", date: nil, timeZone: nil),
+            end: GCalDateTime(dateTime: "2025-08-17T11:00:00Z", date: nil, timeZone: nil),
+            organizer: nil,
+            description: nil,
+            location: nil,
+            attendees: [],
+            attachments: nil,
+            conferenceData: nil,
+            hangoutLink: nil,
+        )
+        #expect(apiService.convertToEvent(from: entry, calendarId: "test-calendar") == nil)
+    }
+
+    @Test
+    func missingStart_returnsNil() {
+        let oauth2Service = OAuth2Service()
+        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
+        let entry = GCalEventEntry(
+            id: "no-start-123",
+            summary: "Missing Start",
+            status: "confirmed",
+            start: nil,
+            end: GCalDateTime(dateTime: "2025-08-17T11:00:00Z", date: nil, timeZone: nil),
+            organizer: nil,
+            description: nil,
+            location: nil,
+            attendees: [],
+            attachments: nil,
+            conferenceData: nil,
+            hangoutLink: nil,
+        )
+        #expect(apiService.convertToEvent(from: entry, calendarId: "test-calendar") == nil)
+    }
+
+    @Test
+    func missingEnd_returnsNil() {
+        let oauth2Service = OAuth2Service()
+        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
+        let entry = GCalEventEntry(
+            id: "no-end-123",
+            summary: "Missing End",
+            status: "confirmed",
+            start: GCalDateTime(dateTime: "2025-08-17T10:00:00Z", date: nil, timeZone: nil),
+            end: nil,
+            organizer: nil,
+            description: nil,
+            location: nil,
+            attendees: [],
+            attachments: nil,
+            conferenceData: nil,
+            hangoutLink: nil,
+        )
+        #expect(apiService.convertToEvent(from: entry, calendarId: "test-calendar") == nil)
+    }
+
+    @Test
+    func unparseableStartDate_returnsNil() {
+        // Both dateTime and date unparseable — parseDate returns nil
+        let oauth2Service = OAuth2Service()
+        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
+        let entry = GCalEventEntry(
+            id: "bad-start-date",
+            summary: "Bad Start",
+            status: "confirmed",
+            start: GCalDateTime(dateTime: "not-a-date", date: nil, timeZone: nil),
+            end: GCalDateTime(dateTime: "2025-08-17T11:00:00Z", date: nil, timeZone: nil),
+            organizer: nil,
+            description: nil,
+            location: nil,
+            attendees: [],
+            attachments: nil,
+            conferenceData: nil,
+            hangoutLink: nil,
+        )
+        #expect(apiService.convertToEvent(from: entry, calendarId: "test-calendar") == nil)
+    }
+
+    @Test
+    func eventStatusTentative_notFiltered() throws {
+        // Google Calendar event status can be "confirmed", "tentative", or "cancelled".
+        // Only "cancelled" should be filtered — tentative meetings are still going to
+        // happen and the user should be alerted. This test pins that behavior so a
+        // future refactor ("filter any non-confirmed status") won't silently break.
+        let oauth2Service = OAuth2Service()
+        let apiService = GoogleCalendarAPIService(oauth2Service: oauth2Service, linkParser: LinkParser())
+        let entry = GCalEventEntry(
+            id: "tentative-status-123",
+            summary: "Tentative Event",
+            status: "tentative",
+            start: GCalDateTime(dateTime: "2025-08-17T10:00:00Z", date: nil, timeZone: nil),
+            end: GCalDateTime(dateTime: "2025-08-17T11:00:00Z", date: nil, timeZone: nil),
+            organizer: nil,
+            description: nil,
+            location: nil,
+            attendees: [],
+            attachments: nil,
+            conferenceData: nil,
+            hangoutLink: nil,
+        )
+        let result = try #require(
+            apiService.convertToEvent(from: entry, calendarId: "test-calendar"),
+            "Events with event-level status 'tentative' should NOT be filtered",
+        )
+        #expect(result.title == "Tentative Event")
+    }
+
     @Test
     func attendeeSelfFieldParsing() throws {
         let oauth2Service = OAuth2Service()

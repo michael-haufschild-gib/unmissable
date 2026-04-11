@@ -96,11 +96,16 @@ final class SyncManager {
     deinit {
         syncTask?.cancel()
         retryTask?.cancel()
-        // callbackKey is nonisolated-safe (let + String). The unregister calls
-        // mutate dictionaries on @MainActor objects, but deinit is nonisolated.
-        // Use MainActor.assumeIsolated since SyncManager is @MainActor and
-        // deinit of a MainActor class runs on the main thread.
-        MainActor.assumeIsolated {
+        // Swift 6: nonisolated deinit of a @MainActor class can run on ANY
+        // thread (e.g., the cooperative pool when the last reference is
+        // released from a Task). `MainActor.assumeIsolated` crashes with
+        // SIGTRAP in that case. Schedule the unregister on MainActor via a
+        // detached Task, capturing the dependencies via locals so the Task
+        // owns its own strong refs and does not rely on `self`.
+        let networkMonitor = networkMonitor
+        let sleepObserver = sleepObserver
+        let callbackKey = callbackKey
+        Task { @MainActor in
             networkMonitor.unregisterOnReconnect(key: callbackKey)
             sleepObserver?.unregister(key: callbackKey)
         }
