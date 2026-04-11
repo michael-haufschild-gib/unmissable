@@ -121,7 +121,10 @@ struct ActivationPolicyManagerTests {
             recorder.calls == [.regular],
             "UI-testing mode must keep the app in .regular — only the initial transition fires",
         )
-        #expect(!sut.isInRegularPolicy, "Internal counter still drops to zero")
+        #expect(
+            sut.isInRegularPolicy,
+            "Applied-state reflects reality: the accessory transition was skipped, so the app is still .regular",
+        )
     }
 
     // MARK: - Sequences
@@ -178,8 +181,13 @@ struct ActivationPolicyManagerTests {
 
         // AppKit rejects the transition (simulated); the coordinator still
         // holds the logical reference count so a subsequent release balances.
+        // `isInRegularPolicy` tracks the *applied* state, not the refcount,
+        // so it must stay false when AppKit rejected the apply.
         sut.acquireRegularPolicy()
-        #expect(sut.isInRegularPolicy)
+        #expect(
+            !sut.isInRegularPolicy,
+            "Rejected apply must leave isInRegularPolicy false — it reflects AppKit's accepted state, not the refcount",
+        )
 
         sut.releaseRegularPolicy()
         #expect(!sut.isInRegularPolicy)
@@ -187,5 +195,43 @@ struct ActivationPolicyManagerTests {
             recorder.calls == [.regular, .accessory],
             "Both transitions still attempted even though apply() returned false",
         )
+    }
+
+    @Test
+    func applyFailure_subsequentAcquireRetriesApply() {
+        // Regression: if the first apply is rejected the coordinator must
+        // retry on the next acquire instead of silently taking the "retained"
+        // branch, otherwise the app stays stuck in `.accessory` while every
+        // caller thinks it holds `.regular`.
+        let recorder = PolicyRecorder()
+        recorder.nextResult = false
+        let sut = ActivationPolicyManager(
+            apply: { recorder.apply($0) },
+            keepRegularWhenIdle: false,
+        )
+
+        sut.acquireRegularPolicy()
+        #expect(recorder.calls == [.regular])
+        #expect(!sut.isInRegularPolicy)
+
+        // AppKit becomes receptive for the next transition.
+        recorder.nextResult = true
+
+        sut.acquireRegularPolicy()
+        #expect(
+            recorder.calls == [.regular, .regular],
+            "Coordinator must re-attempt the apply after a prior rejection",
+        )
+        #expect(
+            sut.isInRegularPolicy,
+            "isInRegularPolicy must flip once AppKit finally accepts .regular",
+        )
+
+        // Release drains both logical refs. Only one accessory transition should fire.
+        sut.releaseRegularPolicy()
+        #expect(sut.isInRegularPolicy, "Still one logical holder outstanding")
+        sut.releaseRegularPolicy()
+        #expect(!sut.isInRegularPolicy)
+        #expect(recorder.calls == [.regular, .regular, .accessory])
     }
 }

@@ -193,8 +193,13 @@ final class PreferencesManager {
     /// Hardware fingerprints of user-selected displays (used only when mode is `.selected`).
     private(set) var selectedDisplayKeys: Set<String> = []
     func setSelectedDisplayKeys(_ value: Set<String>) {
-        selectedDisplayKeys = value
-        userDefaults.set(Array(value), forKey: PrefKey.selectedDisplayKeys)
+        // Empty strings must never land in the stored set: `screensForOverlay()`
+        // uses `persistenceKey: ""` as the sentinel for unidentifiable hardware,
+        // and the `.selected` fallback would otherwise match unknown displays
+        // whenever a `""` slipped in from legacy defaults or a caller bug.
+        let sanitized = value.filter { !$0.isEmpty }
+        selectedDisplayKeys = sanitized
+        userDefaults.set(Array(sanitized), forKey: PrefKey.selectedDisplayKeys)
     }
 
     /// Toggles a single display's selection state by its persistence key.
@@ -422,7 +427,11 @@ final class PreferencesManager {
         }
 
         if let savedKeys = userDefaults.object(forKey: PrefKey.selectedDisplayKeys) as? [String] {
-            selectedDisplayKeys = Set(savedKeys)
+            // Mirror the sanitization in `setSelectedDisplayKeys(_:)` — legacy
+            // preference files could contain empty strings, and letting one
+            // through would let `.selected` match the unidentifiable-hardware
+            // sentinel descriptor.
+            selectedDisplayKeys = Set(savedKeys.filter { !$0.isEmpty })
         }
     }
 

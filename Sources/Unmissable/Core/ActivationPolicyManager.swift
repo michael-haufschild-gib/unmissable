@@ -16,16 +16,29 @@ final class ActivationPolicyManager {
 
     private let logger = Logger(category: "ActivationPolicyManager")
 
-    /// Number of outstanding `.regular` acquisitions.
+    /// Number of outstanding `.regular` acquisitions — pure ownership refcount.
+    /// Always incremented on `acquireRegularPolicy()` and decremented on
+    /// `releaseRegularPolicy()`, regardless of whether AppKit actually accepted
+    /// the transition. Keeping this divorced from the applied state means a
+    /// failed first-apply cannot wedge the coordinator.
     private var regularCount = 0
+
+    /// Tracks whether AppKit has actually accepted a `.regular` transition.
+    /// Updated only when `apply(...)` returns `true`. `acquireRegularPolicy()`
+    /// uses this flag — not `regularCount` — to decide whether to re-attempt
+    /// the apply, so a previously rejected transition is retried on the next
+    /// acquisition instead of being silently skipped via the "retained" branch.
+    private var isRegularApplied = false
 
     private let apply: ApplyPolicy
     private let keepRegularWhenIdle: Bool
 
-    /// True while at least one caller is holding `.regular` activation.
-    /// Useful for diagnostics and tests; does not reflect UI-testing mode overrides.
+    /// True when AppKit is currently in `.regular` activation policy per the
+    /// last successful transition. Distinct from `regularCount > 0` because a
+    /// rejected apply can leave callers holding logical references while the
+    /// app is still `.accessory`. Does not reflect UI-testing mode overrides.
     var isInRegularPolicy: Bool {
-        regularCount > 0
+        isRegularApplied
     }
 
     /// - Parameters:
@@ -45,18 +58,19 @@ final class ActivationPolicyManager {
 
     /// Requests `.regular` activation policy.
     ///
-    /// The first acquisition switches the policy; subsequent calls only
-    /// increment the reference count. The reference count is always
-    /// incremented, even when AppKit rejects the transition — otherwise a
-    /// subsequent `releaseRegularPolicy()` would drop the count below zero.
+    /// Increments the refcount unconditionally, then attempts the apply
+    /// whenever `.regular` is not currently applied. That means a rejected
+    /// first-apply is retried on the next `acquireRegularPolicy()` call,
+    /// instead of the coordinator quietly pretending it succeeded.
     func acquireRegularPolicy() {
         regularCount += 1
-        if regularCount == 1 {
-            if applyPolicy(.regular) {
-                logger.info("Activation policy → .regular (count: \(self.regularCount))")
-            }
-        } else {
+        guard !isRegularApplied else {
             logger.info("Regular policy retained (count: \(self.regularCount))")
+            return
+        }
+        if applyPolicy(.regular) {
+            isRegularApplied = true
+            logger.info("Activation policy → .regular (count: \(self.regularCount))")
         }
     }
 
@@ -83,8 +97,12 @@ final class ActivationPolicyManager {
         }
 
         if applyPolicy(.accessory) {
+            isRegularApplied = false
             logger.info("Activation policy → .accessory")
         }
+        // If AppKit rejects the accessory transition the applied flag stays
+        // `true` — the app is still in `.regular` as far as the window server
+        // is concerned, which matches reality.
     }
 
     /// Invokes the injected `apply` closure and logs failure. Returns `true`
