@@ -224,11 +224,16 @@ final class PreferencesManager {
 
         let descriptors: [DisplayResolver.ScreenDescriptor] = screens.map { screen in
             guard let id = DisplayIdentifier(screen: screen) else {
-                // Unknown hardware — treat as a builtin unnamed screen. `isBuiltIn: true`
-                // keeps it out of `.externalOnly` (users who filtered externals must not
-                // see overlays on unidentifiable displays), and the empty persistenceKey
-                // keeps it out of `.selected` (only matches if the user somehow picked
-                // an empty key, which the UI cannot produce).
+                // Unknown hardware — treat as a built-in unnamed screen.
+                // `isBuiltIn: true` excludes it from `.externalOnly`'s primary
+                // filter, and the empty `persistenceKey` cannot match any
+                // stored user selection. The resolver may still surface this
+                // screen through a fail-open fallback path — `.externalOnly`
+                // falls back to the main screen when no externals are connected,
+                // and `.selected` falls back to all screens when none of the
+                // saved keys match anything connected. That is the intended
+                // tradeoff: once a fallback has fired, "show the overlay
+                // somewhere" beats "silently miss the meeting."
                 return DisplayResolver.ScreenDescriptor(isBuiltIn: true, persistenceKey: "")
             }
             return DisplayResolver.ScreenDescriptor(

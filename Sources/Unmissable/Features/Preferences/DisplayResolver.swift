@@ -39,12 +39,25 @@ enum DisplayResolver {
     ) -> [Int] {
         guard !screens.isEmpty else { return [] }
 
+        // Defensive bounds check: callers should only pass indices that refer
+        // to `screens`, but `resolve` is a pure function with no way to enforce
+        // that contract. A stale or out-of-range index would escape here and
+        // trap at `screens[index]` in the caller's adapter, so drop invalid
+        // values to `nil` and let the normal `.mainOnly` / `.externalOnly`
+        // empty-result paths handle them.
+        let safeMainIndex: Int? = {
+            guard let mainScreenIndex, screens.indices.contains(mainScreenIndex) else {
+                return nil
+            }
+            return mainScreenIndex
+        }()
+
         switch mode {
         case .all:
             return Array(screens.indices)
 
         case .mainOnly:
-            return mainScreenIndex.map { [$0] } ?? []
+            return safeMainIndex.map { [$0] } ?? []
 
         case .externalOnly:
             let externals = screens.enumerated()
@@ -52,7 +65,7 @@ enum DisplayResolver {
                 .map(\.offset)
             if !externals.isEmpty { return externals }
             // Fall back to main if no externals connected (e.g. laptop undocked)
-            return mainScreenIndex.map { [$0] } ?? []
+            return safeMainIndex.map { [$0] } ?? []
 
         case .selected:
             guard !selectedKeys.isEmpty else {

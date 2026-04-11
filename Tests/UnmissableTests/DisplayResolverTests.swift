@@ -105,6 +105,30 @@ struct DisplayResolverTests {
         #expect(result.isEmpty)
     }
 
+    @Test
+    func resolve_mainOnly_outOfRangeIndex_returnsEmpty() {
+        // Defensive bounds check: a stale or bogus mainScreenIndex must not
+        // escape the resolver and trap the caller at `screens[index]`.
+        let result = DisplayResolver.resolve(
+            mode: .mainOnly,
+            selectedKeys: [],
+            screens: [Self.externalA, Self.externalB],
+            mainScreenIndex: 5,
+        )
+        #expect(result.isEmpty, "Out-of-range main index must not escape the resolver")
+    }
+
+    @Test
+    func resolve_mainOnly_negativeIndex_returnsEmpty() {
+        let result = DisplayResolver.resolve(
+            mode: .mainOnly,
+            selectedKeys: [],
+            screens: [Self.externalA, Self.externalB],
+            mainScreenIndex: -1,
+        )
+        #expect(result.isEmpty, "Negative main index must not escape the resolver")
+    }
+
     // MARK: - .externalOnly Mode
 
     @Test
@@ -140,6 +164,18 @@ struct DisplayResolverTests {
             mainScreenIndex: nil,
         )
         #expect(result.isEmpty)
+    }
+
+    @Test
+    func resolve_externalOnly_noExternalsAndOutOfRangeMain_returnsEmpty() {
+        // Same defensive bounds check on the `.externalOnly` fallback path.
+        let result = DisplayResolver.resolve(
+            mode: .externalOnly,
+            selectedKeys: [],
+            screens: [Self.builtInDisplay],
+            mainScreenIndex: 99,
+        )
+        #expect(result.isEmpty, "Out-of-range fallback main index must not escape")
     }
 
     @Test

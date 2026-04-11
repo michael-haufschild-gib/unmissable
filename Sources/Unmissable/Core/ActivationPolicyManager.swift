@@ -46,12 +46,15 @@ final class ActivationPolicyManager {
     /// Requests `.regular` activation policy.
     ///
     /// The first acquisition switches the policy; subsequent calls only
-    /// increment the reference count.
+    /// increment the reference count. The reference count is always
+    /// incremented, even when AppKit rejects the transition — otherwise a
+    /// subsequent `releaseRegularPolicy()` would drop the count below zero.
     func acquireRegularPolicy() {
         regularCount += 1
         if regularCount == 1 {
-            applyPolicy(.regular)
-            logger.info("Activation policy → .regular (count: \(self.regularCount))")
+            if applyPolicy(.regular) {
+                logger.info("Activation policy → .regular (count: \(self.regularCount))")
+            }
         } else {
             logger.info("Regular policy retained (count: \(self.regularCount))")
         }
@@ -79,14 +82,21 @@ final class ActivationPolicyManager {
             return
         }
 
-        applyPolicy(.accessory)
-        logger.info("Activation policy → .accessory")
+        if applyPolicy(.accessory) {
+            logger.info("Activation policy → .accessory")
+        }
     }
 
-    private func applyPolicy(_ policy: NSApplication.ActivationPolicy) {
+    /// Invokes the injected `apply` closure and logs failure. Returns `true`
+    /// when AppKit accepted the transition, `false` otherwise — callers use
+    /// this to gate their success-path `info` log so a rejected transition
+    /// does not produce contradictory `info` + `error` entries.
+    @discardableResult
+    private func applyPolicy(_ policy: NSApplication.ActivationPolicy) -> Bool {
         let accepted = apply(policy)
         if !accepted {
             logger.error("Activation policy apply(\(String(describing: policy))) rejected by AppKit")
         }
+        return accepted
     }
 }
