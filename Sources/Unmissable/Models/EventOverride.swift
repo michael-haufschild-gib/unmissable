@@ -26,15 +26,27 @@ nonisolated struct EventOverride: Identifiable, Codable, Equatable {
         Self.compoundKey(eventId: eventId, calendarId: calendarId)
     }
 
+    /// ASCII Unit Separator (U+001F) — delimiter between eventId and calendarId
+    /// in the compound key. This C0 control character cannot appear in any
+    /// production ID (Google Calendar IDs are RFC3986-compatible strings, Apple
+    /// uses hex UUIDs, recurring instance IDs use `<baseId>_<ISO timestamp>` —
+    /// none contain U+001F).
+    static let compoundKeyDelimiter = "\u{001F}"
+
     /// Compound key used to look up overrides by (eventId, calendarId).
     /// Matches the format used by EventScheduler and AppState.
     ///
-    /// Uses ASCII Unit Separator (U+001F) as the delimiter. This C0 control
-    /// character cannot appear in any production ID (Google Calendar IDs are
-    /// RFC3986-compatible strings, Apple uses hex UUIDs, recurring event
-    /// instance IDs use `<baseId>_<ISO timestamp>` — none contain U+001F),
-    /// so the boundary is unambiguous and collisions are impossible.
+    /// The delimiter invariant is enforced defensively via `precondition` so a
+    /// future provider that violates the assumption crashes loudly in debug/test
+    /// instead of silently producing colliding keys. In release builds the
+    /// precondition remains active (Swift's default) to preserve the invariant
+    /// at the database boundary.
     static func compoundKey(eventId: String, calendarId: String) -> String {
-        "\(eventId)\u{001F}\(calendarId)"
+        precondition(
+            !eventId.contains(compoundKeyDelimiter)
+                && !calendarId.contains(compoundKeyDelimiter),
+            "EventOverride.compoundKey: eventId/calendarId must not contain U+001F",
+        )
+        return "\(eventId)\(compoundKeyDelimiter)\(calendarId)"
     }
 }

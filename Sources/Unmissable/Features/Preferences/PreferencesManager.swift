@@ -224,9 +224,12 @@ final class PreferencesManager {
 
         let descriptors: [DisplayResolver.ScreenDescriptor] = screens.map { screen in
             guard let id = DisplayIdentifier(screen: screen) else {
-                // Unknown hardware — treat as a builtin unnamed screen so it's only
-                // included when the user has not explicitly filtered it out.
-                return DisplayResolver.ScreenDescriptor(isBuiltIn: false, persistenceKey: "")
+                // Unknown hardware — treat as a builtin unnamed screen. `isBuiltIn: true`
+                // keeps it out of `.externalOnly` (users who filtered externals must not
+                // see overlays on unidentifiable displays), and the empty persistenceKey
+                // keeps it out of `.selected` (only matches if the user somehow picked
+                // an empty key, which the UI cannot produce).
+                return DisplayResolver.ScreenDescriptor(isBuiltIn: true, persistenceKey: "")
             }
             return DisplayResolver.ScreenDescriptor(
                 isBuiltIn: id.isBuiltIn,

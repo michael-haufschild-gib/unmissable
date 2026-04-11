@@ -15,14 +15,22 @@ enum DisplayResolver {
 
     /// Returns the indices (into `screens`) that should receive an overlay.
     ///
-    /// Rules (all fail open — never return empty when `screens` is non-empty):
-    /// - `.all`: every screen
-    /// - `.mainOnly`: the screen at `mainScreenIndex`; empty if `mainScreenIndex` is nil
-    /// - `.externalOnly`: all non-built-in screens; falls back to the main screen when
-    ///   no externals are connected (e.g. laptop undocked)
-    /// - `.selected`: screens whose `persistenceKey` is in `selectedKeys`; falls back to
-    ///   all screens when `selectedKeys` is empty, or when none of the saved keys match
-    ///   a currently connected screen (user's saved monitors are offline).
+    /// Rules:
+    /// - `.all`: every screen. Never empty when `screens` is non-empty.
+    /// - `.mainOnly`: the screen at `mainScreenIndex`; **empty** if `mainScreenIndex`
+    ///   is nil. The caller (AppKit context) is responsible for ensuring a main
+    ///   screen exists before selecting this mode.
+    /// - `.externalOnly`: all non-built-in screens; falls back to the main screen
+    ///   when no externals are connected (e.g. laptop undocked). **Empty** if neither
+    ///   an external nor a main screen is available.
+    /// - `.selected`: screens whose `persistenceKey` is in `selectedKeys`; fails
+    ///   open to **all** screens when `selectedKeys` is empty, or when none of the
+    ///   saved keys match a currently connected screen (user's saved monitors are
+    ///   offline). Never empty when `screens` is non-empty.
+    ///
+    /// Only `.all` and `.selected` are fully fail-open. `.mainOnly` and `.externalOnly`
+    /// can still return an empty array when the prerequisites for the chosen mode
+    /// are absent — this is intentional and pinned by `DisplayResolverTests`.
     static func resolve(
         mode: DisplaySelectionMode,
         selectedKeys: Set<String>,

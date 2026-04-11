@@ -86,7 +86,7 @@ final class ActivationPolicyManager {
     private func applyPolicy(_ policy: NSApplication.ActivationPolicy) {
         let accepted = apply(policy)
         if !accepted {
-            logger.error("NSApp.setActivationPolicy(\(String(describing: policy))) returned false")
+            logger.error("Activation policy apply(\(String(describing: policy))) rejected by AppKit")
         }
     }
 }
