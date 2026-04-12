@@ -114,17 +114,47 @@ struct ActivationPolicyManagerTests {
             keepRegularWhenIdle: true,
         )
 
+        // keepRegularWhenIdle seeds isRegularApplied = true (AppDelegate already
+        // forced .regular), so acquire takes the "retained" branch — no apply call.
         sut.acquireRegularPolicy()
         sut.releaseRegularPolicy()
 
         #expect(
-            recorder.calls == [.regular],
-            "UI-testing mode must keep the app in .regular — only the initial transition fires",
+            recorder.calls.isEmpty,
+            "UI-testing mode: AppDelegate already set .regular so no transitions needed",
         )
         #expect(
             sut.isInRegularPolicy,
-            "Applied-state reflects reality: the accessory transition was skipped, so the app is still .regular",
+            "Applied-state reflects reality: the app was .regular at construction and the revert was skipped",
         )
+    }
+
+    // MARK: - Init Seeding
+
+    @Test
+    func init_keepRegularWhenIdle_seedsIsRegularAppliedTrue() {
+        let recorder = PolicyRecorder()
+        let sut = ActivationPolicyManager(
+            apply: { recorder.apply($0) },
+            keepRegularWhenIdle: true,
+        )
+
+        // AppDelegate already forced .regular before this manager exists,
+        // so isInRegularPolicy must be true from construction.
+        #expect(sut.isInRegularPolicy, "keepRegularWhenIdle seeds applied state to true")
+        #expect(recorder.calls.isEmpty, "No apply call at construction")
+    }
+
+    @Test
+    func init_default_startsNotRegular() {
+        let recorder = PolicyRecorder()
+        let sut = ActivationPolicyManager(
+            apply: { recorder.apply($0) },
+            keepRegularWhenIdle: false,
+        )
+
+        #expect(!sut.isInRegularPolicy, "Normal mode starts in .accessory")
+        #expect(recorder.calls.isEmpty, "No apply call at construction")
     }
 
     // MARK: - Sequences

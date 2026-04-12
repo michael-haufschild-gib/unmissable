@@ -54,6 +54,12 @@ final class ActivationPolicyManager {
     ) {
         self.apply = apply
         self.keepRegularWhenIdle = keepRegularWhenIdle
+
+        // Seed from the launch policy: when `keepRegularWhenIdle` is true,
+        // AppDelegate has already forced `.regular` before this manager is
+        // created. Starting at `false` would make `isInRegularPolicy` wrong
+        // and trigger a redundant re-apply on the first `acquireRegularPolicy`.
+        self.isRegularApplied = keepRegularWhenIdle
     }
 
     /// Requests `.regular` activation policy.
