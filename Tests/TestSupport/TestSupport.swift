@@ -490,3 +490,53 @@ public func yieldToObservation(iterations: Int = 1) async throws {
 }
 
 // swiftlint:enable no_raw_task_sleep_in_tests
+
+// MARK: - Polling Wait (shared across all test targets)
+
+/// Polling interval used by `waitForCondition`. Short enough that a 5-second timeout
+/// produces ~50 iterations (good for debugging loops), long enough that idle waits
+/// don't saturate a core.
+private let waitForConditionPollNanoseconds: UInt64 = 100_000_000
+
+/// Timeout error thrown by `waitForCondition`. `description` carries a human-readable
+/// explanation of what the caller was waiting for so debug output is useful.
+public struct WaitForConditionTimeout: Error, CustomStringConvertible {
+    public let description: String
+    public init(description: String) {
+        self.description = description
+    }
+}
+
+// swiftlint:disable no_raw_task_sleep_in_tests incompatible_concurrency_annotation
+
+/// Polls `condition()` until it returns `true` or `timeout` elapses, in which case
+/// throws `WaitForConditionTimeout(description:)`. Single implementation shared by
+/// unit tests and E2E tests — replaces `TestUtilities.waitForAsync` and the legacy
+/// `e2eWait` helper.
+///
+/// - Parameters:
+///   - timeout: Maximum wall-clock time to wait. Default 5 seconds.
+///   - description: Human-readable label shown in the timeout error (e.g.
+///     "overlay becomes visible"). Keep imperative — callers read this on failure.
+///   - condition: Async predicate. Runs repeatedly until it returns true.
+public func waitForCondition(
+    timeout: TimeInterval = 5.0,
+    description: String,
+    condition: @escaping @Sendable () async -> Bool,
+) async throws {
+    let deadline = Date().addingTimeInterval(timeout)
+    while true {
+        if await condition() {
+            return
+        }
+        if Date() >= deadline {
+            throw WaitForConditionTimeout(description: description)
+        }
+        try await Task.sleep(nanoseconds: waitForConditionPollNanoseconds)
+        if Date() >= deadline {
+            throw WaitForConditionTimeout(description: description)
+        }
+    }
+}
+
+// swiftlint:enable no_raw_task_sleep_in_tests incompatible_concurrency_annotation

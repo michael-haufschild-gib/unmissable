@@ -193,8 +193,13 @@ final class PreferencesManager {
     /// Hardware fingerprints of user-selected displays (used only when mode is `.selected`).
     private(set) var selectedDisplayKeys: Set<String> = []
     func setSelectedDisplayKeys(_ value: Set<String>) {
-        selectedDisplayKeys = value
-        userDefaults.set(Array(value), forKey: PrefKey.selectedDisplayKeys)
+        // Empty strings must never land in the stored set: `screensForOverlay()`
+        // uses `persistenceKey: ""` as the sentinel for unidentifiable hardware,
+        // and the `.selected` fallback would otherwise match unknown displays
+        // whenever a `""` slipped in from legacy defaults or a caller bug.
+        let sanitized = value.filter { !$0.isEmpty }
+        selectedDisplayKeys = sanitized
+        userDefaults.set(Array(sanitized), forKey: PrefKey.selectedDisplayKeys)
     }
 
     /// Toggles a single display's selection state by its persistence key.
@@ -215,37 +220,46 @@ final class PreferencesManager {
 
     /// Resolves the current display preference against live connected screens.
     /// Returns the set of `NSScreen` instances the overlay should appear on.
+    ///
+    /// Delegates resolution logic to `DisplayResolver`, which is independently
+    /// unit-tested. This method's only job is adapting `NSScreen` to `ScreenDescriptor`.
     func screensForOverlay() -> [NSScreen] {
         let screens = NSScreen.screens
         guard !screens.isEmpty else { return [] }
 
-        switch displaySelectionMode {
-        case .all:
-            return screens
-
-        case .mainOnly:
-            return [NSScreen.main].compactMap(\.self)
-
-        case .externalOnly:
-            let externals = screens.filter { screen in
-                guard let id = DisplayIdentifier(screen: screen) else { return false }
-                return !id.isBuiltIn
+        let descriptors: [DisplayResolver.ScreenDescriptor] = screens.map { screen in
+            guard let id = DisplayIdentifier(screen: screen) else {
+                // Unknown hardware — treat as a built-in unnamed screen.
+                // `isBuiltIn: true` excludes it from `.externalOnly`'s primary
+                // filter, and the empty `persistenceKey` cannot match any
+                // stored user selection. The resolver may still surface this
+                // screen through a fail-open fallback path — `.externalOnly`
+                // falls back to the main screen when no externals are connected,
+                // and `.selected` falls back to all screens when none of the
+                // saved keys match anything connected. That is the intended
+                // tradeoff: once a fallback has fired, "show the overlay
+                // somewhere" beats "silently miss the meeting."
+                return DisplayResolver.ScreenDescriptor(isBuiltIn: true, persistenceKey: "")
             }
-            // Fall back to main if no externals connected (e.g. laptop undocked)
-            return externals.isEmpty ? [NSScreen.main].compactMap(\.self) : externals
-
-        case .selected:
-            guard !selectedDisplayKeys.isEmpty else {
-                // No screens selected — treat as "all" to avoid showing nothing
-                return screens
-            }
-            let matched = screens.filter { screen in
-                guard let id = DisplayIdentifier(screen: screen) else { return false }
-                return selectedDisplayKeys.contains(id.persistenceKey)
-            }
-            // Fall back to all if none of the saved screens are connected
-            return matched.isEmpty ? screens : matched
+            return DisplayResolver.ScreenDescriptor(
+                isBuiltIn: id.isBuiltIn,
+                persistenceKey: id.persistenceKey,
+            )
         }
+
+        // NSScreen conforms to NSObject.isEqual (pointer equality), and NSScreen.main
+        // returns the same instance that appears in NSScreen.screens.
+        let mainScreenIndex = NSScreen.main.flatMap { main in
+            screens.firstIndex { $0 === main }
+        }
+
+        let indices = DisplayResolver.resolve(
+            mode: displaySelectionMode,
+            selectedKeys: selectedDisplayKeys,
+            screens: descriptors,
+            mainScreenIndex: mainScreenIndex,
+        )
+        return indices.map { screens[$0] }
     }
 
     // MARK: - Custom Shortcuts (JSON-encoded KeyCombo data)
@@ -413,7 +427,11 @@ final class PreferencesManager {
         }
 
         if let savedKeys = userDefaults.object(forKey: PrefKey.selectedDisplayKeys) as? [String] {
-            selectedDisplayKeys = Set(savedKeys)
+            // Mirror the sanitization in `setSelectedDisplayKeys(_:)` — legacy
+            // preference files could contain empty strings, and letting one
+            // through would let `.selected` match the unidentifiable-hardware
+            // sentinel descriptor.
+            selectedDisplayKeys = Set(savedKeys.filter { !$0.isEmpty })
         }
     }
 

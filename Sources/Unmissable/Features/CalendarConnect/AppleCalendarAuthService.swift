@@ -16,6 +16,10 @@ final class AppleCalendarAuthService: CalendarAuthProviding {
         "Calendar access denied. Grant access in " +
         "System Settings > Privacy & Security > Calendars."
 
+    private static let calendarWriteOnlyMessage =
+        "Unmissable needs full calendar access to read events — you granted write-only. " +
+        "Grant full access in System Settings > Privacy & Security > Calendars."
+
     var isAuthenticated = false
     var userEmail: String?
     var authorizationError: String?
@@ -50,8 +54,12 @@ final class AppleCalendarAuthService: CalendarAuthProviding {
 
     func signOut() {
         logger.info("Signing out of Apple Calendar")
-        // EventKit permissions can't be revoked programmatically.
-        // We just clear local state so the app treats it as disconnected.
+        // EventKit permissions can't be revoked programmatically — they're owned
+        // by the OS. We just clear local state so the app treats this instance as
+        // disconnected. The next `validateAuthState()` would re-read the system
+        // and flip `isAuthenticated` back to true, but that doesn't happen here
+        // because `CalendarService` destroys the backend on disconnect (see
+        // comment in `CalendarService.getOrCreateBackend`).
         isAuthenticated = false
         userEmail = nil
         authorizationError = nil
@@ -68,11 +76,19 @@ final class AppleCalendarAuthService: CalendarAuthProviding {
             isAuthenticated = false
             authorizationError = Self.calendarDeniedMessage
 
-        case .notDetermined, .writeOnly:
+        case .writeOnly:
+            // Write-only permission is useless for a read-events app. Surface a specific
+            // error so the user knows to escalate to full access rather than thinking
+            // the app is broken.
+            isAuthenticated = false
+            authorizationError = Self.calendarWriteOnlyMessage
+
+        case .notDetermined:
             isAuthenticated = false
             authorizationError = nil
 
         @unknown default:
+            logger.warning("Unknown EventKit authorization status: \(status.rawValue)")
             isAuthenticated = false
             authorizationError = nil
         }

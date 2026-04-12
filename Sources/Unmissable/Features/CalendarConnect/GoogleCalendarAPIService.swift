@@ -338,8 +338,9 @@ final class GoogleCalendarAPIService: CalendarAPIProviding {
     }
 
     /// Truncates a string to a maximum length. Defense-in-depth against oversized API responses.
-    private nonisolated static func truncate(_ string: String?, maxLength: Int) -> String? {
-        guard let string, string.count > maxLength else { return string }
+    /// Call sites for optional strings use `.map { Self.truncate($0, ...) }`.
+    private nonisolated static func truncate(_ string: String, maxLength: Int) -> String {
+        guard string.count > maxLength else { return string }
         return String(string.prefix(maxLength))
     }
 
@@ -401,11 +402,11 @@ final class GoogleCalendarAPIService: CalendarAPIProviding {
         let provider = linkParser.detectPrimaryLink(from: links).map { Provider.detect(from: $0) }
         let timezone = start.timeZone ?? TimeZone.current.identifier
 
-        // Truncate API response fields to defend against oversized payloads
-        let truncatedTitle = Self.truncate(summary, maxLength: Self.maxTitleLength) ?? summary
-        let truncatedDescription = Self.truncate(entry.description, maxLength: Self.maxDescriptionLength)
-        let truncatedLocation = Self.truncate(entry.location, maxLength: Self.maxLocationLength)
-        let truncatedOrganizer = Self.truncate(entry.organizer?.email, maxLength: Self.maxOrganizerLength)
+        // Truncate API response fields to defend against oversized payloads.
+        let truncatedTitle = Self.truncate(summary, maxLength: Self.maxTitleLength)
+        let truncatedDescription = entry.description.map { Self.truncate($0, maxLength: Self.maxDescriptionLength) }
+        let truncatedLocation = entry.location.map { Self.truncate($0, maxLength: Self.maxLocationLength) }
+        let truncatedOrganizer = entry.organizer?.email.map { Self.truncate($0, maxLength: Self.maxOrganizerLength) }
 
         return Event(
             id: id,

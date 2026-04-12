@@ -257,6 +257,13 @@ custom_rules:
     message: "Use os_log or OSLog-based logger instead of print(). print() is not stripped from release builds."
     severity: error
 
+  no_direct_activation_policy:
+    name: "Use ActivationPolicyManager"
+    included: "Sources/(?!.*/ActivationPolicyManager\\.swift|.*/AppDelegate\\.swift).*\\.swift"
+    regex: "setActivationPolicy\\("
+    message: "Per ADR-001: direct NSApp.setActivationPolicy() calls are prohibited. Use ActivationPolicyManager.acquireRegularPolicy()/releaseRegularPolicy(). Only AppDelegate is exempt (initial boot, before the manager exists)."
+    severity: error
+
   todo_must_have_issue:
     name: "TODOs Must Link to an Issue"
     regex: "(TODO|FIXME)(?!.*(?:https?://|#\\d|[A-Z]+-\\d))"

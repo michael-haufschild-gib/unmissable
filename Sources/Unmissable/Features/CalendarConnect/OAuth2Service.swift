@@ -47,7 +47,13 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
 
     override init() {
         super.init()
-        loadAuthStateFromKeychain()
+        // Test processes must not touch the real macOS keychain — macOS prompts
+        // the user for a password every time the unsigned test binary tries to
+        // read `com.unmissable.app.oauth`. Tests never exercise OAuth persistence,
+        // so skip the entire load path.
+        if !AppRuntime.isRunningTests {
+            loadAuthStateFromKeychain()
+        }
 
         // Listen for OAuth callback notifications using block-based API
         // to avoid use-after-free risk from the legacy selector pattern
@@ -460,6 +466,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
     }
 
     private func saveAuthStateToKeychain() {
+        guard !AppRuntime.isRunningTests else { return }
         guard let authState else {
             logger.error("Cannot save auth state - authState is nil")
             return
@@ -483,6 +490,7 @@ final class OAuth2Service: NSObject, CalendarAuthProviding {
     }
 
     private func clearKeychain() {
+        guard !AppRuntime.isRunningTests else { return }
         // Use try? for each to ensure all keys are attempted even if one fails
         try? keychain.remove(keychainAuthStateKey)
         try? keychain.remove(keychainAccessTokenKey)

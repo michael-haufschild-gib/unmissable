@@ -83,6 +83,14 @@ struct PreferencesManagerTests {
         #expect(preferencesManager.alertMinutes(for: shortEvent) == 1)
         #expect(preferencesManager.alertMinutes(for: mediumEvent) == 3)
         #expect(preferencesManager.alertMinutes(for: longEvent) == 5)
+
+        // Toggle length-based timing back off — all events should fall back to the default.
+        // This covers the off→on→off direction that a user hits when they try LB and disable it.
+        preferencesManager.setUseLengthBasedTiming(false)
+        preferencesManager.setDefaultAlertMinutes(3)
+        #expect(preferencesManager.alertMinutes(for: shortEvent) == 3, "LB off should revert to default for short")
+        #expect(preferencesManager.alertMinutes(for: mediumEvent) == 3, "LB off should revert to default for medium")
+        #expect(preferencesManager.alertMinutes(for: longEvent) == 3, "LB off should revert to default for long")
     }
 
     @Test

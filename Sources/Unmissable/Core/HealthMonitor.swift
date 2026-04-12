@@ -69,7 +69,12 @@ final class HealthMonitor {
 
     deinit {
         healthCheckTask?.cancel()
-        MainActor.assumeIsolated {
+        // Swift 6: nonisolated deinit can run off-main (e.g., cooperative
+        // pool), so `MainActor.assumeIsolated` would SIGTRAP. Dispatch the
+        // unregister asynchronously with captured locals.
+        let sleepObserver = sleepObserver
+        let callbackKey = callbackKey
+        Task { @MainActor in
             sleepObserver?.unregister(key: callbackKey)
         }
     }
